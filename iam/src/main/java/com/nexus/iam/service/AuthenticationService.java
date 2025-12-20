@@ -1,0 +1,18 @@
+package com.nexus.iam.service;
+
+import org.springframework.stereotype.Service;
+
+import com.nexus.iam.dto.LoginRequest;
+import com.nexus.iam.dto.LoginResponse;
+import com.nexus.iam.dto.RefreshTokenRequest;
+import com.nexus.iam.dto.UserRegisterDto;
+
+@Service
+public interface AuthenticationService {
+    public LoginResponse authenticate(LoginRequest loginRequest);
+
+    public LoginResponse refreshToken(RefreshTokenRequest refreshToken);
+
+    public LoginResponse registerUser(UserRegisterDto userRegisterDto);
+
+}
