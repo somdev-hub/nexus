@@ -1,6 +1,8 @@
 package com.nexus.iam.service.impl;
 
 import java.sql.Timestamp;
+import java.util.HashMap;
+import java.util.Map;
 
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,6 +23,8 @@ import com.nexus.iam.entities.User;
 import com.nexus.iam.repository.UserRepository;
 import com.nexus.iam.security.JwtUtil;
 import com.nexus.iam.service.AuthenticationService;
+
+import io.jsonwebtoken.Claims;
 
 @Service
 public class AuthenticationServiceImpl implements AuthenticationService {
@@ -137,5 +141,21 @@ public class AuthenticationServiceImpl implements AuthenticationService {
         } catch (Exception e) {
             throw new IllegalArgumentException("Failed to register user: " + e.getMessage());
         }
+    }
+
+    @Override
+    public Map<String, String> verifyToken(String token) {
+        if (token == null || !jwtUtil.validateToken(token)) {
+            throw new IllegalArgumentException("Invalid token");
+        }
+
+        Claims claims = jwtUtil.extractAllClaims(token);
+        Map<String, String> result = new HashMap<>();
+        // return isValid, username, expiration, role
+        result.put("isValid", "true");
+        result.put("username", claims.getSubject());
+        result.put("expiration", claims.getExpiration().toString());
+        result.put("role", claims.get("role", String.class));
+        return result;
     }
 }

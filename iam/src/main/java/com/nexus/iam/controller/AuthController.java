@@ -6,10 +6,14 @@ import com.nexus.iam.dto.RefreshTokenRequest;
 import com.nexus.iam.dto.UserRegisterDto;
 import com.nexus.iam.service.AuthenticationService;
 
+import java.util.Map;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 
 @RestController
 @RequestMapping("/iam/auth")
@@ -48,4 +52,11 @@ public class AuthController {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
         }
     }
+
+    @PostMapping("/verify")
+    public ResponseEntity<?> verifyToken(@RequestBody String token) {
+        Map<String, String> result = authenticationService.verifyToken(token);
+        return ResponseEntity.ok(result);
+    }
+
 }

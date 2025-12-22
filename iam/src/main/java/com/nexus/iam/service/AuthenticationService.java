@@ -1,5 +1,7 @@
 package com.nexus.iam.service;
 
+import java.util.Map;
+
 import org.springframework.stereotype.Service;
 
 import com.nexus.iam.dto.LoginRequest;
@@ -14,5 +16,7 @@ public interface AuthenticationService {
     public LoginResponse refreshToken(RefreshTokenRequest refreshToken);
 
     public LoginResponse registerUser(UserRegisterDto userRegisterDto);
+
+    public Map<String,String> verifyToken(String token);
 
 }
