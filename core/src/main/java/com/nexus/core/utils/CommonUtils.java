@@ -7,10 +7,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
-import com.nexus.core.entities.Logs;
-
+@Component
 public class CommonUtils {
 
     @Autowired
@@ -31,14 +31,7 @@ public class CommonUtils {
             }
 
             ResponseEntity<?> response = request.body(body).retrieve().toEntity(Object.class);
-            Logs log = new Logs();
-            log.setRequestUrl(url);
-            log.setHttpMethod(method.name());
-            log.setRequest(body);
-            log.setResponse(response.getBody());
-            log.setResponseStatus(response.getStatusCode().value());
-            log.setOrg(orgId);
-            logger.log(log);
+            logger.log(url, method, response.getStatusCode(), body, response.getBody(), orgId);
             return response;
         } catch (Exception e) {
 

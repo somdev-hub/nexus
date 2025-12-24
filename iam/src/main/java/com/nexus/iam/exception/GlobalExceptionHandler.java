@@ -1,9 +1,10 @@
 package com.nexus.iam.exception;
 
 import java.sql.Timestamp;
-import java.util.Date;
+import java.time.LocalDateTime;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -15,14 +16,21 @@ public class GlobalExceptionHandler {
     // 4xx
     @ExceptionHandler(IllegalArgumentException.class)
     public ErrorResponseDto handleIllegalArgumentException(IllegalArgumentException ex) {
-        return new ErrorResponseDto("BAD_REQUEST", HttpStatus.BAD_REQUEST, new Timestamp(new Date().getTime()),
+        return new ErrorResponseDto(
+                "Bad Request",
+                HttpStatus.BAD_REQUEST.value(),
+                Timestamp.valueOf(LocalDateTime.now()),
                 ex.getMessage());
     }
 
     @ExceptionHandler(ResourceNotFoundException.class)
-    public ErrorResponseDto handleResourceNotFoundException(ResourceNotFoundException ex) {
-        return new ErrorResponseDto("NOT_FOUND", HttpStatus.NOT_FOUND, new Timestamp(new Date().getTime()),
+    public ResponseEntity<ErrorResponseDto> handleResourceNotFoundException(ResourceNotFoundException ex) {
+        ErrorResponseDto errorResponse = new ErrorResponseDto(
+                "Resource Not Found",
+                HttpStatus.NOT_FOUND.value(),
+                Timestamp.valueOf(LocalDateTime.now()),
                 ex.getMessage());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
     }
 
 }

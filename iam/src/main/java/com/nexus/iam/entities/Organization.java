@@ -1,6 +1,7 @@
 package com.nexus.iam.entities;
 
 import java.sql.Timestamp;
+import java.util.ArrayList;
 import java.util.List;
 
 import jakarta.persistence.Entity;
@@ -29,8 +30,8 @@ public class Organization {
 
     private Double trustScore;
 
-    @OneToMany
-    private List<People> people;
+    @OneToMany(mappedBy = "organization")
+    private List<People> people = new ArrayList<>();
 
     @OneToMany
     private List<Document> documents;

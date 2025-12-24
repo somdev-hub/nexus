@@ -14,6 +14,7 @@ import org.springframework.util.ObjectUtils;
 
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -29,7 +30,7 @@ public class OrganizationServiceImpl implements OrganizationService {
     private ModelMapper modelMapper;
 
     @Override
-    public Organization createOrganization(OrganizationDto organizationDto, Long member) {
+    public OrganizationDto createOrganization(OrganizationDto organizationDto, Long member) {
         if (ObjectUtils.isEmpty(organizationDto)) {
             throw new IllegalArgumentException("Organization data cannot be null or empty");
         }
@@ -43,18 +44,24 @@ public class OrganizationServiceImpl implements OrganizationService {
 
         Organization organization = modelMapper.map(organizationDto, Organization.class);
         organization.setCreatedAt(Timestamp.valueOf(LocalDateTime.now()));
-        People people = peopleRepository.findById(member).get();
+        People people = peopleRepository.findByUserId(member)
+                .orElseThrow(() -> new ResourceNotFoundException("People", "id", member));
+        organization.setPeople(new ArrayList<>());
+        organization.setDocuments(new ArrayList<>());
+        organization.setCreatedAt(new Timestamp(System.currentTimeMillis()));
         organization.getPeople().add(people);
-        return organizationRepository.save(organization);
+        organizationRepository.save(organization);
+        return modelMapper.map(organization, OrganizationDto.class);
     }
 
     @Override
-    public Organization getOrganizationById(Long id) {
+    public OrganizationDto getOrganizationById(Long id) {
         if (ObjectUtils.isEmpty(id)) {
             throw new IllegalArgumentException("Organization ID cannot be null");
         }
-        return organizationRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Organization not found with id: " + id));
+        Organization organization = organizationRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Organization", "id", id));
+        return modelMapper.map(organization, OrganizationDto.class);
     }
 
     @Override
@@ -63,7 +70,7 @@ public class OrganizationServiceImpl implements OrganizationService {
     }
 
     @Override
-    public Organization updateOrganization(Long id, OrganizationDto organizationDto) {
+    public OrganizationDto updateOrganization(Long id, OrganizationDto organizationDto) {
         if (ObjectUtils.isEmpty(id)) {
             throw new IllegalArgumentException("Organization ID cannot be null");
         }
@@ -71,7 +78,8 @@ public class OrganizationServiceImpl implements OrganizationService {
             throw new IllegalArgumentException("Organization data cannot be null or empty");
         }
 
-        Organization organization = getOrganizationById(id);
+        OrganizationDto existingOrganizationDto = getOrganizationById(id);
+        Organization organization = modelMapper.map(existingOrganizationDto, Organization.class);
 
         if (!ObjectUtils.isEmpty(organizationDto.getOrgName()) &&
                 !organizationDto.getOrgName().equals(organization.getOrgName()) &&
@@ -81,7 +89,8 @@ public class OrganizationServiceImpl implements OrganizationService {
         }
 
         modelMapper.map(organizationDto, organization);
-        return organizationRepository.save(organization);
+        Organization updatedOrganization = organizationRepository.save(organization);
+        return modelMapper.map(updatedOrganization, OrganizationDto.class);
     }
 
     @Override
@@ -89,33 +98,37 @@ public class OrganizationServiceImpl implements OrganizationService {
         if (ObjectUtils.isEmpty(id)) {
             throw new IllegalArgumentException("Organization ID cannot be null");
         }
-        Organization organization = getOrganizationById(id);
+        OrganizationDto organizationDto = getOrganizationById(id);
+        Organization organization = modelMapper.map(organizationDto, Organization.class);
         organizationRepository.delete(organization);
     }
 
     @Override
-    public Organization getOrganizationByName(String orgName) {
+    public OrganizationDto getOrganizationByName(String orgName) {
         if (ObjectUtils.isEmpty(orgName)) {
             throw new IllegalArgumentException("Organization name cannot be null");
         }
-        return organizationRepository.findByOrgName(orgName)
-                .orElseThrow(() -> new ResourceNotFoundException("Organization not found with name: " + orgName));
+        Organization organization = organizationRepository.findByOrgName(orgName)
+                .orElseThrow(() -> new ResourceNotFoundException("Organization", "name", orgName));
+        return modelMapper.map(organization, OrganizationDto.class);
     }
 
     @Override
     public void assignMemberToOrganization(Long orgId, Long memberId) {
-        Organization organization = getOrganizationById(orgId);
+        OrganizationDto organizationDto = getOrganizationById(orgId);
+        Organization organization = modelMapper.map(organizationDto, Organization.class);
         People people = peopleRepository.findById(memberId)
-                .orElseThrow(() -> new ResourceNotFoundException("Member not found with id: " + memberId));
+                .orElseThrow(() -> new ResourceNotFoundException("People", "id", memberId));
         organization.getPeople().add(people);
         organizationRepository.save(organization);
     }
 
     @Override
     public void removeMemberFromOrganization(Long orgId, Long memberId) {
-        Organization organization = getOrganizationById(orgId);
+        OrganizationDto organizationDto = getOrganizationById(orgId);
+        Organization organization = modelMapper.map(organizationDto, Organization.class);
         People people = peopleRepository.findById(memberId)
-                .orElseThrow(() -> new ResourceNotFoundException("Member not found with id: " + memberId));
+                .orElseThrow(() -> new ResourceNotFoundException("People", "id", memberId));
         organization.getPeople().remove(people);
         organizationRepository.save(organization);
     }

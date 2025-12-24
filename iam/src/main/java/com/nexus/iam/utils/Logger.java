@@ -1,17 +1,17 @@
-package com.nexus.core.utils;
+package com.nexus.iam.utils;
 
 import java.sql.Timestamp;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatusCode;
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.nexus.core.entities.Logs;
-import com.nexus.core.repository.LogsRepo;
+import com.nexus.iam.entities.Logs;
+import com.nexus.iam.repository.LogsRepo;
 
-@Component
+@Service
 public class Logger {
 
     @Autowired
@@ -28,7 +28,7 @@ public class Logger {
     }
 
     public void log(String requestUrl, HttpMethod httpMethod, HttpStatusCode responseStatus, Object request,
-            Object response, Long org) {
+            Object response, Long userId) {
         try {
 
             Logs log = new Logs();
@@ -37,7 +37,7 @@ public class Logger {
             log.setResponseStatus(responseStatus.value());
             log.setRequest(request != null ? objectMapper.writeValueAsString(request) : null);
             log.setResponse(response != null ? objectMapper.writeValueAsString(response) : null);
-            log.setOrg(org);
+            log.setUserId(userId);
             log.setCreatedOn(new Timestamp(System.currentTimeMillis()));
 
             saveLog(log);

@@ -1,6 +1,9 @@
-package com.nexus.core.entities;
+package com.nexus.iam.entities;
 
 import java.sql.Timestamp;
+
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -14,7 +17,7 @@ import lombok.NoArgsConstructor;
 
 @Entity
 @Data
-@Table(name = "t_logs", schema = "core")
+@Table(name = "t_logs", schema = "iam")
 @AllArgsConstructor
 @NoArgsConstructor
 public class Logs {
@@ -29,14 +32,16 @@ public class Logs {
 
     private int responseStatus;
 
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")
-    private Object request;
+    private String request;
 
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")
-    private Object response;
+    private String response;
 
-    private Long org;
+    private Long userId;
 
-    private Timestamp createdOn= new Timestamp(System.currentTimeMillis());
+    private Timestamp createdOn = new Timestamp(System.currentTimeMillis());
 
 }

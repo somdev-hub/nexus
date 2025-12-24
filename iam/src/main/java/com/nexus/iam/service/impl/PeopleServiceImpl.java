@@ -4,6 +4,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import com.nexus.iam.entities.People;
+import com.nexus.iam.exception.ResourceNotFoundException;
 import com.nexus.iam.repository.PeopleRepository;
 import com.nexus.iam.repository.RoleRepository;
 import com.nexus.iam.repository.UserRepository;
@@ -38,7 +39,9 @@ public class PeopleServiceImpl implements PeopleService {
     @Override
     public void deletePeopleByUserId(Long userId) {
         try {
-            People people = peopleRepository.findByUserId(userId);
+            People people = peopleRepository.findByUserId(userId).orElseThrow(() -> {
+                throw new ResourceNotFoundException("People", "userId", userId);
+            });
             if (people != null) {
                 peopleRepository.delete(people);
             }

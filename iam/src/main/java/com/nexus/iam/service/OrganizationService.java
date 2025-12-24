@@ -8,17 +8,17 @@ import java.util.List;
 
 @Service
 public interface OrganizationService {
-    Organization createOrganization(OrganizationDto organizationDto, Long member);
+    OrganizationDto createOrganization(OrganizationDto organizationDto, Long member);
 
-    Organization getOrganizationById(Long id);
+    OrganizationDto getOrganizationById(Long id);
 
     List<Organization> getAllOrganizations();
 
-    Organization updateOrganization(Long id, OrganizationDto organizationDto);
+    OrganizationDto updateOrganization(Long id, OrganizationDto organizationDto);
 
     void deleteOrganization(Long id);
 
-    Organization getOrganizationByName(String orgName);
+    OrganizationDto getOrganizationByName(String orgName);
 
     void assignMemberToOrganization(Long orgId, Long memberId);
 

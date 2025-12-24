@@ -20,5 +20,6 @@ public class People {
     private Role role;
 
     @ManyToOne
+    @JoinColumn(name = "organization_id")
     private Organization organization;
 }
