@@ -33,8 +33,8 @@ public class Organization {
     @OneToMany(mappedBy = "organization")
     private List<People> people = new ArrayList<>();
 
-    @OneToMany
-    private List<Document> documents;
+    @OneToMany(mappedBy = "organization")
+    private List<Document> documents = new ArrayList<>();
 
     private Timestamp createdAt;
 }

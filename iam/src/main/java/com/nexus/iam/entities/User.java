@@ -22,8 +22,12 @@ import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.EqualsAndHashCode;
+import lombok.ToString;
 
 @Data
+@EqualsAndHashCode(exclude = "people")
+@ToString(exclude = "people")
 @Entity
 @Table(name = "t_users", schema = "iam")
 @NoArgsConstructor
@@ -57,7 +61,7 @@ public class User implements UserDetails {
 
     private Boolean credentialsNonExpired = true;
 
-    @OneToOne
+    @OneToOne(mappedBy = "user")
     private People people;
 
     @ManyToMany(fetch = FetchType.EAGER)

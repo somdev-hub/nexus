@@ -6,6 +6,7 @@ import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
+import com.nexus.iam.entities.User;
 
 import javax.crypto.SecretKey;
 import java.util.Date;
@@ -35,6 +36,12 @@ public class JwtUtil {
 
     public String generateAccessToken(Map<String, Object> extraClaims, UserDetails userDetails) {
         extraClaims.put("type", "access");
+        extraClaims.put("roles", userDetails.getAuthorities());
+        extraClaims.put("issuedAt", new Date());
+        extraClaims.put("expiration", new Date(System.currentTimeMillis() + accessTokenExpiration));
+        if (userDetails instanceof User) {
+            extraClaims.put("userId", ((User) userDetails).getId());
+        }
         return createToken(extraClaims, userDetails.getUsername(), accessTokenExpiration);
     }
 

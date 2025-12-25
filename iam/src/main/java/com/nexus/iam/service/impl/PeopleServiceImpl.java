@@ -25,11 +25,20 @@ public class PeopleServiceImpl implements PeopleService {
     @Override
     public void createPeople(Long userId, Long roleId) {
         try {
+            var user = userRepository.findById(userId)
+                    .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
+            var role = roleRepository.findById(roleId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Role", "id", roleId));
+
             People people = new People();
-            people.setUser(userRepository.findById(userId).get());
-            people.setRole(roleRepository.findById(roleId).get());
+            people.setUser(user);
+            people.setRole(role);
+
+            // Add role to user's roles set for JWT claims
+            user.getRoles().add(role);
 
             peopleRepository.save(people);
+            userRepository.save(user);
 
         } catch (Exception e) {
             throw new RuntimeException("Error creating people: " + e.getMessage(), e);
