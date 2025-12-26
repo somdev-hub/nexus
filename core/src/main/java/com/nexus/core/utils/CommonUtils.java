@@ -10,6 +10,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
+import com.nexus.core.payload.TokenPayloadDto;
+
 @Component
 public class CommonUtils {
 
@@ -77,6 +79,27 @@ public class CommonUtils {
             // extract token from response
             if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
                 return response.getBody().get("accessToken");
+            } else {
+                return null;
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    public TokenPayloadDto decryptToken(String token) {
+        String authUrl = commonConstants.getDecryptTokenUrl();
+        Map<String, String> body = Map.of("token", token.substring(7));
+        try {
+            RestClient restClient = RestClient.create();
+            ResponseEntity<TokenPayloadDto> response = restClient.post().uri(authUrl)
+                    .body(body)
+                    .retrieve()
+                    .toEntity(TokenPayloadDto.class);
+
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                return response.getBody();
             } else {
                 return null;
             }

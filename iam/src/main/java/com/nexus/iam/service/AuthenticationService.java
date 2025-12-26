@@ -17,6 +17,8 @@ public interface AuthenticationService {
 
     public LoginResponse registerUser(UserRegisterDto userRegisterDto);
 
-    public Map<String,String> verifyToken(String token);
+    public Map<String, String> verifyToken(String token);
+
+    public Map<String, Object> decryptToken(String token);
 
 }

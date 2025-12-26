@@ -1,5 +1,6 @@
 package com.nexus.iam.controller;
 
+import com.nexus.iam.dto.DecryptTokenRequest;
 import com.nexus.iam.dto.LoginRequest;
 import com.nexus.iam.dto.LoginResponse;
 import com.nexus.iam.dto.RefreshTokenRequest;
@@ -57,6 +58,16 @@ public class AuthController {
     public ResponseEntity<?> verifyToken(@RequestBody String token) {
         Map<String, String> result = authenticationService.verifyToken(token);
         return ResponseEntity.ok(result);
+    }
+
+    @PostMapping("/decrypt")
+    public ResponseEntity<?> decryptToken(@RequestBody DecryptTokenRequest request) {
+        try {
+            Map<String, Object> decryptedToken = authenticationService.decryptToken(request.getToken());
+            return ResponseEntity.ok(decryptedToken);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+        }
     }
 
 }

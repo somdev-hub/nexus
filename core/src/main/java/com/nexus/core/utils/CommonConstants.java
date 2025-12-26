@@ -14,4 +14,7 @@ public class CommonConstants {
 
     @Value("${generate.token.url}")
     public String generateTokenUrl;
+
+    @Value("${decrypt.token.url}")
+    public String decryptTokenUrl;
 }

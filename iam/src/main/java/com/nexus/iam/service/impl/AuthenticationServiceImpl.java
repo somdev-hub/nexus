@@ -158,4 +158,39 @@ public class AuthenticationServiceImpl implements AuthenticationService {
         result.put("role", claims.get("role", String.class));
         return result;
     }
+
+    @Override
+    public Map<String, Object> decryptToken(String token) {
+        if (token == null || token.isEmpty()) {
+            throw new IllegalArgumentException("Token cannot be null or empty");
+        }
+
+        try {
+            // Remove "Bearer " prefix and trim whitespace
+            token = token.trim();
+            if (token.startsWith("Bearer ")) {
+                token = token.substring(7).trim();
+            }
+
+            Claims claims = jwtUtil.extractAllClaims(token);
+            Map<String, Object> decryptedData = new HashMap<>();
+
+            // Extract all claims from the token
+            decryptedData.put("username", claims.getSubject());
+            decryptedData.put("issuedAt", claims.getIssuedAt());
+            decryptedData.put("expiration", claims.getExpiration());
+            decryptedData.put("isValid", !jwtUtil.isTokenExpired(token));
+
+            // Extract all additional claims
+            claims.forEach((key, value) -> {
+                if (!key.equals("sub") && !key.equals("iat") && !key.equals("exp")) {
+                    decryptedData.put(key, value);
+                }
+            });
+
+            return decryptedData;
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Failed to decrypt token: " + e.getMessage());
+        }
+    }
 }
