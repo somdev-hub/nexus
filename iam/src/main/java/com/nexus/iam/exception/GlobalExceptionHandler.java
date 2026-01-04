@@ -33,4 +33,17 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
     }
 
+    @ExceptionHandler(ServiceLevelException.class)
+    public ResponseEntity<ErrorResponseDto> handleServiceLevelException(ServiceLevelException ex) {
+        ErrorResponseDto errorResponse = new ErrorResponseDto(
+                ex.getExceptionType(),
+                ex.getStatusCode(),
+                ex.getTimestamp(),
+                ex.getMessage(),
+                ex.getDescription(),
+                ex.getServiceName(),
+                ex.getServiceMethod());
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+    }
+
 }

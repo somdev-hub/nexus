@@ -22,11 +22,10 @@ public class PeopleController {
     PeopleService peopleService;
 
     @PostMapping("/create")
-    public ResponseEntity<?> createPeople(@RequestBody Map<String, Long> payload) {
-        Long userId = payload.get("userId");
-        Long roleId = payload.get("roleId");
-        peopleService.createPeople(userId, roleId);
-        return ResponseEntity.ok("People created successfully");
+    public ResponseEntity<?> createPeople(@RequestBody Map<String, String> payload) {
+        Long userId = Long.parseLong(payload.get("userId"));
+        String role = payload.get("role");
+        return peopleService.createPeople(userId, role);
     }
 
     @DeleteMapping("/delete")

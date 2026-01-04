@@ -1,5 +1,15 @@
 package com.nexus.iam.service.impl;
 
+import java.sql.Timestamp;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+
+import org.modelmapper.ModelMapper;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.util.ObjectUtils;
+
 import com.nexus.iam.dto.OrganizationDto;
 import com.nexus.iam.entities.Organization;
 import com.nexus.iam.entities.People;
@@ -7,15 +17,6 @@ import com.nexus.iam.exception.ResourceNotFoundException;
 import com.nexus.iam.repository.OrganizationRepository;
 import com.nexus.iam.repository.PeopleRepository;
 import com.nexus.iam.service.OrganizationService;
-import org.modelmapper.ModelMapper;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-import org.springframework.util.ObjectUtils;
-
-import java.sql.Timestamp;
-import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
 
 @Service
 public class OrganizationServiceImpl implements OrganizationService {

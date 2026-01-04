@@ -1,6 +1,9 @@
 package com.nexus.iam.service.impl;
 
+import java.util.Map;
+
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 import com.nexus.iam.entities.People;
@@ -23,22 +26,25 @@ public class PeopleServiceImpl implements PeopleService {
     private RoleRepository roleRepository;
 
     @Override
-    public void createPeople(Long userId, Long roleId) {
+    public ResponseEntity<?> createPeople(Long userId, String role) {
         try {
             var user = userRepository.findById(userId)
                     .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
-            var role = roleRepository.findById(roleId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Role", "id", roleId));
+            var roleEntity = roleRepository.findByName(role)
+                    .orElseThrow(() -> new ResourceNotFoundException("Role", "name", role));
 
             People people = new People();
             people.setUser(user);
-            people.setRole(role);
+            people.setRole(roleEntity);
 
             // Add role to user's roles set for JWT claims
-            user.getRoles().add(role);
+            user.getRoles().add(roleEntity);
 
             peopleRepository.save(people);
             userRepository.save(user);
+
+            // return the role
+            return ResponseEntity.ok(Map.of("role", "ROLE_" + roleEntity.getName()));
 
         } catch (Exception e) {
             throw new RuntimeException("Error creating people: " + e.getMessage(), e);

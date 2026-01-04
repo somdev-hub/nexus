@@ -66,6 +66,15 @@ public class AuthenticationServiceImpl implements AuthenticationService {
                 .tokenType("Bearer")
                 .expiresIn(900)
                 .username(userDetails.getUsername())
+                .role(
+                        userDetails.getAuthorities().stream()
+                                .findFirst()
+                                .map(grantedAuthority -> grantedAuthority.getAuthority())
+                                .orElse("USER"))
+                .userId(
+                        userRepository.findByEmail(userDetails.getUsername())
+                                .map(User::getId)
+                                .orElse(null))
                 .build();
     }
 
@@ -115,6 +124,11 @@ public class AuthenticationServiceImpl implements AuthenticationService {
                     .tokenType("Bearer")
                     .expiresIn(900)
                     .username(userDetails.getUsername())
+                    .userId(
+                            userRepository.findByEmail(user.getUsername()).map(
+                                    User::getId).orElse(null)
+
+                    )
                     .build();
         } catch (Exception e) {
             throw new IllegalArgumentException("Failed to register user: " + e.getMessage());
