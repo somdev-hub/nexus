@@ -1,11 +1,15 @@
 package com.nexus.iam.service.impl;
 
 import java.sql.Timestamp;
+import java.util.HashMap;
+import java.util.Map;
 
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
+import com.nexus.iam.dto.UserProfileDto;
 import com.nexus.iam.dto.UserRegisterDto;
 import com.nexus.iam.entities.User;
 import com.nexus.iam.exception.ResourceNotFoundException;
@@ -20,6 +24,9 @@ public class UserServiceImpl implements UserService {
 
     @Autowired
     private ModelMapper modelMapper;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
 
     @Override
     public ResponseEntity<?> getUserById(Long userId) {
@@ -39,8 +46,27 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public ResponseEntity<?> updateUser(UserRegisterDto userDto, Long userId) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'updateUser'");
+        try {
+            User existingUser = userRepository.findById(userId).orElseThrow(() -> {
+                throw new ResourceNotFoundException("User", "id", userId);
+            });
+
+            existingUser.setName(userDto.getName());
+            existingUser.setEmail(userDto.getEmail());
+            existingUser.setAddress(userDto.getAddress());
+            existingUser.setPhone(userDto.getPhone());
+
+            // Add other fields as necessary
+
+            userRepository.save(existingUser);
+            UserRegisterDto updatedUserDto = modelMapper.map(existingUser, UserRegisterDto.class);
+            return ResponseEntity.ok(updatedUserDto);
+
+        } catch (Exception e) {
+            throw new ServiceLevelException("UserService", e.getLocalizedMessage(), "updateUser",
+                    new Timestamp(System.currentTimeMillis()), e.getCause().toString(), e.getMessage());
+
+        }
     }
 
     @Override
@@ -55,4 +81,74 @@ public class UserServiceImpl implements UserService {
         throw new UnsupportedOperationException("Unimplemented method 'getAllUsers'");
     }
 
+    @Override
+    public ResponseEntity<?> createUser(UserProfileDto userDto) {
+        try {
+            User user = modelMapper.map(userDto, User.class);
+            user.setCreatedAt(new Timestamp(System.currentTimeMillis()));
+
+            // Generate a random password
+            String generatedPassword = generateRandomPassword();
+            user.setPassword(passwordEncoder.encode(generatedPassword));
+
+            // Set default user status
+            user.setEnabled(true);
+            user.setAccountNonExpired(true);
+            user.setAccountNonLocked(true);
+            user.setCredentialsNonExpired(true);
+
+            // Save user to repository
+            userRepository.save(user);
+
+            // Return email and password instead of JWT
+            Map<String, String> response = new HashMap<>();
+            response.put("email", user.getEmail());
+            response.put("password", generatedPassword);
+            response.put("message", "User created successfully");
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            throw new ServiceLevelException("UserService", e.getLocalizedMessage(), "createUser",
+                    new Timestamp(System.currentTimeMillis()), e.getCause().toString(), e.getMessage());
+        }
+    }
+
+    /**
+     * Generates a random password with mixed case letters, numbers and special
+     * characters
+     * 
+     * @return generated password
+     */
+    private String generateRandomPassword() {
+        String uppercase = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+        String lowercase = "abcdefghijklmnopqrstuvwxyz";
+        String digits = "0123456789";
+        String specialChars = "!@#$%^&*";
+        String allChars = uppercase + lowercase + digits + specialChars;
+
+        StringBuilder password = new StringBuilder();
+        java.util.Random random = new java.util.Random();
+
+        // Ensure at least one character from each category
+        password.append(uppercase.charAt(random.nextInt(uppercase.length())));
+        password.append(lowercase.charAt(random.nextInt(lowercase.length())));
+        password.append(digits.charAt(random.nextInt(digits.length())));
+        password.append(specialChars.charAt(random.nextInt(specialChars.length())));
+
+        // Fill remaining characters randomly
+        for (int i = 4; i < 12; i++) {
+            password.append(allChars.charAt(random.nextInt(allChars.length())));
+        }
+
+        // Shuffle the password
+        String[] passwordArray = password.toString().split("");
+        for (int i = passwordArray.length - 1; i > 0; i--) {
+            int randomIndex = random.nextInt(i + 1);
+            String temp = passwordArray[i];
+            passwordArray[i] = passwordArray[randomIndex];
+            passwordArray[randomIndex] = temp;
+        }
+
+        return String.join("", passwordArray);
+    }
 }

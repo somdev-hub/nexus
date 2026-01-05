@@ -2,7 +2,10 @@ package com.nexus.core.entities;
 
 import java.util.List;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -23,6 +26,11 @@ public class Product {
 
     private String code;
 
+    @Column(columnDefinition = "TEXT")
+    private String description;
+
+    private List<String> productImages;
+
     @OneToMany(mappedBy = "product")
     private List<MaterialRequirement> materialRequirements;
 
@@ -31,6 +39,20 @@ public class Product {
     private Long productManager;
 
     private Double price;
+
+    private Double sellingPrice;
+
+    private Double cost;
+
+    private Boolean taxCharged;
+
+    private Double taxPercentage;
+
+    @Enumerated(EnumType.STRING)
+    private ProductStatus productStatus;
+
+    @Enumerated(EnumType.STRING)
+    private ProductCategory productCategory;
 
     @OneToMany(mappedBy = "product")
     private List<Order> orders;

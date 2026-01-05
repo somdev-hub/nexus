@@ -21,7 +21,7 @@ public class MaterialRequirement {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "material_id")
-    private Material material;
+    private String material;
 
     private Double quantity;
 

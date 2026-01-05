@@ -15,6 +15,7 @@ import com.nexus.core.entities.Product;
 import com.nexus.core.exception.ResourceNotFoundException;
 import com.nexus.core.payload.ErrorResponse;
 import com.nexus.core.payload.ProductDto;
+import com.nexus.core.repository.MaterialRepo;
 import com.nexus.core.repository.ProductRepo;
 import com.nexus.core.service.ProductService;
 
@@ -27,10 +28,14 @@ public class ProductServiceImpl implements ProductService {
     @Autowired
     private ModelMapper modelMapper;
 
+    @Autowired
+    private MaterialRepo materialRepo;
+
     @Override
     public ResponseEntity<?> addProduct(ProductDto product) {
         try {
             Product productMapped = modelMapper.map(product, Product.class);
+
             Product savedProduct = productRepo.save(productMapped);
 
             return new ResponseEntity<>(modelMapper.map(savedProduct, ProductDto.class), HttpStatus.CREATED);

@@ -49,6 +49,13 @@ public class User implements UserDetails {
 
     private String address;
 
+    private Double salary;
+
+    private Timestamp joiningDate;
+
+    @Column(columnDefinition = "TEXT")
+    private String notes;
+
     private Timestamp createdAt;
 
     private String profilePhoto;
