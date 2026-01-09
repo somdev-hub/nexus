@@ -28,6 +28,14 @@ public class PeopleController {
         return peopleService.createPeople(userId, role);
     }
 
+    @PostMapping("/create-with-org")
+    public ResponseEntity<?> createPeopleWithOrganization(@RequestBody Map<String, String> payload) {
+        Long userId = Long.parseLong(payload.get("userId"));
+        Long organizationId = Long.parseLong(payload.get("organizationId"));
+        String role = payload.get("role");
+        return peopleService.createPeopleWithOrganization(userId, organizationId, role);
+    }
+
     @DeleteMapping("/delete")
     public ResponseEntity<?> deletePeopleByUserId(@RequestBody Long userId) {
         peopleService.deletePeopleByUserId(userId);

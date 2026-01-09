@@ -1,13 +1,19 @@
 package com.nexus.iam.service.impl;
 
+
 import java.sql.Timestamp;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
 
 import com.nexus.iam.dto.UserProfileDto;
 import com.nexus.iam.dto.UserRegisterDto;
@@ -17,6 +23,7 @@ import com.nexus.iam.exception.ServiceLevelException;
 import com.nexus.iam.repository.UserRepository;
 import com.nexus.iam.service.UserService;
 
+@Service
 public class UserServiceImpl implements UserService {
 
     @Autowired
@@ -82,6 +89,33 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    public ResponseEntity<?> getAllEmployees(Long orgId, Integer page, Integer pageOffset) {
+        try {
+            // Validate pagination parameters
+            if (page < 0) {
+                page = 0;
+            }
+            if (pageOffset <= 0) {
+                pageOffset = 10; // Default page size
+            }
+
+            // Create Pageable object with page number and page size
+            Pageable pageable = PageRequest.of(page, pageOffset);
+
+            // Fetch paginated users by organization ID
+            var usersPage = userRepository.findByOrgId(orgId, pageable);
+
+            // Map User entities to UserRegisterDto
+            var userDtos = usersPage.map(user -> modelMapper.map(user, UserRegisterDto.class));
+
+            return ResponseEntity.ok(userDtos);
+        } catch (Exception e) {
+            throw new ServiceLevelException("UserService", e.getLocalizedMessage(), "getAllEmployees",
+                    new Timestamp(System.currentTimeMillis()), e.getCause().toString(), e.getMessage());
+        }
+    }
+
+    @Override
     public ResponseEntity<?> createUser(UserProfileDto userDto) {
         try {
             User user = modelMapper.map(userDto, User.class);
@@ -103,20 +137,21 @@ public class UserServiceImpl implements UserService {
             // Return email and password instead of JWT
             Map<String, String> response = new HashMap<>();
             response.put("email", user.getEmail());
+            response.put("userId", user.getId().toString());
             response.put("password", generatedPassword);
-            response.put("message", "User created successfully");
+            response.put("message", "User created successfully. Please note: people_id and organization_id should be set separately through the People entity");
 
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             throw new ServiceLevelException("UserService", e.getLocalizedMessage(), "createUser",
-                    new Timestamp(System.currentTimeMillis()), e.getCause().toString(), e.getMessage());
+                    new Timestamp(System.currentTimeMillis()), null, e.getMessage());
         }
     }
 
     /**
      * Generates a random password with mixed case letters, numbers and special
      * characters
-     * 
+     *
      * @return generated password
      */
     private String generateRandomPassword() {

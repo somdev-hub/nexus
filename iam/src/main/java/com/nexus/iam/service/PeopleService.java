@@ -8,6 +8,8 @@ public interface PeopleService {
 
     public ResponseEntity<?> createPeople(Long userId, String role);
 
+    public ResponseEntity<?> createPeopleWithOrganization(Long userId, Long organizationId, String role);
+
     public void deletePeopleByUserId(Long userId);
 
 }

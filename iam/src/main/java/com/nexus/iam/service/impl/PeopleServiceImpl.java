@@ -6,8 +6,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
+import com.nexus.iam.entities.Organization;
 import com.nexus.iam.entities.People;
 import com.nexus.iam.exception.ResourceNotFoundException;
+import com.nexus.iam.repository.OrganizationRepository;
 import com.nexus.iam.repository.PeopleRepository;
 import com.nexus.iam.repository.RoleRepository;
 import com.nexus.iam.repository.UserRepository;
@@ -24,6 +26,9 @@ public class PeopleServiceImpl implements PeopleService {
 
     @Autowired
     private RoleRepository roleRepository;
+
+    @Autowired
+    private OrganizationRepository organizationRepository;
 
     @Override
     public ResponseEntity<?> createPeople(Long userId, String role) {
@@ -48,6 +53,39 @@ public class PeopleServiceImpl implements PeopleService {
 
         } catch (Exception e) {
             throw new RuntimeException("Error creating people: " + e.getMessage(), e);
+        }
+    }
+
+    @Override
+    public ResponseEntity<?> createPeopleWithOrganization(Long userId, Long organizationId, String role) {
+        try {
+            var user = userRepository.findById(userId)
+                    .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
+            var roleEntity = roleRepository.findByName(role)
+                    .orElseThrow(() -> new ResourceNotFoundException("Role", "name", role));
+            var organization = organizationRepository.findById(organizationId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Organization", "id", organizationId));
+
+            People people = new People();
+            people.setUser(user);
+            people.setRole(roleEntity);
+            people.setOrganization(organization);
+
+            // Add role to user's roles set for JWT claims
+            user.getRoles().add(roleEntity);
+
+            peopleRepository.save(people);
+            userRepository.save(user);
+
+            // return the role and organization
+            return ResponseEntity.ok(Map.of(
+                    "role", "ROLE_" + roleEntity.getName(),
+                    "organizationId", organizationId,
+                    "peopleId", people.getId()
+            ));
+
+        } catch (Exception e) {
+            throw new RuntimeException("Error creating people with organization: " + e.getMessage(), e);
         }
     }
 

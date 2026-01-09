@@ -68,7 +68,8 @@ public class User implements UserDetails {
 
     private Boolean credentialsNonExpired = true;
 
-    @OneToOne(mappedBy = "user")
+    @OneToOne
+    @JoinColumn(name = "people_id")
     private People people;
 
     @ManyToMany(fetch = FetchType.EAGER)

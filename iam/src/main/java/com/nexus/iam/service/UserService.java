@@ -16,4 +16,6 @@ public interface UserService {
 
     ResponseEntity<?> getAllUsers(int page, int size);
 
+    ResponseEntity<?> getAllEmployees(Long orgId, Integer page, Integer pageOffset);
+
 }
