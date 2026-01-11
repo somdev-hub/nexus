@@ -1,12 +1,11 @@
 package com.nexus.iam.service.impl;
 
-
 import java.sql.Timestamp;
-import java.text.SimpleDateFormat;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 
+import com.nexus.iam.repository.OrganizationRepository;
+import com.nexus.iam.repository.RoleRepository;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
@@ -34,6 +33,12 @@ public class UserServiceImpl implements UserService {
 
     @Autowired
     private PasswordEncoder passwordEncoder;
+
+    @Autowired
+    private OrganizationRepository organizationRepository;
+
+    @Autowired
+    private RoleRepository roleRepository;
 
     @Override
     public ResponseEntity<?> getUserById(Long userId) {
@@ -106,7 +111,7 @@ public class UserServiceImpl implements UserService {
             var usersPage = userRepository.findByOrgId(orgId, pageable);
 
             // Map User entities to UserRegisterDto
-            var userDtos = usersPage.map(user -> modelMapper.map(user, UserRegisterDto.class));
+            var userDtos = usersPage.map(user -> modelMapper.map(user, UserProfileDto.class));
 
             return ResponseEntity.ok(userDtos);
         } catch (Exception e) {
@@ -120,6 +125,14 @@ public class UserServiceImpl implements UserService {
         try {
             User user = modelMapper.map(userDto, User.class);
             user.setCreatedAt(new Timestamp(System.currentTimeMillis()));
+
+            // Set organization
+            user.setOrganization(organizationRepository.findById(userDto.getOrgId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Organization", "id", userDto.getOrgId())));
+
+            // Set role
+            user.getRoles().add(roleRepository.findByName(userDto.getRole())
+                    .orElseThrow(() -> new ResourceNotFoundException("Role", "name", userDto.getRole())));
 
             // Generate a random password
             String generatedPassword = generateRandomPassword();
@@ -139,7 +152,7 @@ public class UserServiceImpl implements UserService {
             response.put("email", user.getEmail());
             response.put("userId", user.getId().toString());
             response.put("password", generatedPassword);
-            response.put("message", "User created successfully. Please note: people_id and organization_id should be set separately through the People entity");
+            response.put("message", "User created successfully");
 
             return ResponseEntity.ok(response);
         } catch (Exception e) {

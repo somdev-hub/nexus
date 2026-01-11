@@ -1,9 +1,6 @@
 package com.nexus.iam.dto;
 
-import java.sql.Time;
 import java.sql.Timestamp;
-
-import com.fasterxml.jackson.annotation.JsonProperty;
 
 import lombok.Data;
 
@@ -27,7 +24,7 @@ public class UserProfileDto {
 
     private String profilePhoto;
 
-    private Long peopleId;
+    private Long orgId;
 
-    private Long organizationId;
+    private String role;
 }

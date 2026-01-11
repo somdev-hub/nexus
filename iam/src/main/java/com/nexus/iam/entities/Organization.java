@@ -31,7 +31,7 @@ public class Organization {
     private Double trustScore;
 
     @OneToMany(mappedBy = "organization")
-    private List<People> people = new ArrayList<>();
+    private List<User> users = new ArrayList<>();
 
     @OneToMany(mappedBy = "organization")
     private List<Document> documents = new ArrayList<>();

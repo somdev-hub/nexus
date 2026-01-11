@@ -4,15 +4,12 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.nexus.iam.entities.OrgType;
 import lombok.AllArgsConstructor;
 import lombok.Data;
-import lombok.NoArgsConstructor;
 
 import java.sql.Timestamp;
 
 @Data
-@NoArgsConstructor
 @AllArgsConstructor
-public class OrganizationDto {
-
+public class OrganizationFetchDto {
     @JsonProperty(value = "orgId")
     private Long id;
 
@@ -23,4 +20,6 @@ public class OrganizationDto {
     private Double trustScore;
 
     private Timestamp createdAt;
+
+    private Long employeeCount;
 }

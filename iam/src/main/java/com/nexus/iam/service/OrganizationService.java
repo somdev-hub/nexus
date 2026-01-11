@@ -1,6 +1,7 @@
 package com.nexus.iam.service;
 
 import com.nexus.iam.dto.OrganizationDto;
+import com.nexus.iam.dto.OrganizationFetchDto;
 import com.nexus.iam.entities.Organization;
 import org.springframework.stereotype.Service;
 
@@ -10,7 +11,7 @@ import java.util.List;
 public interface OrganizationService {
     OrganizationDto createOrganization(OrganizationDto organizationDto, Long member);
 
-    OrganizationDto getOrganizationById(Long id);
+    OrganizationFetchDto getOrganizationById(Long id);
 
     List<Organization> getAllOrganizations();
 

@@ -4,6 +4,8 @@ import java.sql.Timestamp;
 import java.util.HashMap;
 import java.util.Map;
 
+import com.nexus.iam.repository.RoleRepository;
+import com.nexus.iam.exception.ResourceNotFoundException;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -47,6 +49,9 @@ public class AuthenticationServiceImpl implements AuthenticationService {
     @Autowired
     private ModelMapper modelMapper;
 
+    @Autowired
+    private RoleRepository roleRepository;
+
     @Override
     public LoginResponse authenticate(LoginRequest loginRequest) {
         Authentication authentication = authenticationManager.authenticate(
@@ -55,26 +60,51 @@ public class AuthenticationServiceImpl implements AuthenticationService {
                         loginRequest.getPassword()));
 
         SecurityContextHolder.getContext().setAuthentication(authentication);
-        UserDetails userDetails = (UserDetails) authentication.getPrincipal();
+        Object principal = authentication.getPrincipal();
+
+        if (!(principal instanceof UserDetails)) {
+            throw new IllegalArgumentException("Invalid authentication");
+        }
+
+        UserDetails userDetails = (UserDetails) principal;
 
         String accessToken = jwtUtil.generateAccessToken(userDetails);
         String refreshToken = jwtUtil.generateRefreshToken(userDetails);
+
+        // Fetch fresh user data from database to get latest roles and organization
+        // Using eager loading to ensure roles are fetched immediately
+        User dbUser = userRepository.findByEmail(userDetails.getUsername()).orElse(null);
+
+        // Determine role - prioritize database role over UserDetails role
+        String role = "ROLE_USER";
+        if (dbUser != null && dbUser.getRoles() != null && !dbUser.getRoles().isEmpty()) {
+            role = dbUser.getRoles().stream()
+                    .findFirst()
+                    .map(r -> "ROLE_" + r.getName())
+                    .orElse("ROLE_USER");
+        } else if (userDetails.getAuthorities() != null && !userDetails.getAuthorities().isEmpty()) {
+            role = userDetails.getAuthorities().stream()
+                    .findFirst()
+                    .map(grantedAuthority -> grantedAuthority.getAuthority())
+                    .orElse("ROLE_USER");
+        }
+
+        // Determine orgId
+        Long orgId = null;
+        if (dbUser != null && dbUser.getOrganization() != null) {
+            orgId = dbUser.getOrganization().getId();
+        }
 
         return LoginResponse.builder()
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
                 .tokenType("Bearer")
                 .expiresIn(900)
-                .username(userDetails.getUsername())
-                .role(
-                        userDetails.getAuthorities().stream()
-                                .findFirst()
-                                .map(grantedAuthority -> grantedAuthority.getAuthority())
-                                .orElse("USER"))
-                .userId(
-                        userRepository.findByEmail(userDetails.getUsername())
-                                .map(User::getId)
-                                .orElse(null))
+                .email(userDetails.getUsername())
+                .role(role)
+                .userId(dbUser != null ? dbUser.getId() : null)
+                .name(dbUser != null ? dbUser.getName() : "")
+                .orgId(orgId)
                 .build();
     }
 
@@ -91,12 +121,40 @@ public class AuthenticationServiceImpl implements AuthenticationService {
 
         String newAccessToken = jwtUtil.generateAccessToken(userDetails);
 
+        // Fetch fresh user data from database to get latest roles and organization
+        User dbUser = userRepository.findByEmail(username).orElse(null);
+
+        // Determine role - prioritize database role over UserDetails role
+        String role = "ROLE_USER";
+        if (dbUser != null && dbUser.getRoles() != null && !dbUser.getRoles().isEmpty()) {
+            role = dbUser.getRoles().stream()
+                    .findFirst()
+                    .map(r -> "ROLE_" + r.getName())
+                    .orElse("ROLE_USER");
+        } else if (userDetails != null && userDetails.getAuthorities() != null
+                && !userDetails.getAuthorities().isEmpty()) {
+            role = userDetails.getAuthorities().stream()
+                    .findFirst()
+                    .map(grantedAuthority -> grantedAuthority.getAuthority())
+                    .orElse("ROLE_USER");
+        }
+
+        // Determine orgId
+        Long orgId = null;
+        if (dbUser != null && dbUser.getOrganization() != null) {
+            orgId = dbUser.getOrganization().getId();
+        }
+
         return LoginResponse.builder()
                 .accessToken(newAccessToken)
                 .refreshToken(refreshToken)
                 .tokenType("Bearer")
                 .expiresIn(900)
-                .username(username)
+                .email(userDetails.getUsername())
+                .role(role)
+                .userId(dbUser != null ? dbUser.getId() : null)
+                .name(dbUser != null ? dbUser.getName() : "")
+                .orgId(orgId)
                 .build();
     }
 
@@ -123,7 +181,7 @@ public class AuthenticationServiceImpl implements AuthenticationService {
                     .refreshToken(refreshToken)
                     .tokenType("Bearer")
                     .expiresIn(900)
-                    .username(userDetails.getUsername())
+                    .email(userDetails.getUsername())
                     .userId(
                             userRepository.findByEmail(user.getUsername()).map(
                                     User::getId).orElse(null)
@@ -148,8 +206,14 @@ public class AuthenticationServiceImpl implements AuthenticationService {
         try {
             User user = modelMapper.map(userRegisterDto, User.class);
             user.setCreatedAt(Timestamp.valueOf(java.time.LocalDateTime.now()));
-            LoginResponse registerUser = registerUser(user);
-            return registerUser;
+
+            // Set role if provided in the DTO
+            if (!ObjectUtils.isEmpty(userRegisterDto.getRole())) {
+                user.getRoles().add(roleRepository.findByName(userRegisterDto.getRole())
+                        .orElseThrow(() -> new ResourceNotFoundException("Role", "name", userRegisterDto.getRole())));
+            }
+
+            return registerUser(user);
             // generate JWT tokens upon registration
 
         } catch (Exception e) {

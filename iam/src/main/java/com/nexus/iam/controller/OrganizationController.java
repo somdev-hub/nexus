@@ -3,6 +3,8 @@ package com.nexus.iam.controller;
 import com.nexus.iam.dto.ErrorResponseDto;
 import com.nexus.iam.dto.OrganizationDto;
 import com.nexus.iam.entities.Organization;
+import com.nexus.iam.entities.User;
+import com.nexus.iam.repository.UserRepository;
 import com.nexus.iam.service.OrganizationService;
 import com.nexus.iam.utils.Logger;
 
@@ -13,7 +15,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.util.ObjectUtils;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/iam/organizations")
@@ -22,6 +26,9 @@ public class OrganizationController {
 
     @Autowired
     private OrganizationService organizationService;
+
+    @Autowired
+    private UserRepository userRepository;
 
     @Autowired
     private Logger logger;
@@ -39,8 +46,31 @@ public class OrganizationController {
 
         ResponseEntity<?> response = null;
         try {
+            // Create the organization
             OrganizationDto organization = organizationService.createOrganization(organizationDto, member);
-            response = ResponseEntity.status(HttpStatus.CREATED).body(organization);
+
+            // Fetch the updated user to get role and organization information
+            User updatedUser = userRepository.findById(member).orElse(null);
+
+            // Build comprehensive response
+            Map<String, Object> responseBody = new HashMap<>();
+            responseBody.put("organization", organization);
+            responseBody.put("orgId", organization.getId());
+
+            // Get the first role from user's roles
+            if (updatedUser != null && !updatedUser.getRoles().isEmpty()) {
+                String role = updatedUser.getRoles().stream()
+                        .findFirst()
+                        .map(r -> "ROLE_" + r.getName())
+                        .orElse("ROLE_USER");
+                responseBody.put("role", role);
+            } else {
+                responseBody.put("role", "ROLE_DIRECTOR");
+            }
+
+            responseBody.put("message", "Organization created successfully");
+
+            response = ResponseEntity.status(HttpStatus.CREATED).body(responseBody);
         } catch (Exception e) {
             response = ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ErrorResponseDto(
                     "Bad Request",
@@ -58,13 +88,20 @@ public class OrganizationController {
 
     @GetMapping("/{id}")
     public ResponseEntity<?> getOrganizationById(@PathVariable Long id) {
-
-        try {
-            OrganizationDto organization = organizationService.getOrganizationById(id);
-            return ResponseEntity.ok(organization);
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+        ResponseEntity<?> response = null;
+        if (ObjectUtils.isEmpty(id)) {
+            response = ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Organization ID is required");
         }
+        try {
+            response = ResponseEntity.ok(organizationService.getOrganizationById(id));
+        } catch (Exception e) {
+            response = ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+        } finally {
+            logger.log("/iam/organization/" + id, HttpMethod.GET,
+                    response != null ? response.getStatusCode() : HttpStatus.INTERNAL_SERVER_ERROR, null,
+                    response != null ? response.getBody() : null, null);
+        }
+        return response;
     }
 
     @GetMapping("/")

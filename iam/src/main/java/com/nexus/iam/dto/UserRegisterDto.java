@@ -19,4 +19,6 @@ public class UserRegisterDto {
     private Timestamp createdAt;
 
     private String profilePhoto;
+
+    private String role;
 }

@@ -18,16 +18,12 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.JoinTable;
 import jakarta.persistence.ManyToMany;
-import jakarta.persistence.OneToOne;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import lombok.EqualsAndHashCode;
-import lombok.ToString;
 
 @Data
-@EqualsAndHashCode(exclude = "people")
-@ToString(exclude = "people")
 @Entity
 @Table(name = "t_users", schema = "iam")
 @NoArgsConstructor
@@ -68,13 +64,12 @@ public class User implements UserDetails {
 
     private Boolean credentialsNonExpired = true;
 
-    @OneToOne
-    @JoinColumn(name = "people_id")
-    private People people;
-
     @ManyToMany(fetch = FetchType.EAGER)
-    @JoinTable(name = "user_roles", joinColumns = @JoinColumn(name = "user_id"), inverseJoinColumns = @JoinColumn(name = "role_id"))
+    @JoinTable(name = "t_user_roles", schema = "iam", joinColumns = @JoinColumn(name = "user_id"), inverseJoinColumns = @JoinColumn(name = "role_id"))
     private Set<Role> roles = new HashSet<>();
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    private Organization organization;
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
