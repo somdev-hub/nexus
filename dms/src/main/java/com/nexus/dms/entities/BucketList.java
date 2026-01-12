@@ -1,5 +1,6 @@
 package com.nexus.dms.entities;
 
+import java.sql.Timestamp;
 import java.util.List;
 
 import jakarta.persistence.Entity;
@@ -24,10 +25,17 @@ public class BucketList {
 
     private String createdBy;
 
-    private String createdAt;
+    private Timestamp createdAt = new Timestamp(System.currentTimeMillis());
 
     private OrgType orgType;
 
     @OneToMany(mappedBy = "bucketList")
     private List<DocumentRecord> documentRecords;
+
+    public BucketList(String bucketName, String region, String createdBy, OrgType orgType) {
+        this.bucketName = bucketName;
+        this.region = region;
+        this.createdBy = createdBy;
+        this.orgType = orgType;
+    }
 }

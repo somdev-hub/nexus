@@ -2,6 +2,7 @@ package com.nexus.dms.entities;
 
 import java.sql.Timestamp;
 
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -25,7 +26,7 @@ public class DocumentRecord {
     @Enumerated(EnumType.STRING)
     private DocumentType documentType;
 
-    private Double documentSize;
+    private Long documentSize;
 
     private String storageLocation;
 
@@ -49,6 +50,6 @@ public class DocumentRecord {
 
     private String remarks;
 
-    @ManyToOne
+    @ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
     private BucketList bucketList;
 }

@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import com.nexus.dms.dto.ErrorResponseDto;
+import com.nexus.dms.dto.FileValidationExceptionDto;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -44,6 +45,19 @@ public class GlobalExceptionHandler {
                 ex.getServiceName(),
                 ex.getServiceMethod());
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+    }
+
+    @ExceptionHandler(FileValidationException.class)
+    public ResponseEntity<FileValidationExceptionDto> handleFileValidationException(FileValidationException ex) {
+        FileValidationExceptionDto dto = new FileValidationExceptionDto();
+        dto.setMessage(ex.getMessage());
+        dto.setStatus(ex.getStatus());
+        dto.setFileExceptionType(ex.getFileExceptionType().name());
+        dto.setFileName(ex.getFileName());
+        dto.setDetails(ex.getDetails());
+        dto.setTimestamp(ex.getTimestamp());
+
+        return ResponseEntity.status(ex.getStatus()).body(dto);
     }
 
 }

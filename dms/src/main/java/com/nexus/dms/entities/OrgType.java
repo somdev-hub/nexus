@@ -4,4 +4,5 @@ public enum OrgType {
     RETAILER,
     SUPPLIER,
     LOGISTICS,
+    COMMON
 }
