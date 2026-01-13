@@ -3,6 +3,8 @@ package com.nexus.dms.service;
 import java.io.IOException;
 
 import org.springframework.http.ResponseEntity;
+
+import com.nexus.dms.dto.CommonFileUploadDto;
 import com.nexus.dms.dto.IndividualFileUploadDto;
 import com.nexus.dms.dto.OrgFileUploadDto;
 
@@ -12,5 +14,5 @@ public interface ImplementerService {
 
     ResponseEntity<?> orgUpload(OrgFileUploadDto orgFileUploadDto) throws IOException;
 
-    ResponseEntity<?> commonUpload();
+    ResponseEntity<?> commonUpload(CommonFileUploadDto commonFileUploadDto) throws IOException;
 }

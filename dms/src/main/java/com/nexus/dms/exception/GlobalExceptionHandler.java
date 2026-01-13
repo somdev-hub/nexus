@@ -60,4 +60,14 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(ex.getStatus()).body(dto);
     }
 
+    @ExceptionHandler(UnauthorizedException.class)
+    public ResponseEntity<ErrorResponseDto> handleUnauthorizedException(UnauthorizedException ex) {
+        ErrorResponseDto errorResponse = new ErrorResponseDto(
+                "Unauthorized",
+                ex.getStatus().value(),
+                ex.getTimestamp(),
+                ex.getMessage(),
+                ex.getDetails());
+        return ResponseEntity.status(ex.getStatus()).body(errorResponse);
+    }
 }

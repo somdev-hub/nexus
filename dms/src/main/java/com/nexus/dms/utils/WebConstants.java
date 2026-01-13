@@ -21,4 +21,10 @@ public class WebConstants {
     @Value("${decrypt.token.url}")
     public String decryptTokenUrl;
 
+    @Value("${s3.endpoint.url}")
+    public String s3Endpoint;
+
+    @Value("${filebase.bucket.url}")
+    public String bucketUrl;
+
 }

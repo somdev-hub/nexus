@@ -8,6 +8,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import com.nexus.dms.dto.UploaderResponse;
 import com.nexus.dms.service.UploaderService;
+import com.nexus.dms.utils.WebConstants;
 
 import software.amazon.awssdk.core.exception.SdkClientException;
 import software.amazon.awssdk.core.sync.RequestBody;
@@ -25,7 +26,8 @@ public class UploaderServiceImpl implements UploaderService {
     @Autowired
     private S3Client s3Client;
 
-    private String endpoint = "https://ipfs.filebase.io/ipfs";
+    @Autowired
+    private WebConstants webConstants;
 
     @Override
     public ResponseEntity<UploaderResponse> uploadFile(MultipartFile file, String fileName, String bucketName)
@@ -71,7 +73,7 @@ public class UploaderServiceImpl implements UploaderService {
     }
 
     private String getFileUrl(String cid) {
-        return String.format("%s/%s", endpoint, cid);
+        return String.format("%s/%s", webConstants.getS3Endpoint(), cid);
     }
 
     // https://ipfs.filebase.io/ipfs/QmVrQV3SjhMH3kScV2Sm2xxfXxpFnKT7sNr85nbkawN365

@@ -25,4 +25,12 @@ public class ErrorResponseDto {
         this.timestamp = timestamp;
         this.description = description;
     }
+
+    public ErrorResponseDto(String exceptionType, int statusCode, Timestamp timestamp, String message, String description) {
+        this.exceptionType = exceptionType;
+        this.message = message;
+        this.statusCode = statusCode;
+        this.timestamp = timestamp;
+        this.description = description;
+    }
 }

@@ -36,7 +36,7 @@ public class DmsLogs {
     @Column(columnDefinition = "jsonb")
     private String response;
 
-    private Long userId;
+    private Long documentRecordId;
 
     private Timestamp createdOn = new Timestamp(System.currentTimeMillis());
 }

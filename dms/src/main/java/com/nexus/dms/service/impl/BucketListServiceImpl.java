@@ -40,8 +40,14 @@ public class BucketListServiceImpl implements BucketListService {
 
     @Override
     public ResponseEntity<?> getBucketLists() {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'getBucketLists'");
+        ResponseEntity<?> response = null;
+        try {
+            List<BucketList> bucketLists = bucketListRepo.findAll();
+            response = ResponseEntity.ok(bucketLists);
+        } catch (Exception e) {
+            response = ResponseEntity.status(500).body("Error retrieving bucket lists: " + e.getMessage());
+        }
+        return response;
     }
 
     @Override

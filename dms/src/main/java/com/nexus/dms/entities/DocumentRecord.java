@@ -44,6 +44,9 @@ public class DocumentRecord {
 
     private Long userId;
 
+    @Enumerated(EnumType.STRING)
+    private UploaderType uploaderType;
+
     private Long orgId;
 
     private String dmsId;

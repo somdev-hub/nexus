@@ -8,11 +8,12 @@ import com.nexus.dms.entities.OrgType;
 import lombok.Data;
 
 @Data
-public class OrgFileUploadDto {
-
+public class CommonFileUploadDto {
     private String fileName;
 
     private Long orgId;
+
+    private Long userId;
 
     private String remarks;
 

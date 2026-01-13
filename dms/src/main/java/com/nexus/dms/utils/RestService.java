@@ -41,7 +41,7 @@ public class RestService {
             log.setRequest(payload.toString());
             log.setResponse(responseEntity != null ? responseEntity.toString() : "No Response");
             log.setResponseStatus(responseEntity != null ? responseEntity.getStatusCode().value() : 0);
-            log.setUserId(userId);
+
             dmsLogsRepo.save(log);
         }
 
