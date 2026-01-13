@@ -8,6 +8,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import com.nexus.dms.dto.UploaderResponse;
 import com.nexus.dms.service.UploaderService;
+import com.nexus.dms.utils.CommonConstants;
 import com.nexus.dms.utils.WebConstants;
 
 import software.amazon.awssdk.core.exception.SdkClientException;
@@ -30,18 +31,20 @@ public class UploaderServiceImpl implements UploaderService {
     private WebConstants webConstants;
 
     @Override
-    public ResponseEntity<UploaderResponse> uploadFile(MultipartFile file, String fileName, String bucketName)
+    public ResponseEntity<UploaderResponse> uploadFile(MultipartFile file, String fileName, String folderPrefix)
             throws IOException {
         byte[] fileBytes = file.getBytes();
         int maxRetries = 3;
         int retryCount = 0;
         boolean uploadSuccessful = false;
+        // Construct the S3 key with folder prefix
+        String s3Key = folderPrefix != null ? folderPrefix + "/" + fileName : fileName;
 
         while (retryCount < maxRetries && !uploadSuccessful) {
             try {
                 PutObjectRequest putObjectRequest = PutObjectRequest.builder()
-                        .bucket(bucketName)
-                        .key(fileName)
+                        .bucket(CommonConstants.MAIN_BUCKET)
+                        .key(s3Key)
                         .build();
 
                 s3Client.putObject(putObjectRequest, RequestBody.fromBytes(fileBytes));
@@ -61,14 +64,15 @@ public class UploaderServiceImpl implements UploaderService {
         }
 
         HeadObjectRequest headObjectRequest = HeadObjectRequest.builder()
-                .bucket(bucketName)
-                .key(fileName)
+                .bucket(CommonConstants.MAIN_BUCKET)
+                .key(s3Key)
                 .build();
 
         HeadObjectResponse headObjectResponse = s3Client.headObject(headObjectRequest);
         String cid = headObjectResponse.metadata().get("cid");
 
-        UploaderResponse response = new UploaderResponse(fileName, cid, getFileUrl(cid), bucketName);
+        UploaderResponse response = new UploaderResponse(fileName, cid, getFileUrl(cid),
+                CommonConstants.MAIN_BUCKET + "/" + folderPrefix);
         return ResponseEntity.ok(response);
     }
 
@@ -84,12 +88,13 @@ public class UploaderServiceImpl implements UploaderService {
         System.out.println(dmsId);
         try {
             // Check if the object exists in the S3 bucket
-            HeadObjectResponse headObject = s3Client.headObject(builder -> builder.bucket(bucketName).key(cid));
+            HeadObjectResponse headObject = s3Client
+                    .headObject(builder -> builder.bucket(CommonConstants.MAIN_BUCKET).key(cid));
             System.out.println("Object exists: " + headObject);
 
             // Use the CID as the key to delete the object from the S3 bucket
             DeleteObjectResponse deleteObject = s3Client
-                    .deleteObject(builder -> builder.bucket(bucketName).key(cid));
+                    .deleteObject(builder -> builder.bucket(CommonConstants.MAIN_BUCKET).key(cid));
             System.out.println(deleteObject);
             return true;
         } catch (NoSuchKeyException e) {

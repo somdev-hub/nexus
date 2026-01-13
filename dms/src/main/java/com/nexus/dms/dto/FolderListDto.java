@@ -3,11 +3,11 @@ package com.nexus.dms.dto;
 import lombok.Data;
 
 @Data
-public class BucketListDto {
+public class FolderListDto {
 
     private Long id;
 
-    private String bucketName;
+    private String folderName;
 
     private String region;
 

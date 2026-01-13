@@ -9,7 +9,8 @@ import com.nexus.dms.dto.UploaderResponse;
 
 public interface UploaderService {
 
-    ResponseEntity<UploaderResponse> uploadFile(MultipartFile file, String fileName, String bucketName) throws IOException;
+    ResponseEntity<UploaderResponse> uploadFile(MultipartFile file, String fileName, String folderPrefix)
+            throws IOException;
 
     Boolean deleteFile(String dmsId, String bucketName);
 }

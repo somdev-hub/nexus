@@ -30,6 +30,12 @@
   </properties>
   <dependencies>
 
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-actuator</artifactId>
+    </dependency>
+
+
     <!-- AWS SDK v2 dependencies -->
     <dependency>
       <groupId>software.amazon.awssdk</groupId>
@@ -78,11 +84,11 @@
       <artifactId>pdfbox</artifactId>
       <version>3.0.0</version>
     </dependency>
-	<dependency>
-	  <groupId>com.fasterxml.jackson.core</groupId>
-	  <artifactId>jackson-databind</artifactId>
-	  <version>2.19.0</version>
-	</dependency>
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-databind</artifactId>
+      <version>2.19.0</version>
+    </dependency>
   </dependencies>
 
   <build>

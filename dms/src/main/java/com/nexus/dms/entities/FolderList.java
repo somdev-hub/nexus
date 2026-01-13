@@ -11,15 +11,15 @@ import jakarta.persistence.Table;
 import lombok.Data;
 
 @Entity
-@Table(name = "t_dms_bucket_lists", schema = "dms")
+@Table(name = "t_dms_folder_lists", schema = "dms")
 @Data
-public class BucketList {
+public class FolderList {
 
     @Id
     @GeneratedValue(strategy = jakarta.persistence.GenerationType.IDENTITY)
     private Long id;
 
-    private String bucketName;
+    private String folderName;
 
     private String region;
 
@@ -29,13 +29,16 @@ public class BucketList {
 
     private OrgType orgType;
 
-    @OneToMany(mappedBy = "bucketList")
+    @OneToMany(mappedBy = "folderList")
     private List<DocumentRecord> documentRecords;
 
-    public BucketList(String bucketName, String region, String createdBy, OrgType orgType) {
-        this.bucketName = bucketName;
+    public FolderList(String folderName, String region, String createdBy, OrgType orgType) {
+        this.folderName = folderName;
         this.region = region;
         this.createdBy = createdBy;
         this.orgType = orgType;
+    }
+
+    public FolderList() {
     }
 }

@@ -17,13 +17,13 @@ import com.nexus.dms.dto.CommonFileUploadDto;
 import com.nexus.dms.dto.IndividualFileUploadDto;
 import com.nexus.dms.dto.OrgFileUploadDto;
 import com.nexus.dms.dto.UploaderResponse;
-import com.nexus.dms.entities.BucketList;
+import com.nexus.dms.entities.FolderList;
 import com.nexus.dms.entities.DocumentRecord;
 import com.nexus.dms.entities.DocumentType;
 import com.nexus.dms.entities.UploaderType;
 import com.nexus.dms.exception.ResourceNotFoundException;
 import com.nexus.dms.exception.ServiceLevelException;
-import com.nexus.dms.repository.BucketListRepo;
+import com.nexus.dms.repository.FolderListRepo;
 import com.nexus.dms.repository.DocumentRecordRepo;
 import com.nexus.dms.service.ImplementerService;
 import com.nexus.dms.service.UploaderService;
@@ -51,17 +51,17 @@ public class ImplementerServiceImpl implements ImplementerService {
     private UploaderService uploaderService;
 
     @Autowired
-    private BucketListRepo bucketListRepo;
+    private FolderListRepo folderListRepo;
 
-    private String determineBucket(String orgType) {
+    private String determineFolderPrefix(String orgType) {
         if (CommonConstants.RETAILER.equalsIgnoreCase(orgType)) {
-            return CommonConstants.RETAILER_BUCKET;
+            return CommonConstants.RETAILER_FOLDER;
         } else if (CommonConstants.SUPPLIER.equalsIgnoreCase(orgType)) {
-            return CommonConstants.SUPPLIER_BUCKET;
+            return CommonConstants.SUPPLIER_FOLDER;
         } else if (CommonConstants.LOGISTICS.equalsIgnoreCase(orgType)) {
-            return CommonConstants.LOGISTICS_BUCKET;
+            return CommonConstants.LOGISTICS_FOLDER;
         }
-        return CommonConstants.COMMON_BUCKET;
+        return CommonConstants.COMMON_FOLDER;
     }
 
     private void setCommonDocumentFields(DocumentRecord documentRecord, MultipartFile file, String fileName,
@@ -80,9 +80,9 @@ public class ImplementerServiceImpl implements ImplementerService {
     }
 
     private ResponseEntity<?> handleFileUploadAndSave(DocumentRecord documentRecord, MultipartFile file,
-            String fileName, String bucket) throws IOException {
+            String fileName, String folderPrefix) throws IOException {
         try {
-            ResponseEntity<UploaderResponse> fileUploaded = uploaderService.uploadFile(file, fileName, bucket);
+            ResponseEntity<UploaderResponse> fileUploaded = uploaderService.uploadFile(file, fileName, folderPrefix);
 
             if (fileUploaded.getStatusCode().is2xxSuccessful() && fileUploaded.getBody() != null) {
                 UploaderResponse uploaderResponse = fileUploaded.getBody();
@@ -90,10 +90,9 @@ public class ImplementerServiceImpl implements ImplementerService {
                 documentRecord.setDocumentUrl(uploaderResponse.getUrl());
                 documentRecord.setStatus("UPLOADED");
 
-                final String BUCKET = bucket;
-                BucketList bucketList = bucketListRepo.findByBucketName(bucket)
-                        .orElseThrow(() -> new ResourceNotFoundException("BucketList", "BucketName", BUCKET));
-                documentRecord.setBucketList(bucketList);
+                FolderList folderList = folderListRepo.findByFolderName(folderPrefix)
+                        .orElseThrow(() -> new ResourceNotFoundException("FolderList", "FolderName", folderPrefix));
+                documentRecord.setFolderList(folderList);
 
                 DocumentRecord savedRecord = documentRecordRepo.save(documentRecord);
                 return ResponseEntity.ok(savedRecord);
@@ -119,11 +118,12 @@ public class ImplementerServiceImpl implements ImplementerService {
                     individualFileUploadDto.getRemarks(), individualFileUploadDto.getDocumentType());
 
             String orgType = fetchOrgTypeForUser(individualFileUploadDto.getUserId(), documentRecord);
-            String bucket = determineBucket(orgType);
+            String folderPrefix = determineFolderPrefix(orgType);
 
-            documentRecord.setStorageLocation(webConstants.getBucketUrl() + bucket);
+            documentRecord
+                    .setStorageLocation(webConstants.getBucketUrl() + CommonConstants.MAIN_BUCKET + "/" + folderPrefix);
             responseEntity = handleFileUploadAndSave(documentRecord, file, individualFileUploadDto.getFileName(),
-                    bucket);
+                    folderPrefix);
 
         } catch (Exception e) {
             throw new ServiceLevelException("ImplementerService", e.getMessage(), "individualUpload",
@@ -176,12 +176,14 @@ public class ImplementerServiceImpl implements ImplementerService {
             setCommonDocumentFields(documentRecord, file, orgFileUploadDto.getFileName(),
                     orgFileUploadDto.getRemarks(), orgFileUploadDto.getDocumentType());
 
-            String bucket = determineBucket(
+            String folderPrefix = determineFolderPrefix(
                     !ObjectUtils.isEmpty(orgFileUploadDto.getOrgType()) ? orgFileUploadDto.getOrgType().name()
                             : null);
 
-            documentRecord.setStorageLocation(webConstants.getBucketUrl() + bucket);
-            responseEntity = handleFileUploadAndSave(documentRecord, file, orgFileUploadDto.getFileName(), bucket);
+            documentRecord
+                    .setStorageLocation(webConstants.getBucketUrl() + CommonConstants.MAIN_BUCKET + "/" + folderPrefix);
+            responseEntity = handleFileUploadAndSave(documentRecord, file, orgFileUploadDto.getFileName(),
+                    folderPrefix);
 
         } catch (Exception e) {
             throw new ServiceLevelException("ImplementerService", e.getMessage(), "orgUpload",
@@ -204,13 +206,14 @@ public class ImplementerServiceImpl implements ImplementerService {
             setCommonDocumentFields(documentRecord, file, commonFileUploadDto.getFileName(),
                     commonFileUploadDto.getRemarks(), commonFileUploadDto.getDocumentType());
 
-            String bucket = determineBucket(
+            String folderPrefix = determineFolderPrefix(
                     !ObjectUtils.isEmpty(commonFileUploadDto.getOrgType()) ? commonFileUploadDto.getOrgType().name()
                             : null);
 
-            documentRecord.setStorageLocation(webConstants.getBucketUrl() + bucket);
+            documentRecord
+                    .setStorageLocation(webConstants.getBucketUrl() + CommonConstants.MAIN_BUCKET + "/" + folderPrefix);
             responseEntity = handleFileUploadAndSave(documentRecord, file, commonFileUploadDto.getFileName(),
-                    bucket);
+                    folderPrefix);
 
         } catch (Exception e) {
             throw new ServiceLevelException("ImplementerService", e.getMessage(), "commonUpload",

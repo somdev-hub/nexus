@@ -24,10 +24,12 @@ public class CommonConstants {
     public static final String MULTIPART_FORM_DATA = "multipart/form-data";
     public static final String X_WWW_URL_ENCODED = "application/x-www-form-urlencoded";
 
-    public static final String RETAILER_BUCKET = "nexus-retailer-dms-bucket";
-    public static final String SUPPLIER_BUCKET = "nexus-supplier-dms-bucket";
-    public static final String LOGISTICS_BUCKET = "nexus-logistics-dms-bucket";
-    public static final String COMMON_BUCKET = "nexus-common-dms-bucket";
+    // Single bucket for all file types with folder structure
+    public static final String MAIN_BUCKET = "nexus-scm";
+    public static final String RETAILER_FOLDER = "nexus-retailer-dms-folder";
+    public static final String SUPPLIER_FOLDER = "nexus-supplier-dms-folder";
+    public static final String LOGISTICS_FOLDER = "nexus-logistics-dms-folder";
+    public static final String COMMON_FOLDER = "nexus-common-dms-folder";
 
     public static final String RETAILER = "RETAILER";
     public static final String SUPPLIER = "SUPPLIER";

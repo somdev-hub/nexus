@@ -54,5 +54,5 @@ public class DocumentRecord {
     private String remarks;
 
     @ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
-    private BucketList bucketList;
+    private FolderList folderList;
 }
