@@ -11,31 +11,43 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import com.nexus.dms.dto.ErrorResponseDto;
 import com.nexus.dms.dto.FileValidationExceptionDto;
 
+import jakarta.servlet.http.HttpServletRequest;
+
+/**
+ * Global exception handler for the application
+ *
+ * IMPORTANT: Logging is handled by ActivityLoggingAspect
+ * This handler only transforms exceptions into HTTP responses
+ * We do NOT log here to avoid duplicate logging
+ */
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
     // 4xx
     @ExceptionHandler(IllegalArgumentException.class)
-    public ErrorResponseDto handleIllegalArgumentException(IllegalArgumentException ex) {
-        return new ErrorResponseDto(
+    public ResponseEntity<ErrorResponseDto> handleIllegalArgumentException(IllegalArgumentException ex, HttpServletRequest request) {
+        ErrorResponseDto errorResponse = new ErrorResponseDto(
                 "Bad Request",
                 HttpStatus.BAD_REQUEST.value(),
                 Timestamp.valueOf(LocalDateTime.now()),
                 ex.getMessage());
+
+        return ResponseEntity.badRequest().body(errorResponse);
     }
 
     @ExceptionHandler(ResourceNotFoundException.class)
-    public ResponseEntity<ErrorResponseDto> handleResourceNotFoundException(ResourceNotFoundException ex) {
+    public ResponseEntity<ErrorResponseDto> handleResourceNotFoundException(ResourceNotFoundException ex, HttpServletRequest request) {
         ErrorResponseDto errorResponse = new ErrorResponseDto(
                 "Resource Not Found",
                 HttpStatus.NOT_FOUND.value(),
                 Timestamp.valueOf(LocalDateTime.now()),
                 ex.getMessage());
+
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
     }
 
     @ExceptionHandler(ServiceLevelException.class)
-    public ResponseEntity<ErrorResponseDto> handleServiceLevelException(ServiceLevelException ex) {
+    public ResponseEntity<ErrorResponseDto> handleServiceLevelException(ServiceLevelException ex, HttpServletRequest request) {
         ErrorResponseDto errorResponse = new ErrorResponseDto(
                 ex.getExceptionType(),
                 ex.getStatusCode(),
@@ -44,11 +56,12 @@ public class GlobalExceptionHandler {
                 ex.getDescription(),
                 ex.getServiceName(),
                 ex.getServiceMethod());
+
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
     }
 
     @ExceptionHandler(FileValidationException.class)
-    public ResponseEntity<FileValidationExceptionDto> handleFileValidationException(FileValidationException ex) {
+    public ResponseEntity<FileValidationExceptionDto> handleFileValidationException(FileValidationException ex, HttpServletRequest request) {
         FileValidationExceptionDto dto = new FileValidationExceptionDto();
         dto.setMessage(ex.getMessage());
         dto.setStatus(ex.getStatus());
@@ -61,13 +74,14 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(UnauthorizedException.class)
-    public ResponseEntity<ErrorResponseDto> handleUnauthorizedException(UnauthorizedException ex) {
+    public ResponseEntity<ErrorResponseDto> handleUnauthorizedException(UnauthorizedException ex, HttpServletRequest request) {
         ErrorResponseDto errorResponse = new ErrorResponseDto(
                 "Unauthorized",
                 ex.getStatus().value(),
                 ex.getTimestamp(),
                 ex.getMessage(),
                 ex.getDetails());
+
         return ResponseEntity.status(ex.getStatus()).body(errorResponse);
     }
 }

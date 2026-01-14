@@ -9,7 +9,7 @@ import lombok.Data;
 @Data
 public class IndividualFileUploadDto {
 
-    private MultipartFile file;
+//    private MultipartFile file;
 
     private String fileName;
 

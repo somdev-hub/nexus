@@ -12,6 +12,7 @@ import java.util.Map;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.util.ObjectUtils;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -55,8 +56,11 @@ public class AuthController {
     }
 
     @PostMapping("/verify")
-    public ResponseEntity<?> verifyToken(@RequestBody String token) {
-        Map<String, String> result = authenticationService.verifyToken(token);
+    public ResponseEntity<?> verifyToken(@RequestBody Map<String, String> token) {
+        if (ObjectUtils.isEmpty(token) || !token.containsKey("token")) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Token is required");
+        }
+        Map<String, String> result = authenticationService.verifyToken(token.get("token"));
         return ResponseEntity.ok(result);
     }
 

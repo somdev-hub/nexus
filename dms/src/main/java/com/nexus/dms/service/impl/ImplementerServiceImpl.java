@@ -105,10 +105,10 @@ public class ImplementerServiceImpl implements ImplementerService {
     }
 
     @Override
-    public ResponseEntity<?> individualUpload(IndividualFileUploadDto individualFileUploadDto) throws IOException {
+    public ResponseEntity<?> individualUpload(IndividualFileUploadDto individualFileUploadDto, MultipartFile file) throws IOException {
         ResponseEntity<?> responseEntity = null;
         try {
-            MultipartFile file = individualFileUploadDto.getFile();
+//            MultipartFile file = individualFileUploadDto.getFile();
             commonUtils.validateFile(file);
             DocumentRecord documentRecord = new DocumentRecord();
             documentRecord.setUploaderType(UploaderType.INDIVIDUAL);

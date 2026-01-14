@@ -3,9 +3,7 @@ package com.nexus.dms.controller;
 import java.sql.Timestamp;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.*;
 import org.springframework.util.ObjectUtils;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -32,7 +30,7 @@ public class FolderListController {
     @Autowired
     private CommonUtils commonUtils;
 
-    @GetMapping("/set-default-folders")
+    @GetMapping(value = "/set-default-folders")
     public ResponseEntity<?> setFolders(@RequestHeader("Authorization") String authHeader)
             throws JsonProcessingException {
         if (ObjectUtils.isEmpty(authHeader) || !commonUtils.validateToken(authHeader)) {
@@ -45,7 +43,7 @@ public class FolderListController {
         } catch (Exception e) {
             ErrorResponseDto errorResponse = new ErrorResponseDto(
                     "Internal Server Error",
-                    500,
+                    HttpStatus.INTERNAL_SERVER_ERROR.value(),
                     new Timestamp(System.currentTimeMillis()),
                     "An error occurred during setting folders",
                     e.getMessage());
@@ -55,6 +53,33 @@ public class FolderListController {
             logger.saveLogs("/folder-list/set-default-folders", HttpMethod.GET, status, null,
                     response != null ? response.getBody() : null, 0L);
         }
+        return response;
+    }
+
+    @GetMapping("/get-folders")
+    public ResponseEntity<?> getFolders(@RequestHeader("Authorization") String authHeader)
+            throws JsonProcessingException {
+        if (ObjectUtils.isEmpty(authHeader) || !commonUtils.validateToken(authHeader)) {
+            throw new UnauthorizedException("Unauthorized! Please use credentials", "Unable to validate token");
+        }
+        ResponseEntity<?> response = null;
+        try {
+            response = folderListService.getFolderLists();
+        } catch (Exception e) {
+            ErrorResponseDto errorResponse = new ErrorResponseDto(
+                    "Internal Server Error",
+                    HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                    new Timestamp(System.currentTimeMillis()),
+                    "An error occurred during fetching folders",
+                    e.getMessage());
+            response = ResponseEntity.status(500).body(errorResponse);
+        } finally {
+            HttpStatus status = response != null ? HttpStatus.valueOf(response.getStatusCode().value()) : null;
+            logger.saveLogs("/folder-list/get-folders", HttpMethod.GET, status, null,
+                    response != null ? response.getBody() : null, 0L);
+
+        }
+
         return response;
     }
 
