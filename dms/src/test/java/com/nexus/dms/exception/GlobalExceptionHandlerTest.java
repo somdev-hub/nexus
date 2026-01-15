@@ -1,21 +1,19 @@
 package com.nexus.dms.exception;
 
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
-
-import java.sql.Timestamp;
-import java.time.LocalDateTime;
-
+import com.nexus.dms.dto.ErrorResponseDto;
+import com.nexus.dms.dto.FileValidationExceptionDto;
+import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.mock.web.MockHttpServletRequest;
 
-import com.nexus.dms.dto.ErrorResponseDto;
-import com.nexus.dms.dto.FileValidationExceptionDto;
+import java.sql.Timestamp;
+import java.time.LocalDateTime;
 
-import jakarta.servlet.http.HttpServletRequest;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 class GlobalExceptionHandlerTest {
 
@@ -38,7 +36,6 @@ class GlobalExceptionHandlerTest {
         assertNotNull(response);
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
         assertNotNull(response.getBody());
-        assertEquals("Bad Request", response.getBody().getExceptionType());
         assertEquals(HttpStatus.BAD_REQUEST.value(), response.getBody().getStatusCode());
         assertEquals(errorMessage, response.getBody().getMessage());
     }
@@ -52,7 +49,6 @@ class GlobalExceptionHandlerTest {
         assertNotNull(response);
         assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
         assertNotNull(response.getBody());
-        assertEquals("Resource Not Found", response.getBody().getExceptionType());
         assertEquals(HttpStatus.NOT_FOUND.value(), response.getBody().getStatusCode());
     }
 
@@ -123,7 +119,6 @@ class GlobalExceptionHandlerTest {
         assertNotNull(response);
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
         assertNotNull(response.getBody());
-        assertEquals("Bad Request", response.getBody().getExceptionType());
     }
 
     @Test

@@ -15,7 +15,7 @@ import jakarta.servlet.http.HttpServletRequest;
 
 /**
  * Global exception handler for the application
- *
+ * <p>
  * IMPORTANT: Logging is handled by ActivityLoggingAspect
  * This handler only transforms exceptions into HTTP responses
  * We do NOT log here to avoid duplicate logging
@@ -27,7 +27,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ErrorResponseDto> handleIllegalArgumentException(IllegalArgumentException ex, HttpServletRequest request) {
         ErrorResponseDto errorResponse = new ErrorResponseDto(
-                "Bad Request",
+                ex.getMessage(),
                 HttpStatus.BAD_REQUEST.value(),
                 Timestamp.valueOf(LocalDateTime.now()),
                 ex.getMessage());
@@ -49,13 +49,13 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ServiceLevelException.class)
     public ResponseEntity<ErrorResponseDto> handleServiceLevelException(ServiceLevelException ex, HttpServletRequest request) {
         ErrorResponseDto errorResponse = new ErrorResponseDto(
-                ex.getExceptionType(),
+                ex.getMessage(),
                 ex.getStatusCode(),
                 ex.getTimestamp(),
-                ex.getMessage(),
                 ex.getDescription(),
                 ex.getServiceName(),
-                ex.getServiceMethod());
+                ex.getServiceMethod(),
+                ex.getExceptionType());
 
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
     }

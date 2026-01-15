@@ -24,7 +24,7 @@ class CommonUtilsTest {
 
     @BeforeEach
     void setUp() {
-        commonUtils = new CommonUtils();
+        commonUtils = new CommonUtils(new WebConstants());
     }
 
     @Test

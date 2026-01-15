@@ -27,4 +27,10 @@ public class WebConstants {
     @Value("${filebase.bucket.url}")
     public String bucketUrl;
 
+    @Value("${generic.user.id}")
+    public String genericUserId;
+
+    @Value("${generic.password}")
+    public String genericPassword;
+
 }

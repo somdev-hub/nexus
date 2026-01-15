@@ -33,7 +33,7 @@ public class FolderListController {
     @GetMapping(value = "/set-default-folders")
     public ResponseEntity<?> setFolders(@RequestHeader("Authorization") String authHeader)
             throws JsonProcessingException {
-        if (ObjectUtils.isEmpty(authHeader) || !commonUtils.validateToken(authHeader)) {
+        if (ObjectUtils.isEmpty(authHeader) || commonUtils.validateToken(authHeader)) {
             throw new UnauthorizedException("Unauthorized! Please use credentials", "Unable to validate token");
         }
         ResponseEntity<?> response = null;
@@ -59,7 +59,7 @@ public class FolderListController {
     @GetMapping("/get-folders")
     public ResponseEntity<?> getFolders(@RequestHeader("Authorization") String authHeader)
             throws JsonProcessingException {
-        if (ObjectUtils.isEmpty(authHeader) || !commonUtils.validateToken(authHeader)) {
+        if (ObjectUtils.isEmpty(authHeader) || commonUtils.validateToken(authHeader)) {
             throw new UnauthorizedException("Unauthorized! Please use credentials", "Unable to validate token");
         }
         ResponseEntity<?> response = null;

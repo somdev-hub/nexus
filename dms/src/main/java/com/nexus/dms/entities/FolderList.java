@@ -3,12 +3,14 @@ package com.nexus.dms.entities;
 import java.sql.Timestamp;
 import java.util.List;
 
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.Id;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import lombok.Data;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 
 @Entity
 @Table(name = "t_dms_folder_lists", schema = "dms")
@@ -29,7 +31,8 @@ public class FolderList {
 
     private OrgType orgType;
 
-    @OneToMany(mappedBy = "folderList")
+    @OneToMany(mappedBy = "folderList", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonManagedReference
     private List<DocumentRecord> documentRecords;
 
     public FolderList(String folderName, String region, String createdBy, OrgType orgType) {

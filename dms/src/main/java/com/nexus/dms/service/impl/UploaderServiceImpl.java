@@ -1,9 +1,11 @@
 package com.nexus.dms.service.impl;
 
 import java.io.IOException;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.util.ObjectUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.nexus.dms.dto.UploaderResponse;
@@ -24,11 +26,14 @@ import software.amazon.awssdk.services.s3.model.S3Exception;
 @Service
 public class UploaderServiceImpl implements UploaderService {
 
-    @Autowired
-    private S3Client s3Client;
+    private final S3Client s3Client;
 
-    @Autowired
-    private WebConstants webConstants;
+    private final WebConstants webConstants;
+
+    public UploaderServiceImpl(S3Client s3Client, WebConstants webConstants) {
+        this.s3Client = s3Client;
+        this.webConstants = webConstants;
+    }
 
     @Override
     public ResponseEntity<UploaderResponse> uploadFile(MultipartFile file, String fileName, String folderPrefix)
@@ -40,7 +45,7 @@ public class UploaderServiceImpl implements UploaderService {
         // Construct the S3 key with folder prefix
         String s3Key = folderPrefix != null ? folderPrefix + "/" + fileName : fileName;
 
-        while (retryCount < maxRetries && !uploadSuccessful) {
+        while (!uploadSuccessful) {
             try {
                 PutObjectRequest putObjectRequest = PutObjectRequest.builder()
                         .bucket(CommonConstants.MAIN_BUCKET)
@@ -85,23 +90,22 @@ public class UploaderServiceImpl implements UploaderService {
     public Boolean deleteFile(String dmsId, String bucketName) {
         // Extract the CID from the URL
         String cid = dmsId.substring(dmsId.lastIndexOf("/") + 1);
-        System.out.println(dmsId);
+
         try {
             // Check if the object exists in the S3 bucket
             HeadObjectResponse headObject = s3Client
                     .headObject(builder -> builder.bucket(CommonConstants.MAIN_BUCKET).key(cid));
-            System.out.println("Object exists: " + headObject);
 
             // Use the CID as the key to delete the object from the S3 bucket
-            DeleteObjectResponse deleteObject = s3Client
-                    .deleteObject(builder -> builder.bucket(CommonConstants.MAIN_BUCKET).key(cid));
-            System.out.println(deleteObject);
-            return true;
-        } catch (NoSuchKeyException e) {
-            System.out.println("Object does not exist.");
+            if (!ObjectUtils.isEmpty(headObject)) {
+                DeleteObjectResponse deleteObject = s3Client
+                        .deleteObject(builder -> builder.bucket(CommonConstants.MAIN_BUCKET).key(cid));
+
+                return !ObjectUtils.isEmpty(deleteObject);
+
+            }
             return false;
-        } catch (S3Exception e) {
-            System.out.println(e.getMessage());
+        } catch (S3Exception _) {
             return false;
         }
     }

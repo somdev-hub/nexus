@@ -2,6 +2,8 @@ package com.nexus.dms.dto;
 
 import lombok.Data;
 
+import java.util.List;
+
 @Data
 public class FolderListDto {
 
@@ -16,5 +18,7 @@ public class FolderListDto {
     private String createdAt;
 
     private String orgType;
+
+    private List<DocumentRecordForFolderDto> documentRecords;
 
 }

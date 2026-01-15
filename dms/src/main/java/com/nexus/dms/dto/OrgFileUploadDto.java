@@ -16,7 +16,7 @@ public class OrgFileUploadDto {
 
     private String remarks;
 
-    private MultipartFile file;
+//    private MultipartFile file;
 
     private DocumentType documentType;
 

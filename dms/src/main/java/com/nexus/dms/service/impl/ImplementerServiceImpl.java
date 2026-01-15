@@ -7,6 +7,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.util.ObjectUtils;
@@ -35,23 +36,26 @@ import com.nexus.dms.utils.WebConstants;
 @Service
 public class ImplementerServiceImpl implements ImplementerService {
 
-    @Autowired
-    private DocumentRecordRepo documentRecordRepo;
+    private final DocumentRecordRepo documentRecordRepo;
 
-    @Autowired
-    private WebConstants webConstants;
+    private final WebConstants webConstants;
 
-    @Autowired
-    private CommonUtils commonUtils;
+    private final CommonUtils commonUtils;
 
-    @Autowired
-    private RestService restService;
+    private final RestService restService;
 
-    @Autowired
-    private UploaderService uploaderService;
+    private final UploaderService uploaderService;
 
-    @Autowired
-    private FolderListRepo folderListRepo;
+    private final FolderListRepo folderListRepo;
+
+    public ImplementerServiceImpl(DocumentRecordRepo documentRecordRepo, WebConstants webConstants, CommonUtils commonUtils, RestService restService, UploaderService uploaderService, FolderListRepo folderListRepo) {
+        this.documentRecordRepo = documentRecordRepo;
+        this.webConstants = webConstants;
+        this.commonUtils = commonUtils;
+        this.restService = restService;
+        this.uploaderService = uploaderService;
+        this.folderListRepo = folderListRepo;
+    }
 
     private String determineFolderPrefix(String orgType) {
         if (CommonConstants.RETAILER.equalsIgnoreCase(orgType)) {
@@ -84,18 +88,22 @@ public class ImplementerServiceImpl implements ImplementerService {
         try {
             ResponseEntity<UploaderResponse> fileUploaded = uploaderService.uploadFile(file, fileName, folderPrefix);
 
-            if (fileUploaded.getStatusCode().is2xxSuccessful() && fileUploaded.getBody() != null) {
+            if (fileUploaded.getStatusCode().is2xxSuccessful() && !ObjectUtils.isEmpty(fileUploaded.getBody())) {
                 UploaderResponse uploaderResponse = fileUploaded.getBody();
-                documentRecord.setDmsId(uploaderResponse.getDmsId());
-                documentRecord.setDocumentUrl(uploaderResponse.getUrl());
-                documentRecord.setStatus("UPLOADED");
+                if (!ObjectUtils.isEmpty(uploaderResponse)) {
+                    documentRecord.setDmsId(uploaderResponse.getDmsId());
+                    documentRecord.setDocumentUrl(uploaderResponse.getUrl());
+                    documentRecord.setStatus("UPLOADED");
 
-                FolderList folderList = folderListRepo.findByFolderName(folderPrefix)
-                        .orElseThrow(() -> new ResourceNotFoundException("FolderList", "FolderName", folderPrefix));
-                documentRecord.setFolderList(folderList);
+                    FolderList folderList = folderListRepo.findByFolderName(folderPrefix)
+                            .orElseThrow(() -> new ResourceNotFoundException("FolderList", "FolderName", folderPrefix));
+                    documentRecord.setFolderList(folderList);
 
-                DocumentRecord savedRecord = documentRecordRepo.save(documentRecord);
-                return ResponseEntity.ok(savedRecord);
+                    DocumentRecord savedRecord = documentRecordRepo.save(documentRecord);
+                    return ResponseEntity.ok(savedRecord);
+                }
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                        .body("File upload response body is empty");
             } else {
                 return ResponseEntity.status(fileUploaded.getStatusCode()).body("File upload failed");
             }
@@ -108,7 +116,6 @@ public class ImplementerServiceImpl implements ImplementerService {
     public ResponseEntity<?> individualUpload(IndividualFileUploadDto individualFileUploadDto, MultipartFile file) throws IOException {
         ResponseEntity<?> responseEntity = null;
         try {
-//            MultipartFile file = individualFileUploadDto.getFile();
             commonUtils.validateFile(file);
             DocumentRecord documentRecord = new DocumentRecord();
             documentRecord.setUploaderType(UploaderType.INDIVIDUAL);
@@ -164,10 +171,9 @@ public class ImplementerServiceImpl implements ImplementerService {
     }
 
     @Override
-    public ResponseEntity<?> orgUpload(OrgFileUploadDto orgFileUploadDto) throws IOException {
+    public ResponseEntity<?> orgUpload(OrgFileUploadDto orgFileUploadDto, MultipartFile file) throws IOException {
         ResponseEntity<?> responseEntity = null;
         try {
-            MultipartFile file = orgFileUploadDto.getFile();
             commonUtils.validateFile(file);
             DocumentRecord documentRecord = new DocumentRecord();
             documentRecord.setOrgId(orgFileUploadDto.getOrgId());
@@ -193,10 +199,9 @@ public class ImplementerServiceImpl implements ImplementerService {
     }
 
     @Override
-    public ResponseEntity<?> commonUpload(CommonFileUploadDto commonFileUploadDto) throws IOException {
+    public ResponseEntity<?> commonUpload(CommonFileUploadDto commonFileUploadDto, MultipartFile file) throws IOException {
         ResponseEntity<?> responseEntity = null;
         try {
-            MultipartFile file = commonFileUploadDto.getFile();
             commonUtils.validateFile(file);
             DocumentRecord documentRecord = new DocumentRecord();
             documentRecord.setUserId(commonFileUploadDto.getUserId());

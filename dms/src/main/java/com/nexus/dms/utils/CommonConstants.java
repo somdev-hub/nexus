@@ -18,7 +18,7 @@ public class CommonConstants {
     public static final String JPG_VALUE = "image/jpg";
     public static final String PNG_VALUE = "image/png";
 
-    public static final String AUTHORIZATION = "Authorization Bearer ";
+    public static final String AUTHORIZATION = "Authorization";
     public static final String CONTENT_TYPE = "Content-Type";
     public static final String APPLICATION_JSON = "application/json";
     public static final String MULTIPART_FORM_DATA = "multipart/form-data";
@@ -35,4 +35,6 @@ public class CommonConstants {
     public static final String SUPPLIER = "SUPPLIER";
     public static final String LOGISTICS = "LOGISTICS";
 
+    public static final String US_EAST_1 = "us-east-1";
+    public static final String DEFAULT_USER = "Default User";
 }

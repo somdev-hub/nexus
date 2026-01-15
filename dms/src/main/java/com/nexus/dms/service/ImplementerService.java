@@ -13,7 +13,7 @@ public interface ImplementerService {
 
     ResponseEntity<?> individualUpload(IndividualFileUploadDto individualFileUploadDto, MultipartFile file) throws IOException;
 
-    ResponseEntity<?> orgUpload(OrgFileUploadDto orgFileUploadDto) throws IOException;
+    ResponseEntity<?> orgUpload(OrgFileUploadDto orgFileUploadDto, MultipartFile file) throws IOException;
 
-    ResponseEntity<?> commonUpload(CommonFileUploadDto commonFileUploadDto) throws IOException;
+    ResponseEntity<?> commonUpload(CommonFileUploadDto commonFileUploadDto, MultipartFile file) throws IOException;
 }
