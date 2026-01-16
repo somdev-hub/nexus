@@ -1,5 +1,6 @@
 package com.nexus.iam.controller;
 
+import com.nexus.iam.annotation.LogActivity;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -16,6 +17,7 @@ public class UserController {
     @Autowired
     private UserService userService;
 
+    @LogActivity("Add User")
     @PostMapping("/add")
     public ResponseEntity<?> addUser(@RequestBody UserProfileDto user) {
 
@@ -26,6 +28,7 @@ public class UserController {
         return userService.createUser(user);
     }
 
+    @LogActivity("Get All Employees")
     @GetMapping("/employees")
     public ResponseEntity<?> getAllEmployees(@RequestParam(value = "orgId", required = true) Long orgId,
                                              @RequestParam(
@@ -33,8 +36,8 @@ public class UserController {
                                              ) Integer page,
                                              @RequestParam(value = "pageOffset", defaultValue = "10", required = false) Integer pageOffset
     ) {
-        if(ObjectUtils.isEmpty(orgId)){
-            return new ResponseEntity<>("Org id must not be null",HttpStatus.BAD_REQUEST);
+        if (ObjectUtils.isEmpty(orgId)) {
+            return new ResponseEntity<>("Org id must not be null", HttpStatus.BAD_REQUEST);
         }
 
         return userService.getAllEmployees(orgId, page, pageOffset);

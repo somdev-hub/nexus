@@ -1,38 +1,43 @@
 package com.nexus.iam.service.impl;
 
-import java.sql.Timestamp;
-import java.util.ArrayList;
-import java.util.List;
-
+import com.nexus.iam.dto.OrganizationDto;
 import com.nexus.iam.dto.OrganizationFetchDto;
+import com.nexus.iam.entities.Organization;
+import com.nexus.iam.entities.Role;
+import com.nexus.iam.entities.User;
+import com.nexus.iam.exception.ResourceNotFoundException;
+import com.nexus.iam.exception.ServiceLevelException;
 import com.nexus.iam.repository.OrganizationRepository;
 import com.nexus.iam.repository.RoleRepository;
 import com.nexus.iam.repository.UserRepository;
+import com.nexus.iam.service.OrganizationService;
 import org.modelmapper.ModelMapper;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.ObjectUtils;
 
-import com.nexus.iam.dto.OrganizationDto;
-import com.nexus.iam.entities.Organization;
-import com.nexus.iam.entities.User;
-import com.nexus.iam.exception.ResourceNotFoundException;
-import com.nexus.iam.service.OrganizationService;
+import java.sql.Timestamp;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 @Service
 public class OrganizationServiceImpl implements OrganizationService {
 
-    @Autowired
-    private OrganizationRepository organizationRepository;
+    private final OrganizationRepository organizationRepository;
 
-    @Autowired
-    private ModelMapper modelMapper;
+    private final ModelMapper modelMapper;
 
-    @Autowired
-    private RoleRepository roleRepository;
+    private final RoleRepository roleRepository;
 
-    @Autowired
-    private UserRepository userRepository;
+    private final UserRepository userRepository;
+
+    public OrganizationServiceImpl(OrganizationRepository organizationRepository, ModelMapper modelMapper, RoleRepository roleRepository, UserRepository userRepository) {
+        this.organizationRepository = organizationRepository;
+        this.modelMapper = modelMapper;
+        this.roleRepository = roleRepository;
+        this.userRepository = userRepository;
+    }
 
     @Override
     public OrganizationDto createOrganization(OrganizationDto organizationDto, Long userId) {
@@ -42,7 +47,7 @@ public class OrganizationServiceImpl implements OrganizationService {
         if (ObjectUtils.isEmpty(organizationDto.getOrgName())) {
             throw new IllegalArgumentException("Organization name is required");
         }
-        if (organizationRepository.existsByOrgName(organizationDto.getOrgName())) {
+        if (Boolean.TRUE.equals(organizationRepository.existsByOrgName(organizationDto.getOrgName()))) {
             throw new IllegalArgumentException(
                     "Organization with name already exists: " + organizationDto.getOrgName());
         }
@@ -98,12 +103,10 @@ public class OrganizationServiceImpl implements OrganizationService {
         Organization organization = organizationRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Organization", "id", id));
 
-        if (!ObjectUtils.isEmpty(organizationDto.getOrgName()) &&
-                !organizationDto.getOrgName().equals(organization.getOrgName()) &&
-                organizationRepository.existsByOrgName(organizationDto.getOrgName())) {
-            throw new IllegalArgumentException(
-                    "Organization with name already exists: " + organizationDto.getOrgName());
-        }
+        if (Boolean.TRUE.equals(organizationRepository.existsByOrgName(organizationDto.getOrgName())) && !ObjectUtils.isEmpty(organizationDto.getOrgName()) && !organizationDto.getOrgName().equals(organization.getOrgName())) {
+                throw new IllegalArgumentException(
+                        "Organization with name already exists: " + organizationDto.getOrgName());
+            }
 
         modelMapper.map(organizationDto, organization);
         Organization updatedOrganization = organizationRepository.save(organization);
@@ -161,6 +164,29 @@ public class OrganizationServiceImpl implements OrganizationService {
         if (user.getOrganization() != null && user.getOrganization().getId().equals(orgId)) {
             user.setOrganization(null);
             userRepository.save(user);
+        }
+    }
+
+    @Override
+    public Map<String, Object> getUserOrganizationDetails(Long userId) {
+        try {
+            Map<String, Object> result = new HashMap<>();
+            User user = userRepository.findById(userId)
+                    .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
+            Organization organization = user.getOrganization();
+            if (organization == null) {
+                throw new ResourceNotFoundException("Organization", "userId", userId);
+            }
+            result.put("orgName", organization.getOrgName());
+            result.put("orgId", organization.getId());
+            result.put("userRoles", user.getRoles().stream().map(Role::getName).toList());
+            result.put("orgType", organization.getOrgType());
+            return result;
+        } catch (ServiceLevelException e) {
+            throw new ServiceLevelException(
+                    "OrganizationService", "Failed to get user organization details", "getUserOrganizationDetails",
+                    e.getClass().getSimpleName(), e.getLocalizedMessage()
+            );
         }
     }
 }

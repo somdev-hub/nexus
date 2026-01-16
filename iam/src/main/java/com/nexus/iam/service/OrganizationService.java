@@ -6,6 +6,7 @@ import com.nexus.iam.entities.Organization;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Map;
 
 @Service
 public interface OrganizationService {
@@ -24,4 +25,6 @@ public interface OrganizationService {
     void assignMemberToOrganization(Long orgId, Long memberId);
 
     void removeMemberFromOrganization(Long orgId, Long memberId);
+
+    Map<String, Object> getUserOrganizationDetails(Long userId);
 }

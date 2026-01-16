@@ -1,0 +1,64 @@
+package com.nexus.iam.utils;
+
+import com.nexus.iam.entities.Logs;
+import com.nexus.iam.repository.LogsRepo;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Service;
+import org.springframework.util.ObjectUtils;
+import org.springframework.web.client.RestClient;
+
+import java.util.Map;
+
+@Service
+public class RestService {
+    private final LogsRepo logsRepo;
+
+    private final CommonUtils commonUtils;
+
+    public RestService(LogsRepo logsRepo, CommonUtils commonUtils) {
+        this.logsRepo = logsRepo;
+        this.commonUtils = commonUtils;
+    }
+
+    public ResponseEntity<?> iamRestCall(String url, Object payload, Map<String, String> headers,
+                                         HttpMethod method, Long userId) {
+        ResponseEntity<?> responseEntity = null;
+        try {
+            RestClient restClient = RestClient.create();
+            RestClient.RequestBodySpec request = restClient.method(method).uri(url);
+
+            if (headers != null) {
+                headers.forEach(request::header);
+            }
+
+            if (ObjectUtils.isEmpty(payload)) {
+                responseEntity = request.retrieve().toEntity(Object.class);
+            } else {
+                responseEntity = request.body(payload).retrieve().toEntity(Object.class);
+            }
+        } catch (Exception e) {
+            responseEntity = new ResponseEntity<>("Exception occurred during REST call: " + e.getMessage(),
+                    HttpStatus.INTERNAL_SERVER_ERROR);
+        } finally {
+            Logs log = new Logs();
+            log.setRequestUrl(url);
+            log.setHttpMethod(method.name());
+            log.setRequest(payload != null ? payload.toString() : null);
+            if (responseEntity != null) {
+                Object respBody = responseEntity.getBody();
+                String responseString = respBody != null ? respBody.toString() : null;
+                if (responseString != null) {
+                    log.setResponse(commonUtils.jsonValidator(responseString));
+                }
+                log.setResponseStatus(responseEntity.getStatusCode().value());
+            }
+            log.setUserId(userId != null ? userId : 0L);
+
+            logsRepo.save(log);
+        }
+
+        return responseEntity;
+    }
+}

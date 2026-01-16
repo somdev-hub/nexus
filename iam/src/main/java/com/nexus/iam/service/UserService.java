@@ -4,6 +4,7 @@ import org.springframework.http.ResponseEntity;
 
 import com.nexus.iam.dto.UserProfileDto;
 import com.nexus.iam.dto.UserRegisterDto;
+import org.springframework.web.multipart.MultipartFile;
 
 public interface UserService {
     ResponseEntity<?> getUserById(Long userId);
@@ -17,5 +18,7 @@ public interface UserService {
     ResponseEntity<?> getAllUsers(int page, int size);
 
     ResponseEntity<?> getAllEmployees(Long orgId, Integer page, Integer pageOffset);
+
+    ResponseEntity<?> updateProfilePhoto(MultipartFile file, Long userId);
 
 }

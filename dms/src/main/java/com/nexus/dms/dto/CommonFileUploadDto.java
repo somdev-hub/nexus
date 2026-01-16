@@ -17,8 +17,6 @@ public class CommonFileUploadDto {
 
     private String remarks;
 
-//    private MultipartFile file;
-
     private DocumentType documentType;
 
     private OrgType orgType;

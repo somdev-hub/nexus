@@ -1,44 +1,65 @@
 package com.nexus.iam.service.impl;
 
-import java.sql.Timestamp;
-import java.util.HashMap;
-import java.util.Map;
-
-import com.nexus.iam.repository.OrganizationRepository;
-import com.nexus.iam.repository.RoleRepository;
-import org.modelmapper.ModelMapper;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.http.ResponseEntity;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.stereotype.Service;
-
+import com.nexus.iam.dto.LoginRequest;
+import com.nexus.iam.dto.LoginResponse;
 import com.nexus.iam.dto.UserProfileDto;
 import com.nexus.iam.dto.UserRegisterDto;
 import com.nexus.iam.entities.User;
 import com.nexus.iam.exception.ResourceNotFoundException;
 import com.nexus.iam.exception.ServiceLevelException;
+import com.nexus.iam.repository.OrganizationRepository;
+import com.nexus.iam.repository.RoleRepository;
 import com.nexus.iam.repository.UserRepository;
+import com.nexus.iam.service.AuthenticationService;
 import com.nexus.iam.service.UserService;
+import com.nexus.iam.utils.CommonConstants;
+import com.nexus.iam.utils.RestService;
+import com.nexus.iam.utils.WebConstants;
+import org.modelmapper.ModelMapper;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.util.ObjectUtils;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.util.UriComponentsBuilder;
+
+import java.sql.Timestamp;
+import java.util.HashMap;
+import java.util.Map;
 
 @Service
 public class UserServiceImpl implements UserService {
 
-    @Autowired
-    private UserRepository userRepository;
+    private final UserRepository userRepository;
 
-    @Autowired
-    private ModelMapper modelMapper;
+    private final ModelMapper modelMapper;
 
-    @Autowired
-    private PasswordEncoder passwordEncoder;
+    private final PasswordEncoder passwordEncoder;
 
-    @Autowired
-    private OrganizationRepository organizationRepository;
+    private final OrganizationRepository organizationRepository;
 
-    @Autowired
-    private RoleRepository roleRepository;
+    private final RoleRepository roleRepository;
+
+    private final WebConstants webConstants;
+
+    private final AuthenticationService authenticationService;
+
+    private final RestService restService;
+
+    public UserServiceImpl(UserRepository userRepository, ModelMapper modelMapper, PasswordEncoder passwordEncoder, OrganizationRepository organizationRepository, RoleRepository roleRepository, WebConstants webConstants, AuthenticationService authenticationService, RestService restService) {
+        this.userRepository = userRepository;
+        this.modelMapper = modelMapper;
+        this.passwordEncoder = passwordEncoder;
+        this.organizationRepository = organizationRepository;
+        this.roleRepository = roleRepository;
+        this.webConstants = webConstants;
+        this.authenticationService = authenticationService;
+        this.restService = restService;
+    }
 
     @Override
     public ResponseEntity<?> getUserById(Long userId) {
@@ -59,16 +80,33 @@ public class UserServiceImpl implements UserService {
     @Override
     public ResponseEntity<?> updateUser(UserRegisterDto userDto, Long userId) {
         try {
-            User existingUser = userRepository.findById(userId).orElseThrow(() -> {
-                throw new ResourceNotFoundException("User", "id", userId);
-            });
+            User existingUser = userRepository.findById(userId).orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
 
-            existingUser.setName(userDto.getName());
-            existingUser.setEmail(userDto.getEmail());
-            existingUser.setAddress(userDto.getAddress());
-            existingUser.setPhone(userDto.getPhone());
+            if (!ObjectUtils.isEmpty(userDto.getName())) {
+                existingUser.setName(userDto.getName());
+            }
+            if (!ObjectUtils.isEmpty(userDto.getEmail())) {
+                existingUser.setEmail(userDto.getEmail());
+            }
+            if (!ObjectUtils.isEmpty(userDto.getAddress())) {
+                existingUser.setAddress(userDto.getAddress());
+            }
+            if (!ObjectUtils.isEmpty(userDto.getPhone())) {
+                existingUser.setPhone(userDto.getPhone());
+            }
+            if (!ObjectUtils.isEmpty(userDto.getPassword())) {
+                existingUser.setPassword(passwordEncoder.encode(userDto.getPassword()));
+            }
 
-            // Add other fields as necessary
+            // Update role if provided in the DTO
+            if (!ObjectUtils.isEmpty(userDto.getRole())) {
+                // Clear existing roles and add the new role
+                existingUser.getRoles().clear();
+                existingUser.getRoles().add(
+                        roleRepository.findByName(userDto.getRole())
+                                .orElseThrow(() -> new ResourceNotFoundException("Role", "name", userDto.getRole()))
+                );
+            }
 
             userRepository.save(existingUser);
             UserRegisterDto updatedUserDto = modelMapper.map(existingUser, UserRegisterDto.class);
@@ -118,6 +156,63 @@ public class UserServiceImpl implements UserService {
             throw new ServiceLevelException("UserService", e.getLocalizedMessage(), "getAllEmployees",
                     new Timestamp(System.currentTimeMillis()), e.getCause().toString(), e.getMessage());
         }
+    }
+
+    @Override
+    public ResponseEntity<?> updateProfilePhoto(MultipartFile file, Long userId) {
+        ResponseEntity<?> response = null;
+        try {
+            User user = userRepository.findById(userId).orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
+            if (!ObjectUtils.isEmpty(file)) {
+                UriComponentsBuilder builder =
+                        UriComponentsBuilder.fromUriString(webConstants.getCommonDmsUrl());
+
+                Map<String, Object> dto = new HashMap<>();
+                dto.put("userId", userId);
+                dto.put("fileName", user.getId() + "_profile_photo");
+                dto.put("remarks", "Profile Photo Upload");
+                dto.put("documentType", "PROFILE_IMAGE");
+
+                Map<String, Object> payload = new HashMap<>();
+                payload.put("dto", dto);
+                payload.put("file", file);
+
+                Map<String, String> headers = new HashMap<>();
+                LoginResponse loginResponse = authenticationService.authenticate(new LoginRequest(webConstants.getGenericUserId(),
+                        webConstants.getGenericPassword()));
+                headers.put(CommonConstants.AUTHORIZATION, "Bearer " + loginResponse.getAccessToken());
+                headers.put(CommonConstants.CONTENT_TYPE, CommonConstants.APPLICATION_MULTIPART_FORMDATA);
+
+                ResponseEntity<?> dmsResponse = restService.iamRestCall(
+                        builder.toUriString(),
+                        payload,
+                        headers,
+                        HttpMethod.POST,
+                        userId
+                );
+
+                if (dmsResponse.getStatusCode().is2xxSuccessful()) {
+                    @SuppressWarnings("unchecked")
+                    Map<String, String> respBody = (Map<String, String>) dmsResponse.getBody();
+                    assert respBody != null;
+                    if (respBody.containsKey("documentUrl")) {
+                        user.setProfilePhoto(respBody.get("documentUrl"));
+                        userRepository.save(user);
+
+                        response = new ResponseEntity<>("Profile photo updated successfully", HttpStatus.OK);
+                    } else {
+                        response = new ResponseEntity<>("Failed to retrieve document URL from DMS response", HttpStatus.INTERNAL_SERVER_ERROR);
+                    }
+                } else {
+                    response = new ResponseEntity<>("Failed to upload profile photo to DMS: " + dmsResponse.getBody(), HttpStatus.INTERNAL_SERVER_ERROR);
+                }
+            }
+        } catch (Exception e) {
+            throw new ServiceLevelException("UserService", e.getLocalizedMessage(), "updateProfilePhoto",
+                    new Timestamp(System.currentTimeMillis()), e.getCause().toString(), e.getMessage());
+        }
+
+        return response;
     }
 
     @Override

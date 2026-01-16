@@ -14,10 +14,13 @@ import com.nexus.dms.repository.DmsLogsRepo;
 @Service
 public class Logger {
 
-    @Autowired
-    private DmsLogsRepo dmsLogsRepo;
+    private final DmsLogsRepo dmsLogsRepo;
 
     private static final ObjectMapper objectMapper = new ObjectMapper();
+
+    public Logger(DmsLogsRepo dmsLogsRepo) {
+        this.dmsLogsRepo = dmsLogsRepo;
+    }
 
     /**
      * Save logs to database
@@ -61,9 +64,8 @@ public class Logger {
      *
      * @param obj The object to serialize
      * @return JSON string or null if object is null
-     * @throws JsonProcessingException If serialization fails
      */
-    private String serializeObject(Object obj) throws JsonProcessingException {
+    private String serializeObject(Object obj) {
         if (obj == null) {
             return null;
         }
