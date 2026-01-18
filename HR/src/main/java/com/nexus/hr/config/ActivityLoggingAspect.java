@@ -1,16 +1,15 @@
-package com.nexus.dms.config;
+package com.nexus.hr.config;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.nexus.dms.annotation.LogActivity;
-import com.nexus.dms.dto.ActivityLogDto;
-import com.nexus.dms.entities.DocumentRecord;
-import com.nexus.dms.utils.Logger;
+import com.nexus.hr.annotation.LogActivity;
+import com.nexus.hr.entity.HrEntity;
+import com.nexus.hr.payload.ActivityLogDto;
+import com.nexus.hr.utils.Logger;
 import jakarta.servlet.http.HttpServletRequest;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -29,10 +28,13 @@ import java.sql.Timestamp;
 @Component
 public class ActivityLoggingAspect {
 
-    @Autowired
-    private Logger logger;
+    private final Logger logger;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
+
+    public ActivityLoggingAspect(Logger logger) {
+        this.logger = logger;
+    }
 
     /**
      * Around advice for logging all annotated methods
@@ -41,7 +43,7 @@ public class ActivityLoggingAspect {
      * - Request body from method arguments (DTOs)
      * - Response status and body
      * - Exception details (type, message, status code)
-     * - DocumentRecordId from successful responses
+     * - HrEntityId from successful responses
      *
      * @param joinPoint   The method execution join point
      * @param logActivity The annotation metadata
@@ -88,9 +90,9 @@ public class ActivityLoggingAspect {
                     try {
                         activityLog.setResponse(objectMapper.writeValueAsString(response.getBody()));
 
-                        // Extract documentRecordId from DocumentRecord response
-                        if (response.getBody() instanceof DocumentRecord docRecord) {
-                            activityLog.setDocumentRecordId(docRecord.getId());
+                        // Extract documentRecordId from HrEntity response
+                        if (response.getBody() instanceof HrEntity hrEntity) {
+                            activityLog.setHrId(hrEntity.getHrId());
                         }
                     } catch (JsonProcessingException _) {
                         activityLog.setResponse(response.getBody().toString());
@@ -124,7 +126,7 @@ public class ActivityLoggingAspect {
                     httpStatus,
                     activityLog.getRequest(),  // ✓ NOW PASSING REQUEST BODY
                     activityLog.getResponse(),
-                    activityLog.getDocumentRecordId()
+                    activityLog.getHrId()
             );
         } catch (Exception logException) {
             // Log saving failed, but don't break the response
@@ -137,13 +139,6 @@ public class ActivityLoggingAspect {
         }
 
         return result;
-    }
-
-    /**
-         * Helper class to structure exception information for JSON serialization
-         */
-        private record ErrorDetails(String exceptionType, String message) {
-
     }
 
     /**
@@ -190,4 +185,12 @@ public class ActivityLoggingAspect {
             System.err.println("Warning: Failed to extract request body: " + e.getMessage());
         }
     }
+
+    /**
+     * Helper class to structure exception information for JSON serialization
+     */
+    private record ErrorDetails(String exceptionType, String message) {
+
+    }
 }
+

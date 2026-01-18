@@ -182,7 +182,9 @@ public class OrganizationServiceImpl implements OrganizationService {
             result.put("userRoles", user.getRoles().stream().map(Role::getName).toList());
             result.put("orgType", organization.getOrgType());
             return result;
-        } catch (ServiceLevelException e) {
+        } catch (ResourceNotFoundException e) {
+            throw e;
+        } catch (Exception e) {
             throw new ServiceLevelException(
                     "OrganizationService", "Failed to get user organization details", "getUserOrganizationDetails",
                     e.getClass().getSimpleName(), e.getLocalizedMessage()
