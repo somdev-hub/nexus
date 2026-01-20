@@ -24,12 +24,12 @@ public class HrEntity {
     @JoinColumn(name = "hr_compensation_id")
     private Compensation compensation;
 
-    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, mappedBy = "hr_entity_hr_id")
+    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, mappedBy = "hrEntity")
     private List<HrDocument> hrDocuments = new ArrayList<>();
 
-    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, mappedBy = "hr_entity_hr_id")
+    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, mappedBy = "hrEntity")
     private List<TimeManagement> timeManagements = new ArrayList<>();
 
-    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, mappedBy = "hr_entity_hr_id")
+    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, mappedBy = "hrEntity")
     private List<Position> positions = new ArrayList<>();
 }

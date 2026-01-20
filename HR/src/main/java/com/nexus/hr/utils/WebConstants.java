@@ -28,4 +28,10 @@ public class WebConstants {
 
     @Value("${generic.password}")
     public String genericPassword;
+
+    @Value("${spring.mail.from:noreply@nexushr.com}")
+    private String defaultFromEmail;
+
+    @Value("${spring.mail.max-recipients:100}")
+    private Integer maxRecipients;
 }

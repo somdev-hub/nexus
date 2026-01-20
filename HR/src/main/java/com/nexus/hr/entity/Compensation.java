@@ -40,10 +40,9 @@ public class Compensation {
 
     private Double netMonthlyPay;
 
-    @OneToOne
-    @JoinColumn(name = "compensation_card_hr_document_id")
-    private HrDocument compensationCard;
+    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, mappedBy = "compensation")
+    private List<HrDocument> compensationCard;
 
-    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, mappedBy = "compensation_id")
+    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, mappedBy = "compensation")
     private List<Payroll> payrolls = new ArrayList<>();
 }

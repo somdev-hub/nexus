@@ -1,11 +1,14 @@
 package com.nexus.hr.payload;
 
+import com.nexus.hr.entity.Bonus;
+import com.nexus.hr.entity.Deduction;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.sql.Timestamp;
+import java.util.List;
 
 @Data
 @Builder
@@ -32,4 +35,25 @@ public class PdfTemplateDto {
     private String hrContactEmail;
 
     private String hrContactPhone;
+
+    // Compensation details
+    private Double basePay;
+
+    private Double hra;
+
+    private List<Bonus> bonuses;
+
+    private List<Deduction> deductions;
+
+    private Double netPay;
+
+    private Double gratuity;
+
+    private Double pf;
+
+    private String annualPackage;
+
+    private Double total;
+
+    private Double netMonthlyPay;
 }

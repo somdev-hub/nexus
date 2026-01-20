@@ -29,4 +29,8 @@ public class HrDocument {
     @ManyToOne
     @JoinColumn(name = "hr_position_id")
     private Position position;
+
+    @ManyToOne
+    @JoinColumn(name = "compensation_id")
+    private Compensation compensation;
 }

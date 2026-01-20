@@ -91,6 +91,39 @@ public class PdfGeneratorService {
     }
 
     /**
+     * Generate a compensation card PDF
+     *
+     * @param templateData Data to populate the template
+     * @return PDF as MultipartFile
+     */
+    public MultipartFile generateCompensationCardPdf(PdfTemplateDto templateData) {
+        try {
+            log.info("Generating compensation card PDF for employee ID: {}", templateData.getEmployeeId());
+
+            String htmlContent = pdfTemplateBuilder.buildCompensationCardTemplate(templateData);
+            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+
+            HtmlConverter.convertToPdf(htmlContent, outputStream);
+
+            log.info("Compensation card PDF generated successfully for employee ID: {}", templateData.getEmployeeId());
+            byte[] byteArray = outputStream.toByteArray();
+
+            String fileName = "Compensation_Card_" + templateData.getEmployeeId() + ".pdf";
+            return convertToMultipartFile(byteArray, fileName);
+
+        } catch (Exception e) {
+            log.error("Error generating compensation card PDF for employee ID: {}", templateData.getEmployeeId(), e);
+            throw new ServiceLevelException(
+                    "PDF Generator Service",
+                    "Error generating compensation card PDF",
+                    "generateCompensationCardPdf",
+                    e.getClass().getName(),
+                    e.getMessage()
+            );
+        }
+    }
+
+    /**
      * Convert byte array to MultipartFile
      *
      * @param bytes PDF content as byte array

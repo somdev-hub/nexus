@@ -26,7 +26,7 @@ public class Position {
 
     private Timestamp lastEffectiveDate;
 
-    @OneToMany(cascade = CascadeType.ALL, fetch = FetchType.LAZY, mappedBy = "hr_position_id")
+    @OneToMany(cascade = CascadeType.ALL, fetch = FetchType.LAZY, mappedBy = "position")
     private List<HrDocument> positionDocuments = new ArrayList<>();
 
     @ManyToOne

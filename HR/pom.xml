@@ -116,6 +116,11 @@
             <artifactId>spring-test</artifactId>
             <scope>compile</scope>
         </dependency>
+        <!-- Spring Mail Starter for Email Functionality -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-mail</artifactId>
+        </dependency>
     </dependencies>
 
     <build>

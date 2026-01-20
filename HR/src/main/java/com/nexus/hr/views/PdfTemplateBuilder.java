@@ -1,12 +1,15 @@
 package com.nexus.hr.views;
 
+import com.nexus.hr.entity.Bonus;
+import com.nexus.hr.entity.Deduction;
 import com.nexus.hr.payload.PdfTemplateDto;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
-import java.time.ZoneId;
 import java.sql.Timestamp;
 import java.text.SimpleDateFormat;
+import java.text.NumberFormat;
+import java.util.Locale;
 
 /**
  * Template builder for generating HTML templates for PDF conversion
@@ -15,6 +18,7 @@ import java.text.SimpleDateFormat;
 public class PdfTemplateBuilder {
 
     private static final String DATE_FORMAT = "dd-MM-yyyy";
+    private static final NumberFormat CURRENCY_FORMAT = NumberFormat.getCurrencyInstance(new Locale("en", "IN"));
 
     /**
      * Generate a joining letter HTML template
@@ -133,8 +137,8 @@ public class PdfTemplateBuilder {
                         </p>
 
                         <p class="body-text">
-                            We are pleased to inform you that your application has been accepted, and we would like to offer you 
-                            a position with our organization. We are confident that your skills and experience will make a valuable 
+                            We are pleased to inform you that your application has been accepted, and we would like to offer you
+                            a position with our organization. We are confident that your skills and experience will make a valuable
                             contribution to our team.
                         </p>
 
@@ -214,6 +218,37 @@ public class PdfTemplateBuilder {
         String effectiveDateStr = formatDate(templateData.getEffectiveFrom());
         String currentDate = LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern(DATE_FORMAT));
 
+        // Build compensation details section
+        StringBuilder compensationSection = new StringBuilder();
+        if (templateData.getBasePay() != null || templateData.getNetMonthlyPay() != null) {
+            compensationSection.append("""
+                    <div class="compensation-highlight">
+                        <strong>Compensation Package:</strong>
+                        <ul>
+                    """);
+
+            if (templateData.getAnnualPackage() != null) {
+                compensationSection.append("<li><strong>Annual Package:</strong> ").append(templateData.getAnnualPackage()).append("</li>");
+            }
+            if (templateData.getNetMonthlyPay() != null) {
+                compensationSection.append("<li><strong>Net Monthly Pay:</strong> ").append(formatCurrency(templateData.getNetMonthlyPay())).append("</li>");
+            }
+            if (templateData.getBasePay() != null) {
+                compensationSection.append("<li><strong>Base Pay:</strong> ").append(formatCurrency(templateData.getBasePay())).append("</li>");
+            }
+            if (templateData.getHra() != null) {
+                compensationSection.append("<li><strong>HRA:</strong> ").append(formatCurrency(templateData.getHra())).append("</li>");
+            }
+
+            compensationSection.append("""
+                        </ul>
+                        <p style="font-size: 11px; color: #666; margin-top: 10px;">
+                            * Detailed compensation breakdown will be provided in a separate compensation card document.
+                        </p>
+                    </div>
+                    """);
+        }
+
         return """
                 <!DOCTYPE html>
                 <html>
@@ -273,6 +308,21 @@ public class PdfTemplateBuilder {
                         .terms-section li {
                             margin-bottom: 8px;
                         }
+                        .compensation-highlight {
+                            margin: 20px 0;
+                            padding: 15px;
+                            background-color: #e8f4f8;
+                            border: 2px solid #0066cc;
+                            border-radius: 5px;
+                            font-size: 12px;
+                        }
+                        .compensation-highlight ul {
+                            margin: 10px 0;
+                            padding-left: 20px;
+                        }
+                        .compensation-highlight li {
+                            margin-bottom: 6px;
+                        }
                         .closing {
                             margin-top: 30px;
                             font-size: 12px;
@@ -322,8 +372,8 @@ public class PdfTemplateBuilder {
                         </p>
 
                         <p class="body-text">
-                            This letter confirms our mutual intention to enter into an employment relationship effective from 
-                            <strong>%s</strong>. This Letter of Intent outlines the terms and conditions of your employment with 
+                            This letter confirms our mutual intention to enter into an employment relationship effective from
+                            <strong>%s</strong>. This Letter of Intent outlines the terms and conditions of your employment with
                             %s.
                         </p>
 
@@ -338,24 +388,21 @@ public class PdfTemplateBuilder {
                             </ul>
                         </div>
 
+                        %s
+
                         <p class="body-text">
-                            You will be entitled to all statutory and contractual benefits as per company policy. Your employment 
+                            You will be entitled to all statutory and contractual benefits as per company policy. Your employment
                             is contingent upon successful completion of background verification and medical clearance, if applicable.
                         </p>
 
                         <p class="body-text">
-                            You are expected to adhere to the company's policies and procedures as outlined in the Employee Handbook. 
-                            This includes maintaining confidentiality of company information, respecting intellectual property rights, 
+                            You are expected to adhere to the company's policies and procedures as outlined in the Employee Handbook.
+                            This includes maintaining confidentiality of company information, respecting intellectual property rights,
                             and following all safety and security protocols.
                         </p>
 
                         <p class="body-text">
-                            Your compensation and other benefits will be communicated separately. This Letter of Intent represents 
-                            a binding commitment from both parties and supersedes any previous offers or discussions.
-                        </p>
-
-                        <p class="body-text">
-                            If there are any questions or clarifications needed, please contact the Human Resources Department 
+                            If there are any questions or clarifications needed, please contact the Human Resources Department
                             immediately.
                         </p>
 
@@ -404,12 +451,429 @@ public class PdfTemplateBuilder {
                 templateData.getDepartment(),
                 effectiveDateStr,
                 templateData.getEmployeeId(),
+                compensationSection.toString(),
                 templateData.getEmployeeName(),
                 templateData.getOrganizationName(),
                 templateData.getHrContactEmail(),
                 templateData.getHrContactPhone(),
                 templateData.getOrganizationAddress()
         );
+    }
+
+    /**
+     * Generate a compensation card HTML template
+     */
+    public String buildCompensationCardTemplate(PdfTemplateDto templateData) {
+        String currentDate = LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern(DATE_FORMAT));
+        String effectiveDateStr = formatDate(templateData.getEffectiveFrom());
+
+        // Build bonuses section
+        StringBuilder bonusesHtml = new StringBuilder();
+        if (templateData.getBonuses() != null && !templateData.getBonuses().isEmpty()) {
+            for (Bonus bonus : templateData.getBonuses()) {
+                bonusesHtml.append("<tr>");
+                bonusesHtml.append("<td>").append(bonus.getBonusType() != null ? bonus.getBonusType() : "Bonus").append("</td>");
+                if (bonus.getAmount() != null) {
+                    bonusesHtml.append("<td class='amount'>").append(formatCurrency(bonus.getAmount())).append("</td>");
+                } else if (bonus.getPercentageOfSalary() != null) {
+                    bonusesHtml.append("<td class='amount'>").append(bonus.getPercentageOfSalary()).append("%</td>");
+                } else {
+                    bonusesHtml.append("<td class='amount'>-</td>");
+                }
+                bonusesHtml.append("</tr>");
+            }
+        } else {
+            bonusesHtml.append("<tr><td colspan='2' style='text-align: center; color: #999;'>No bonuses applicable</td></tr>");
+        }
+
+        // Build deductions section
+        StringBuilder deductionsHtml = new StringBuilder();
+        if (templateData.getDeductions() != null && !templateData.getDeductions().isEmpty()) {
+            for (Deduction deduction : templateData.getDeductions()) {
+                deductionsHtml.append("<tr>");
+                deductionsHtml.append("<td>").append(deduction.getDeductionType() != null ? deduction.getDeductionType() : "Deduction").append("</td>");
+                if (deduction.getAmount() != null) {
+                    deductionsHtml.append("<td class='amount'>").append(formatCurrency(deduction.getAmount())).append("</td>");
+                } else if (deduction.getPercentageOfSalary() != null) {
+                    deductionsHtml.append("<td class='amount'>").append(deduction.getPercentageOfSalary()).append("%</td>");
+                } else {
+                    deductionsHtml.append("<td class='amount'>-</td>");
+                }
+                deductionsHtml.append("</tr>");
+            }
+        } else {
+            deductionsHtml.append("<tr><td colspan='2' style='text-align: center; color: #999;'>No deductions applicable</td></tr>");
+        }
+
+        return """
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <meta charset="UTF-8">
+                    <style>
+                        @page {
+                            size: A4;
+                            margin: 20mm;
+                        }
+                        body {
+                            font-family: 'Segoe UI', 'Calibri', 'Arial', sans-serif;
+                            line-height: 1.5;
+                            margin: 0;
+                            padding: 20px;
+                            color: #333;
+                            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+                        }
+                        .compensation-card {
+                            background: white;
+                            border-radius: 10px;
+                            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+                            padding: 30px;
+                            max-width: 800px;
+                            margin: 0 auto;
+                        }
+                        .header {
+                            text-align: center;
+                            margin-bottom: 30px;
+                            padding-bottom: 20px;
+                            border-bottom: 3px solid #0066cc;
+                        }
+                        .organization-name {
+                            font-size: 26px;
+                            font-weight: bold;
+                            color: #0066cc;
+                            margin-bottom: 5px;
+                            text-transform: uppercase;
+                            letter-spacing: 1px;
+                        }
+                        .document-title {
+                            font-size: 20px;
+                            font-weight: 600;
+                            color: #333;
+                            margin-top: 15px;
+                            text-transform: uppercase;
+                            letter-spacing: 0.5px;
+                        }
+                        .meta-info {
+                            display: flex;
+                            justify-content: space-between;
+                            margin-bottom: 25px;
+                            padding: 15px;
+                            background-color: #f8f9fa;
+                            border-radius: 5px;
+                            font-size: 13px;
+                        }
+                        .meta-info div {
+                            flex: 1;
+                        }
+                        .meta-label {
+                            font-weight: bold;
+                            color: #666;
+                            margin-bottom: 3px;
+                        }
+                        .meta-value {
+                            color: #333;
+                            font-weight: 600;
+                        }
+                        .summary-section {
+                            margin-bottom: 25px;
+                            padding: 20px;
+                            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                            color: white;
+                            border-radius: 8px;
+                            text-align: center;
+                        }
+                        .summary-section h3 {
+                            margin: 0 0 15px 0;
+                            font-size: 16px;
+                            font-weight: 500;
+                            opacity: 0.9;
+                        }
+                        .annual-package {
+                            font-size: 36px;
+                            font-weight: bold;
+                            margin: 10px 0;
+                            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+                        }
+                        .monthly-pay {
+                            font-size: 18px;
+                            margin-top: 10px;
+                            opacity: 0.95;
+                        }
+                        .details-section {
+                            margin-bottom: 25px;
+                        }
+                        .section-title {
+                            font-size: 16px;
+                            font-weight: bold;
+                            color: #0066cc;
+                            margin-bottom: 12px;
+                            padding-bottom: 8px;
+                            border-bottom: 2px solid #e0e0e0;
+                            text-transform: uppercase;
+                            letter-spacing: 0.5px;
+                        }
+                        .comp-table {
+                            width: 100%;
+                            border-collapse: collapse;
+                            margin-bottom: 20px;
+                            font-size: 13px;
+                        }
+                        .comp-table th {
+                            background-color: #f5f5f5;
+                            padding: 12px;
+                            text-align: left;
+                            font-weight: 600;
+                            color: #555;
+                            border-bottom: 2px solid #ddd;
+                        }
+                        .comp-table td {
+                            padding: 10px 12px;
+                            border-bottom: 1px solid #eee;
+                        }
+                        .comp-table tr:hover {
+                            background-color: #f9f9f9;
+                        }
+                        .comp-table .amount {
+                            text-align: right;
+                            font-weight: 600;
+                            color: #333;
+                        }
+                        .comp-table .total-row {
+                            background-color: #f0f8ff;
+                            font-weight: bold;
+                            border-top: 2px solid #0066cc;
+                        }
+                        .comp-table .total-row td {
+                            padding: 14px 12px;
+                            color: #0066cc;
+                            font-size: 14px;
+                        }
+                        .breakdown-grid {
+                            display: grid;
+                            grid-template-columns: 1fr 1fr;
+                            gap: 20px;
+                            margin-bottom: 25px;
+                        }
+                        .breakdown-card {
+                            padding: 15px;
+                            background-color: #f8f9fa;
+                            border-radius: 5px;
+                            border-left: 4px solid #0066cc;
+                        }
+                        .breakdown-card.positive {
+                            border-left-color: #28a745;
+                        }
+                        .breakdown-card.negative {
+                            border-left-color: #dc3545;
+                        }
+                        .note {
+                            margin-top: 30px;
+                            padding: 15px;
+                            background-color: #fff3cd;
+                            border-left: 4px solid #ffc107;
+                            border-radius: 4px;
+                            font-size: 12px;
+                            color: #856404;
+                        }
+                        .footer {
+                            margin-top: 40px;
+                            padding-top: 20px;
+                            border-top: 2px solid #e0e0e0;
+                            text-align: center;
+                            font-size: 11px;
+                            color: #666;
+                        }
+                        .signature-section {
+                            margin-top: 40px;
+                            display: flex;
+                            justify-content: space-between;
+                        }
+                        .signature-block {
+                            width: 45%;
+                            text-align: center;
+                        }
+                        .signature-line {
+                            border-top: 1px solid #333;
+                            margin-top: 50px;
+                            margin-bottom: 5px;
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class="compensation-card">
+                        <div class="header">
+                            <div class="organization-name">%s</div>
+                            <div class="document-title">Compensation Card</div>
+                        </div>
+
+                        <div class="meta-info">
+                            <div>
+                                <div class="meta-label">Employee ID:</div>
+                                <div class="meta-value">%d</div>
+                            </div>
+                            <div>
+                                <div class="meta-label">Employee Name:</div>
+                                <div class="meta-value">%s</div>
+                            </div>
+                            <div>
+                                <div class="meta-label">Department:</div>
+                                <div class="meta-value">%s</div>
+                            </div>
+                            <div>
+                                <div class="meta-label">Position:</div>
+                                <div class="meta-value">%s</div>
+                            </div>
+                        </div>
+
+                        <div class="meta-info">
+                            <div>
+                                <div class="meta-label">Effective From:</div>
+                                <div class="meta-value">%s</div>
+                            </div>
+                            <div>
+                                <div class="meta-label">Document Date:</div>
+                                <div class="meta-value">%s</div>
+                            </div>
+                        </div>
+
+                        <div class="summary-section">
+                            <h3>Total Annual Compensation Package</h3>
+                            <div class="annual-package">%s</div>
+                            <div class="monthly-pay">Net Monthly Pay: %s</div>
+                        </div>
+
+                        <div class="details-section">
+                            <div class="section-title">Salary Breakdown</div>
+                            <table class="comp-table">
+                                <thead>
+                                    <tr>
+                                        <th>Component</th>
+                                        <th style="text-align: right;">Amount</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>Base Pay</td>
+                                        <td class="amount">%s</td>
+                                    </tr>
+                                    <tr>
+                                        <td>House Rent Allowance (HRA)</td>
+                                        <td class="amount">%s</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Provident Fund (PF)</td>
+                                        <td class="amount">%s</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Gratuity</td>
+                                        <td class="amount">%s</td>
+                                    </tr>
+                                    <tr class="total-row">
+                                        <td>Gross Salary</td>
+                                        <td class="amount">%s</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="breakdown-grid">
+                            <div class="breakdown-card positive">
+                                <div class="section-title" style="border: none; padding-bottom: 5px;">Bonuses & Allowances</div>
+                                <table class="comp-table" style="margin-bottom: 0;">
+                                    <tbody>
+                                        %s
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <div class="breakdown-card negative">
+                                <div class="section-title" style="border: none; padding-bottom: 5px;">Deductions</div>
+                                <table class="comp-table" style="margin-bottom: 0;">
+                                    <tbody>
+                                        %s
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <div class="details-section">
+                            <table class="comp-table">
+                                <tbody>
+                                    <tr class="total-row">
+                                        <td>NET PAY (Take Home)</td>
+                                        <td class="amount">%s</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="note">
+                            <strong>Note:</strong> This compensation card is for reference purposes only. 
+                            All amounts are subject to applicable taxes and statutory deductions as per government regulations. 
+                            The actual take-home pay may vary based on tax declarations and deductions opted by the employee.
+                        </div>
+
+                        <div class="signature-section">
+                            <div class="signature-block">
+                                <div class="signature-line"></div>
+                                <div style="margin-top: 5px; font-size: 12px;">
+                                    <strong>Employee Signature</strong><br>
+                                    Date: _______________
+                                </div>
+                            </div>
+                            <div class="signature-block">
+                                <div class="signature-line"></div>
+                                <div style="margin-top: 5px; font-size: 12px;">
+                                    <strong>HR Department</strong><br>
+                                    Date: _______________
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="footer">
+                            <p><strong>%s</strong></p>
+                            <p>%s</p>
+                            <p>Email: %s | Phone: %s</p>
+                            <p style="margin-top: 10px; font-style: italic;">
+                                This is a computer-generated document and does not require a physical signature.
+                            </p>
+                        </div>
+                    </div>
+                </body>
+                </html>
+                """.formatted(
+                templateData.getOrganizationName(),
+                templateData.getEmployeeId(),
+                templateData.getEmployeeName() != null ? templateData.getEmployeeName() : "N/A",
+                templateData.getDepartment() != null ? templateData.getDepartment() : "N/A",
+                templateData.getPosition() != null ? templateData.getPosition() : "N/A",
+                effectiveDateStr,
+                currentDate,
+                templateData.getAnnualPackage() != null ? templateData.getAnnualPackage() : formatCurrency(templateData.getTotal()),
+                formatCurrency(templateData.getNetMonthlyPay()),
+                formatCurrency(templateData.getBasePay()),
+                formatCurrency(templateData.getHra()),
+                formatCurrency(templateData.getPf()),
+                formatCurrency(templateData.getGratuity()),
+                formatCurrency(templateData.getTotal()),
+                bonusesHtml.toString(),
+                deductionsHtml.toString(),
+                formatCurrency(templateData.getNetPay()),
+                templateData.getOrganizationName(),
+                templateData.getOrganizationAddress(),
+                templateData.getHrContactEmail(),
+                templateData.getHrContactPhone()
+        );
+    }
+
+    /**
+     * Format currency amount
+     */
+    private String formatCurrency(Double amount) {
+        if (amount == null) {
+            return "₹0.00";
+        }
+        return CURRENCY_FORMAT.format(amount);
     }
 
     /**

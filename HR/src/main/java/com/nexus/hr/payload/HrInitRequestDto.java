@@ -10,6 +10,10 @@ public class HrInitRequestDto {
 
     private Long employeeId;
 
+    private String fullName;
+
+    private String email;
+
     private Long orgId;
 
     private String department;
@@ -21,4 +25,8 @@ public class HrInitRequestDto {
     private List<HrDocumentDto> hrDocuments;
 
     private Timestamp effectiveFrom;
+
+    private CompensationDto compensation;
+
+    private String personalEmail;
 }
