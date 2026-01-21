@@ -1,7 +1,7 @@
 package com.nexus.hr.controller;
 
 import com.nexus.hr.annotation.LogActivity;
-import com.nexus.hr.entity.EmployeePaycheck;
+import com.nexus.hr.model.entities.EmployeePaycheck;
 import com.nexus.hr.exception.UnauthorizedException;
 import com.nexus.hr.service.interfaces.CompensationService;
 import com.nexus.hr.utils.CommonUtils;

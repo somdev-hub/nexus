@@ -1,7 +1,7 @@
 package com.nexus.hr.views;
 
-import com.nexus.hr.entity.Bonus;
-import com.nexus.hr.entity.Deduction;
+import com.nexus.hr.model.entities.Bonus;
+import com.nexus.hr.model.entities.Deduction;
 import com.nexus.hr.payload.PdfTemplateDto;
 import org.springframework.stereotype.Component;
 

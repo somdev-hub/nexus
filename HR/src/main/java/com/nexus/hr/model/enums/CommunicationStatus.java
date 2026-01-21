@@ -1,4 +1,4 @@
-package com.nexus.hr.entity;
+package com.nexus.hr.model.enums;
 
 public enum CommunicationStatus {
     SENT,

@@ -1,6 +1,7 @@
 package com.nexus.hr.repository;
 
-import com.nexus.hr.entity.HrCommunication;
+import com.nexus.hr.model.entities.HrCommunication;
+import com.nexus.hr.model.enums.CommunicationStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -21,5 +22,5 @@ public interface HrCommunicationRepo extends JpaRepository<HrCommunication, Long
     /**
      * Find all communications by status
      */
-    List<HrCommunication> findByStatus(com.nexus.hr.entity.CommunicationStatus status);
+    List<HrCommunication> findByStatus(CommunicationStatus status);
 }

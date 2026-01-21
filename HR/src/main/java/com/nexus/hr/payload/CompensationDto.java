@@ -1,7 +1,5 @@
 package com.nexus.hr.payload;
 
-import com.nexus.hr.entity.Bonus;
-import com.nexus.hr.entity.Deduction;
 import lombok.Data;
 
 import java.util.List;
@@ -27,4 +25,6 @@ public class CompensationDto {
     private Double total;
 
     private Double netMonthlyPay;
+
+    private List<BankRecordsDto> bankRecords;
 }

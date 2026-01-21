@@ -1,4 +1,4 @@
-package com.nexus.hr.entity;
+package com.nexus.hr.model.entities;
 
 import jakarta.persistence.*;
 import lombok.Data;
@@ -39,6 +39,8 @@ public class TimeManagement {
     private Boolean isPresent;
 
     private Boolean isOnLeave;
+
+    private Boolean isHalfDay;
 
     @ManyToOne
     @JoinColumn(name = "hr_entity_hr_id")

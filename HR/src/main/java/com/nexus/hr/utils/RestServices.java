@@ -1,6 +1,6 @@
 package com.nexus.hr.utils;
 
-import com.nexus.hr.entity.HrLogs;
+import com.nexus.hr.model.entities.HrLogs;
 import com.nexus.hr.repository.HrLogsRepo;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;

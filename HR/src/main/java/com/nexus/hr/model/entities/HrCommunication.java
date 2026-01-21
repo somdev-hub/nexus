@@ -1,5 +1,7 @@
-package com.nexus.hr.entity;
+package com.nexus.hr.model.entities;
 
+import com.nexus.hr.model.enums.CommunicationStatus;
+import com.nexus.hr.model.enums.CommunicationType;
 import jakarta.persistence.*;
 import lombok.Data;
 

@@ -2,7 +2,7 @@ package com.nexus.hr.utils;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.nexus.hr.entity.HrLogs;
+import com.nexus.hr.model.entities.HrLogs;
 import com.nexus.hr.exception.ServiceLevelException;
 import com.nexus.hr.repository.HrLogsRepo;
 import org.springframework.http.HttpMethod;

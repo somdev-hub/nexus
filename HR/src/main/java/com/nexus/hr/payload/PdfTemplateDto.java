@@ -1,7 +1,7 @@
 package com.nexus.hr.payload;
 
-import com.nexus.hr.entity.Bonus;
-import com.nexus.hr.entity.Deduction;
+import com.nexus.hr.model.entities.Bonus;
+import com.nexus.hr.model.entities.Deduction;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;

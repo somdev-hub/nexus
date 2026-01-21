@@ -1,4 +1,4 @@
-package com.nexus.hr.entity;
+package com.nexus.hr.model.entities;
 
 import jakarta.persistence.*;
 import lombok.Data;
@@ -7,7 +7,7 @@ import java.sql.Timestamp;
 
 @Data
 @Entity
-@Table(name = "t_hr_payrolls", schema = "hr")
+@Table(name = "t_payrolls", schema = "hr")
 public class Payroll {
 
     @Id

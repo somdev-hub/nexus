@@ -1,4 +1,4 @@
-package com.nexus.hr.entity;
+package com.nexus.hr.model.entities;
 
 import jakarta.persistence.*;
 import lombok.Data;
@@ -9,7 +9,7 @@ import java.util.List;
 
 @Entity
 @Data
-@Table(name = "t_hr_positions", schema = "hr")
+@Table(name = "t_positions", schema = "hr")
 public class Position {
 
     @Id

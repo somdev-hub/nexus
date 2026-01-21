@@ -1,6 +1,6 @@
 package com.nexus.hr.repository;
 
-import com.nexus.hr.entity.HrEntity;
+import com.nexus.hr.model.entities.HrEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

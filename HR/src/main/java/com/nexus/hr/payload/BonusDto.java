@@ -1,6 +1,6 @@
 package com.nexus.hr.payload;
 
-import com.nexus.hr.entity.Compensation;
+import com.nexus.hr.model.entities.Compensation;
 import lombok.Data;
 
 import java.sql.Timestamp;

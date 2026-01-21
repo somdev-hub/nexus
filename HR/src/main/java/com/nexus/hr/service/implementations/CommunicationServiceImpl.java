@@ -1,8 +1,8 @@
 package com.nexus.hr.service.implementations;
 
-import com.nexus.hr.entity.CommunicationStatus;
-import com.nexus.hr.entity.CommunicationType;
-import com.nexus.hr.entity.HrCommunication;
+import com.nexus.hr.model.enums.CommunicationStatus;
+import com.nexus.hr.model.enums.CommunicationType;
+import com.nexus.hr.model.entities.HrCommunication;
 import com.nexus.hr.payload.EmailAttachmentDto;
 import com.nexus.hr.payload.EmailCommunicationDto;
 import com.nexus.hr.payload.ErrorResponseDto;
@@ -28,7 +28,6 @@ import java.sql.Timestamp;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor

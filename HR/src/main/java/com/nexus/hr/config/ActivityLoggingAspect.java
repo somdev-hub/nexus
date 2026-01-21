@@ -3,7 +3,7 @@ package com.nexus.hr.config;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nexus.hr.annotation.LogActivity;
-import com.nexus.hr.entity.HrEntity;
+import com.nexus.hr.model.entities.HrEntity;
 import com.nexus.hr.payload.ActivityLogDto;
 import com.nexus.hr.utils.Logger;
 import jakarta.servlet.http.HttpServletRequest;

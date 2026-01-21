@@ -1,8 +1,7 @@
 package com.nexus.hr.service.implementations;
 
-import com.nexus.hr.entity.CommunicationStatus;
-import com.nexus.hr.entity.CommunicationType;
-import com.nexus.hr.payload.EmailAttachmentDto;
+import com.nexus.hr.model.enums.CommunicationStatus;
+import com.nexus.hr.model.enums.CommunicationType;
 import com.nexus.hr.payload.EmailCommunicationDto;
 import com.nexus.hr.repository.HrCommunicationRepo;
 import com.nexus.hr.utils.Logger;
@@ -14,7 +13,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
-import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.mail.javamail.JavaMailSender;

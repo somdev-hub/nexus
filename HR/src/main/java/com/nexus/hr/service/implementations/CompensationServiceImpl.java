@@ -1,6 +1,6 @@
 package com.nexus.hr.service.implementations;
 
-import com.nexus.hr.entity.EmployeePaycheck;
+import com.nexus.hr.model.entities.EmployeePaycheck;
 import com.nexus.hr.exception.ServiceLevelException;
 import com.nexus.hr.repository.EmployeePaycheckRepo;
 import com.nexus.hr.service.interfaces.CompensationService;

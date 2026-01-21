@@ -1,7 +1,7 @@
 package com.nexus.hr.service.implementations;
 
-import com.nexus.hr.entity.*;
 import com.nexus.hr.exception.ServiceLevelException;
+import com.nexus.hr.model.entities.*;
 import com.nexus.hr.payload.*;
 import com.nexus.hr.repository.HrEntityRepo;
 import com.nexus.hr.service.interfaces.CommunicationService;
@@ -22,7 +22,9 @@ import org.springframework.util.ObjectUtils;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.util.UriComponentsBuilder;
 
+import java.sql.Date;
 import java.sql.Timestamp;
+import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -56,6 +58,8 @@ public class HrServiceImpl implements HrService {
             hrEntity.setEmployeeId(hrInitRequestDto.getEmployeeId());
             hrEntity.setOrg(hrInitRequestDto.getOrgId());
             hrEntity.setDepartment(hrInitRequestDto.getDepartment());
+            hrEntity.setDateOfJoining(Date.valueOf(LocalDate.now()));
+            hrEntity.setIsActive(Boolean.TRUE);
 
             Position position = new Position();
             position.setTitle(hrInitRequestDto.getTitle());
@@ -144,6 +148,15 @@ public class HrServiceImpl implements HrService {
             Compensation compensation = modelMapper.map(hrInitRequestDto.getCompensation(), Compensation.class);
             compensation.setBonuses(hrInitRequestDto.getCompensation().getBonuses().stream().map(bonus -> modelMapper.map(bonus, Bonus.class)).toList());
             compensation.setDeductions(hrInitRequestDto.getCompensation().getDeductions().stream().map(deductionDto -> modelMapper.map(deductionDto, Deduction.class)).toList());
+
+            compensation.setBankRecords(hrInitRequestDto.getCompensation().getBankRecords().stream()
+                    .map(bankRecordDto -> {
+                        BankRecord bankRecord = modelMapper.map(bankRecordDto, BankRecord.class);
+                        bankRecord.setCompensation(compensation);
+                        return bankRecord;
+                    }).toList()
+            );
+
             if (compensationCardDmsResponse.getStatusCode().is2xxSuccessful()) {
                 @SuppressWarnings("unchecked") Map<String, String> responseBody = (Map<String, String>) compensationCardDmsResponse.getBody();
                 assert responseBody != null;
@@ -179,6 +192,7 @@ public class HrServiceImpl implements HrService {
 
             communicationService.sendCommunicationOverEmail(emailCommunicationDto);
 
+            hrEntityRepo.save(hrEntity);
             response = ResponseEntity.ok(HrInitResponse.builder().hrId(hrEntity.getHrId()).joiningLetterUrl(joiningLetterUrl).letterOfIntentUrl(letterOfIntentUrl).compensationCardUrl(compensationCardUrl).build());
 
         } catch (Exception e) {

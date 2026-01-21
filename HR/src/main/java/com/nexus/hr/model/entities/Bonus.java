@@ -1,9 +1,7 @@
-package com.nexus.hr.entity;
+package com.nexus.hr.model.entities;
 
 import jakarta.persistence.*;
 import lombok.Data;
-import lombok.Getter;
-import lombok.Setter;
 
 import java.sql.Timestamp;
 

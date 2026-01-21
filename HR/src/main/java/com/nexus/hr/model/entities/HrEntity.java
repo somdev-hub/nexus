@@ -1,8 +1,9 @@
-package com.nexus.hr.entity;
+package com.nexus.hr.model.entities;
 
 import jakarta.persistence.*;
 import lombok.Data;
 
+import java.sql.Date;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -19,6 +20,12 @@ public class HrEntity {
     private String department;
 
     private Long org;
+
+    private Date dateOfJoining;
+
+    private Date dateOfLeaving;
+
+    private Boolean isActive;
 
     @OneToOne
     @JoinColumn(name = "hr_compensation_id")
