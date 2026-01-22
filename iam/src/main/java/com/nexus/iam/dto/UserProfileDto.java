@@ -1,8 +1,10 @@
 package com.nexus.iam.dto;
 
 import java.sql.Timestamp;
+import java.util.List;
 
 import lombok.Data;
+import org.json.JSONObject;
 
 @Data
 public class UserProfileDto {
@@ -14,10 +16,6 @@ public class UserProfileDto {
 
     private String address;
 
-    private Double salary;
-
-    private Timestamp joiningDate;
-
     private String notes;
 
     private Timestamp createdAt;
@@ -27,4 +25,16 @@ public class UserProfileDto {
     private Long orgId;
 
     private String role;
+
+    private Timestamp effectiveFrom;
+
+    private JSONObject compensation;
+
+    private String personalEmail;
+
+    private String department;
+
+    private String title;
+
+    private String remarks;
 }

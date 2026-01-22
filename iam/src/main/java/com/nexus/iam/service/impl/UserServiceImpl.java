@@ -15,6 +15,7 @@ import com.nexus.iam.service.UserService;
 import com.nexus.iam.utils.CommonConstants;
 import com.nexus.iam.utils.RestService;
 import com.nexus.iam.utils.WebConstants;
+import lombok.RequiredArgsConstructor;
 import org.modelmapper.ModelMapper;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -28,10 +29,10 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.sql.Timestamp;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 
 @Service
+@RequiredArgsConstructor
 public class UserServiceImpl implements UserService {
 
     private final UserRepository userRepository;
@@ -49,17 +50,6 @@ public class UserServiceImpl implements UserService {
     private final AuthenticationService authenticationService;
 
     private final RestService restService;
-
-    public UserServiceImpl(UserRepository userRepository, ModelMapper modelMapper, PasswordEncoder passwordEncoder, OrganizationRepository organizationRepository, RoleRepository roleRepository, WebConstants webConstants, AuthenticationService authenticationService, RestService restService) {
-        this.userRepository = userRepository;
-        this.modelMapper = modelMapper;
-        this.passwordEncoder = passwordEncoder;
-        this.organizationRepository = organizationRepository;
-        this.roleRepository = roleRepository;
-        this.webConstants = webConstants;
-        this.authenticationService = authenticationService;
-        this.restService = restService;
-    }
 
     @Override
     public ResponseEntity<?> getUserById(Long userId) {
@@ -216,7 +206,7 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public ResponseEntity<?> createUser(UserProfileDto userDto) {
+    public ResponseEntity<?> createUser(UserProfileDto userDto, MultipartFile[] files) {
         try {
             User user = modelMapper.map(userDto, User.class);
             user.setCreatedAt(new Timestamp(System.currentTimeMillis()));
@@ -242,12 +232,106 @@ public class UserServiceImpl implements UserService {
             // Save user to repository
             userRepository.save(user);
 
-            // Return email and password instead of JWT
+            // prepare HR payload
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("employeeId", user.getId());
+            payload.put("fullName", user.getName());
+            payload.put("email", user.getEmail());
+            payload.put("orgId", user.getOrganization().getId());
+            payload.put("department", userDto.getDepartment());
+            payload.put("title", userDto.getTitle());
+            payload.put("remarks", userDto.getRemarks());
+            payload.put("timestamp", userDto.getEffectiveFrom());
+            payload.put("personalEmail", userDto.getPersonalEmail());
+            payload.put("compensation", userDto.getCompensation());
+
+            // upload documents to dms
+            if (!ObjectUtils.isEmpty(files)) {
+                List<Map<String, String>> hrDocumentsPayload = new ArrayList<>();
+                UriComponentsBuilder builder =
+                        UriComponentsBuilder.fromUriString(webConstants.getOrgFileUploadUrl());
+                Arrays.stream(files).forEach(file -> {
+                    try {
+                        Map<String, Object> dto = new HashMap<>();
+                        dto.put("userId", user.getId());
+                        dto.put("fileName", user.getId() + "_hr_doc");
+                        dto.put("remarks", "HR Doc Upload");
+                        dto.put("documentType", "OTHER_HR_DOCUMENTS");
+
+                        Map<String, Object> docPayload = new HashMap<>();
+                        payload.put("dto", dto);
+                        payload.put("file", file);
+
+                        Map<String, String> headers = new HashMap<>();
+                        LoginResponse loginResponse = authenticationService.authenticate(new LoginRequest(webConstants.getGenericUserId(),
+                                webConstants.getGenericPassword()));
+                        headers.put(CommonConstants.AUTHORIZATION, "Bearer " + loginResponse.getAccessToken());
+                        headers.put(CommonConstants.CONTENT_TYPE, CommonConstants.APPLICATION_MULTIPART_FORMDATA);
+                        ResponseEntity<?> response = restService.iamRestCall(
+                                builder.toUriString(),
+                                docPayload,
+                                headers,
+                                HttpMethod.POST,
+                                user.getId()
+                        );
+                        if (response.getStatusCode().is2xxSuccessful()) {
+                            @SuppressWarnings("unchecked")
+                            Map<String, String> respBody = (Map<String, String>) response.getBody();
+                            assert respBody != null;
+                            if (respBody.containsKey("documentUrl")) {
+                                Map<String, String> docInfo = new HashMap<>();
+                                docInfo.put("documentName", file.getOriginalFilename());
+                                docInfo.put("hrDocumentType", "OTHER_HR_DOCUMENTS");
+                                docInfo.put("documentUrl", respBody.get("documentUrl"));
+                                hrDocumentsPayload.add(docInfo);
+                            } else {
+                                throw new ServiceLevelException("UserService", "Failed to retrieve document URL from DMS response for user ID: " + user.getId(), "createUser",
+                                        new Timestamp(System.currentTimeMillis()), null, "DMS response missing documentUrl");
+                            }
+                        } else {
+                            throw new ServiceLevelException("UserService", "Failed to upload HR document to DMS for user ID: " + user.getId() + ". Response: " + response.getBody(), "createUser",
+                                    new Timestamp(System.currentTimeMillis()), null, "DMS upload failed with status: " + response.getStatusCode());
+                        }
+                    } catch (Exception e) {
+                        throw new ServiceLevelException("UserService", "Failed to upload HR document for user ID: " + user.getId(), "createUser",
+                                new Timestamp(System.currentTimeMillis()), e.getCause().toString(), e.getMessage());
+                    }
+                });
+
+                payload.put("hrDocuments", hrDocumentsPayload);
+
+            }
+
+            Map<String, String> headers = new HashMap<>();
+            LoginResponse loginResponse = authenticationService.authenticate(new LoginRequest(webConstants.getGenericUserId(),
+                    webConstants.getGenericPassword()));
+            headers.put(CommonConstants.AUTHORIZATION, "Bearer " + loginResponse.getAccessToken());
+            headers.put(CommonConstants.CONTENT_TYPE, CommonConstants.APPLICATION_JSON);
+
+            UriComponentsBuilder builder =
+                    UriComponentsBuilder.fromUriString(webConstants.getHrInitUrl());
+            ResponseEntity<?> hrResponse = restService.iamRestCall(
+                    builder.toUriString(),
+                    payload,
+                    headers,
+                    HttpMethod.POST,
+                    user.getId()
+            );
+
             Map<String, String> response = new HashMap<>();
-            response.put("email", user.getEmail());
-            response.put("userId", user.getId().toString());
-            response.put("password", generatedPassword);
-            response.put("message", "User created successfully");
+            if (hrResponse.getStatusCode().is2xxSuccessful()){
+                @SuppressWarnings("unchecked")
+                Map<String, String> respBody = (Map<String, String>) hrResponse.getBody();
+                assert respBody != null;
+                response.put("email", user.getEmail());
+                response.put("userId", user.getId().toString());
+                response.put("password", generatedPassword);
+                response.put("joiningLetter", respBody.computeIfPresent("joiningLetterUrl", (k, v) -> v));
+                response.put("letterOfIntent", respBody.computeIfPresent("letterOfIntentUrl", (k, v) -> v));
+                response.put("compensationCard", respBody.computeIfPresent("compensationCardUrl", (k, v) -> v));
+            }
+
+            // Return email and password instead of JWT
 
             return ResponseEntity.ok(response);
         } catch (Exception e) {

@@ -25,4 +25,7 @@ public class WebConstants {
 
     @Value("${generic.password}")
     public String genericPassword;
+
+    @Value("${hr.init.url}")
+    public String hrInitUrl;
 }

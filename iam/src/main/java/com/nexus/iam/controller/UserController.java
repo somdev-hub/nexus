@@ -21,13 +21,13 @@ public class UserController {
 
     @LogActivity("Add User")
     @PostMapping("/add")
-    public ResponseEntity<?> addUser(@RequestBody UserProfileDto user) {
+    public ResponseEntity<?> addUser(@RequestPart(value = "files", required = false) MultipartFile[] files, @RequestPart(value = "dto", required = true) UserProfileDto user) {
 
         if (ObjectUtils.isEmpty(user)) {
             return new ResponseEntity<>("Request body must not be null", HttpStatus.BAD_REQUEST);
         }
 
-        return userService.createUser(user);
+        return userService.createUser(user, files);
     }
 
     @LogActivity("Get All Employees")
