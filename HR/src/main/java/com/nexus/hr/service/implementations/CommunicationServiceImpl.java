@@ -1,8 +1,8 @@
 package com.nexus.hr.service.implementations;
 
+import com.nexus.hr.model.entities.HrCommunication;
 import com.nexus.hr.model.enums.CommunicationStatus;
 import com.nexus.hr.model.enums.CommunicationType;
-import com.nexus.hr.model.entities.HrCommunication;
 import com.nexus.hr.payload.EmailAttachmentDto;
 import com.nexus.hr.payload.EmailCommunicationDto;
 import com.nexus.hr.payload.ErrorResponseDto;
@@ -60,7 +60,10 @@ public class CommunicationServiceImpl implements CommunicationService {
             helper.setFrom(fromEmail);
             helper.setTo(emailCommunicationDto.getRecipientEmails().toArray(new String[0]));
             helper.setSubject(emailCommunicationDto.getSubject());
-            helper.setText(emailCommunicationDto.getBody(), true);
+
+            // Replace placeholders in email body with actual values
+            String processedBody = replacePlaceholders(emailCommunicationDto.getBody(), emailCommunicationDto);
+            helper.setText(processedBody, true);
 
             // Add CC emails if present
             if (!CollectionUtils.isEmpty(emailCommunicationDto.getCcEmails())) {
@@ -178,18 +181,98 @@ public class CommunicationServiceImpl implements CommunicationService {
 
                 // Download file from URL and attach
                 byte[] fileData = downloadFile(attachment.getFileUrl());
+
+                // Normalize content type to proper MIME format
+                String contentType = normalizeContentType(attachment.getContentType(), attachment.getFileName());
+
                 helper.addAttachment(
                         attachment.getFileName(),
                         () -> new java.io.ByteArrayInputStream(fileData),
-                        attachment.getContentType()
+                        contentType
                 );
 
-                log.debug("Attached file: {}", attachment.getFileName());
+                log.debug("Attached file: {} with content type: {}", attachment.getFileName(), contentType);
             } catch (Exception e) {
                 log.warn("Failed to attach file: {}", attachment.getFileName(), e);
                 // Continue with other attachments even if one fails
             }
         }
+    }
+
+    /**
+     * Normalizes content type to proper MIME format
+     * Handles cases where content type is just "PDF" instead of "application/pdf"
+     */
+    private String normalizeContentType(String contentType, String fileName) {
+        // If content type is null or empty, try to infer from filename
+        if (ObjectUtils.isEmpty(contentType)) {
+            return inferContentTypeFromFilename(fileName);
+        }
+
+        // If content type doesn't contain '/', it's not a valid MIME type
+        if (!contentType.contains("/")) {
+            String normalizedType = contentType.trim().toUpperCase();
+
+            // Map common short names to proper MIME types
+            return switch (normalizedType) {
+                case "PDF" -> "application/pdf";
+                case "DOC", "DOCX" -> "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+                case "XLS", "XLSX" -> "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+                case "PPT", "PPTX" -> "application/vnd.openxmlformats-officedocument.presentationml.presentation";
+                case "TXT", "TEXT" -> "text/plain";
+                case "HTML", "HTM" -> "text/html";
+                case "XML" -> "application/xml";
+                case "JSON" -> "application/json";
+                case "ZIP" -> "application/zip";
+                case "PNG" -> "image/png";
+                case "JPG", "JPEG" -> "image/jpeg";
+                case "GIF" -> "image/gif";
+                case "CSV" -> "text/csv";
+                default -> inferContentTypeFromFilename(fileName);
+            };
+        }
+
+        // Content type looks valid, return as-is
+        return contentType;
+    }
+
+    /**
+     * Infers MIME type from file extension
+     */
+    private String inferContentTypeFromFilename(String fileName) {
+        if (ObjectUtils.isEmpty(fileName)) {
+            return "application/octet-stream";
+        }
+
+        String extension = "";
+        int lastDotIndex = fileName.lastIndexOf('.');
+        if (lastDotIndex > 0 && lastDotIndex < fileName.length() - 1) {
+            extension = fileName.substring(lastDotIndex + 1).toUpperCase();
+        }
+
+        return switch (extension) {
+            case "PDF" -> "application/pdf";
+            case "DOC" -> "application/msword";
+            case "DOCX" -> "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+            case "XLS" -> "application/vnd.ms-excel";
+            case "XLSX" -> "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+            case "PPT" -> "application/vnd.ms-powerpoint";
+            case "PPTX" -> "application/vnd.openxmlformats-officedocument.presentationml.presentation";
+            case "TXT" -> "text/plain";
+            case "HTML", "HTM" -> "text/html";
+            case "XML" -> "application/xml";
+            case "JSON" -> "application/json";
+            case "ZIP" -> "application/zip";
+            case "PNG" -> "image/png";
+            case "JPG", "JPEG" -> "image/jpeg";
+            case "GIF" -> "image/gif";
+            case "BMP" -> "image/bmp";
+            case "SVG" -> "image/svg+xml";
+            case "CSV" -> "text/csv";
+            case "MP4" -> "video/mp4";
+            case "MP3" -> "audio/mpeg";
+            default -> "application/octet-stream";
+        };
     }
 
     /**
@@ -293,6 +376,8 @@ public class CommunicationServiceImpl implements CommunicationService {
 
     /**
      * Saves communication record to database for audit trail and monitoring
+     * NOTE: This method is non-transactional. Failures are caught and logged but won't affect the caller.
+     * The HrCommunication entity columns have been updated to TEXT type to prevent VARCHAR(255) overflow.
      */
     private void logCommunicationToDatabase(EmailCommunicationDto dto, CommunicationStatus status) {
         try {
@@ -338,5 +423,39 @@ public class CommunicationServiceImpl implements CommunicationService {
             response.put("attachmentCount", dto.getAttachments().size());
         }
         return response;
+    }
+
+    /**
+     * Replaces placeholders in the email body with actual values
+     * Placeholders are in the format {key} where key matches a key in the placeholders map
+     * Example: {name} will be replaced with the value from placeholders.get("name")
+     *
+     * @param body The email body containing placeholders
+     * @param dto  The email communication DTO containing the placeholders map
+     * @return The processed body with placeholders replaced
+     */
+    private String replacePlaceholders(String body, EmailCommunicationDto dto) {
+        if (ObjectUtils.isEmpty(body)) {
+            return body;
+        }
+
+        // If no placeholders map is provided, return body as-is
+        if (CollectionUtils.isEmpty(dto.getPlaceholders())) {
+            log.debug("No placeholders provided, returning body as-is");
+            return body;
+        }
+
+        String processedBody = body;
+
+        // Replace each placeholder with its value
+        for (Map.Entry<String, Object> entry : dto.getPlaceholders().entrySet()) {
+            String placeholder = "{" + entry.getKey() + "}";
+            String value = entry.getValue() != null ? entry.getValue().toString() : "";
+
+            processedBody = processedBody.replace(placeholder, value);
+            log.debug("Replaced placeholder {} with value: {}", placeholder, value);
+        }
+
+        return processedBody;
     }
 }

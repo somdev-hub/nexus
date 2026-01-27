@@ -27,7 +27,7 @@ public class HrEntity {
 
     private Boolean isActive;
 
-    @OneToOne
+    @OneToOne(cascade = CascadeType.ALL)
     @JoinColumn(name = "hr_compensation_id")
     private Compensation compensation;
 

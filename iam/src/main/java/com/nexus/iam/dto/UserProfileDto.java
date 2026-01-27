@@ -18,8 +18,6 @@ public class UserProfileDto {
 
     private String notes;
 
-    private Timestamp createdAt;
-
     private String profilePhoto;
 
     private Long orgId;
@@ -28,7 +26,7 @@ public class UserProfileDto {
 
     private Timestamp effectiveFrom;
 
-    private JSONObject compensation;
+    private CompensationDto compensation;
 
     private String personalEmail;
 

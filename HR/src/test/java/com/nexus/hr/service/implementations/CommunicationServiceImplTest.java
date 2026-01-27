@@ -88,7 +88,7 @@ class CommunicationServiceImplTest {
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
         assertNotNull(response.getBody());
 
-        verify(javaMailSender, never()).send(any());
+        verify(javaMailSender, never()).send((MimeMessage) any());
         verify(logger, times(1)).saveLogs(any(), any(), any(), any(), any(), any());
     }
 
@@ -106,7 +106,7 @@ class CommunicationServiceImplTest {
 
         // Assert
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
-        verify(javaMailSender, never()).send(any());
+        verify(javaMailSender, never()).send((MimeMessage) any());
     }
 
     @Test
@@ -123,7 +123,7 @@ class CommunicationServiceImplTest {
 
         // Assert
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
-        verify(javaMailSender, never()).send(any());
+        verify(javaMailSender, never()).send((MimeMessage) any());
     }
 
     @Test
@@ -140,7 +140,7 @@ class CommunicationServiceImplTest {
 
         // Assert
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
-        verify(javaMailSender, never()).send(any());
+        verify(javaMailSender, never()).send((MimeMessage) any());
     }
 
     @Test
@@ -161,7 +161,7 @@ class CommunicationServiceImplTest {
 
         // Assert
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
-        verify(javaMailSender, never()).send(any());
+        verify(javaMailSender, never()).send((MimeMessage) any());
     }
 
     @Test
@@ -179,7 +179,7 @@ class CommunicationServiceImplTest {
 
         // Assert
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
-        verify(javaMailSender, never()).send(any());
+        verify(javaMailSender, never()).send((MimeMessage) any());
     }
 
     @Test
@@ -197,12 +197,12 @@ class CommunicationServiceImplTest {
 
         // Assert
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
-        verify(javaMailSender, never()).send(any());
+        verify(javaMailSender, never()).send((MimeMessage) any());
     }
 
     @Test
     @DisplayName("Should use default from email when sender email is null")
-    void testSendEmailWithDefaultFromEmail() throws MessagingException {
+    void testSendEmailWithDefaultFromEmail() {
         // Arrange
         EmailCommunicationDto dto = new EmailCommunicationDto();
         dto.setRecipientEmails(List.of("user@example.com"));
@@ -223,7 +223,7 @@ class CommunicationServiceImplTest {
 
     @Test
     @DisplayName("Should send email with CC and BCC recipients")
-    void testSendEmailWithCCAndBCC() throws MessagingException {
+    void testSendEmailWithCCAndBCC() {
         // Arrange
         EmailCommunicationDto dto = new EmailCommunicationDto();
         dto.setRecipientEmails(List.of("user@example.com"));
@@ -251,12 +251,12 @@ class CommunicationServiceImplTest {
 
         // Assert
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
-        verify(javaMailSender, never()).send(any());
+        verify(javaMailSender, never()).send((MimeMessage) any());
     }
 
     @Test
     @DisplayName("Should log communication to database on success")
-    void testLogCommunicationToDatabaseOnSuccess() throws MessagingException {
+    void testLogCommunicationToDatabaseOnSuccess() {
         // Arrange
         EmailCommunicationDto dto = createValidEmailDto();
         MimeMessage mockMessage = mock(MimeMessage.class);
@@ -275,12 +275,12 @@ class CommunicationServiceImplTest {
 
     @Test
     @DisplayName("Should log communication to database on failure")
-    void testLogCommunicationToDatabaseOnFailure() throws MessagingException {
+    void testLogCommunicationToDatabaseOnFailure() {
         // Arrange
         EmailCommunicationDto dto = createValidEmailDto();
         MimeMessage mockMessage = mock(MimeMessage.class);
         when(javaMailSender.createMimeMessage()).thenReturn(mockMessage);
-        doThrow(new MessagingException("SMTP Error")).when(javaMailSender).send(any());
+        doThrow(new MessagingException("SMTP Error")).when(javaMailSender).send((MimeMessage) any());
 
         // Act
         communicationService.sendCommunicationOverEmail(dto);
@@ -293,7 +293,7 @@ class CommunicationServiceImplTest {
 
     @Test
     @DisplayName("Should return success response with correct structure")
-    void testSuccessResponseStructure() throws MessagingException {
+    void testSuccessResponseStructure() {
         // Arrange
         EmailCommunicationDto dto = createValidEmailDto();
         MimeMessage mockMessage = mock(MimeMessage.class);

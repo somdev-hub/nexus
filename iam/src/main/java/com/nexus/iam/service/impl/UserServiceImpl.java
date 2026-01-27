@@ -259,14 +259,14 @@ public class UserServiceImpl implements UserService {
                         dto.put("documentType", "OTHER_HR_DOCUMENTS");
 
                         Map<String, Object> docPayload = new HashMap<>();
-                        payload.put("dto", dto);
-                        payload.put("file", file);
+                        docPayload.put("dto", dto);
+                        docPayload.put("file", file);
 
                         Map<String, String> headers = new HashMap<>();
                         LoginResponse loginResponse = authenticationService.authenticate(new LoginRequest(webConstants.getGenericUserId(),
                                 webConstants.getGenericPassword()));
                         headers.put(CommonConstants.AUTHORIZATION, "Bearer " + loginResponse.getAccessToken());
-                        headers.put(CommonConstants.CONTENT_TYPE, CommonConstants.APPLICATION_MULTIPART_FORMDATA);
+                        // Do NOT set Content-Type header - RestTemplate will automatically set it to multipart/form-data
                         ResponseEntity<?> response = restService.iamRestCall(
                                 builder.toUriString(),
                                 docPayload,
@@ -294,7 +294,7 @@ public class UserServiceImpl implements UserService {
                         }
                     } catch (Exception e) {
                         throw new ServiceLevelException("UserService", "Failed to upload HR document for user ID: " + user.getId(), "createUser",
-                                new Timestamp(System.currentTimeMillis()), e.getCause().toString(), e.getMessage());
+                                new Timestamp(System.currentTimeMillis()), e.getCause()!=null?e.getCause().toString():null, e.getMessage());
                     }
                 });
 

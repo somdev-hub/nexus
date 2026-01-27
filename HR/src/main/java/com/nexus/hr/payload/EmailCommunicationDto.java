@@ -3,6 +3,7 @@ package com.nexus.hr.payload;
 import lombok.Data;
 
 import java.util.List;
+import java.util.Map;
 
 @Data
 public class EmailCommunicationDto {
@@ -20,5 +21,11 @@ public class EmailCommunicationDto {
 
     private List<EmailAttachmentDto> attachments;
 
+    /**
+     * Map of placeholder keys to their replacement values
+     * Example: {"name": "John Doe", "employeeId": "12345"}
+     * These will replace {name} and {employeeId} in the email body
+     */
+    private Map<String, Object> placeholders;
 
 }

@@ -34,14 +34,14 @@ public class Compensation {
     @OneToOne(mappedBy = "compensation")
     private HrEntity hrEntity;
 
-    @OneToMany(cascade = CascadeType.ALL, mappedBy = "compensation_id")
+    @OneToMany(cascade = CascadeType.ALL, mappedBy = "compensation")
     private List<Bonus> bonuses = new ArrayList<>();
 
-    @OneToMany(cascade = CascadeType.ALL, mappedBy = "compensation_id")
+    @OneToMany(cascade = CascadeType.ALL, mappedBy = "compensation")
     private List<Deduction> deductions = new ArrayList<>();
 
     @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, mappedBy = "compensation")
-    private List<HrDocument> compensationCard;
+    private List<HrDocument> compensationCard = new ArrayList<>();
 
     @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, mappedBy = "compensation")
     private List<Payroll> payrolls = new ArrayList<>();

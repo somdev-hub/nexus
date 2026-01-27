@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.*;
  */
 @Slf4j
 @RestController
-@RequestMapping("/api/v1/hr")
+@RequestMapping("/hr/")
 public class HrController {
 
     private final HrService hrService;
@@ -30,7 +30,7 @@ public class HrController {
      * @param hrInitRequestDto Request containing employee and position details
      * @return Response containing generated PDF files
      */
-    @PostMapping("/init")
+    @PostMapping("/employee/init")
     public ResponseEntity<?> initializeHr(@RequestBody HrInitRequestDto hrInitRequestDto) {
         log.info("Initializing HR for employee ID: {}", hrInitRequestDto.getEmployeeId());
         try {

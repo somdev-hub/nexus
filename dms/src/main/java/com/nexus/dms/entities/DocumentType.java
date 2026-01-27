@@ -7,7 +7,7 @@ public enum DocumentType {
     CONTRACT,
     INVOICE,
     REPORT,
-    TRANSIT_LISENSE,
+    TRANSIT_LICENSE,
     EXPORT_PERMIT,
     PASSPORT,
     LETTER_OF_INTENT,

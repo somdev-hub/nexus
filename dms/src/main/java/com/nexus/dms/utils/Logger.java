@@ -10,6 +10,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nexus.dms.entities.DmsLogs;
 import com.nexus.dms.exception.ServiceLevelException;
 import com.nexus.dms.repository.DmsLogsRepo;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.util.HashMap;
+import java.util.Map;
 
 @Service
 public class Logger {
@@ -62,25 +66,30 @@ public class Logger {
      * If object is already a String, returns it as-is
      * Otherwise, serializes the object to JSON
      *
-     * @param obj The object to serialize
+     * @param payload The object to serialize
      * @return JSON string or null if object is null
      */
-    private String serializeObject(Object obj) {
-        if (obj == null) {
-            return null;
-        }
-
-        // If already a string, return as-is (already serialized)
-        if (obj instanceof String) {
-            return (String) obj;
-        }
-
-        // Otherwise, serialize to JSON
+    private String serializeObject(Object payload) {
         try {
-            return objectMapper.writeValueAsString(obj);
-        } catch (JsonProcessingException e) {
-            // Fallback to toString if JSON serialization fails
-            return obj.toString();
+            if (payload instanceof Map) {
+                Map<String, Object> map = (Map<String, Object>) payload;
+                // Create a copy to avoid serializing MultipartFile objects
+                Map<String, Object> safeMap = new HashMap<>();
+                for (Map.Entry<String, Object> entry : map.entrySet()) {
+                    if (entry.getValue() instanceof MultipartFile) {
+                        safeMap.put(entry.getKey(), "MultipartFile");
+                    } else {
+                        safeMap.put(entry.getKey(), entry.getValue());
+                    }
+                }
+                ObjectMapper mapper = new ObjectMapper();
+                return mapper.writeValueAsString(safeMap);
+            } else {
+                ObjectMapper mapper = new ObjectMapper();
+                return mapper.writeValueAsString(payload);
+            }
+        } catch (Exception e) {
+            return payload.toString();
         }
     }
 }

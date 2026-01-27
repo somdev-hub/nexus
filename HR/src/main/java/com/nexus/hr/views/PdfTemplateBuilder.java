@@ -76,7 +76,7 @@ public class PdfTemplateBuilder {
                             font-size: 12px;
                         }
                         .details-table {
-                            width: 100%;
+                            width: 100%%;
                             margin: 20px 0;
                             border-collapse: collapse;
                         }
@@ -88,7 +88,7 @@ public class PdfTemplateBuilder {
                         .details-table .label {
                             font-weight: bold;
                             background-color: #f5f5f5;
-                            width: 30%;
+                            width: 30%%;
                         }
                         .closing {
                             margin-top: 30px;
@@ -180,7 +180,7 @@ public class PdfTemplateBuilder {
 
                         <div class="signature-section">
                             <div class="signature-line"></div>
-                            <div style="margin-top: 5px;">
+                            <div style="margin-top: 5px">
                                 <strong>Human Resources Department</strong><br>
                                 %s
                             </div>
@@ -337,7 +337,7 @@ public class PdfTemplateBuilder {
                             justify-content: space-between;
                         }
                         .signature-block {
-                            width: 45%;
+                            width: 45%%;
                         }
                         .signature-line {
                             border-top: 1px solid #000;
@@ -483,7 +483,7 @@ public class PdfTemplateBuilder {
                 bonusesHtml.append("</tr>");
             }
         } else {
-            bonusesHtml.append("<tr><td colspan='2' style='text-align: center; color: #999;'>No bonuses applicable</td></tr>");
+            bonusesHtml.append("<tr><td colspan='2' style='text-align: center; color: #999'>No bonuses applicable</td></tr>");
         }
 
         // Build deductions section
@@ -502,7 +502,7 @@ public class PdfTemplateBuilder {
                 deductionsHtml.append("</tr>");
             }
         } else {
-            deductionsHtml.append("<tr><td colspan='2' style='text-align: center; color: #999;'>No deductions applicable</td></tr>");
+            deductionsHtml.append("<tr><td colspan='2' style='text-align: center; color: #999'>No deductions applicable</td></tr>");
         }
 
         return """
@@ -521,7 +521,7 @@ public class PdfTemplateBuilder {
                             margin: 0;
                             padding: 20px;
                             color: #333;
-                            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+                            background: linear-gradient(135deg, #f5f7fa 0%%, #c3cfe2 100%%);
                         }
                         .compensation-card {
                             background: white;
@@ -577,7 +577,7 @@ public class PdfTemplateBuilder {
                         .summary-section {
                             margin-bottom: 25px;
                             padding: 20px;
-                            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                            background: linear-gradient(135deg, #667eea 0%%, #764ba2 100%%);
                             color: white;
                             border-radius: 8px;
                             text-align: center;
@@ -613,7 +613,7 @@ public class PdfTemplateBuilder {
                             letter-spacing: 0.5px;
                         }
                         .comp-table {
-                            width: 100%;
+                            width: 100%%;
                             border-collapse: collapse;
                             margin-bottom: 20px;
                             font-size: 13px;
@@ -689,7 +689,7 @@ public class PdfTemplateBuilder {
                             justify-content: space-between;
                         }
                         .signature-block {
-                            width: 45%;
+                            width: 45%%;
                             text-align: center;
                         }
                         .signature-line {
@@ -748,7 +748,7 @@ public class PdfTemplateBuilder {
                                 <thead>
                                     <tr>
                                         <th>Component</th>
-                                        <th style="text-align: right;">Amount</th>
+                                        <th style="text-align: right">Amount</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -778,8 +778,8 @@ public class PdfTemplateBuilder {
 
                         <div class="breakdown-grid">
                             <div class="breakdown-card positive">
-                                <div class="section-title" style="border: none; padding-bottom: 5px;">Bonuses & Allowances</div>
-                                <table class="comp-table" style="margin-bottom: 0;">
+                                <div class="section-title" style="border: none; padding-bottom: 5px">Bonuses & Allowances</div>
+                                <table class="comp-table" style="margin-bottom: 0">
                                     <tbody>
                                         %s
                                     </tbody>
@@ -787,8 +787,8 @@ public class PdfTemplateBuilder {
                             </div>
 
                             <div class="breakdown-card negative">
-                                <div class="section-title" style="border: none; padding-bottom: 5px;">Deductions</div>
-                                <table class="comp-table" style="margin-bottom: 0;">
+                                <div class="section-title" style="border: none; padding-bottom: 5px">Deductions</div>
+                                <table class="comp-table" style="margin-bottom: 0">
                                     <tbody>
                                         %s
                                     </tbody>
@@ -816,14 +816,14 @@ public class PdfTemplateBuilder {
                         <div class="signature-section">
                             <div class="signature-block">
                                 <div class="signature-line"></div>
-                                <div style="margin-top: 5px; font-size: 12px;">
+                                <div style="margin-top: 5px; font-size: 12px">
                                     <strong>Employee Signature</strong><br>
                                     Date: _______________
                                 </div>
                             </div>
                             <div class="signature-block">
                                 <div class="signature-line"></div>
-                                <div style="margin-top: 5px; font-size: 12px;">
+                                <div style="margin-top: 5px; font-size: 12px">
                                     <strong>HR Department</strong><br>
                                     Date: _______________
                                 </div>
@@ -834,7 +834,7 @@ public class PdfTemplateBuilder {
                             <p><strong>%s</strong></p>
                             <p>%s</p>
                             <p>Email: %s | Phone: %s</p>
-                            <p style="margin-top: 10px; font-style: italic;">
+                            <p style="margin-top: 10px; font-style: italic">
                                 This is a computer-generated document and does not require a physical signature.
                             </p>
                         </div>

@@ -20,16 +20,20 @@ public class HrCommunication {
     @Enumerated(EnumType.STRING)
     private CommunicationType communicationType; // e.g., Email, Phone, Address
 
+    @Column(length = 500)
     private String subject;
 
+    @Column(columnDefinition = "TEXT")
     private String body;
 
     @ManyToOne
     @JoinColumn(name = "hr_entity_hr_id")
     private HrEntity hrEntity;
 
+    @Column(length = 500)
     private String senderId;
 
+    @Column(columnDefinition = "TEXT")
     private List<String> receiverIds;
 
     @Enumerated(EnumType.STRING)
@@ -37,10 +41,13 @@ public class HrCommunication {
 
     private Timestamp timestamp;
 
+    @Column(columnDefinition = "TEXT")
     private List<String> attachments;
 
+    @Column(columnDefinition = "TEXT")
     private List<String> ccEmails;
 
+    @Column(columnDefinition = "TEXT")
     private List<String> bccEmails;
 
 }

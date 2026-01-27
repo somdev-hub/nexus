@@ -1,14 +1,17 @@
 package com.nexus.hr.utils;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nexus.hr.model.entities.HrLogs;
 import com.nexus.hr.repository.HrLogsRepo;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.http.*;
 import org.springframework.stereotype.Service;
-import org.springframework.util.ObjectUtils;
-import org.springframework.web.client.RestClient;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
+import org.springframework.web.client.RestTemplate;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.util.Map;
 
 @Service
@@ -24,29 +27,27 @@ public class RestServices {
     }
 
     public ResponseEntity<?> hrRestCall(String url, Object payload, Map<String, String> headers,
-                                         HttpMethod method, Long hrId) {
+                                        HttpMethod method, Long hrId) {
         ResponseEntity<?> responseEntity = null;
+        String requestLog = null;
         try {
-            RestClient restClient = RestClient.create();
-            RestClient.RequestBodySpec request = restClient.method(method).uri(url);
-
-            if (headers != null) {
-                headers.forEach(request::header);
-            }
-
-            if (ObjectUtils.isEmpty(payload)) {
-                responseEntity = request.retrieve().toEntity(Object.class);
+            // Check if payload contains multipart files
+            if (payload instanceof Map && containsMultipartFile((Map<String, Object>) payload)) {
+                responseEntity = handleMultipartRequest(url, (Map<String, Object>) payload, headers, method);
+                requestLog = serializePayload(payload); // Serialize to JSON even for multipart
             } else {
-                responseEntity = request.body(payload).retrieve().toEntity(Object.class);
+                responseEntity = handleRegularRequest(url, payload, headers, method);
+                requestLog = payload != null ? serializePayload(payload) : null;
             }
         } catch (Exception e) {
             responseEntity = new ResponseEntity<>("Exception occurred during REST call: " + e.getMessage(),
                     HttpStatus.INTERNAL_SERVER_ERROR);
+            requestLog = payload != null ? serializePayload(payload) : null;
         } finally {
             HrLogs log = new HrLogs();
             log.setRequestUrl(url);
             log.setHttpMethod(method.name());
-            log.setRequest(payload != null ? payload.toString() : null);
+            log.setRequest(requestLog);
             if (responseEntity != null) {
                 Object respBody = responseEntity.getBody();
                 String responseString = respBody != null ? respBody.toString() : null;
@@ -61,5 +62,91 @@ public class RestServices {
         }
 
         return responseEntity;
+    }
+
+
+    private boolean containsMultipartFile(Map<String, Object> map) {
+        for (Object value : map.values()) {
+            if (value instanceof MultipartFile) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private String serializePayload(Object payload) {
+        try {
+            if (payload instanceof Map) {
+                Map<String, Object> map = (Map<String, Object>) payload;
+                // Create a copy to avoid serializing MultipartFile objects
+                Map<String, Object> safeMap = new java.util.HashMap<>();
+                for (Map.Entry<String, Object> entry : map.entrySet()) {
+                    if (entry.getValue() instanceof MultipartFile) {
+                        safeMap.put(entry.getKey(), "MultipartFile");
+                    } else {
+                        safeMap.put(entry.getKey(), entry.getValue());
+                    }
+                }
+                ObjectMapper mapper = new ObjectMapper();
+                return mapper.writeValueAsString(safeMap);
+            } else {
+                ObjectMapper mapper = new ObjectMapper();
+                return mapper.writeValueAsString(payload);
+            }
+        } catch (Exception e) {
+            return payload.toString();
+        }
+    }
+
+    private ResponseEntity<?> handleMultipartRequest(String url, Map<String, Object> payload,
+                                                     Map<String, String> headers, HttpMethod method) throws IOException {
+        RestTemplate restTemplate = new RestTemplate();
+
+        // Create multipart body
+        MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
+
+        for (Map.Entry<String, Object> entry : payload.entrySet()) {
+            Object value = entry.getValue();
+
+            if (value instanceof MultipartFile file) {
+                // Convert MultipartFile to ByteArrayResource
+                ByteArrayResource fileResource = new ByteArrayResource(file.getBytes()) {
+                    @Override
+                    public String getFilename() {
+                        return file.getOriginalFilename();
+                    }
+                };
+                body.add(entry.getKey(), fileResource);
+            } else {
+                // Send DTO and other objects directly - RestTemplate will handle serialization
+                body.add(entry.getKey(), value);
+            }
+        }
+
+        // Create headers - DO NOT set Content-Type, RestTemplate will handle it automatically
+        HttpHeaders httpHeaders = new HttpHeaders();
+        if (headers != null) {
+            headers.forEach((key, value) -> {
+                // Skip Content-Type - RestTemplate sets it automatically for multipart
+                if (!key.equalsIgnoreCase("Content-Type")) {
+                    httpHeaders.set(key, value);
+                }
+            });
+        }
+
+        HttpEntity<MultiValueMap<String, Object>> httpEntity = new HttpEntity<>(body, httpHeaders);
+        return restTemplate.exchange(url, method, httpEntity, Object.class);
+    }
+
+    private ResponseEntity<?> handleRegularRequest(String url, Object payload, Map<String, String> headers, HttpMethod method) {
+        RestTemplate restTemplate = new RestTemplate();
+
+        HttpHeaders httpHeaders = new HttpHeaders();
+        if (headers != null) {
+            headers.forEach(httpHeaders::set);
+        }
+
+        HttpEntity<Object> httpEntity = new HttpEntity<>(payload, httpHeaders);
+        return restTemplate.exchange(url, method, httpEntity, Object.class);
     }
 }

@@ -20,7 +20,7 @@ public class UserController {
     private UserService userService;
 
     @LogActivity("Add User")
-    @PostMapping("/add")
+    @PostMapping(value = "/add", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> addUser(@RequestPart(value = "files", required = false) MultipartFile[] files, @RequestPart(value = "dto", required = true) UserProfileDto user) {
 
         if (ObjectUtils.isEmpty(user)) {

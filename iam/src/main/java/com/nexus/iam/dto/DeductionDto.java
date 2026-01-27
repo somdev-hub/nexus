@@ -1,17 +1,18 @@
-package com.nexus.hr.payload;
+package com.nexus.iam.dto;
 
-import com.nexus.hr.model.entities.Compensation;
 import lombok.Data;
 
 import java.sql.Timestamp;
 
 @Data
-public class BonusDto {
-    private Long bonusId;
+public class DeductionDto {
+    private Long deductionId;
 
-    private String bonusType;
+    private String deductionType;
 
     private Double amount;
+
+    private String description;
 
     private Double percentageOfSalary;
 
