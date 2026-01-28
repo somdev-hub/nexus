@@ -1,11 +1,13 @@
 package com.nexus.hr.utils;
 
+import com.nexus.hr.payload.RestPayload;
 import com.nexus.hr.payload.TokenPayloadDto;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.util.ObjectUtils;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.util.UriComponentsBuilder;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
@@ -16,9 +18,8 @@ import java.util.Map;
 @Service
 public class CommonUtils {
 
-    private String token;
-
     private final WebConstants webConstants;
+    private String token;
 
     public CommonUtils(WebConstants webConstants) {
         this.webConstants = webConstants;
@@ -105,12 +106,46 @@ public class CommonUtils {
         }
         JsonNode jsonNode = null;
         ObjectMapper objectMapper = new ObjectMapper();
-        try{
+        try {
             jsonNode = objectMapper.readTree(jsonString);
-        }
-        catch (JacksonException _){
+        } catch (JacksonException _) {
             jsonNode = objectMapper.createObjectNode().put("message", jsonString);
         }
         return objectMapper.writeValueAsString(jsonNode);
+    }
+
+    public RestPayload buildRestPayload(String url, Map<String, String> queriesParams, Map<Integer, String> pathVariables, String headerType) {
+        RestPayload restPayload = new RestPayload();
+        UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(url);
+
+        // Append path variables (sorted by index) to the URL
+        if (!ObjectUtils.isEmpty(pathVariables)) {
+            pathVariables.entrySet().stream()
+                    .sorted(Map.Entry.comparingByKey())
+                    .forEach(entry -> builder.pathSegment(entry.getValue()));
+        }
+
+        // Append query parameters
+        if (!ObjectUtils.isEmpty(queriesParams)) {
+            queriesParams.forEach(builder::queryParam);
+        }
+
+        // Build headers
+        Map<String, String> headers = new HashMap<>();
+        if (!ObjectUtils.isEmpty(headerType)) {
+            headers.put(CommonConstants.AUTHORIZATION, getToken());
+            if (headerType.equalsIgnoreCase("json")) {
+                headers.put(CommonConstants.CONTENT_TYPE, CommonConstants.APPLICATION_JSON);
+            } else if (headerType.equalsIgnoreCase("multipart")) {
+                headers.put(CommonConstants.CONTENT_TYPE, CommonConstants.MULTIPART_FORM_DATA);
+            }
+            // Add other header types if needed
+        }
+
+        restPayload.setBuilder(builder);
+        restPayload.setHeaders(headers);
+
+        return restPayload;
+
     }
 }

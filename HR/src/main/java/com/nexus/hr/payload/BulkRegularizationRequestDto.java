@@ -3,6 +3,7 @@ package com.nexus.hr.payload;
 import lombok.Data;
 
 import java.sql.Date;
+import java.sql.Timestamp;
 
 @Data
 public class BulkRegularizationRequestDto {
@@ -11,9 +12,9 @@ public class BulkRegularizationRequestDto {
 
     private Date date;
 
-    private Double checkInHours;
+    private Timestamp checkInHours;
 
-    private Double checkOutHours;
+    private Timestamp checkOutHours;
 
     private Boolean halfDay;
 

@@ -1,6 +1,12 @@
 package com.nexus.hr.service.interfaces;
 
+import com.nexus.hr.model.entities.Compensation;
+import com.nexus.hr.model.entities.Position;
+import com.nexus.hr.model.enums.HrRequestStatus;
 import com.nexus.hr.payload.HrInitRequestDto;
+import com.nexus.hr.payload.HrRequestDto;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 
 public interface HrService {
@@ -16,5 +22,13 @@ public interface HrService {
      * @param hrInitRequestDto HR initialization request containing employee details
      * @return ResponseEntity containing GeneratedPdfDto with PDF files and metadata
      */
-    public ResponseEntity<?> initHr(HrInitRequestDto hrInitRequestDto);
+    ResponseEntity<?> initHr(HrInitRequestDto hrInitRequestDto);
+
+    ResponseEntity<?> takeActionForHrRequests(Long requestId, HrRequestStatus action, String resolutionRemarks);
+
+    ResponseEntity<Page<HrRequestDto>> getAllHrRequests(Pageable pageable);
+
+    ResponseEntity<?> promoteEmployee(Long hrId, Position position, Compensation compensation);
+
+    ResponseEntity<?> rewardAppraisal(Long hrId, Compensation compensation);
 }

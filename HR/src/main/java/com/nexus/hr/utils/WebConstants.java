@@ -34,4 +34,7 @@ public class WebConstants {
 
     @Value("${spring.mail.max-recipients:100}")
     private Integer maxRecipients;
+
+    @Value("${get.user.details.url}")
+    private String getUserDetailsUrl;
 }

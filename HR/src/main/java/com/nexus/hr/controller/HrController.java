@@ -1,13 +1,17 @@
 package com.nexus.hr.controller;
 
-import com.nexus.hr.service.interfaces.HrService;
+import com.nexus.hr.annotation.LogActivity;
+import com.nexus.hr.exception.UnauthorizedException;
+import com.nexus.hr.model.enums.HrRequestStatus;
 import com.nexus.hr.payload.HrInitRequestDto;
-import com.nexus.hr.payload.GeneratedPdfDto;
+import com.nexus.hr.service.interfaces.HrService;
+import com.nexus.hr.utils.CommonUtils;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpHeaders;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.util.ObjectUtils;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -16,13 +20,11 @@ import org.springframework.web.bind.annotation.*;
 @Slf4j
 @RestController
 @RequestMapping("/hr/")
+@RequiredArgsConstructor
 public class HrController {
 
     private final HrService hrService;
-
-    public HrController(HrService hrService) {
-        this.hrService = hrService;
-    }
+    private final CommonUtils commonUtils;
 
     /**
      * Initialize HR for an employee and generate PDFs
@@ -30,6 +32,7 @@ public class HrController {
      * @param hrInitRequestDto Request containing employee and position details
      * @return Response containing generated PDF files
      */
+    @LogActivity("Initialize HR and Generate PDFs")
     @PostMapping("/employee/init")
     public ResponseEntity<?> initializeHr(@RequestBody HrInitRequestDto hrInitRequestDto) {
         log.info("Initializing HR for employee ID: {}", hrInitRequestDto.getEmployeeId());
@@ -44,35 +47,21 @@ public class HrController {
         }
     }
 
-    /**
-     * Download joining letter PDF for an employee
-     * Note: This is a placeholder endpoint. In production, you would retrieve
-     * the PDF from storage and return it for download.
-     *
-     * @param employeeId The employee ID
-     * @return PDF file for download
-     */
-    @GetMapping("/documents/joining-letter/{employeeId}")
-    public ResponseEntity<?> downloadJoiningLetter(@PathVariable Long employeeId) {
-        log.info("Downloading joining letter for employee ID: {}", employeeId);
-        // TODO: Implement PDF retrieval from database or file storage
-        return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED)
-                .body("PDF download endpoint not yet implemented");
+    @LogActivity("Take Action on HR Requests")
+    @PostMapping("/requests/action")
+    public ResponseEntity<?> takeActionForHrRequests(@RequestParam Long requestId, @RequestParam HrRequestStatus action, @RequestParam String resolutionRemarks, @RequestHeader("Authorization") String token) {
+        if (ObjectUtils.isEmpty(token) || !commonUtils.validateToken(token)) {
+            throw new UnauthorizedException("Unauthorized", "Invalid or missing authorization token");
+        }
+        return hrService.takeActionForHrRequests(requestId, action, resolutionRemarks);
     }
 
-    /**
-     * Download letter of intent PDF for an employee
-     * Note: This is a placeholder endpoint. In production, you would retrieve
-     * the PDF from storage and return it for download.
-     *
-     * @param employeeId The employee ID
-     * @return PDF file for download
-     */
-    @GetMapping("/documents/letter-of-intent/{employeeId}")
-    public ResponseEntity<?> downloadLetterOfIntent(@PathVariable Long employeeId) {
-        log.info("Downloading letter of intent for employee ID: {}", employeeId);
-        // TODO: Implement PDF retrieval from database or file storage
-        return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED)
-                .body("PDF download endpoint not yet implemented");
+    @LogActivity("Get All HR Requests")
+    @GetMapping("/all/hr-requests")
+    public ResponseEntity<?> getAllHrRequests(@RequestParam(value = "page", required = false, defaultValue = "0") Integer page, @RequestParam(value = "offset", required = false, defaultValue = "10") Integer offset, @RequestHeader("Authorization") String token) {
+        if (ObjectUtils.isEmpty(token) || !commonUtils.validateToken(token)) {
+            throw new UnauthorizedException("Unauthorized", "Invalid or missing authorization token");
+        }
+        return hrService.getAllHrRequests(PageRequest.of(page, offset));
     }
 }

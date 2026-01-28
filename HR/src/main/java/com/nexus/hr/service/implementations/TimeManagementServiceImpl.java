@@ -3,16 +3,22 @@ package com.nexus.hr.service.implementations;
 import com.nexus.hr.exception.ResourceNotFoundException;
 import com.nexus.hr.exception.ServiceLevelException;
 import com.nexus.hr.model.entities.HrEntity;
+import com.nexus.hr.model.entities.HrRequest;
 import com.nexus.hr.model.entities.TimeManagement;
+import com.nexus.hr.model.enums.HrRequestStatus;
+import com.nexus.hr.model.enums.HrRequestType;
 import com.nexus.hr.payload.BulkRegularizationRequestDto;
 import com.nexus.hr.repository.HrEntityRepo;
+import com.nexus.hr.repository.HrRequestRepo;
 import com.nexus.hr.repository.TimeManagementRepo;
 import com.nexus.hr.service.interfaces.TimeManagementService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.util.ObjectUtils;
 
+import java.sql.Date;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -27,6 +33,7 @@ public class TimeManagementServiceImpl implements TimeManagementService {
     private static final long WORK_HOURS_THRESHOLD = 8; // 8 hours in milliseconds = 28800000
     private final TimeManagementRepo timeManagementRepo;
     private final HrEntityRepo hrEntityRepo;
+    private final HrRequestRepo hrRequestRepo;
 
     @Override
     public ResponseEntity<?> toggleAttendance(Long hrId) {
@@ -284,7 +291,125 @@ public class TimeManagementServiceImpl implements TimeManagementService {
     }
 
     @Override
-    public ResponseEntity<?> bulkRegularize(BulkRegularizationRequestDto bulkRegularizationRequestDto) {
-        return null;
+    public ResponseEntity<?> bulkRegularize(List<BulkRegularizationRequestDto> bulkRegularizationRequestDtos) {
+        if (bulkRegularizationRequestDtos.isEmpty()) {
+            throw new ServiceLevelException(
+                    "TimeManagementService",
+                    "Bulk regularization request is empty",
+                    "bulkRegularize",
+                    "InvalidInput",
+                    "The provided BulkRegularizationRequestDto is null or empty"
+            );
+        }
+        try {
+            for (BulkRegularizationRequestDto bulkRegularizationRequestDto : bulkRegularizationRequestDtos) {
+                HrRequest hrRequests = new HrRequest();
+                hrRequests.setAppliedBy(hrEntityRepo.findById(bulkRegularizationRequestDto.getHrId()).orElseThrow(
+                        () -> new ResourceNotFoundException("HrEntity", "hrId", bulkRegularizationRequestDto.getHrId())
+                ));
+                hrRequests.setRequestType(HrRequestType.BULK_REGULARIZATION);
+                hrRequests.setAppliedOn(Timestamp.valueOf(LocalDateTime.now()));
+                hrRequests.setFromDate(bulkRegularizationRequestDto.getDate());
+                hrRequests.setToDate(bulkRegularizationRequestDto.getDate());
+                hrRequests.setStatus(HrRequestStatus.OPEN);
+                hrRequests.setRemarks(bulkRegularizationRequestDto.getReason());
+                hrRequests.setCheckInHours(bulkRegularizationRequestDto.getCheckInHours());
+                hrRequests.setCheckOutHours(bulkRegularizationRequestDto.getCheckOutHours());
+                hrRequests.setHalfDay(bulkRegularizationRequestDto.getHalfDay());
+                hrRequestRepo.save(hrRequests);
+            }
+            Map<String, Object> response = new HashMap<>();
+            response.put("message", "Bulk regularization requests submitted successfully");
+            response.put("status", HttpStatus.OK.value());
+            return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            throw new ServiceLevelException(
+                    "TimeManagementService",
+                    "Error during bulk regularization",
+                    "bulkRegularize",
+                    e.getClass().getName(),
+                    e.getMessage()
+            );
+        }
+    }
+
+    @Override
+    public ResponseEntity<?> applyWeeklyOff(Long hrId, Date fromDate, Date toDate, String remarks) {
+        if (ObjectUtils.isEmpty(hrId)) {
+            throw new ServiceLevelException(
+                    "TimeManagementService",
+                    "HrId is required for applying weekly off",
+                    "applyWeeklyOff",
+                    "InvalidInput",
+                    "The provided hrId is null or empty"
+            );
+        }
+
+        try {
+            HrRequest hrRequests = new HrRequest();
+            hrRequests.setAppliedBy(hrEntityRepo.findById(hrId).orElseThrow(
+                    () -> new ResourceNotFoundException("HrEntity", "hrId", hrId)
+            ));
+            hrRequests.setRequestType(HrRequestType.WEEKLY_OFF);
+            hrRequests.setAppliedOn(Timestamp.valueOf(LocalDateTime.now()));
+            hrRequests.setFromDate(fromDate);
+            hrRequests.setToDate(toDate);
+            hrRequests.setStatus(HrRequestStatus.OPEN);
+            hrRequests.setRemarks(remarks);
+            hrRequestRepo.save(hrRequests);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("message", "Weekly off request submitted successfully");
+            response.put("status", HttpStatus.OK.value());
+            return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            throw new ServiceLevelException(
+                    "TimeManagementService",
+                    "Error during weekly off application",
+                    "applyWeeklyOff",
+                    e.getClass().getName(),
+                    e.getMessage()
+            );
+        }
+    }
+
+    @Override
+    public ResponseEntity<?> applyHoliday(Long hrId, Date fromDate, Date toDate, String remarks) {
+        if (ObjectUtils.isEmpty(hrId)) {
+            throw new ServiceLevelException(
+                    "TimeManagementService",
+                    "HrId is required for applying holiday",
+                    "applyHoliday",
+                    "InvalidInput",
+                    "The provided hrId is null or empty"
+            );
+        }
+
+        try {
+            HrRequest hrRequests = new HrRequest();
+            hrRequests.setAppliedBy(hrEntityRepo.findById(hrId).orElseThrow(
+                    () -> new ResourceNotFoundException("HrEntity", "hrId", hrId)
+            ));
+            hrRequests.setRequestType(HrRequestType.LEAVE_APPLICATION);
+            hrRequests.setAppliedOn(Timestamp.valueOf(LocalDateTime.now()));
+            hrRequests.setFromDate(fromDate);
+            hrRequests.setToDate(toDate);
+            hrRequests.setStatus(HrRequestStatus.OPEN);
+            hrRequests.setRemarks(remarks);
+            hrRequestRepo.save(hrRequests);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("message", "Holiday request submitted successfully");
+            response.put("status", HttpStatus.OK.value());
+            return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            throw new ServiceLevelException(
+                    "TimeManagementService",
+                    "Error during holiday application",
+                    "applyHoliday",
+                    e.getClass().getName(),
+                    e.getMessage()
+            );
+        }
     }
 }

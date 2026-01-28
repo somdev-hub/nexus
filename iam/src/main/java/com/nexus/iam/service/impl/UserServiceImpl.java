@@ -1,9 +1,6 @@
 package com.nexus.iam.service.impl;
 
-import com.nexus.iam.dto.LoginRequest;
-import com.nexus.iam.dto.LoginResponse;
-import com.nexus.iam.dto.UserProfileDto;
-import com.nexus.iam.dto.UserRegisterDto;
+import com.nexus.iam.dto.*;
 import com.nexus.iam.entities.User;
 import com.nexus.iam.exception.ResourceNotFoundException;
 import com.nexus.iam.exception.ServiceLevelException;
@@ -203,6 +200,22 @@ public class UserServiceImpl implements UserService {
         }
 
         return response;
+    }
+
+    @Override
+    public ResponseEntity<?> getUserDetails(Long userId) {
+        if (ObjectUtils.isEmpty(userId)) {
+            throw new ServiceLevelException("UserService", "User ID is required", "getUserDetails",
+                    new Timestamp(System.currentTimeMillis()), null, "User ID is null or empty");
+        }
+        try{
+            User user = userRepository.findById(userId).orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
+            UserDetailsDto userDto = modelMapper.map(user, UserDetailsDto.class);
+            return ResponseEntity.ok(userDto);
+        } catch (Exception e) {
+            throw new ServiceLevelException("UserService", e.getLocalizedMessage(), "getUserDetails",
+                    new Timestamp(System.currentTimeMillis()), e.getCause().toString(), e.getMessage());
+        }
     }
 
     @Override

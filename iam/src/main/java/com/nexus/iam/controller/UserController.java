@@ -56,4 +56,14 @@ public class UserController {
         return userService.updateProfilePhoto(file, userId);
     }
 
+    @LogActivity("Get User Details")
+    @GetMapping(value = "/get-user")
+    public ResponseEntity<?> getUserDetails(@RequestParam("userId") Long userId) {
+        if (ObjectUtils.isEmpty(userId)) {
+            return new ResponseEntity<>("User ID must not be null", HttpStatus.BAD_REQUEST);
+        }
+
+        return userService.getUserDetails(userId);
+    }
+
 }

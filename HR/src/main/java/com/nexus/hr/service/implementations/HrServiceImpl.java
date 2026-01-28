@@ -1,27 +1,29 @@
 package com.nexus.hr.service.implementations;
 
+import com.nexus.hr.exception.ResourceNotFoundException;
 import com.nexus.hr.exception.ServiceLevelException;
 import com.nexus.hr.model.entities.*;
+import com.nexus.hr.model.enums.HrRequestStatus;
 import com.nexus.hr.payload.*;
 import com.nexus.hr.repository.HrEntityRepo;
+import com.nexus.hr.repository.HrRequestRepo;
 import com.nexus.hr.service.interfaces.CommunicationService;
 import com.nexus.hr.service.interfaces.HrService;
 import com.nexus.hr.utils.CommonConstants;
 import com.nexus.hr.utils.CommonUtils;
 import com.nexus.hr.utils.RestServices;
 import com.nexus.hr.utils.WebConstants;
-import com.nexus.hr.views.PdfGeneratorService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.util.ObjectUtils;
-import org.springframework.web.multipart.MultipartFile;
-import org.springframework.web.util.UriComponentsBuilder;
 
 import java.sql.Date;
 import java.sql.Timestamp;
@@ -29,7 +31,7 @@ import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CompletableFuture;
 
 @Service
 @RequiredArgsConstructor
@@ -37,18 +39,13 @@ import java.util.concurrent.ConcurrentHashMap;
 public class HrServiceImpl implements HrService {
 
     private final HrEntityRepo hrEntityRepo;
-
     private final ModelMapper modelMapper;
-
-    private final PdfGeneratorService pdfGeneratorService;
-
-    private final CommonUtils commonUtils;
-
-    private final WebConstants webConstants;
-
-    private final RestServices restServices;
-
     private final CommunicationService communicationService;
+    private final AsyncDocumentService asyncDocumentService;
+    private final HrRequestRepo hrRequestsRepo;
+    private final WebConstants webConstants;
+    private final CommonUtils commonUtils;
+    private final RestServices restServices;
 
 
     @Transactional
@@ -87,78 +84,68 @@ public class HrServiceImpl implements HrService {
                 hrEntity.setHrDocuments(hrDocuments);
             }
 
-            // Generate PDF documents
-            PdfTemplateDto pdfTemplateData = buildPdfTemplateData(hrInitRequestDto, effectiveFrom);
-            MultipartFile joiningLetterPdf = pdfGeneratorService.generateJoiningLetterPdf(pdfTemplateData);
-            MultipartFile letterOfIntentPdf = pdfGeneratorService.generateLetterOfIntentPdf(pdfTemplateData);
-            MultipartFile compensationCardPdf = pdfGeneratorService.generateCompensationCardPdf(pdfTemplateData);
-
             // Save HR entity FIRST to get the ID - but don't add compensation yet
             log.info("=== Attempting to save HrEntity for employeeId: {} ===", hrInitRequestDto.getEmployeeId());
             log.debug("HrEntity details: org={}, department={}, positions count={}, documents count={}",
-                hrEntity.getOrg(), hrEntity.getDepartment(),
-                hrEntity.getPositions().size(),
-                hrEntity.getHrDocuments() != null ? hrEntity.getHrDocuments().size() : 0);
+                    hrEntity.getOrg(), hrEntity.getDepartment(),
+                    hrEntity.getPositions().size(),
+                    hrEntity.getHrDocuments() != null ? hrEntity.getHrDocuments().size() : 0);
 
             HrEntity savedHrEntity = hrEntityRepo.save(hrEntity);
             log.info("✓ Successfully saved HrEntity with hrId: {}", savedHrEntity.getHrId());
 
-            // Upload documents to DMS (use savedHrEntity.getHrId() for logging)
-            ResponseEntity<?> joiningLetterDmsResponse = callDmsToUpload(joiningLetterPdf, hrInitRequestDto.getEmployeeId(), "Joining_Letter_" + savedHrEntity.getEmployeeId() + ".pdf", "JOINING_LETTER", savedHrEntity.getHrId());
+            // Generate PDF template data
+            PdfTemplateDto pdfTemplateData = buildPdfTemplateData(hrInitRequestDto, effectiveFrom);
 
-            ResponseEntity<?> letterOfIntentDmsResponse = callDmsToUpload(letterOfIntentPdf, hrInitRequestDto.getEmployeeId(), "Letter_Of_Intent_" + savedHrEntity.getEmployeeId() + ".pdf", "LETTER_OF_INTENT", savedHrEntity.getHrId());
+            // Start async PDF generation and DMS uploads in parallel
+            log.info("Starting parallel document generation and upload for employee: {}", savedHrEntity.getEmployeeId());
+            CompletableFuture<AsyncDocumentService.DocumentResult> joiningLetterFuture =
+                    asyncDocumentService.generateAndUploadJoiningLetter(pdfTemplateData, savedHrEntity.getEmployeeId(), savedHrEntity.getHrId());
 
-            ResponseEntity<?> compensationCardDmsResponse = callDmsToUpload(compensationCardPdf, hrInitRequestDto.getEmployeeId(), "Compensation_Card_" + savedHrEntity.getEmployeeId() + ".pdf", "COMPENSATION_CARD", savedHrEntity.getHrId());
+            CompletableFuture<AsyncDocumentService.DocumentResult> letterOfIntentFuture =
+                    asyncDocumentService.generateAndUploadLetterOfIntent(pdfTemplateData, savedHrEntity.getEmployeeId(), savedHrEntity.getHrId());
 
-            String joiningLetterUrl = "";
-            String letterOfIntentUrl = "";
+            CompletableFuture<AsyncDocumentService.DocumentResult> compensationCardFuture =
+                    asyncDocumentService.generateAndUploadCompensationCard(pdfTemplateData, savedHrEntity.getEmployeeId(), savedHrEntity.getHrId());
+
+            // Wait for all async operations to complete
+            CompletableFuture.allOf(joiningLetterFuture, letterOfIntentFuture, compensationCardFuture).join();
+            log.info("All document generation and upload tasks completed for employee: {}", savedHrEntity.getEmployeeId());
+
+            // Get results
+            AsyncDocumentService.DocumentResult joiningLetterResult = joiningLetterFuture.join();
+            AsyncDocumentService.DocumentResult letterOfIntentResult = letterOfIntentFuture.join();
+            AsyncDocumentService.DocumentResult compensationCardResult = compensationCardFuture.join();
+
+            // Validate results
+            if (!joiningLetterResult.isSuccess()) {
+                ErrorResponseDto error = new ErrorResponseDto();
+                error.setMessage("Error uploading Joining Letter to DMS: " + joiningLetterResult.getErrorMessage());
+                error.setStatusCode(HttpStatus.INTERNAL_SERVER_ERROR.value());
+                error.setTimestamp(new Timestamp(System.currentTimeMillis()));
+                error.setServiceMethod("initHr");
+                return new ResponseEntity<>(error, HttpStatus.INTERNAL_SERVER_ERROR);
+            }
+
+            if (!letterOfIntentResult.isSuccess()) {
+                ErrorResponseDto error = new ErrorResponseDto();
+                error.setMessage("Error uploading Letter of Intent to DMS: " + letterOfIntentResult.getErrorMessage());
+                error.setStatusCode(HttpStatus.INTERNAL_SERVER_ERROR.value());
+                error.setTimestamp(new Timestamp(System.currentTimeMillis()));
+                error.setServiceMethod("initHr");
+                return new ResponseEntity<>(error, HttpStatus.INTERNAL_SERVER_ERROR);
+            }
+
+            // Extract URLs from results
+            String joiningLetterUrl = joiningLetterResult.getDocumentUrl();
+            String letterOfIntentUrl = letterOfIntentResult.getDocumentUrl();
             String compensationCardUrl = "";
-
-            if (joiningLetterDmsResponse.getStatusCode().is2xxSuccessful()) {
-                @SuppressWarnings("unchecked") Map<String, String> responseBody = (Map<String, String>) joiningLetterDmsResponse.getBody();
-                assert responseBody != null;
-                if (responseBody.containsKey("documentUrl")) {
-                    HrDocument hrDocument = new HrDocument();
-                    hrDocument.setDocumentUrl(responseBody.get("documentUrl"));
-                    hrDocument.setDocumentName(responseBody.get("documentName"));
-                    hrDocument.setHrDocumentType(responseBody.get("documentType"));
-                    hrDocument.setPosition(position);
-                    joiningLetterUrl = responseBody.get("documentUrl");
-                }
-            } else {
-                ErrorResponseDto error = new ErrorResponseDto();
-                error.setMessage("Error uploading Joining Letter to DMS");
-                error.setStatusCode(HttpStatus.INTERNAL_SERVER_ERROR.value());
-                error.setTimestamp(new Timestamp(System.currentTimeMillis()));
-                error.setServiceMethod("initHr");
-                return new ResponseEntity<>(error, HttpStatus.INTERNAL_SERVER_ERROR);
-            }
-
-            if (letterOfIntentDmsResponse.getStatusCode().is2xxSuccessful()) {
-                @SuppressWarnings("unchecked") Map<String, String> responseBody = (Map<String, String>) letterOfIntentDmsResponse.getBody();
-                assert responseBody != null;
-                if (responseBody.containsKey("documentUrl")) {
-                    HrDocument hrDocument = new HrDocument();
-                    hrDocument.setDocumentUrl(responseBody.get("documentUrl"));
-                    hrDocument.setDocumentName(responseBody.get("documentName"));
-                    hrDocument.setHrDocumentType(responseBody.get("documentType"));
-                    hrDocument.setPosition(position);
-                    letterOfIntentUrl = responseBody.get("documentUrl");
-                }
-            } else {
-                ErrorResponseDto error = new ErrorResponseDto();
-                error.setMessage("Error uploading Letter of Intent to DMS");
-                error.setStatusCode(HttpStatus.INTERNAL_SERVER_ERROR.value());
-                error.setTimestamp(new Timestamp(System.currentTimeMillis()));
-                error.setServiceMethod("initHr");
-                return new ResponseEntity<>(error, HttpStatus.INTERNAL_SERVER_ERROR);
-            }
 
             // Build compensation with bonuses, deductions, and bank records
             log.info("=== Building Compensation with bonuses: {}, deductions: {}, bank records: {} ===",
-                hrInitRequestDto.getCompensation().getBonuses().size(),
-                hrInitRequestDto.getCompensation().getDeductions().size(),
-                hrInitRequestDto.getCompensation().getBankRecords().size());
+                    hrInitRequestDto.getCompensation().getBonuses().size(),
+                    hrInitRequestDto.getCompensation().getDeductions().size(),
+                    hrInitRequestDto.getCompensation().getBankRecords().size());
 
             Compensation compensation = modelMapper.map(hrInitRequestDto.getCompensation(), Compensation.class);
             compensation.setBonuses(hrInitRequestDto.getCompensation().getBonuses().stream()
@@ -182,34 +169,24 @@ public class HrServiceImpl implements HrService {
 
                         // Log bank record details before encryption (sensitive data masked)
                         log.debug("BankRecord: bank={}, accountType={}, hasAccountNumber={}, hasIfsc={}",
-                            bankRecord.getBankName() != null ? "***" : "null",
-                            bankRecord.getAccountType(),
-                            bankRecord.getAccountNumber() != null,
-                            bankRecord.getIfscCode() != null);
+                                bankRecord.getBankName() != null ? "***" : "null",
+                                bankRecord.getAccountType(),
+                                bankRecord.getAccountNumber() != null,
+                                bankRecord.getIfscCode() != null);
 
                         bankRecord.setCompensation(compensation);
                         return bankRecord;
                     }).toList());
             log.info("✓ Compensation entity built successfully");
 
-            if (compensationCardDmsResponse.getStatusCode().is2xxSuccessful()) {
-                @SuppressWarnings("unchecked") Map<String, String> responseBody = (Map<String, String>) compensationCardDmsResponse.getBody();
-                assert responseBody != null;
-                if (responseBody.containsKey("documentUrl")) {
-                    HrDocument hrDocument = new HrDocument();
-                    hrDocument.setDocumentUrl(responseBody.get("documentUrl"));
-                    hrDocument.setDocumentName(responseBody.get("documentName"));
-                    hrDocument.setHrDocumentType(responseBody.get("documentType"));
-                    hrDocument.setCompensation(compensation);
-
-                    // Add document to compensation's compensationCard list
-                    compensation.getCompensationCard().add(hrDocument);
-
-                    compensationCardUrl = responseBody.get("documentUrl");
-                }
+            if (compensationCardResult.isSuccess()) {
+                HrDocument hrDocument = compensationCardResult.toHrDocument(compensation);
+                // Add document to compensation's compensationCard list
+                compensation.getCompensationCard().add(hrDocument);
+                compensationCardUrl = compensationCardResult.getDocumentUrl();
             } else {
                 ErrorResponseDto error = new ErrorResponseDto();
-                error.setMessage("Error uploading Compensation Card to DMS");
+                error.setMessage("Error uploading Compensation Card to DMS: " + compensationCardResult.getErrorMessage());
                 error.setStatusCode(HttpStatus.INTERNAL_SERVER_ERROR.value());
                 error.setTimestamp(new Timestamp(System.currentTimeMillis()));
                 error.setServiceMethod("initHr");
@@ -250,21 +227,21 @@ public class HrServiceImpl implements HrService {
             try {
                 communicationService.sendCommunicationOverEmail(emailCommunicationDto);
                 log.info("Welcome email sent successfully to {} for employee ID: {}",
-                    hrInitRequestDto.getPersonalEmail(), savedHrEntity.getEmployeeId());
+                        hrInitRequestDto.getPersonalEmail(), savedHrEntity.getEmployeeId());
             } catch (Exception emailException) {
                 // Log the email error but don't throw exception - prevents transaction rollback
                 log.error("Email sending failed but HR entity was created successfully. Employee ID: {}, Email: {}, Error: {}",
-                    savedHrEntity.getEmployeeId(), hrInitRequestDto.getPersonalEmail(),
-                    emailException.getMessage(), emailException);
+                        savedHrEntity.getEmployeeId(), hrInitRequestDto.getPersonalEmail(),
+                        emailException.getMessage(), emailException);
                 // Continue with the transaction - email failure shouldn't prevent HR creation
             }
 
             // Final save with all relationships (cascade will save everything)
             log.info("=== Attempting final save of HrEntity with all relationships ===");
             log.debug("Saving compensation with {} bonuses, {} deductions, {} bank records",
-                savedHrEntity.getCompensation().getBonuses().size(),
-                savedHrEntity.getCompensation().getDeductions().size(),
-                savedHrEntity.getCompensation().getBankRecords().size());
+                    savedHrEntity.getCompensation().getBonuses().size(),
+                    savedHrEntity.getCompensation().getDeductions().size(),
+                    savedHrEntity.getCompensation().getBankRecords().size());
 
             try {
                 hrEntityRepo.save(savedHrEntity);
@@ -302,47 +279,58 @@ public class HrServiceImpl implements HrService {
         return response;
     }
 
-    /**
-     * Upload document to DMS service
-     * This method makes HTTP calls and doesn't need transaction management
-     */
-    private ResponseEntity<?> callDmsToUpload(MultipartFile file, Long userId, String fileName, String fileType, Long hrId) {
-        ResponseEntity<?> response;
-        try {
-            if (!ObjectUtils.isEmpty(file)) {
-                Map<String, Object> payload = new ConcurrentHashMap<>();
-                Map<String, Object> dto = new HashMap<>();
-                dto.put("userId", userId);
-                dto.put("fileName", fileName);
-                dto.put("remarks", "HR Document Upload");
-                dto.put("documentType", fileType);
-
-                payload.put("file", file);
-                payload.put("dto", dto);
-
-                Map<String, String> headers = new HashMap<>();
-                headers.put(CommonConstants.CONTENT_TYPE, CommonConstants.MULTIPART_FORM_DATA);
-                headers.put(CommonConstants.AUTHORIZATION, commonUtils.getToken());
-
-                UriComponentsBuilder url = UriComponentsBuilder.fromUriString(webConstants.getDmsOrgDocumentUploadUrl());
-
-                response = restServices.hrRestCall(url.toUriString(), payload, headers, HttpMethod.POST, hrId);
-
-            } else {
-                response = new ResponseEntity<>(HttpStatus.BAD_REQUEST);
-            }
-        } catch (Exception e) {
-            // Don't throw ServiceLevelException here - return error response instead
-            // This prevents marking the parent transaction as rollback-only
-            ErrorResponseDto error = new ErrorResponseDto();
-            error.setMessage("Failed to upload document to DMS: " + e.getMessage());
-            error.setStatusCode(HttpStatus.INTERNAL_SERVER_ERROR.value());
-            error.setTimestamp(new Timestamp(System.currentTimeMillis()));
-            error.setServiceMethod("callDmsToUpload");
-            response = new ResponseEntity<>(error, HttpStatus.INTERNAL_SERVER_ERROR);
+    @Override
+    public ResponseEntity<?> takeActionForHrRequests(Long requestId, HrRequestStatus action, String resolutionRemarks) {
+        if (ObjectUtils.isEmpty(requestId)) {
+            throw new ServiceLevelException("HR Service", "Request ID cannot be null or empty", "takeActionForHrRequests", "InvalidInput", "Request ID is null or empty");
         }
+        try {
+            HrRequest hrRequest = hrRequestsRepo.findById(requestId).orElseThrow(() -> new ResourceNotFoundException("HrRequests", "requestId", requestId));
+            hrRequest.setStatus(action);
+            hrRequest.setResolutionRemarks(resolutionRemarks);
+            hrRequest.setResolvedOn(new Timestamp(System.currentTimeMillis()));
 
-        return response;
+            // kafka implementation
+
+
+            hrRequestsRepo.save(hrRequest);
+            return ResponseEntity.ok("HR request with ID " + requestId + " has been " + action.name().toLowerCase() + ".");
+        } catch (RuntimeException e) {
+            throw new ServiceLevelException("HR Service", "Exception occurred while taking action on HR request", "takeActionForHrRequests", e.getClass().getName(), e.getMessage());
+        }
+    }
+
+    @Override
+    public ResponseEntity<Page<HrRequestDto>> getAllHrRequests(Pageable pageable) {
+        try {
+            Page<HrRequest> hrRequestsPage = hrRequestsRepo.findAll(pageable);
+            Page<HrRequestDto> hrRequestDtoPage = hrRequestsPage.map(request -> {
+                HrRequestDto hrRequestDto = modelMapper.map(request, HrRequestDto.class);
+                RestPayload restPayload = commonUtils.buildRestPayload(webConstants.getGetUserDetailsUrl(), Map.of("userId", request.getAppliedBy().getEmployeeId().toString()), null, "json");
+                ResponseEntity<?> response = restServices.hrRestCall(restPayload.getBuilder().toUriString(), null, restPayload.getHeaders(), HttpMethod.GET, request.getAppliedBy().getHrId());
+                if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                    @SuppressWarnings("unchecked")
+                    Map<String, String> details = (Map<String, String>) response.getBody();
+                    hrRequestDto.setEmployeeName(details.get("name"));
+                    hrRequestDto.setEmployeeEmail(details.get("email"));
+                }
+                return hrRequestDto;
+            });
+
+            return ResponseEntity.ok(hrRequestDtoPage);
+        } catch (RuntimeException e) {
+            throw new ServiceLevelException("HR Service", "Exception occurred while fetching HR requests", "getAllHrRequests", e.getClass().getName(), e.getMessage());
+        }
+    }
+
+    @Override
+    public ResponseEntity<?> promoteEmployee(Long hrId, Position position, Compensation compensation) {
+        return null;
+    }
+
+    @Override
+    public ResponseEntity<?> rewardAppraisal(Long hrId, Compensation compensation) {
+        return null;
     }
 
     /**
