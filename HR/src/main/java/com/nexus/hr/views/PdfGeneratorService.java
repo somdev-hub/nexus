@@ -18,10 +18,10 @@ import java.io.IOException;
 @Service
 public class PdfGeneratorService {
 
-    private final PdfTemplateBuilder pdfTemplateBuilder;
+    private final CommunicationTemplateBuilder communicationTemplateBuilder;
 
-    public PdfGeneratorService(PdfTemplateBuilder pdfTemplateBuilder) {
-        this.pdfTemplateBuilder = pdfTemplateBuilder;
+    public PdfGeneratorService(CommunicationTemplateBuilder communicationTemplateBuilder) {
+        this.communicationTemplateBuilder = communicationTemplateBuilder;
     }
 
     /**
@@ -34,7 +34,7 @@ public class PdfGeneratorService {
         try {
             log.info("Generating joining letter PDF for employee ID: {}", templateData.getEmployeeId());
 
-            String htmlContent = pdfTemplateBuilder.buildJoiningLetterTemplate(templateData);
+            String htmlContent = communicationTemplateBuilder.buildJoiningLetterTemplate(templateData);
             ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
 
             HtmlConverter.convertToPdf(htmlContent, outputStream);
@@ -52,8 +52,7 @@ public class PdfGeneratorService {
                     "Error generating joining letter PDF",
                     "generateJoiningLetterPdf",
                     e.getClass().getName(),
-                    e.getMessage()
-            );
+                    e.getMessage());
         }
     }
 
@@ -67,7 +66,7 @@ public class PdfGeneratorService {
         try {
             log.info("Generating letter of intent PDF for employee ID: {}", templateData.getEmployeeId());
 
-            String htmlContent = pdfTemplateBuilder.buildLetterOfIntentTemplate(templateData);
+            String htmlContent = communicationTemplateBuilder.buildLetterOfIntentTemplate(templateData);
             ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
 
             HtmlConverter.convertToPdf(htmlContent, outputStream);
@@ -85,8 +84,7 @@ public class PdfGeneratorService {
                     "Error generating letter of intent PDF",
                     "generateLetterOfIntentPdf",
                     e.getClass().getName(),
-                    e.getMessage()
-            );
+                    e.getMessage());
         }
     }
 
@@ -100,7 +98,7 @@ public class PdfGeneratorService {
         try {
             log.info("Generating compensation card PDF for employee ID: {}", templateData.getEmployeeId());
 
-            String htmlContent = pdfTemplateBuilder.buildCompensationCardTemplate(templateData);
+            String htmlContent = communicationTemplateBuilder.buildCompensationCardTemplate(templateData);
             ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
 
             HtmlConverter.convertToPdf(htmlContent, outputStream);
@@ -118,15 +116,46 @@ public class PdfGeneratorService {
                     "Error generating compensation card PDF",
                     "generateCompensationCardPdf",
                     e.getClass().getName(),
-                    e.getMessage()
-            );
+                    e.getMessage());
+        }
+    }
+
+    /**
+     * Generate a promotion letter PDF
+     *
+     * @param templateData Data to populate the template
+     * @return PDF as MultipartFile
+     */
+    public MultipartFile generatePromotionLetterPdf(PdfTemplateDto templateData) {
+        try {
+            log.info("Generating promotion letter PDF for employee ID: {}", templateData.getEmployeeId());
+
+            String htmlContent = communicationTemplateBuilder.buildPromotionLetterTemplate(templateData);
+            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+
+            HtmlConverter.convertToPdf(htmlContent, outputStream);
+
+            log.info("Promotion letter PDF generated successfully for employee ID: {}", templateData.getEmployeeId());
+            byte[] byteArray = outputStream.toByteArray();
+
+            String fileName = "Promotion_Letter_" + templateData.getEmployeeId() + ".pdf";
+            return convertToMultipartFile(byteArray, fileName);
+
+        } catch (Exception e) {
+            log.error("Error generating promotion letter PDF for employee ID: {}", templateData.getEmployeeId(), e);
+            throw new ServiceLevelException(
+                    "PDF Generator Service",
+                    "Error generating promotion letter PDF",
+                    "generatePromotionLetterPdf",
+                    e.getClass().getName(),
+                    e.getMessage());
         }
     }
 
     /**
      * Convert byte array to MultipartFile
      *
-     * @param bytes PDF content as byte array
+     * @param bytes    PDF content as byte array
      * @param fileName Name of the PDF file
      * @return MultipartFile containing the PDF
      */
@@ -135,7 +164,6 @@ public class PdfGeneratorService {
                 "file",
                 fileName,
                 "application/pdf",
-                bytes
-        );
+                bytes);
     }
 }

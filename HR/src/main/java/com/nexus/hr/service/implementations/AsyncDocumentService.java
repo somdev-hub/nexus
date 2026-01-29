@@ -243,6 +243,55 @@ public class AsyncDocumentService {
     }
 
     /**
+     * Asynchronously generates promotion letter PDF and uploads to DMS
+     */
+    @Async("hrDocumentTaskExecutor")
+    public CompletableFuture<DocumentResult> generateAndUploadPromotionLetter(
+            PdfTemplateDto pdfTemplateData, Long employeeId, Long hrId) {
+
+        log.info("Starting async generation of Promotion Letter for employee: {}", employeeId);
+
+        try {
+            // Generate PDF
+            MultipartFile promotionLetterPdf = pdfGeneratorService.generatePromotionLetterPdf(pdfTemplateData);
+
+            // Upload to DMS
+            String fileName = "Promotion_Letter_" + employeeId + ".pdf";
+            ResponseEntity<?> dmsResponse = callDmsToUpload(
+                promotionLetterPdf, employeeId, fileName, "PROMOTION_LETTER", hrId);
+
+            // Process response
+            if (dmsResponse.getStatusCode().is2xxSuccessful()) {
+                @SuppressWarnings("unchecked")
+                Map<String, String> responseBody = (Map<String, String>) dmsResponse.getBody();
+                if (responseBody != null && responseBody.containsKey("documentUrl")) {
+                    log.info("Successfully generated and uploaded Promotion Letter for employee: {}", employeeId);
+                    return CompletableFuture.completedFuture(new DocumentResult(
+                        responseBody.get("documentUrl"),
+                        responseBody.get("documentName"),
+                        responseBody.get("documentType"),
+                        true,
+                        null
+                    ));
+                }
+            }
+
+            log.error("Failed to upload Promotion Letter to DMS for employee: {}", employeeId);
+            return CompletableFuture.completedFuture(new DocumentResult(
+                null, null, "PROMOTION_LETTER", false,
+                "DMS upload failed with status: " + dmsResponse.getStatusCode()
+            ));
+
+        } catch (Exception e) {
+            log.error("Error generating/uploading Promotion Letter for employee: {}", employeeId, e);
+            return CompletableFuture.completedFuture(new DocumentResult(
+                null, null, "PROMOTION_LETTER", false,
+                "Exception: " + e.getMessage()
+            ));
+        }
+    }
+
+    /**
      * Upload document to DMS service
      */
     private ResponseEntity<?> callDmsToUpload(MultipartFile file, Long userId, String fileName,

@@ -9,10 +9,10 @@ import com.nexus.hr.repository.HrEntityRepo;
 import com.nexus.hr.repository.HrRequestRepo;
 import com.nexus.hr.service.interfaces.CommunicationService;
 import com.nexus.hr.service.interfaces.HrService;
-import com.nexus.hr.utils.CommonConstants;
 import com.nexus.hr.utils.CommonUtils;
 import com.nexus.hr.utils.RestServices;
 import com.nexus.hr.utils.WebConstants;
+import com.nexus.hr.views.CommunicationTemplateBuilder;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -46,7 +46,7 @@ public class HrServiceImpl implements HrService {
     private final WebConstants webConstants;
     private final CommonUtils commonUtils;
     private final RestServices restServices;
-
+    private final CommunicationTemplateBuilder communicationTemplateBuilder;
 
     @Transactional
     @Override
@@ -75,7 +75,8 @@ public class HrServiceImpl implements HrService {
             position.setHrEntity(hrEntity);
             hrEntity.getPositions().add(position);
 
-            if (!ObjectUtils.isEmpty(hrInitRequestDto.getHrDocuments()) && !hrInitRequestDto.getHrDocuments().isEmpty()) {
+            if (!ObjectUtils.isEmpty(hrInitRequestDto.getHrDocuments())
+                    && !hrInitRequestDto.getHrDocuments().isEmpty()) {
                 List<HrDocument> hrDocuments = hrInitRequestDto.getHrDocuments().stream().map(document -> {
                     HrDocument hrDocument = modelMapper.map(document, HrDocument.class);
                     hrDocument.setHrEntity(hrEntity);
@@ -98,19 +99,24 @@ public class HrServiceImpl implements HrService {
             PdfTemplateDto pdfTemplateData = buildPdfTemplateData(hrInitRequestDto, effectiveFrom);
 
             // Start async PDF generation and DMS uploads in parallel
-            log.info("Starting parallel document generation and upload for employee: {}", savedHrEntity.getEmployeeId());
-            CompletableFuture<AsyncDocumentService.DocumentResult> joiningLetterFuture =
-                    asyncDocumentService.generateAndUploadJoiningLetter(pdfTemplateData, savedHrEntity.getEmployeeId(), savedHrEntity.getHrId());
+            log.info("Starting parallel document generation and upload for employee: {}",
+                    savedHrEntity.getEmployeeId());
+            CompletableFuture<AsyncDocumentService.DocumentResult> joiningLetterFuture = asyncDocumentService
+                    .generateAndUploadJoiningLetter(pdfTemplateData, savedHrEntity.getEmployeeId(),
+                            savedHrEntity.getHrId());
 
-            CompletableFuture<AsyncDocumentService.DocumentResult> letterOfIntentFuture =
-                    asyncDocumentService.generateAndUploadLetterOfIntent(pdfTemplateData, savedHrEntity.getEmployeeId(), savedHrEntity.getHrId());
+            CompletableFuture<AsyncDocumentService.DocumentResult> letterOfIntentFuture = asyncDocumentService
+                    .generateAndUploadLetterOfIntent(pdfTemplateData, savedHrEntity.getEmployeeId(),
+                            savedHrEntity.getHrId());
 
-            CompletableFuture<AsyncDocumentService.DocumentResult> compensationCardFuture =
-                    asyncDocumentService.generateAndUploadCompensationCard(pdfTemplateData, savedHrEntity.getEmployeeId(), savedHrEntity.getHrId());
+            CompletableFuture<AsyncDocumentService.DocumentResult> compensationCardFuture = asyncDocumentService
+                    .generateAndUploadCompensationCard(pdfTemplateData, savedHrEntity.getEmployeeId(),
+                            savedHrEntity.getHrId());
 
             // Wait for all async operations to complete
             CompletableFuture.allOf(joiningLetterFuture, letterOfIntentFuture, compensationCardFuture).join();
-            log.info("All document generation and upload tasks completed for employee: {}", savedHrEntity.getEmployeeId());
+            log.info("All document generation and upload tasks completed for employee: {}",
+                    savedHrEntity.getEmployeeId());
 
             // Get results
             AsyncDocumentService.DocumentResult joiningLetterResult = joiningLetterFuture.join();
@@ -186,7 +192,8 @@ public class HrServiceImpl implements HrService {
                 compensationCardUrl = compensationCardResult.getDocumentUrl();
             } else {
                 ErrorResponseDto error = new ErrorResponseDto();
-                error.setMessage("Error uploading Compensation Card to DMS: " + compensationCardResult.getErrorMessage());
+                error.setMessage(
+                        "Error uploading Compensation Card to DMS: " + compensationCardResult.getErrorMessage());
                 error.setStatusCode(HttpStatus.INTERNAL_SERVER_ERROR.value());
                 error.setTimestamp(new Timestamp(System.currentTimeMillis()));
                 error.setServiceMethod("initHr");
@@ -204,7 +211,7 @@ public class HrServiceImpl implements HrService {
             emailCommunicationDto.setSubject("Update on your application");
 
             // Use email template with placeholders instead of String.formatted()
-            emailCommunicationDto.setBody(CommonConstants.HR_INIT_EMAIL_TEMPLATE);
+            emailCommunicationDto.setBody(communicationTemplateBuilder.buildHrInitEmailTemplate());
 
             // Create placeholders map for dynamic content replacement
             Map<String, Object> placeholders = new HashMap<>();
@@ -218,10 +225,12 @@ public class HrServiceImpl implements HrService {
 
             // Set attachments with proper MIME types
             emailCommunicationDto.setAttachments(List.of(
-                    new EmailAttachmentDto("Joining_Letter_" + savedHrEntity.getEmployeeId() + ".pdf", "application/pdf", joiningLetterUrl),
-                    new EmailAttachmentDto("Letter_Of_Intent_" + savedHrEntity.getEmployeeId() + ".pdf", "application/pdf", letterOfIntentUrl),
-                    new EmailAttachmentDto("Compensation_Card_" + savedHrEntity.getEmployeeId() + ".pdf", "application/pdf", compensationCardUrl)
-            ));
+                    new EmailAttachmentDto("Joining_Letter_" + savedHrEntity.getEmployeeId() + ".pdf",
+                            "application/pdf", joiningLetterUrl),
+                    new EmailAttachmentDto("Letter_Of_Intent_" + savedHrEntity.getEmployeeId() + ".pdf",
+                            "application/pdf", letterOfIntentUrl),
+                    new EmailAttachmentDto("Compensation_Card_" + savedHrEntity.getEmployeeId() + ".pdf",
+                            "application/pdf", compensationCardUrl)));
 
             // Send email - if this fails, it won't affect the transaction
             try {
@@ -230,7 +239,8 @@ public class HrServiceImpl implements HrService {
                         hrInitRequestDto.getPersonalEmail(), savedHrEntity.getEmployeeId());
             } catch (Exception emailException) {
                 // Log the email error but don't throw exception - prevents transaction rollback
-                log.error("Email sending failed but HR entity was created successfully. Employee ID: {}, Email: {}, Error: {}",
+                log.error(
+                        "Email sending failed but HR entity was created successfully. Employee ID: {}, Email: {}, Error: {}",
                         savedHrEntity.getEmployeeId(), hrInitRequestDto.getPersonalEmail(),
                         emailException.getMessage(), emailException);
                 // Continue with the transaction - email failure shouldn't prevent HR creation
@@ -273,7 +283,8 @@ public class HrServiceImpl implements HrService {
                     .build());
 
         } catch (Exception e) {
-            throw new ServiceLevelException("HR Service", "Exception occurred while initializing HR module", "initHr", e.getClass().getName(), e.getMessage());
+            throw new ServiceLevelException("HR Service", "Exception occurred while initializing HR module", "initHr",
+                    e.getClass().getName(), e.getMessage());
         }
 
         return response;
@@ -282,21 +293,24 @@ public class HrServiceImpl implements HrService {
     @Override
     public ResponseEntity<?> takeActionForHrRequests(Long requestId, HrRequestStatus action, String resolutionRemarks) {
         if (ObjectUtils.isEmpty(requestId)) {
-            throw new ServiceLevelException("HR Service", "Request ID cannot be null or empty", "takeActionForHrRequests", "InvalidInput", "Request ID is null or empty");
+            throw new ServiceLevelException("HR Service", "Request ID cannot be null or empty",
+                    "takeActionForHrRequests", "InvalidInput", "Request ID is null or empty");
         }
         try {
-            HrRequest hrRequest = hrRequestsRepo.findById(requestId).orElseThrow(() -> new ResourceNotFoundException("HrRequests", "requestId", requestId));
+            HrRequest hrRequest = hrRequestsRepo.findById(requestId)
+                    .orElseThrow(() -> new ResourceNotFoundException("HrRequests", "requestId", requestId));
             hrRequest.setStatus(action);
             hrRequest.setResolutionRemarks(resolutionRemarks);
             hrRequest.setResolvedOn(new Timestamp(System.currentTimeMillis()));
 
             // kafka implementation
 
-
             hrRequestsRepo.save(hrRequest);
-            return ResponseEntity.ok("HR request with ID " + requestId + " has been " + action.name().toLowerCase() + ".");
+            return ResponseEntity
+                    .ok("HR request with ID " + requestId + " has been " + action.name().toLowerCase() + ".");
         } catch (RuntimeException e) {
-            throw new ServiceLevelException("HR Service", "Exception occurred while taking action on HR request", "takeActionForHrRequests", e.getClass().getName(), e.getMessage());
+            throw new ServiceLevelException("HR Service", "Exception occurred while taking action on HR request",
+                    "takeActionForHrRequests", e.getClass().getName(), e.getMessage());
         }
     }
 
@@ -306,8 +320,10 @@ public class HrServiceImpl implements HrService {
             Page<HrRequest> hrRequestsPage = hrRequestsRepo.findAll(pageable);
             Page<HrRequestDto> hrRequestDtoPage = hrRequestsPage.map(request -> {
                 HrRequestDto hrRequestDto = modelMapper.map(request, HrRequestDto.class);
-                RestPayload restPayload = commonUtils.buildRestPayload(webConstants.getGetUserDetailsUrl(), Map.of("userId", request.getAppliedBy().getEmployeeId().toString()), null, "json");
-                ResponseEntity<?> response = restServices.hrRestCall(restPayload.getBuilder().toUriString(), null, restPayload.getHeaders(), HttpMethod.GET, request.getAppliedBy().getHrId());
+                RestPayload restPayload = commonUtils.buildRestPayload(webConstants.getGetUserDetailsUrl(),
+                        Map.of("userId", request.getAppliedBy().getEmployeeId().toString()), null, "json");
+                ResponseEntity<?> response = restServices.hrRestCall(restPayload.getBuilder().toUriString(), null,
+                        restPayload.getHeaders(), HttpMethod.GET, request.getAppliedBy().getHrId());
                 if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
                     @SuppressWarnings("unchecked")
                     Map<String, String> details = (Map<String, String>) response.getBody();
@@ -319,18 +335,439 @@ public class HrServiceImpl implements HrService {
 
             return ResponseEntity.ok(hrRequestDtoPage);
         } catch (RuntimeException e) {
-            throw new ServiceLevelException("HR Service", "Exception occurred while fetching HR requests", "getAllHrRequests", e.getClass().getName(), e.getMessage());
+            throw new ServiceLevelException("HR Service", "Exception occurred while fetching HR requests",
+                    "getAllHrRequests", e.getClass().getName(), e.getMessage());
         }
     }
 
     @Override
-    public ResponseEntity<?> promoteEmployee(Long hrId, Position position, Compensation compensation) {
-        return null;
+    public ResponseEntity<?> promoteEmployee(Long hrId, Position position, CompensationDto compensation) {
+        if (ObjectUtils.isEmpty(hrId) || ObjectUtils.isEmpty(position) || ObjectUtils.isEmpty(compensation)) {
+            throw new ServiceLevelException("HR Service", "HR ID, Position, and Compensation cannot be null or empty",
+                    "promoteEmployee", "InvalidInput", "One or more inputs are null or empty");
+        }
+        try {
+            log.info("=== Starting promotion process for hrId: {} ===", hrId);
+
+            HrEntity hrEntity = hrEntityRepo.findById(hrId)
+                    .orElseThrow(() -> new ResourceNotFoundException("HrEntity", "hrId", hrId));
+
+            // Deactivate last position and set end date
+            log.info("Deactivating previous position for employee: {}", hrEntity.getEmployeeId());
+            Position lastPosition = hrEntity.getPositions().getLast();
+            lastPosition.setIsActive(Boolean.FALSE);
+            lastPosition.setLastEffectiveDate(new Timestamp(System.currentTimeMillis()));
+
+            // Activate new position
+            position.setIsActive(Boolean.TRUE);
+            position.setHrEntity(hrEntity);
+            position.setEffectiveFrom(new Timestamp(System.currentTimeMillis()));
+            hrEntity.getPositions().add(position);
+            log.info("✓ New position {} added for employee: {}", position.getTitle(), hrEntity.getEmployeeId());
+
+            // Update compensation
+            log.info("=== Updating compensation details for promotion ===");
+            Compensation lastCompensation = hrEntity.getCompensation();
+            if (!ObjectUtils.isEmpty(compensation.getBasePay()))
+                lastCompensation.setBasePay(compensation.getBasePay());
+            if (!ObjectUtils.isEmpty(compensation.getHra()))
+                lastCompensation.setHra(compensation.getHra());
+            if (!ObjectUtils.isEmpty(compensation.getNetPay()))
+                lastCompensation.setNetPay(compensation.getNetPay());
+            if (!ObjectUtils.isEmpty(compensation.getGratuity()))
+                lastCompensation.setGratuity(compensation.getGratuity());
+            if (!ObjectUtils.isEmpty(compensation.getPf()))
+                lastCompensation.setPf(compensation.getPf());
+            if (!ObjectUtils.isEmpty(compensation.getAnnualPackage()))
+                lastCompensation.setAnnualPackage(compensation.getAnnualPackage());
+            if (!ObjectUtils.isEmpty(compensation.getTotal()))
+                lastCompensation.setTotal(compensation.getTotal());
+            if (!ObjectUtils.isEmpty(compensation.getNetMonthlyPay()))
+                lastCompensation.setNetMonthlyPay(compensation.getNetMonthlyPay());
+            if (!ObjectUtils.isEmpty(compensation.getBonuses())) {
+                log.debug("Updating {} bonuses", compensation.getBonuses().size());
+                lastCompensation.setBonuses(compensation.getBonuses().stream()
+                        .map(bonus -> {
+                            Bonus bonusEntity = modelMapper.map(bonus, Bonus.class);
+                            bonusEntity.setCompensation(lastCompensation);
+                            return bonusEntity;
+                        }).toList());
+            }
+            if (!ObjectUtils.isEmpty(compensation.getDeductions())) {
+                log.debug("Updating {} deductions", compensation.getDeductions().size());
+                lastCompensation.setDeductions(compensation.getDeductions().stream()
+                        .map(deductionDto -> {
+                            Deduction deductionEntity = modelMapper.map(deductionDto, Deduction.class);
+                            deductionEntity.setCompensation(lastCompensation);
+                            return deductionEntity;
+                        }).toList());
+            }
+            hrEntity.setCompensation(lastCompensation);
+            log.info("✓ Compensation updated successfully");
+
+            // Build PDF template data for promotion documents
+            log.info("Building PDF template data for promotion documents");
+            PdfTemplateDto pdfTemplateData = buildPdfTemplateData(HrInitRequestDto.builder()
+                    .employeeId(hrEntity.getEmployeeId())
+                    .department(hrEntity.getDepartment())
+                    .title(position.getTitle())
+                    .remarks(position.getRemarks())
+                    .compensation(compensation).build(), position.getEffectiveFrom());
+
+            // Generate promotion letter and revised compensation card asynchronously in
+            // parallel
+            log.info("Starting parallel document generation: promotion letter and revised compensation card");
+            CompletableFuture<AsyncDocumentService.DocumentResult> promotionLetterFuture = asyncDocumentService
+                    .generateAndUploadPromotionLetter(pdfTemplateData, hrEntity.getEmployeeId(), hrEntity.getHrId());
+
+            CompletableFuture<AsyncDocumentService.DocumentResult> revisedCompensationCardFuture = asyncDocumentService
+                    .generateAndUploadCompensationCard(pdfTemplateData, hrEntity.getEmployeeId(), hrEntity.getHrId());
+
+            // Wait for both async operations to complete
+            CompletableFuture.allOf(promotionLetterFuture, revisedCompensationCardFuture).join();
+            log.info("Document generation and upload tasks completed for employee: {}", hrEntity.getEmployeeId());
+
+            // Get results
+            AsyncDocumentService.DocumentResult promotionLetterResult = promotionLetterFuture.join();
+            AsyncDocumentService.DocumentResult revisedCompensationCardResult = revisedCompensationCardFuture.join();
+
+            // Validate promotion letter
+            if (!promotionLetterResult.isSuccess()) {
+                ErrorResponseDto error = new ErrorResponseDto();
+                error.setMessage("Error uploading Promotion Letter to DMS: " + promotionLetterResult.getErrorMessage());
+                error.setStatusCode(HttpStatus.INTERNAL_SERVER_ERROR.value());
+                error.setTimestamp(new Timestamp(System.currentTimeMillis()));
+                error.setServiceMethod("promoteEmployee");
+                return new ResponseEntity<>(error, HttpStatus.INTERNAL_SERVER_ERROR);
+            }
+            log.info("✓ Promotion letter generated and uploaded successfully");
+
+            // Validate revised compensation card
+            if (!revisedCompensationCardResult.isSuccess()) {
+                ErrorResponseDto error = new ErrorResponseDto();
+                error.setMessage("Error uploading Revised Compensation Card to DMS: "
+                        + revisedCompensationCardResult.getErrorMessage());
+                error.setStatusCode(HttpStatus.INTERNAL_SERVER_ERROR.value());
+                error.setTimestamp(new Timestamp(System.currentTimeMillis()));
+                error.setServiceMethod("promoteEmployee");
+                return new ResponseEntity<>(error, HttpStatus.INTERNAL_SERVER_ERROR);
+            }
+            log.info("✓ Revised compensation card generated and uploaded successfully");
+
+            // Add documents to HR entity
+            String promotionLetterUrl = promotionLetterResult.getDocumentUrl();
+            String revisedCompensationCardUrl = revisedCompensationCardResult.getDocumentUrl();
+
+            // Add revised compensation card to compensation's card list
+            HrDocument revisedCardDocument = revisedCompensationCardResult.toHrDocument(lastCompensation);
+            lastCompensation.getCompensationCard().add(revisedCardDocument);
+
+            // Save updated HR entity with all relationships
+            log.info("=== Saving updated HrEntity with promotion and new documents ===");
+            try {
+                hrEntityRepo.save(hrEntity);
+                log.info("✓✓✓ Successfully saved HrEntity after promotion. HrId: {}", hrEntity.getHrId());
+            } catch (Exception saveException) {
+                log.error("✗✗✗ FAILED to save HrEntity after promotion. Error: {}", saveException.getMessage());
+                log.error("Exception details:", saveException);
+                throw saveException;
+            }
+
+            // Send promotion email notification
+            log.info("=== Sending promotion notification email to employee {} ===", hrEntity.getEmployeeId());
+            try {
+                // Fetch employee details from user service to get email
+                RestPayload restPayload = commonUtils.buildRestPayload(webConstants.getGetUserDetailsUrl(),
+                        Map.of("userId", hrEntity.getEmployeeId().toString()), null, "json");
+                ResponseEntity<?> userResponse = restServices.hrRestCall(restPayload.getBuilder().toUriString(), null,
+                        restPayload.getHeaders(), HttpMethod.GET, hrEntity.getHrId());
+
+                String employeeEmail = null;
+                String employeeName = "Employee";
+
+                if (userResponse.getStatusCode().is2xxSuccessful() && userResponse.getBody() != null) {
+                    @SuppressWarnings("unchecked")
+                    Map<String, String> userDetails = (Map<String, String>) userResponse.getBody();
+                    employeeEmail = userDetails.get("email");
+                    String firstName = userDetails.getOrDefault("firstName", "");
+                    String lastName = userDetails.getOrDefault("lastName", "");
+                    employeeName = (firstName + " " + lastName).trim();
+                }
+
+                if (employeeEmail != null) {
+                    EmailCommunicationDto emailCommunicationDto = new EmailCommunicationDto();
+                    emailCommunicationDto.setSenderEmail("hr@nexus.com");
+                    emailCommunicationDto.setRecipientEmails(List.of(employeeEmail));
+                    emailCommunicationDto.setSubject("Congratulations on Your Promotion!");
+                    emailCommunicationDto.setBody(communicationTemplateBuilder.buildPromotionEmailTemplate());
+
+                    // Create placeholders map for dynamic content replacement
+                    Map<String, Object> placeholders = new HashMap<>();
+                    placeholders.put("employeeName", employeeName);
+                    placeholders.put("organizationName", "Nexus Corporation");
+                    placeholders.put("previousPosition", lastPosition.getTitle());
+                    placeholders.put("newPosition", position.getTitle());
+                    placeholders.put("department", hrEntity.getDepartment());
+                    placeholders.put("effectiveDate",
+                            new java.text.SimpleDateFormat("dd-MM-yyyy").format(position.getEffectiveFrom()));
+                    placeholders.put("basePay", String.format("₹%.2f", lastCompensation.getBasePay()));
+                    placeholders.put("hra", String.format("₹%.2f", lastCompensation.getHra()));
+                    placeholders.put("netMonthlyPay", String.format("₹%.2f", lastCompensation.getNetMonthlyPay()));
+                    placeholders.put("annualPackage",
+                            lastCompensation.getAnnualPackage() != null ? lastCompensation.getAnnualPackage()
+                                    : String.format("₹%.2f", lastCompensation.getTotal()));
+                    placeholders.put("hrEmail", "hr@nexus.com");
+                    emailCommunicationDto.setPlaceholders(placeholders);
+
+                    // Set attachments with promotion documents
+                    emailCommunicationDto.setAttachments(List.of(
+                            new EmailAttachmentDto("Promotion_Letter_" + hrEntity.getEmployeeId() + ".pdf",
+                                    "application/pdf", promotionLetterUrl),
+                            new EmailAttachmentDto("Revised_Compensation_Card_" + hrEntity.getEmployeeId() + ".pdf",
+                                    "application/pdf", revisedCompensationCardUrl)));
+
+                    communicationService.sendCommunicationOverEmail(emailCommunicationDto);
+                    log.info("✓ Promotion notification email sent successfully to employee: {}",
+                            hrEntity.getEmployeeId());
+                } else {
+                    log.warn("Could not fetch employee email from user service for employee ID: {}",
+                            hrEntity.getEmployeeId());
+                }
+            } catch (Exception emailException) {
+                // Log the email error but don't throw exception - prevents transaction rollback
+                log.error("Email sending failed but promotion was processed successfully. Employee ID: {}, Error: {}",
+                        hrEntity.getEmployeeId(), emailException.getMessage(), emailException);
+            }
+
+            // Build response with promotion details and document URLs
+            GeneratedPdfDto promotionResponse = GeneratedPdfDto.builder()
+                    .hrId(hrEntity.getHrId())
+                    .employeeId(hrEntity.getEmployeeId())
+                    .documentType("PROMOTION")
+                    .promotionLetterUrl(promotionLetterUrl)
+                    .revisedCompensationCardUrl(revisedCompensationCardUrl)
+                    .previousPosition(lastPosition.getTitle())
+                    .newPosition(position.getTitle())
+                    .effectiveFrom(position.getEffectiveFrom())
+                    .basePay(lastCompensation.getBasePay())
+                    .hra(lastCompensation.getHra())
+                    .netPay(lastCompensation.getNetPay())
+                    .annualPackage(lastCompensation.getAnnualPackage() != null
+                            ? Double.parseDouble(lastCompensation.getAnnualPackage())
+                            : lastCompensation.getTotal())
+                    .generatedAt(new Timestamp(System.currentTimeMillis()))
+                    .build();
+
+            log.info("✓ Promotion completed successfully for employee {} with new position: {}",
+                    hrEntity.getEmployeeId(), position.getTitle());
+
+            return ResponseEntity.ok(promotionResponse);
+
+        } catch (ResourceNotFoundException | ServiceLevelException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new ServiceLevelException("HR Service", "Exception occurred while promoting employee",
+                    "promoteEmployee", e.getClass().getName(), e.getMessage());
+        }
     }
 
     @Override
-    public ResponseEntity<?> rewardAppraisal(Long hrId, Compensation compensation) {
-        return null;
+    public ResponseEntity<?> rewardAppraisal(Long hrId, CompensationDto compensation) {
+        if (ObjectUtils.isEmpty(hrId) || ObjectUtils.isEmpty(compensation)) {
+            throw new ServiceLevelException("HR Service", "HR ID and Compensation cannot be null or empty",
+                    "rewardAppraisal", "InvalidInput", "One or more inputs are null or empty");
+        }
+        try {
+            log.info("=== Starting reward appraisal process for hrId: {} ===", hrId);
+
+            HrEntity hrEntity = hrEntityRepo.findById(hrId)
+                    .orElseThrow(() -> new ResourceNotFoundException("HrEntity", "hrId", hrId));
+
+            // Update compensation details
+            log.info("=== Updating compensation details for reward appraisal ===");
+            Compensation currentCompensation = hrEntity.getCompensation();
+            if (!ObjectUtils.isEmpty(compensation.getBasePay()))
+                currentCompensation.setBasePay(compensation.getBasePay());
+            if (!ObjectUtils.isEmpty(compensation.getHra()))
+                currentCompensation.setHra(compensation.getHra());
+            if (!ObjectUtils.isEmpty(compensation.getNetPay()))
+                currentCompensation.setNetPay(compensation.getNetPay());
+            if (!ObjectUtils.isEmpty(compensation.getGratuity()))
+                currentCompensation.setGratuity(compensation.getGratuity());
+            if (!ObjectUtils.isEmpty(compensation.getPf()))
+                currentCompensation.setPf(compensation.getPf());
+            if (!ObjectUtils.isEmpty(compensation.getAnnualPackage()))
+                currentCompensation.setAnnualPackage(compensation.getAnnualPackage());
+            if (!ObjectUtils.isEmpty(compensation.getTotal()))
+                currentCompensation.setTotal(compensation.getTotal());
+            if (!ObjectUtils.isEmpty(compensation.getNetMonthlyPay()))
+                currentCompensation.setNetMonthlyPay(compensation.getNetMonthlyPay());
+            if (!ObjectUtils.isEmpty(compensation.getBonuses())) {
+                log.debug("Updating {} bonuses", compensation.getBonuses().size());
+                currentCompensation.setBonuses(compensation.getBonuses().stream()
+                        .map(bonus -> {
+                            Bonus bonusEntity = modelMapper.map(bonus, Bonus.class);
+                            bonusEntity.setCompensation(currentCompensation);
+                            return bonusEntity;
+                        }).toList());
+            }
+            if (!ObjectUtils.isEmpty(compensation.getDeductions())) {
+                log.debug("Updating {} deductions", compensation.getDeductions().size());
+                currentCompensation.setDeductions(compensation.getDeductions().stream()
+                        .map(deductionDto -> {
+                            Deduction deductionEntity = modelMapper.map(deductionDto, Deduction.class);
+                            deductionEntity.setCompensation(currentCompensation);
+                            return deductionEntity;
+                        }).toList());
+            }
+            hrEntity.setCompensation(currentCompensation);
+            log.info("✓ Compensation updated successfully");
+
+            // Build PDF template data for revised compensation card
+            log.info("Building PDF template data for revised compensation card");
+            Position currentPosition = hrEntity.getPositions().getLast();
+            PdfTemplateDto pdfTemplateData = buildPdfTemplateData(HrInitRequestDto.builder()
+                    .employeeId(hrEntity.getEmployeeId())
+                    .department(hrEntity.getDepartment())
+                    .title(currentPosition.getTitle())
+                    .remarks("Reward Appraisal - Compensation Revision")
+                    .compensation(modelMapper.map(compensation, CompensationDto.class)).build(),
+                    new Timestamp(System.currentTimeMillis()));
+
+            // Generate revised compensation card asynchronously
+            log.info("Starting async document generation: revised compensation card for reward appraisal");
+            CompletableFuture<AsyncDocumentService.DocumentResult> revisedCompensationCardFuture = asyncDocumentService
+                    .generateAndUploadCompensationCard(pdfTemplateData, hrEntity.getEmployeeId(), hrEntity.getHrId());
+
+            // Wait for async operation to complete
+            revisedCompensationCardFuture.join();
+            log.info("Document generation and upload task completed for employee: {}", hrEntity.getEmployeeId());
+
+            // Get result
+            AsyncDocumentService.DocumentResult revisedCompensationCardResult = revisedCompensationCardFuture.join();
+
+            // Validate revised compensation card
+            if (!revisedCompensationCardResult.isSuccess()) {
+                ErrorResponseDto error = new ErrorResponseDto();
+                error.setMessage("Error uploading Revised Compensation Card to DMS: "
+                        + revisedCompensationCardResult.getErrorMessage());
+                error.setStatusCode(HttpStatus.INTERNAL_SERVER_ERROR.value());
+                error.setTimestamp(new Timestamp(System.currentTimeMillis()));
+                error.setServiceMethod("rewardAppraisal");
+                return new ResponseEntity<>(error, HttpStatus.INTERNAL_SERVER_ERROR);
+            }
+            log.info("✓ Revised compensation card generated and uploaded successfully");
+
+            // Get document URL
+            String revisedCompensationCardUrl = revisedCompensationCardResult.getDocumentUrl();
+
+            // Add revised compensation card to compensation's card list
+            HrDocument revisedCardDocument = revisedCompensationCardResult.toHrDocument(currentCompensation);
+            currentCompensation.getCompensationCard().add(revisedCardDocument);
+
+            // Save updated HR entity with all relationships
+            log.info("=== Saving updated HrEntity with reward appraisal and new document ===");
+            try {
+                hrEntityRepo.save(hrEntity);
+                log.info("✓✓✓ Successfully saved HrEntity after reward appraisal. HrId: {}", hrEntity.getHrId());
+            } catch (Exception saveException) {
+                log.error("✗✗✗ FAILED to save HrEntity after reward appraisal. Error: {}", saveException.getMessage());
+                log.error("Exception details:", saveException);
+                throw saveException;
+            }
+
+            // Send reward appraisal email notification
+            log.info("=== Sending reward appraisal notification email to employee {} ===", hrEntity.getEmployeeId());
+            try {
+                // Fetch employee details from user service to get email
+                RestPayload restPayload = commonUtils.buildRestPayload(webConstants.getGetUserDetailsUrl(),
+                        Map.of("userId", hrEntity.getEmployeeId().toString()), null, "json");
+                ResponseEntity<?> userResponse = restServices.hrRestCall(restPayload.getBuilder().toUriString(), null,
+                        restPayload.getHeaders(), HttpMethod.GET, hrEntity.getHrId());
+
+                String employeeEmail = null;
+                String employeeName = "Employee";
+
+                if (userResponse.getStatusCode().is2xxSuccessful() && userResponse.getBody() != null) {
+                    @SuppressWarnings("unchecked")
+                    Map<String, String> userDetails = (Map<String, String>) userResponse.getBody();
+                    employeeEmail = userDetails.get("email");
+                    String firstName = userDetails.getOrDefault("firstName", "");
+                    String lastName = userDetails.getOrDefault("lastName", "");
+                    employeeName = (firstName + " " + lastName).trim();
+                }
+
+                if (employeeEmail != null) {
+                    EmailCommunicationDto emailCommunicationDto = new EmailCommunicationDto();
+                    emailCommunicationDto.setSenderEmail("hr@nexus.com");
+                    emailCommunicationDto.setRecipientEmails(List.of(employeeEmail));
+                    emailCommunicationDto.setSubject("Reward Appraisal - Compensation Revision");
+                    emailCommunicationDto.setBody(communicationTemplateBuilder.buildRewardAppraisalEmailTemplate());
+
+                    // Create placeholders map for dynamic content replacement
+                    Map<String, Object> placeholders = new HashMap<>();
+                    placeholders.put("employeeName", employeeName);
+                    placeholders.put("organizationName", "Nexus Corporation");
+                    placeholders.put("position", currentPosition.getTitle());
+                    placeholders.put("department", hrEntity.getDepartment());
+                    placeholders.put("appraisalDate", new java.text.SimpleDateFormat("dd-MM-yyyy")
+                            .format(new Timestamp(System.currentTimeMillis())));
+                    placeholders.put("effectiveDate", new java.text.SimpleDateFormat("dd-MM-yyyy")
+                            .format(new Timestamp(System.currentTimeMillis())));
+                    placeholders.put("basePay", String.format("₹%.2f", currentCompensation.getBasePay()));
+                    placeholders.put("hra", String.format("₹%.2f", currentCompensation.getHra()));
+                    placeholders.put("netMonthlyPay", String.format("₹%.2f", currentCompensation.getNetMonthlyPay()));
+                    placeholders.put("annualPackage",
+                            currentCompensation.getAnnualPackage() != null ? currentCompensation.getAnnualPackage()
+                                    : String.format("₹%.2f", currentCompensation.getTotal()));
+                    placeholders.put("hrEmail", "hr@nexus.com");
+                    emailCommunicationDto.setPlaceholders(placeholders);
+
+                    // Set attachment with revised compensation card
+                    emailCommunicationDto.setAttachments(List.of(
+                            new EmailAttachmentDto("Revised_Compensation_Card_" + hrEntity.getEmployeeId() + ".pdf",
+                                    "application/pdf", revisedCompensationCardUrl)));
+
+                    communicationService.sendCommunicationOverEmail(emailCommunicationDto);
+                    log.info("✓ Reward appraisal notification email sent successfully to employee: {}",
+                            hrEntity.getEmployeeId());
+                } else {
+                    log.warn("Could not fetch employee email from user service for employee ID: {}",
+                            hrEntity.getEmployeeId());
+                }
+            } catch (Exception emailException) {
+                // Log the email error but don't throw exception - prevents transaction rollback
+                log.error(
+                        "Email sending failed but reward appraisal was processed successfully. Employee ID: {}, Error: {}",
+                        hrEntity.getEmployeeId(), emailException.getMessage(), emailException);
+            }
+
+            // Build response with appraisal details and document URL
+            GeneratedPdfDto appraisalResponse = GeneratedPdfDto.builder()
+                    .hrId(hrEntity.getHrId())
+                    .employeeId(hrEntity.getEmployeeId())
+                    .documentType("REWARD_APPRAISAL")
+                    .revisedCompensationCardUrl(revisedCompensationCardUrl)
+                    .newPosition(currentPosition.getTitle())
+                    .basePay(currentCompensation.getBasePay())
+                    .hra(currentCompensation.getHra())
+                    .netPay(currentCompensation.getNetPay())
+                    .annualPackage(currentCompensation.getAnnualPackage() != null
+                            ? Double.parseDouble(currentCompensation.getAnnualPackage())
+                            : currentCompensation.getTotal())
+                    .generatedAt(new Timestamp(System.currentTimeMillis()))
+                    .build();
+
+            log.info("✓ Reward appraisal completed successfully for employee: {}", hrEntity.getEmployeeId());
+
+            return ResponseEntity.ok(appraisalResponse);
+
+        } catch (ResourceNotFoundException | ServiceLevelException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new ServiceLevelException("HR Service", "Exception occurred while processing reward appraisal",
+                    "rewardAppraisal", e.getClass().getName(), e.getMessage());
+        }
     }
 
     /**

@@ -24,6 +24,10 @@ public class PdfTemplateDto {
 
     private String position;
 
+    private String title;
+
+    private String previousTitle;
+
     private String remarks;
 
     private Timestamp effectiveFrom;
