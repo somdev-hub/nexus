@@ -36,6 +36,10 @@ public class BankRecord {
     @Column(columnDefinition = "TEXT")
     private String branchAddress;
 
+    @Convert(converter = StringEncryptionConverter.class)
+    @Column(columnDefinition = "TEXT")
+    private String panNumber;
+
     @ManyToOne
     @JoinColumn(name = "compensation_id")
     private Compensation compensation;

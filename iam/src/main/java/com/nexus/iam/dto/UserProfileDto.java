@@ -1,10 +1,8 @@
 package com.nexus.iam.dto;
 
+import java.sql.Date;
 import java.sql.Timestamp;
-import java.util.List;
-
 import lombok.Data;
-import org.json.JSONObject;
 
 @Data
 public class UserProfileDto {
@@ -35,4 +33,10 @@ public class UserProfileDto {
     private String title;
 
     private String remarks;
+
+    private String gender;
+
+    private Integer age;
+
+    private Date dateOfBirth;
 }

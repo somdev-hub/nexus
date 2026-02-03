@@ -1,6 +1,5 @@
 package com.nexus.hr.service.interfaces;
 
-import com.nexus.hr.model.entities.Compensation;
 import com.nexus.hr.model.entities.Position;
 import com.nexus.hr.model.enums.HrRequestStatus;
 import com.nexus.hr.payload.CompensationDto;
@@ -32,4 +31,6 @@ public interface HrService {
     ResponseEntity<?> promoteEmployee(Long hrId, Position position, CompensationDto compensation);
 
     ResponseEntity<?> rewardAppraisal(Long hrId, CompensationDto compensation);
+
+
 }

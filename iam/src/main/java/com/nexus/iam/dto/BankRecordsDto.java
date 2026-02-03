@@ -15,4 +15,6 @@ public class BankRecordsDto {
     private String accountType;
 
     private String branchAddress;
+
+    private String panNumber;
 }

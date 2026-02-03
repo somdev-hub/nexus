@@ -14,6 +14,7 @@ import com.nexus.iam.utils.RestService;
 import com.nexus.iam.utils.WebConstants;
 import lombok.RequiredArgsConstructor;
 import org.modelmapper.ModelMapper;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpMethod;
@@ -67,7 +68,8 @@ public class UserServiceImpl implements UserService {
     @Override
     public ResponseEntity<?> updateUser(UserRegisterDto userDto, Long userId) {
         try {
-            User existingUser = userRepository.findById(userId).orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
+            User existingUser = userRepository.findById(userId)
+                    .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
 
             if (!ObjectUtils.isEmpty(userDto.getName())) {
                 existingUser.setName(userDto.getName());
@@ -91,8 +93,7 @@ public class UserServiceImpl implements UserService {
                 existingUser.getRoles().clear();
                 existingUser.getRoles().add(
                         roleRepository.findByName(userDto.getRole())
-                                .orElseThrow(() -> new ResourceNotFoundException("Role", "name", userDto.getRole()))
-                );
+                                .orElseThrow(() -> new ResourceNotFoundException("Role", "name", userDto.getRole())));
             }
 
             userRepository.save(existingUser);
@@ -149,10 +150,10 @@ public class UserServiceImpl implements UserService {
     public ResponseEntity<?> updateProfilePhoto(MultipartFile file, Long userId) {
         ResponseEntity<?> response = null;
         try {
-            User user = userRepository.findById(userId).orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
+            User user = userRepository.findById(userId)
+                    .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
             if (!ObjectUtils.isEmpty(file)) {
-                UriComponentsBuilder builder =
-                        UriComponentsBuilder.fromUriString(webConstants.getCommonDmsUrl());
+                UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getCommonDmsUrl());
 
                 Map<String, Object> dto = new HashMap<>();
                 dto.put("userId", userId);
@@ -165,8 +166,9 @@ public class UserServiceImpl implements UserService {
                 payload.put("file", file);
 
                 Map<String, String> headers = new HashMap<>();
-                LoginResponse loginResponse = authenticationService.authenticate(new LoginRequest(webConstants.getGenericUserId(),
-                        webConstants.getGenericPassword()));
+                LoginResponse loginResponse = authenticationService
+                        .authenticate(new LoginRequest(webConstants.getGenericUserId(),
+                                webConstants.getGenericPassword()));
                 headers.put(CommonConstants.AUTHORIZATION, "Bearer " + loginResponse.getAccessToken());
                 headers.put(CommonConstants.CONTENT_TYPE, CommonConstants.APPLICATION_MULTIPART_FORMDATA);
 
@@ -175,8 +177,7 @@ public class UserServiceImpl implements UserService {
                         payload,
                         headers,
                         HttpMethod.POST,
-                        userId
-                );
+                        userId);
 
                 if (dmsResponse.getStatusCode().is2xxSuccessful()) {
                     @SuppressWarnings("unchecked")
@@ -188,10 +189,12 @@ public class UserServiceImpl implements UserService {
 
                         response = new ResponseEntity<>("Profile photo updated successfully", HttpStatus.OK);
                     } else {
-                        response = new ResponseEntity<>("Failed to retrieve document URL from DMS response", HttpStatus.INTERNAL_SERVER_ERROR);
+                        response = new ResponseEntity<>("Failed to retrieve document URL from DMS response",
+                                HttpStatus.INTERNAL_SERVER_ERROR);
                     }
                 } else {
-                    response = new ResponseEntity<>("Failed to upload profile photo to DMS: " + dmsResponse.getBody(), HttpStatus.INTERNAL_SERVER_ERROR);
+                    response = new ResponseEntity<>("Failed to upload profile photo to DMS: " + dmsResponse.getBody(),
+                            HttpStatus.INTERNAL_SERVER_ERROR);
                 }
             }
         } catch (Exception e) {
@@ -208,8 +211,9 @@ public class UserServiceImpl implements UserService {
             throw new ServiceLevelException("UserService", "User ID is required", "getUserDetails",
                     new Timestamp(System.currentTimeMillis()), null, "User ID is null or empty");
         }
-        try{
-            User user = userRepository.findById(userId).orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
+        try {
+            User user = userRepository.findById(userId)
+                    .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
             UserDetailsDto userDto = modelMapper.map(user, UserDetailsDto.class);
             return ResponseEntity.ok(userDto);
         } catch (Exception e) {
@@ -261,8 +265,7 @@ public class UserServiceImpl implements UserService {
             // upload documents to dms
             if (!ObjectUtils.isEmpty(files)) {
                 List<Map<String, String>> hrDocumentsPayload = new ArrayList<>();
-                UriComponentsBuilder builder =
-                        UriComponentsBuilder.fromUriString(webConstants.getOrgFileUploadUrl());
+                UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getOrgFileUploadUrl());
                 Arrays.stream(files).forEach(file -> {
                     try {
                         Map<String, Object> dto = new HashMap<>();
@@ -271,22 +274,30 @@ public class UserServiceImpl implements UserService {
                         dto.put("remarks", "HR Doc Upload");
                         dto.put("documentType", "OTHER_HR_DOCUMENTS");
 
+                        ByteArrayResource resource = new ByteArrayResource(file.getBytes()) {
+                            @Override
+                            public String getFilename() {
+                                return file.getOriginalFilename();
+                            }
+                        };
+
                         Map<String, Object> docPayload = new HashMap<>();
                         docPayload.put("dto", dto);
-                        docPayload.put("file", file);
+                        docPayload.put("file", resource);
 
                         Map<String, String> headers = new HashMap<>();
-                        LoginResponse loginResponse = authenticationService.authenticate(new LoginRequest(webConstants.getGenericUserId(),
-                                webConstants.getGenericPassword()));
+                        LoginResponse loginResponse = authenticationService
+                                .authenticate(new LoginRequest(webConstants.getGenericUserId(),
+                                        webConstants.getGenericPassword()));
                         headers.put(CommonConstants.AUTHORIZATION, "Bearer " + loginResponse.getAccessToken());
-                        // Do NOT set Content-Type header - RestTemplate will automatically set it to multipart/form-data
+                        // Do NOT set Content-Type header - RestTemplate will automatically set it to
+                        // multipart/form-data
                         ResponseEntity<?> response = restService.iamRestCall(
                                 builder.toUriString(),
                                 docPayload,
                                 headers,
                                 HttpMethod.POST,
-                                user.getId()
-                        );
+                                user.getId());
                         if (response.getStatusCode().is2xxSuccessful()) {
                             @SuppressWarnings("unchecked")
                             Map<String, String> respBody = (Map<String, String>) response.getBody();
@@ -298,16 +309,26 @@ public class UserServiceImpl implements UserService {
                                 docInfo.put("documentUrl", respBody.get("documentUrl"));
                                 hrDocumentsPayload.add(docInfo);
                             } else {
-                                throw new ServiceLevelException("UserService", "Failed to retrieve document URL from DMS response for user ID: " + user.getId(), "createUser",
-                                        new Timestamp(System.currentTimeMillis()), null, "DMS response missing documentUrl");
+                                throw new ServiceLevelException("UserService",
+                                        "Failed to retrieve document URL from DMS response for user ID: "
+                                                + user.getId(),
+                                        "createUser",
+                                        new Timestamp(System.currentTimeMillis()), null,
+                                        "DMS response missing documentUrl");
                             }
                         } else {
-                            throw new ServiceLevelException("UserService", "Failed to upload HR document to DMS for user ID: " + user.getId() + ". Response: " + response.getBody(), "createUser",
-                                    new Timestamp(System.currentTimeMillis()), null, "DMS upload failed with status: " + response.getStatusCode());
+                            throw new ServiceLevelException("UserService",
+                                    "Failed to upload HR document to DMS for user ID: " + user.getId() + ". Response: "
+                                            + response.getBody(),
+                                    "createUser",
+                                    new Timestamp(System.currentTimeMillis()), null,
+                                    "DMS upload failed with status: " + response.getStatusCode());
                         }
                     } catch (Exception e) {
-                        throw new ServiceLevelException("UserService", "Failed to upload HR document for user ID: " + user.getId(), "createUser",
-                                new Timestamp(System.currentTimeMillis()), e.getCause()!=null?e.getCause().toString():null, e.getMessage());
+                        throw new ServiceLevelException("UserService",
+                                "Failed to upload HR document for user ID: " + user.getId(), "createUser",
+                                new Timestamp(System.currentTimeMillis()),
+                                e.getCause() != null ? e.getCause().toString() : null, e.getMessage());
                     }
                 });
 
@@ -316,23 +337,22 @@ public class UserServiceImpl implements UserService {
             }
 
             Map<String, String> headers = new HashMap<>();
-            LoginResponse loginResponse = authenticationService.authenticate(new LoginRequest(webConstants.getGenericUserId(),
-                    webConstants.getGenericPassword()));
+            LoginResponse loginResponse = authenticationService
+                    .authenticate(new LoginRequest(webConstants.getGenericUserId(),
+                            webConstants.getGenericPassword()));
             headers.put(CommonConstants.AUTHORIZATION, "Bearer " + loginResponse.getAccessToken());
             headers.put(CommonConstants.CONTENT_TYPE, CommonConstants.APPLICATION_JSON);
 
-            UriComponentsBuilder builder =
-                    UriComponentsBuilder.fromUriString(webConstants.getHrInitUrl());
+            UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getHrInitUrl());
             ResponseEntity<?> hrResponse = restService.iamRestCall(
                     builder.toUriString(),
                     payload,
                     headers,
                     HttpMethod.POST,
-                    user.getId()
-            );
+                    user.getId());
 
             Map<String, String> response = new HashMap<>();
-            if (hrResponse.getStatusCode().is2xxSuccessful()){
+            if (hrResponse.getStatusCode().is2xxSuccessful()) {
                 @SuppressWarnings("unchecked")
                 Map<String, String> respBody = (Map<String, String>) hrResponse.getBody();
                 assert respBody != null;

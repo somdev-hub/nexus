@@ -4,10 +4,12 @@ import java.sql.Timestamp;
 import java.util.HashMap;
 import java.util.Map;
 
+import com.nexus.iam.repository.OrganizationRepository;
 import com.nexus.iam.repository.RoleRepository;
-import com.nexus.iam.exception.ResourceNotFoundException;
 import org.modelmapper.ModelMapper;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -16,41 +18,41 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.util.ObjectUtils;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.util.UriComponentsBuilder;
 
 import com.nexus.iam.dto.LoginRequest;
 import com.nexus.iam.dto.LoginResponse;
 import com.nexus.iam.dto.RefreshTokenRequest;
 import com.nexus.iam.dto.UserRegisterDto;
+import com.nexus.iam.entities.Organization;
+import com.nexus.iam.entities.Role;
 import com.nexus.iam.entities.User;
 import com.nexus.iam.repository.UserRepository;
 import com.nexus.iam.security.JwtUtil;
 import com.nexus.iam.service.AuthenticationService;
+import com.nexus.iam.utils.CommonConstants;
+import com.nexus.iam.utils.RestService;
+import com.nexus.iam.utils.WebConstants;
 
 import io.jsonwebtoken.Claims;
+import lombok.RequiredArgsConstructor;
 
 @Service
+@RequiredArgsConstructor
 public class AuthenticationServiceImpl implements AuthenticationService {
 
-    @Autowired
-    private AuthenticationManager authenticationManager;
-
-    @Autowired
-    private UserRepository userRepository;
-
-    @Autowired
-    private JwtUtil jwtUtil;
-
-    @Autowired
-    private PasswordEncoder passwordEncoder;
-
-    @Autowired
-    private CustomUserDetailsService userDetailsService;
-
-    @Autowired
-    private ModelMapper modelMapper;
-
-    @Autowired
-    private RoleRepository roleRepository;
+    private final OrganizationRepository organizationRepository;
+    private final AuthenticationManager authenticationManager;
+    private final CustomUserDetailsService userDetailsService;
+    private final AuthenticationService authenticationService;
+    private final PasswordEncoder passwordEncoder;
+    private final RoleRepository roleRepository;
+    private final UserRepository userRepository;
+    private final WebConstants webConstants;
+    private final ModelMapper modelMapper;
+    private final RestService restService;
+    private final JwtUtil jwtUtil;
 
     @Override
     public LoginResponse authenticate(LoginRequest loginRequest) {
@@ -194,7 +196,7 @@ public class AuthenticationServiceImpl implements AuthenticationService {
     }
 
     @Override
-    public LoginResponse registerUser(UserRegisterDto userRegisterDto) {
+    public LoginResponse registerUser(UserRegisterDto userRegisterDto, MultipartFile profilePhoto) {
         if (ObjectUtils.isEmpty(userRegisterDto)) {
             throw new IllegalArgumentException("User registration data cannot be null or empty");
         }
@@ -203,18 +205,111 @@ public class AuthenticationServiceImpl implements AuthenticationService {
                 ObjectUtils.isEmpty(userRegisterDto.getPassword())) {
             throw new IllegalArgumentException("Username, email, and password are required");
         }
+        if (ObjectUtils.isEmpty(userRegisterDto.getOrgId()) || ObjectUtils.isEmpty(userRegisterDto.getOrgName())) {
+            throw new IllegalArgumentException("Organization ID or Name is required");
+
+        }
         try {
+
             User user = modelMapper.map(userRegisterDto, User.class);
             user.setCreatedAt(Timestamp.valueOf(java.time.LocalDateTime.now()));
 
-            // Set role if provided in the DTO
-            if (!ObjectUtils.isEmpty(userRegisterDto.getRole())) {
-                user.getRoles().add(roleRepository.findByName(userRegisterDto.getRole())
-                        .orElseThrow(() -> new ResourceNotFoundException("Role", "name", userRegisterDto.getRole())));
+            // add profilePhoto to dms and set URL to user
+            if (!ObjectUtils.isEmpty(profilePhoto)) {
+                UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getCommonDmsUrl());
+                Map<String, Object> dto = new HashMap<>();
+                dto.put("userId", user.getId());
+                dto.put("fileName", user.getId() + "_hr_doc");
+                dto.put("remarks", "HR Doc Upload");
+                dto.put("documentType", "OTHER_HR_DOCUMENTS");
+
+                ByteArrayResource resource = new ByteArrayResource(profilePhoto.getBytes()) {
+                    @Override
+                    public String getFilename() {
+                        return profilePhoto.getOriginalFilename();
+                    }
+                };
+
+                Map<String, Object> docPayload = new HashMap<>();
+                docPayload.put("dto", dto);
+                docPayload.put("file", resource);
+
+                Map<String, String> headers = new HashMap<>();
+                LoginResponse loginResponse = authenticationService
+                        .authenticate(new LoginRequest(webConstants.getGenericUserId(),
+                                webConstants.getGenericPassword()));
+                headers.put(CommonConstants.AUTHORIZATION, "Bearer " + loginResponse.getAccessToken());
+                ResponseEntity<?> response = restService.iamRestCall(
+                        builder.toUriString(),
+                        docPayload,
+                        headers,
+                        HttpMethod.POST,
+                        user.getId());
+
+                if (response.getStatusCode().is2xxSuccessful()) {
+                    @SuppressWarnings("unchecked")
+                    Map<String, String> respBody = (Map<String, String>) response.getBody();
+                    assert respBody != null;
+                    if (respBody.containsKey("documentUrl")) {
+                        user.setProfilePhoto(respBody.get("documentUrl"));
+                    }
+                }
+            }
+
+            // save org
+            Organization org = new Organization();
+            org.setCreatedAt(new Timestamp(System.currentTimeMillis()));
+            org.setOrgName(userRegisterDto.getOrgName());
+            org.setOrgType(userRegisterDto.getOrgType());
+            org.setTrustScore(0d);
+            org = organizationRepository.save(org);
+
+            user.setOrganization(org);
+
+            // set role
+            Role role;
+            if (roleRepository.existsByName(userRegisterDto.getRole())) {
+                role = roleRepository.findByName(userRegisterDto.getRole()).get();
+            } else {
+                Role newRole = new Role();
+                newRole.setName(userRegisterDto.getRole());
+                role = roleRepository.save(newRole);
+            }
+            user.getRoles().add(role);
+
+            // prepare HR payloads
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("employeeId", user.getId());
+            payload.put("fullName", user.getName());
+            payload.put("email", user.getEmail());
+            payload.put("orgId", user.getOrganization().getId());
+            payload.put("department", userRegisterDto.getDepartment());
+            payload.put("title", userRegisterDto.getTitle());
+            payload.put("remarks", "New User Registration");
+            payload.put("timestamp", new Timestamp(System.currentTimeMillis()));
+            payload.put("personalEmail", userRegisterDto.getPersonalEmail());
+            payload.put("compensation", userRegisterDto.getCompensation());
+
+            Map<String, String> headers = new HashMap<>();
+            LoginResponse loginResponse = authenticationService
+                    .authenticate(new LoginRequest(webConstants.getGenericUserId(),
+                            webConstants.getGenericPassword()));
+            headers.put(CommonConstants.AUTHORIZATION, "Bearer " + loginResponse.getAccessToken());
+            headers.put(CommonConstants.CONTENT_TYPE, CommonConstants.APPLICATION_JSON);
+
+            UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getHrInitUrl());
+            ResponseEntity<?> hrResponse = restService.iamRestCall(
+                    builder.toUriString(),
+                    payload,
+                    headers,
+                    HttpMethod.POST,
+                    user.getId());
+            // generate JWT tokens upon registration
+            if (!hrResponse.getStatusCode().is2xxSuccessful()) {
+                throw new IllegalArgumentException("Failed to initialize HR data for the user");
             }
 
             return registerUser(user);
-            // generate JWT tokens upon registration
 
         } catch (Exception e) {
             throw new IllegalArgumentException("Failed to register user: " + e.getMessage());

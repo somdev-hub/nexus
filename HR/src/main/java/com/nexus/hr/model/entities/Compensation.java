@@ -19,17 +19,17 @@ public class Compensation {
 
     private Double hra;
 
-    private Double netPay;
-
     private Double gratuity;
 
     private Double pf;
 
+    private Double insurancePremium;
+
+    private Double netPay;
+
+    private Double grossPay;
+
     private String annualPackage;
-
-    private Double total;
-
-    private Double netMonthlyPay;
 
     @OneToOne(mappedBy = "compensation")
     private HrEntity hrEntity;

@@ -3,6 +3,7 @@ package com.nexus.iam.service;
 import java.util.Map;
 
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
 import com.nexus.iam.dto.LoginRequest;
 import com.nexus.iam.dto.LoginResponse;
@@ -15,7 +16,7 @@ public interface AuthenticationService {
 
     public LoginResponse refreshToken(RefreshTokenRequest refreshToken);
 
-    public LoginResponse registerUser(UserRegisterDto userRegisterDto);
+    public LoginResponse registerUser(UserRegisterDto userRegisterDto, MultipartFile profilePhoto);
 
     public Map<String, String> verifyToken(String token);
 

@@ -7,6 +7,7 @@ import com.nexus.iam.dto.LoginResponse;
 import com.nexus.iam.dto.RefreshTokenRequest;
 import com.nexus.iam.dto.UserRegisterDto;
 import com.nexus.iam.service.AuthenticationService;
+import com.nexus.iam.utils.CommonConstants;
 
 import java.util.Map;
 
@@ -14,6 +15,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.ObjectUtils;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/iam/auth")
@@ -45,9 +47,10 @@ public class AuthController {
     }
 
     @LogActivity("User Registration Attempt")
-    @PostMapping("/register")
-    public ResponseEntity<?> registerUser(@RequestBody UserRegisterDto userRegisterDto) {
-        LoginResponse registerUser = authenticationService.registerUser(userRegisterDto);
+    @PostMapping(name = "/register", consumes = CommonConstants.APPLICATION_MULTIPART_FORMDATA)
+    public ResponseEntity<?> registerUser(@RequestPart(name = "dto", required = true) UserRegisterDto userRegisterDto,
+            @RequestPart(name = "profilePhoto", required = false) MultipartFile profilePhoto) {
+        LoginResponse registerUser = authenticationService.registerUser(userRegisterDto, profilePhoto);
         return ResponseEntity.status(HttpStatus.CREATED).body(registerUser);
     }
 

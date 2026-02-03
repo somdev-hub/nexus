@@ -1,5 +1,6 @@
 package com.nexus.iam.entities;
 
+import java.sql.Date;
 import java.sql.Timestamp;
 import java.util.Collection;
 import java.util.HashSet;
@@ -54,6 +55,12 @@ public class User implements UserDetails {
 
     private String personalEmail;
 
+    private String gender;
+
+    private Integer age;
+
+    private Date dateOfBirth;
+
     private Boolean enabled = true;
 
     private Boolean accountNonExpired = true;
@@ -66,7 +73,8 @@ public class User implements UserDetails {
     @JoinTable(name = "t_user_roles", schema = "iam", joinColumns = @JoinColumn(name = "user_id"), inverseJoinColumns = @JoinColumn(name = "role_id"))
     private Set<Role> roles = new HashSet<>();
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "organization_id")
     private Organization organization;
 
     @Override

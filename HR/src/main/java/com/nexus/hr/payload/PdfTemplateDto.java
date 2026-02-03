@@ -57,7 +57,5 @@ public class PdfTemplateDto {
 
     private String annualPackage;
 
-    private Double total;
-
-    private Double netMonthlyPay;
+    private Double grossPay;
 }

@@ -1,6 +1,5 @@
 package com.nexus.hr.payload;
 
-import com.nexus.hr.model.entities.Compensation;
 import lombok.Data;
 
 import java.sql.Timestamp;
@@ -20,4 +19,6 @@ public class BonusDto {
     private Timestamp updatedOn;
 
     private Timestamp expiresOn;
+
+    private String panNumber;
 }

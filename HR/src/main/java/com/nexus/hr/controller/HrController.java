@@ -2,7 +2,9 @@ package com.nexus.hr.controller;
 
 import com.nexus.hr.annotation.LogActivity;
 import com.nexus.hr.exception.UnauthorizedException;
+import com.nexus.hr.model.entities.Position;
 import com.nexus.hr.model.enums.HrRequestStatus;
+import com.nexus.hr.payload.CompensationDto;
 import com.nexus.hr.payload.HrInitRequestDto;
 import com.nexus.hr.service.interfaces.HrService;
 import com.nexus.hr.utils.CommonUtils;
@@ -13,18 +15,22 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.ObjectUtils;
 import org.springframework.web.bind.annotation.*;
+import tools.jackson.databind.ObjectMapper;
+
+import java.util.Map;
 
 /**
  * REST controller for HR operations including PDF generation
  */
 @Slf4j
 @RestController
-@RequestMapping("/hr/")
+@RequestMapping("/hr")
 @RequiredArgsConstructor
 public class HrController {
 
     private final HrService hrService;
     private final CommonUtils commonUtils;
+    private final ObjectMapper objectMapper;
 
     /**
      * Initialize HR for an employee and generate PDFs
@@ -63,5 +69,28 @@ public class HrController {
             throw new UnauthorizedException("Unauthorized", "Invalid or missing authorization token");
         }
         return hrService.getAllHrRequests(PageRequest.of(page, offset));
+    }
+
+    @LogActivity("Promote Employee")
+    @PostMapping("/employee/promote")
+    public ResponseEntity<?> promoteEmployee(@RequestParam Long hrId, @RequestBody Map<String, Object> payload, @RequestHeader("Authorization") String token) {
+        if (ObjectUtils.isEmpty(token) || !commonUtils.validateToken(token)) {
+            throw new UnauthorizedException("Unauthorized", "Invalid or missing authorization token");
+        }
+        Position position = objectMapper.convertValue(payload.get("position"), Position.class);
+        CompensationDto compensation = objectMapper.convertValue(payload.get("compensation"), CompensationDto.class);
+        if (ObjectUtils.isEmpty(position) || ObjectUtils.isEmpty(compensation)) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Position and Compensation details are required for promotion.");
+        }
+        return hrService.promoteEmployee(hrId, position, compensation);
+    }
+
+    @LogActivity("Reward Appraisal")
+    @PostMapping("/employee/reward-appraisal")
+    public ResponseEntity<?> rewardAppraisal(@RequestParam Long hrId, @RequestBody CompensationDto compensation, @RequestHeader("Authorization") String token) {
+        if (ObjectUtils.isEmpty(token) || !commonUtils.validateToken(token)) {
+            throw new UnauthorizedException("Unauthorized", "Invalid or missing authorization token");
+        }
+        return hrService.rewardAppraisal(hrId, compensation);
     }
 }

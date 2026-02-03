@@ -380,10 +380,10 @@ public class HrServiceImpl implements HrService {
                 lastCompensation.setPf(compensation.getPf());
             if (!ObjectUtils.isEmpty(compensation.getAnnualPackage()))
                 lastCompensation.setAnnualPackage(compensation.getAnnualPackage());
-            if (!ObjectUtils.isEmpty(compensation.getTotal()))
-                lastCompensation.setTotal(compensation.getTotal());
-            if (!ObjectUtils.isEmpty(compensation.getNetMonthlyPay()))
-                lastCompensation.setNetMonthlyPay(compensation.getNetMonthlyPay());
+            if (!ObjectUtils.isEmpty(compensation.getInsurancePremium()))
+                lastCompensation.setInsurancePremium(compensation.getInsurancePremium());
+            if (!ObjectUtils.isEmpty(compensation.getGrossPay()))
+                lastCompensation.setGrossPay(compensation.getGrossPay());
             if (!ObjectUtils.isEmpty(compensation.getBonuses())) {
                 log.debug("Updating {} bonuses", compensation.getBonuses().size());
                 lastCompensation.setBonuses(compensation.getBonuses().stream()
@@ -512,10 +512,10 @@ public class HrServiceImpl implements HrService {
                             new java.text.SimpleDateFormat("dd-MM-yyyy").format(position.getEffectiveFrom()));
                     placeholders.put("basePay", String.format("₹%.2f", lastCompensation.getBasePay()));
                     placeholders.put("hra", String.format("₹%.2f", lastCompensation.getHra()));
-                    placeholders.put("netMonthlyPay", String.format("₹%.2f", lastCompensation.getNetMonthlyPay()));
+                    placeholders.put("grossPay", String.format("₹%.2f", lastCompensation.getGrossPay()));
                     placeholders.put("annualPackage",
                             lastCompensation.getAnnualPackage() != null ? lastCompensation.getAnnualPackage()
-                                    : String.format("₹%.2f", lastCompensation.getTotal()));
+                                    : String.format("₹%.2f", lastCompensation.getInsurancePremium()));
                     placeholders.put("hrEmail", "hr@nexus.com");
                     emailCommunicationDto.setPlaceholders(placeholders);
 
@@ -553,8 +553,8 @@ public class HrServiceImpl implements HrService {
                     .hra(lastCompensation.getHra())
                     .netPay(lastCompensation.getNetPay())
                     .annualPackage(lastCompensation.getAnnualPackage() != null
-                            ? Double.parseDouble(lastCompensation.getAnnualPackage())
-                            : lastCompensation.getTotal())
+                            ? lastCompensation.getAnnualPackage()
+                            : String.valueOf(lastCompensation.getGrossPay() * 12))
                     .generatedAt(new Timestamp(System.currentTimeMillis()))
                     .build();
 
@@ -598,10 +598,10 @@ public class HrServiceImpl implements HrService {
                 currentCompensation.setPf(compensation.getPf());
             if (!ObjectUtils.isEmpty(compensation.getAnnualPackage()))
                 currentCompensation.setAnnualPackage(compensation.getAnnualPackage());
-            if (!ObjectUtils.isEmpty(compensation.getTotal()))
-                currentCompensation.setTotal(compensation.getTotal());
-            if (!ObjectUtils.isEmpty(compensation.getNetMonthlyPay()))
-                currentCompensation.setNetMonthlyPay(compensation.getNetMonthlyPay());
+            if (!ObjectUtils.isEmpty(compensation.getInsurancePremium()))
+                currentCompensation.setInsurancePremium(compensation.getInsurancePremium());
+            if (!ObjectUtils.isEmpty(compensation.getGrossPay()))
+                currentCompensation.setGrossPay(compensation.getGrossPay());
             if (!ObjectUtils.isEmpty(compensation.getBonuses())) {
                 log.debug("Updating {} bonuses", compensation.getBonuses().size());
                 currentCompensation.setBonuses(compensation.getBonuses().stream()
@@ -716,10 +716,10 @@ public class HrServiceImpl implements HrService {
                             .format(new Timestamp(System.currentTimeMillis())));
                     placeholders.put("basePay", String.format("₹%.2f", currentCompensation.getBasePay()));
                     placeholders.put("hra", String.format("₹%.2f", currentCompensation.getHra()));
-                    placeholders.put("netMonthlyPay", String.format("₹%.2f", currentCompensation.getNetMonthlyPay()));
+                    placeholders.put("grossPay", String.format("₹%.2f", currentCompensation.getGrossPay()));
                     placeholders.put("annualPackage",
                             currentCompensation.getAnnualPackage() != null ? currentCompensation.getAnnualPackage()
-                                    : String.format("₹%.2f", currentCompensation.getTotal()));
+                                    : String.format("₹%.2f", currentCompensation.getGrossPay() * 12));
                     placeholders.put("hrEmail", "hr@nexus.com");
                     emailCommunicationDto.setPlaceholders(placeholders);
 
@@ -753,8 +753,8 @@ public class HrServiceImpl implements HrService {
                     .hra(currentCompensation.getHra())
                     .netPay(currentCompensation.getNetPay())
                     .annualPackage(currentCompensation.getAnnualPackage() != null
-                            ? Double.parseDouble(currentCompensation.getAnnualPackage())
-                            : currentCompensation.getTotal())
+                            ? currentCompensation.getAnnualPackage()
+                            : String.format("₹%.2f", currentCompensation.getGrossPay() * 12))
                     .generatedAt(new Timestamp(System.currentTimeMillis()))
                     .build();
 
@@ -800,8 +800,7 @@ public class HrServiceImpl implements HrService {
                     .gratuity(hrInitRequestDto.getCompensation().getGratuity())
                     .pf(hrInitRequestDto.getCompensation().getPf())
                     .annualPackage(hrInitRequestDto.getCompensation().getAnnualPackage())
-                    .total(hrInitRequestDto.getCompensation().getTotal())
-                    .netMonthlyPay(hrInitRequestDto.getCompensation().getNetMonthlyPay());
+                    .grossPay(hrInitRequestDto.getCompensation().getGrossPay());
         }
 
         return builder.build();

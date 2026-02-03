@@ -22,9 +22,9 @@ public class CompensationDto {
 
     private String annualPackage;
 
-    private Double total;
+    private Double insurancePremium;
 
-    private Double netMonthlyPay;
+    private Double grossPay;
 
     private List<BankRecordsDto> bankRecords;
 }

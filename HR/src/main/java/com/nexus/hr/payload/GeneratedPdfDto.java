@@ -43,5 +43,5 @@ public class GeneratedPdfDto {
     private Double basePay;
     private Double hra;
     private Double netPay;
-    private Double annualPackage;
+    private String annualPackage;
 }
