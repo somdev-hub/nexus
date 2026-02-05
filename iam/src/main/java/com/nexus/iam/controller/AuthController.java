@@ -12,6 +12,7 @@ import com.nexus.iam.utils.CommonConstants;
 import java.util.Map;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.ObjectUtils;
 import org.springframework.web.bind.annotation.*;
@@ -47,9 +48,9 @@ public class AuthController {
     }
 
     @LogActivity("User Registration Attempt")
-    @PostMapping(name = "/register", consumes = CommonConstants.APPLICATION_MULTIPART_FORMDATA)
+    @PostMapping(value = "/register", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> registerUser(@RequestPart(name = "dto", required = true) UserRegisterDto userRegisterDto,
-            @RequestPart(name = "profilePhoto", required = false) MultipartFile profilePhoto) {
+            @RequestPart(name = "profilePicture", required = false) MultipartFile profilePhoto) {
         LoginResponse registerUser = authenticationService.registerUser(userRegisterDto, profilePhoto);
         return ResponseEntity.status(HttpStatus.CREATED).body(registerUser);
     }

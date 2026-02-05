@@ -1,12 +1,17 @@
 package com.nexus.hr.model.entities;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.nexus.hr.config.StringEncryptionConverter;
 import com.nexus.hr.model.enums.BankAccountType;
 import jakarta.persistence.*;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.EqualsAndHashCode;
 
 @Entity
-@Data
+@Getter
+@Setter
+@EqualsAndHashCode(exclude = {"compensation"})
 @Table(name = "t_bank_records", schema = "hr")
 public class BankRecord {
 
@@ -42,5 +47,6 @@ public class BankRecord {
 
     @ManyToOne
     @JoinColumn(name = "compensation_id")
+    @JsonBackReference("compensation-bankRecords")
     private Compensation compensation;
 }

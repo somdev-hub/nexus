@@ -1,12 +1,17 @@
 package com.nexus.hr.model.entities;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.EqualsAndHashCode;
 
 import java.sql.Timestamp;
 
 @Entity
-@Data
+@Getter
+@Setter
+@EqualsAndHashCode(exclude = {"hrEntity"})
 @Table(name = "t_time_management", schema = "hr")
 public class TimeManagement {
 
@@ -44,5 +49,8 @@ public class TimeManagement {
 
     @ManyToOne
     @JoinColumn(name = "hr_entity_hr_id")
+    @JsonBackReference("hrEntity-timeManagements")
     private HrEntity hrEntity;
 }
+
+

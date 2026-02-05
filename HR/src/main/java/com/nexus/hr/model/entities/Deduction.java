@@ -1,13 +1,18 @@
 package com.nexus.hr.model.entities;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.EqualsAndHashCode;
 
 import java.sql.Timestamp;
 
 @Entity
+@Getter
+@Setter
+@EqualsAndHashCode(exclude = {"compensation"})
 @Table(name = "t_deductions", schema = "hr")
-@Data
 public class Deduction {
 
     @Id
@@ -24,6 +29,7 @@ public class Deduction {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "compensation_id")
+    @JsonBackReference("compensation-deductions")
     private Compensation compensation;
 
     private Timestamp issuedOn;

@@ -46,5 +46,9 @@ public class Department {
     )
     private Set<Role> roles = new HashSet<>();
 
+    @ManyToOne
+    @JoinColumn(name = "org_id")
+    private Organization org;
+
     private Timestamp createdAt;
 }

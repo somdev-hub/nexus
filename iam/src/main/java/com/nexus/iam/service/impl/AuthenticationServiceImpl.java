@@ -4,8 +4,6 @@ import java.sql.Timestamp;
 import java.util.HashMap;
 import java.util.Map;
 
-import com.nexus.iam.repository.OrganizationRepository;
-import com.nexus.iam.repository.RoleRepository;
 import org.modelmapper.ModelMapper;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.HttpMethod;
@@ -28,6 +26,8 @@ import com.nexus.iam.dto.UserRegisterDto;
 import com.nexus.iam.entities.Organization;
 import com.nexus.iam.entities.Role;
 import com.nexus.iam.entities.User;
+import com.nexus.iam.repository.OrganizationRepository;
+import com.nexus.iam.repository.RoleRepository;
 import com.nexus.iam.repository.UserRepository;
 import com.nexus.iam.security.JwtUtil;
 import com.nexus.iam.service.AuthenticationService;
@@ -36,6 +36,7 @@ import com.nexus.iam.utils.RestService;
 import com.nexus.iam.utils.WebConstants;
 
 import io.jsonwebtoken.Claims;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -45,7 +46,6 @@ public class AuthenticationServiceImpl implements AuthenticationService {
     private final OrganizationRepository organizationRepository;
     private final AuthenticationManager authenticationManager;
     private final CustomUserDetailsService userDetailsService;
-    private final AuthenticationService authenticationService;
     private final PasswordEncoder passwordEncoder;
     private final RoleRepository roleRepository;
     private final UserRepository userRepository;
@@ -195,6 +195,7 @@ public class AuthenticationServiceImpl implements AuthenticationService {
         }
     }
 
+    @Transactional
     @Override
     public LoginResponse registerUser(UserRegisterDto userRegisterDto, MultipartFile profilePhoto) {
         if (ObjectUtils.isEmpty(userRegisterDto)) {
@@ -205,14 +206,35 @@ public class AuthenticationServiceImpl implements AuthenticationService {
                 ObjectUtils.isEmpty(userRegisterDto.getPassword())) {
             throw new IllegalArgumentException("Username, email, and password are required");
         }
-        if (ObjectUtils.isEmpty(userRegisterDto.getOrgId()) || ObjectUtils.isEmpty(userRegisterDto.getOrgName())) {
-            throw new IllegalArgumentException("Organization ID or Name is required");
+        if (ObjectUtils.isEmpty(userRegisterDto.getOrgType()) || ObjectUtils.isEmpty(userRegisterDto.getOrgName())) {
+            throw new IllegalArgumentException("Organization Type or Name is required");
 
         }
         try {
 
+            // save org
+            Organization org = new Organization();
+            org.setCreatedAt(new Timestamp(System.currentTimeMillis()));
+            org.setOrgName(userRegisterDto.getOrgName());
+            org.setOrgType(userRegisterDto.getOrgType());
+            org.setTrustScore(0d);
+            org = organizationRepository.save(org);
+
             User user = modelMapper.map(userRegisterDto, User.class);
             user.setCreatedAt(Timestamp.valueOf(java.time.LocalDateTime.now()));
+            user.setOrganization(org);
+
+            // set role
+            Role role;
+            if (roleRepository.existsByName(userRegisterDto.getRole())) {
+                role = roleRepository.findByName(userRegisterDto.getRole()).get();
+            } else {
+                Role newRole = new Role();
+                newRole.setName(userRegisterDto.getRole());
+                role = roleRepository.save(newRole);
+            }
+            user.getRoles().add(role);
+            user = userRepository.save(user);
 
             // add profilePhoto to dms and set URL to user
             if (!ObjectUtils.isEmpty(profilePhoto)) {
@@ -222,21 +244,15 @@ public class AuthenticationServiceImpl implements AuthenticationService {
                 dto.put("fileName", user.getId() + "_hr_doc");
                 dto.put("remarks", "HR Doc Upload");
                 dto.put("documentType", "OTHER_HR_DOCUMENTS");
-
-                ByteArrayResource resource = new ByteArrayResource(profilePhoto.getBytes()) {
-                    @Override
-                    public String getFilename() {
-                        return profilePhoto.getOriginalFilename();
-                    }
-                };
+                dto.put("orgId", org.getId());
+                dto.put("orgType", org.getOrgType().toString());
 
                 Map<String, Object> docPayload = new HashMap<>();
                 docPayload.put("dto", dto);
-                docPayload.put("file", resource);
+                docPayload.put("file", profilePhoto);
 
                 Map<String, String> headers = new HashMap<>();
-                LoginResponse loginResponse = authenticationService
-                        .authenticate(new LoginRequest(webConstants.getGenericUserId(),
+                LoginResponse loginResponse = authenticate(new LoginRequest(webConstants.getGenericUserId(),
                                 webConstants.getGenericPassword()));
                 headers.put(CommonConstants.AUTHORIZATION, "Bearer " + loginResponse.getAccessToken());
                 ResponseEntity<?> response = restService.iamRestCall(
@@ -256,27 +272,6 @@ public class AuthenticationServiceImpl implements AuthenticationService {
                 }
             }
 
-            // save org
-            Organization org = new Organization();
-            org.setCreatedAt(new Timestamp(System.currentTimeMillis()));
-            org.setOrgName(userRegisterDto.getOrgName());
-            org.setOrgType(userRegisterDto.getOrgType());
-            org.setTrustScore(0d);
-            org = organizationRepository.save(org);
-
-            user.setOrganization(org);
-
-            // set role
-            Role role;
-            if (roleRepository.existsByName(userRegisterDto.getRole())) {
-                role = roleRepository.findByName(userRegisterDto.getRole()).get();
-            } else {
-                Role newRole = new Role();
-                newRole.setName(userRegisterDto.getRole());
-                role = roleRepository.save(newRole);
-            }
-            user.getRoles().add(role);
-
             // prepare HR payloads
             Map<String, Object> payload = new HashMap<>();
             payload.put("employeeId", user.getId());
@@ -291,8 +286,7 @@ public class AuthenticationServiceImpl implements AuthenticationService {
             payload.put("compensation", userRegisterDto.getCompensation());
 
             Map<String, String> headers = new HashMap<>();
-            LoginResponse loginResponse = authenticationService
-                    .authenticate(new LoginRequest(webConstants.getGenericUserId(),
+            LoginResponse loginResponse = authenticate(new LoginRequest(webConstants.getGenericUserId(),
                             webConstants.getGenericPassword()));
             headers.put(CommonConstants.AUTHORIZATION, "Bearer " + loginResponse.getAccessToken());
             headers.put(CommonConstants.CONTENT_TYPE, CommonConstants.APPLICATION_JSON);

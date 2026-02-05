@@ -1,12 +1,17 @@
 package com.nexus.hr.model.entities;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.EqualsAndHashCode;
 
 import java.sql.Timestamp;
 
 @Entity
-@Data
+@Getter
+@Setter
+@EqualsAndHashCode(exclude = {"hrEntity", "position", "compensation"})
 @Table(name = "t_hr_documents", schema = "hr")
 public class HrDocument {
 
@@ -24,13 +29,16 @@ public class HrDocument {
 
     @ManyToOne
     @JoinColumn(name = "hr_entity_hr_id")
+    @JsonBackReference("hrEntity-documents")
     private HrEntity hrEntity;
 
     @ManyToOne
     @JoinColumn(name = "hr_position_id")
+    @JsonBackReference("position-hrDocuments")
     private Position position;
 
     @ManyToOne
     @JoinColumn(name = "compensation_id")
+    @JsonBackReference("compensation-compensationCard")
     private Compensation compensation;
 }

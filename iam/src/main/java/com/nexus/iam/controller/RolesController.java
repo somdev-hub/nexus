@@ -25,9 +25,9 @@ public class RolesController {
     }
 
     @LogActivity("Create Single Role")
-    @GetMapping("/create/role")
-    public ResponseEntity<?> createRole(@RequestParam String role) {
-        roleService.createRoleIfNotFound(role);
+    @PostMapping("/create/role")
+    public ResponseEntity<?> createRole(@RequestParam String role, @RequestParam Long deptId) {
+        roleService.createRoleIfNotFound(role, deptId);
         return new ResponseEntity<>("Role created successfully", HttpStatus.OK);
     }
 

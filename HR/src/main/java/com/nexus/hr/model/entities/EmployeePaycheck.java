@@ -15,7 +15,9 @@ public class EmployeePaycheck {
 
     private Long orgId;
 
-    private String employeePosition;
+    private String role;
+
+    private Long deptId;
 
     @Enumerated(EnumType.STRING)
     private EmployeeLevel employeeLevel;
@@ -24,10 +26,6 @@ public class EmployeePaycheck {
 
     private Double maxBasePay;
 
-    private Double minHra;
-
-    private Double maxHra;
-
     private Double minTotalBonuses;
 
     private Double maxTotalBonuses;
@@ -35,14 +33,6 @@ public class EmployeePaycheck {
     private Double minTotalDeductions;
 
     private Double maxTotalDeductions;
-
-    private Double minNetPay;
-
-    private Double maxNetPay;
-
-    private Double minGrossPay;
-
-    private Double maxGrossPay;
 
     private String minAnnualSalary;
 

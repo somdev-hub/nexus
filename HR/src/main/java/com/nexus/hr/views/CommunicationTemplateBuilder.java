@@ -394,7 +394,7 @@ public class CommunicationTemplateBuilder {
 
         // Build compensation details section
         StringBuilder compensationSection = new StringBuilder();
-        if (templateData.getBasePay() != null || templateData.getNetMonthlyPay() != null) {
+        if (templateData.getBasePay() != null || templateData.getNetPay() != null) {
             compensationSection.append("""
                     <div class="compensation-highlight">
                         <strong>Compensation Package:</strong>
@@ -405,9 +405,9 @@ public class CommunicationTemplateBuilder {
                 compensationSection.append("<li><strong>Annual Package:</strong> ")
                         .append(templateData.getAnnualPackage()).append("</li>");
             }
-            if (templateData.getNetMonthlyPay() != null) {
-                compensationSection.append("<li><strong>Net Monthly Pay:</strong> ")
-                        .append(formatCurrency(templateData.getNetMonthlyPay())).append("</li>");
+            if (templateData.getNetPay() != null) {
+                compensationSection.append("<li><strong>Gross Pay:</strong> ")
+                        .append(formatCurrency(templateData.getNetPay())).append("</li>");
             }
             if (templateData.getBasePay() != null) {
                 compensationSection.append("<li><strong>Base Pay:</strong> ")
@@ -1036,13 +1036,13 @@ public class CommunicationTemplateBuilder {
                         effectiveDateStr,
                         currentDate,
                         templateData.getAnnualPackage() != null ? templateData.getAnnualPackage()
-                                : formatCurrency(templateData.getTotal()),
-                        formatCurrency(templateData.getNetMonthlyPay()),
+                                : formatCurrency(templateData.getGrossPay()),
+                        formatCurrency(templateData.getNetPay()),
                         formatCurrency(templateData.getBasePay()),
                         formatCurrency(templateData.getHra()),
                         formatCurrency(templateData.getPf()),
                         formatCurrency(templateData.getGratuity()),
-                        formatCurrency(templateData.getTotal()),
+                        formatCurrency(templateData.getGrossPay()),
                         bonusesHtml.toString(),
                         deductionsHtml.toString(),
                         formatCurrency(templateData.getNetPay()),
@@ -1278,10 +1278,10 @@ public class CommunicationTemplateBuilder {
                 formatCurrency(templateData.getBasePay()),
                 formatCurrency(templateData.getHra()),
                 formatCurrency(templateData.getPf()),
-                formatCurrency(templateData.getNetMonthlyPay()),
+                formatCurrency(templateData.getNetPay()),
                 formatCurrency(
                         templateData.getAnnualPackage() != null ? Double.parseDouble(templateData.getAnnualPackage())
-                                : templateData.getTotal()),
+                                : templateData.getGrossPay()),
                 templateData.getOrganizationName(),
                 currentDateStr);
     }

@@ -1,8 +1,8 @@
 package com.nexus.iam.utils;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.nexus.iam.entities.Logs;
-import com.nexus.iam.repository.LogsRepo;
+import java.io.IOException;
+import java.util.Map;
+
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -12,12 +12,12 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
-import org.springframework.util.ObjectUtils;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
-import java.util.Map;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.nexus.iam.entities.Logs;
+import com.nexus.iam.repository.LogsRepo;
 
 @Service
 public class RestService {
@@ -30,8 +30,9 @@ public class RestService {
         this.commonUtils = commonUtils;
     }
 
+    @SuppressWarnings("unchecked")
     public ResponseEntity<?> iamRestCall(String url, Object payload, Map<String, String> headers,
-                                         HttpMethod method, Long userId) {
+            HttpMethod method, Long userId) {
         ResponseEntity<?> responseEntity = null;
         String requestLog = null;
         try {
@@ -80,6 +81,7 @@ public class RestService {
     private String serializePayload(Object payload) {
         try {
             if (payload instanceof Map) {
+                @SuppressWarnings("unchecked")
                 Map<String, Object> map = (Map<String, Object>) payload;
                 // Create a copy to avoid serializing MultipartFile objects
                 Map<String, Object> safeMap = new java.util.HashMap<>();
@@ -102,7 +104,7 @@ public class RestService {
     }
 
     private ResponseEntity<?> handleMultipartRequest(String url, Map<String, Object> payload,
-                                                     Map<String, String> headers, HttpMethod method) throws IOException {
+            Map<String, String> headers, HttpMethod method) throws IOException {
         RestTemplate restTemplate = new RestTemplate();
 
         // Create multipart body
@@ -127,7 +129,8 @@ public class RestService {
             }
         }
 
-        // Create headers - DO NOT set Content-Type, RestTemplate will handle it automatically
+        // Create headers - DO NOT set Content-Type, RestTemplate will handle it
+        // automatically
         HttpHeaders httpHeaders = new HttpHeaders();
         if (headers != null) {
             headers.forEach((key, value) -> {
@@ -142,7 +145,8 @@ public class RestService {
         return restTemplate.exchange(url, method, httpEntity, Object.class);
     }
 
-    private ResponseEntity<?> handleRegularRequest(String url, Object payload, Map<String, String> headers, HttpMethod method) {
+    private ResponseEntity<?> handleRegularRequest(String url, Object payload, Map<String, String> headers,
+            HttpMethod method) {
         RestTemplate restTemplate = new RestTemplate();
 
         HttpHeaders httpHeaders = new HttpHeaders();
