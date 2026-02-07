@@ -4,5 +4,7 @@ public enum ResourceType {
     DOCUMENT,
     REPORT,
     MODULE,
-    API_ENDPOINT
+    API_ENDPOINT,
+    UI_COMPONENT,
+    FEATURE
 }

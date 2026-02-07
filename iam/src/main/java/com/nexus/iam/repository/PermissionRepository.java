@@ -29,3 +29,4 @@ public interface PermissionRepository extends JpaRepository<Permission, Long> {
 
     @Query("SELECT p FROM Permission p WHERE p.role = :role AND p.resource = :resource AND p.action = :action AND (p.department = :department OR p.department IS NULL)")
     Optional<Permission> findPermission(Role role, Resource resource, PermissionAction action, Department department);
+}

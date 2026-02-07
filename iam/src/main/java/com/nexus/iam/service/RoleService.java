@@ -7,7 +7,7 @@ import org.springframework.stereotype.Service;
 public interface RoleService {
     public void initializeRoles();
 
-    public ResponseEntity<?> createRoleIfNotFound(String roleName, Long deptId);
+    public ResponseEntity<?> createRoleIfNotFound(String roleName, Long deptId, String authHeader);
 
     public void deleteRoleByName(String roleName);
 

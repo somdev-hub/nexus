@@ -21,6 +21,10 @@ public class Resource {
 
     private String description;
 
+    private String resourceUrl;
+
+    private String featureId;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private ResourceType resourceType; // e.g., "DOCUMENT", "REPORT", "MODULE", "API_ENDPOINT"

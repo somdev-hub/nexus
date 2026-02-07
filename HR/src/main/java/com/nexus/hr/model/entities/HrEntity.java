@@ -2,9 +2,9 @@ package com.nexus.hr.model.entities;
 
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.Setter;
-import lombok.EqualsAndHashCode;
 
 import java.sql.Date;
 import java.util.ArrayList;
@@ -14,6 +14,7 @@ import java.util.List;
 @Getter
 @Setter
 @EqualsAndHashCode(exclude = {"compensation", "hrDocuments", "timeManagements", "positions"})
+@Table(name = "t_hr_entity", schema = "hr")
 public class HrEntity {
 
     @Id

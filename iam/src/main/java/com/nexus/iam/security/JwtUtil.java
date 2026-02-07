@@ -110,4 +110,11 @@ public class JwtUtil {
             return null;
         }
     }
+
+    public boolean isValidToken(String token) {
+        if (token.startsWith("Bearer ")) {
+            token = token.substring(7);
+        }
+        return validateToken(token);
+    }
 }

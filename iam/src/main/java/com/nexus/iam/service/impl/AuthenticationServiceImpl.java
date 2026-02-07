@@ -1,11 +1,26 @@
 package com.nexus.iam.service.impl;
 
-import java.sql.Timestamp;
-import java.util.HashMap;
-import java.util.Map;
-
+import com.nexus.iam.dto.LoginRequest;
+import com.nexus.iam.dto.LoginResponse;
+import com.nexus.iam.dto.RefreshTokenRequest;
+import com.nexus.iam.dto.UserRegisterDto;
+import com.nexus.iam.entities.Department;
+import com.nexus.iam.entities.Organization;
+import com.nexus.iam.entities.Role;
+import com.nexus.iam.entities.User;
+import com.nexus.iam.repository.DepartmentRepository;
+import com.nexus.iam.repository.OrganizationRepository;
+import com.nexus.iam.repository.RoleRepository;
+import com.nexus.iam.repository.UserRepository;
+import com.nexus.iam.security.JwtUtil;
+import com.nexus.iam.service.AuthenticationService;
+import com.nexus.iam.utils.CommonConstants;
+import com.nexus.iam.utils.RestService;
+import com.nexus.iam.utils.WebConstants;
+import io.jsonwebtoken.Claims;
+import jakarta.transaction.Transactional;
+import lombok.RequiredArgsConstructor;
 import org.modelmapper.ModelMapper;
-import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -19,25 +34,9 @@ import org.springframework.util.ObjectUtils;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.util.UriComponentsBuilder;
 
-import com.nexus.iam.dto.LoginRequest;
-import com.nexus.iam.dto.LoginResponse;
-import com.nexus.iam.dto.RefreshTokenRequest;
-import com.nexus.iam.dto.UserRegisterDto;
-import com.nexus.iam.entities.Organization;
-import com.nexus.iam.entities.Role;
-import com.nexus.iam.entities.User;
-import com.nexus.iam.repository.OrganizationRepository;
-import com.nexus.iam.repository.RoleRepository;
-import com.nexus.iam.repository.UserRepository;
-import com.nexus.iam.security.JwtUtil;
-import com.nexus.iam.service.AuthenticationService;
-import com.nexus.iam.utils.CommonConstants;
-import com.nexus.iam.utils.RestService;
-import com.nexus.iam.utils.WebConstants;
-
-import io.jsonwebtoken.Claims;
-import jakarta.transaction.Transactional;
-import lombok.RequiredArgsConstructor;
+import java.sql.Timestamp;
+import java.util.HashMap;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -46,6 +45,7 @@ public class AuthenticationServiceImpl implements AuthenticationService {
     private final OrganizationRepository organizationRepository;
     private final AuthenticationManager authenticationManager;
     private final CustomUserDetailsService userDetailsService;
+    private final DepartmentRepository departmentRepository;
     private final PasswordEncoder passwordEncoder;
     private final RoleRepository roleRepository;
     private final UserRepository userRepository;
@@ -160,18 +160,15 @@ public class AuthenticationServiceImpl implements AuthenticationService {
                 .build();
     }
 
+    @Override
     public LoginResponse registerUser(User user) {
-        if (userRepository.existsByEmail(user.getEmail())) {
-            throw new IllegalArgumentException("Email already exists");
-        }
-
         user.setPassword(passwordEncoder.encode(user.getPassword()));
         user.setEnabled(true);
         user.setAccountNonExpired(true);
         user.setAccountNonLocked(true);
         user.setCredentialsNonExpired(true);
         try {
-            userRepository.save(user);
+            User savedUser = userRepository.save(user);
 
             // Load user details and generate tokens
             UserDetails userDetails = userDetailsService.loadUserByUsername(user.getEmail());
@@ -184,6 +181,12 @@ public class AuthenticationServiceImpl implements AuthenticationService {
                     .tokenType("Bearer")
                     .expiresIn(900)
                     .email(userDetails.getUsername())
+                    .role(savedUser.getRoles().stream()
+                            .findFirst()
+                            .map(r -> "ROLE_" + r.getName())
+                            .orElse("ROLE_USER"))
+                    .name(savedUser.getName())
+                    .orgId(savedUser.getOrganization().getId())
                     .userId(
                             userRepository.findByEmail(user.getUsername()).map(
                                     User::getId).orElse(null)
@@ -212,6 +215,11 @@ public class AuthenticationServiceImpl implements AuthenticationService {
         }
         try {
 
+            // check if email already exists
+            if (userRepository.existsByEmail(userRegisterDto.getEmail())) {
+                throw new IllegalArgumentException("Email already exists");
+            }
+
             // save org
             Organization org = new Organization();
             org.setCreatedAt(new Timestamp(System.currentTimeMillis()));
@@ -236,6 +244,14 @@ public class AuthenticationServiceImpl implements AuthenticationService {
             user.getRoles().add(role);
             user = userRepository.save(user);
 
+            Department department=new Department();
+            department.setDepartmentName(userRegisterDto.getDepartment());
+            department.setDepartmentHead(user);
+            department.setOrganization(org);
+            department.setCreatedAt(new Timestamp(System.currentTimeMillis()));
+            department.getRoles().add(role);
+            departmentRepository.save(department);
+
             // add profilePhoto to dms and set URL to user
             if (!ObjectUtils.isEmpty(profilePhoto)) {
                 UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getCommonDmsUrl());
@@ -253,7 +269,7 @@ public class AuthenticationServiceImpl implements AuthenticationService {
 
                 Map<String, String> headers = new HashMap<>();
                 LoginResponse loginResponse = authenticate(new LoginRequest(webConstants.getGenericUserId(),
-                                webConstants.getGenericPassword()));
+                        webConstants.getGenericPassword()));
                 headers.put(CommonConstants.AUTHORIZATION, "Bearer " + loginResponse.getAccessToken());
                 ResponseEntity<?> response = restService.iamRestCall(
                         builder.toUriString(),
@@ -287,7 +303,7 @@ public class AuthenticationServiceImpl implements AuthenticationService {
 
             Map<String, String> headers = new HashMap<>();
             LoginResponse loginResponse = authenticate(new LoginRequest(webConstants.getGenericUserId(),
-                            webConstants.getGenericPassword()));
+                    webConstants.getGenericPassword()));
             headers.put(CommonConstants.AUTHORIZATION, "Bearer " + loginResponse.getAccessToken());
             headers.put(CommonConstants.CONTENT_TYPE, CommonConstants.APPLICATION_JSON);
 

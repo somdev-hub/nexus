@@ -1,6 +1,7 @@
 package com.nexus.iam.entities;
 
 import jakarta.persistence.*;
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
@@ -26,6 +27,7 @@ public class Department {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "department_head_id")
+    @JsonBackReference(value = "department-head")
     private User departmentHead;
 
     @ManyToMany(fetch = FetchType.LAZY)
@@ -48,7 +50,8 @@ public class Department {
 
     @ManyToOne
     @JoinColumn(name = "org_id")
-    private Organization org;
+    @JsonBackReference(value = "organization-departments")
+    private Organization organization;
 
     private Timestamp createdAt;
 }

@@ -4,6 +4,7 @@ import java.sql.Date;
 import java.sql.Timestamp;
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 import org.springframework.security.core.GrantedAuthority;
@@ -20,7 +21,9 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.JoinTable;
 import jakarta.persistence.ManyToMany;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
@@ -75,7 +78,16 @@ public class User implements UserDetails {
 
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "organization_id")
+    @JsonBackReference(value = "organization-users")
     private Organization organization;
+
+    @OneToMany(mappedBy = "departmentHead", fetch = FetchType.LAZY)
+    @JsonBackReference(value = "department-head")
+    private List<Department> headedDepartments = new java.util.ArrayList<>();
+
+    @ManyToMany(mappedBy = "members", fetch = FetchType.LAZY)
+    @JsonBackReference(value = "department-members")
+    private List<Department> memberOfDepartments = new java.util.ArrayList<>();
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {

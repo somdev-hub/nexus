@@ -38,7 +38,7 @@ public class DmsUploadController {
     public ResponseEntity<?> individualUpload(@RequestPart(name = "dto") IndividualFileUploadDto dto,
                                               @RequestPart("file") MultipartFile file,
                                               @RequestHeader("Authorization") String authHeader) throws JsonProcessingException, IOException {
-        if (ObjectUtils.isEmpty(authHeader) || commonUtils.validateToken(authHeader)) {
+        if (ObjectUtils.isEmpty(authHeader) || !commonUtils.validateToken(authHeader)) {
             throw new UnauthorizedException("Unauthorized! Please use credentials", "Unable to validate token");
         }
 
@@ -60,7 +60,7 @@ public class DmsUploadController {
     public ResponseEntity<?> orgUpload(@RequestPart(name = "dto") OrgFileUploadDto dto,
                                        @RequestPart("file") MultipartFile file,
                                        @RequestHeader("Authorization") String authHeader) throws JsonProcessingException, IOException {
-        if (ObjectUtils.isEmpty(authHeader) || commonUtils.validateToken(authHeader)) {
+        if (ObjectUtils.isEmpty(authHeader) || !commonUtils.validateToken(authHeader)) {
             throw new UnauthorizedException("Unauthorized! Please use credentials", "Unable to validate token");
         }
 
@@ -82,7 +82,7 @@ public class DmsUploadController {
     public ResponseEntity<?> commonUpload(@RequestPart(name = "dto") CommonFileUploadDto dto,
                                           @RequestPart("file") MultipartFile file,
                                           @RequestHeader("Authorization") String authHeader) throws JsonProcessingException, IOException {
-        if (ObjectUtils.isEmpty(authHeader) || commonUtils.validateToken(authHeader)) {
+        if (ObjectUtils.isEmpty(authHeader) || !commonUtils.validateToken(authHeader)) {
             throw new UnauthorizedException("Unauthorized! Please use credentials", "Unable to validate token");
         }
 

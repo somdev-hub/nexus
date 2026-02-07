@@ -14,5 +14,7 @@ public class GrantPermissionDto {
     private String role;
     private PermissionAction action;
     private Long departmentId;
+    private String resourceUrl;
+    private String featureId;
 
 }

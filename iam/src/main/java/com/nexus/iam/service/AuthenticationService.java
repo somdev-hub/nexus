@@ -2,6 +2,7 @@ package com.nexus.iam.service;
 
 import java.util.Map;
 
+import com.nexus.iam.entities.User;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -15,6 +16,8 @@ public interface AuthenticationService {
     public LoginResponse authenticate(LoginRequest loginRequest);
 
     public LoginResponse refreshToken(RefreshTokenRequest refreshToken);
+
+    LoginResponse registerUser(User user);
 
     public LoginResponse registerUser(UserRegisterDto userRegisterDto, MultipartFile profilePhoto);
 

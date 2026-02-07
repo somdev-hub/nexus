@@ -3,6 +3,7 @@ package com.nexus.iam.exception;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
 
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -44,6 +45,18 @@ public class GlobalExceptionHandler {
                 ex.getServiceName(),
                 ex.getServiceMethod());
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+    }
+
+    @ExceptionHandler(UnauthorizedException.class)
+    public ResponseEntity<ErrorResponseDto> handleUnauthorizedException(UnauthorizedException ex, HttpServletRequest request) {
+        ErrorResponseDto errorResponse = new ErrorResponseDto(
+                "Unauthorized",
+                ex.getStatus().value(),
+                ex.getTimestamp(),
+                ex.getMessage(),
+                ex.getDetails());
+
+        return ResponseEntity.status(ex.getStatus()).body(errorResponse);
     }
 
 }

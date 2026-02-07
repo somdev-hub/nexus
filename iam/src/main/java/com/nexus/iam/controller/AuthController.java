@@ -1,16 +1,10 @@
 package com.nexus.iam.controller;
 
 import com.nexus.iam.annotation.LogActivity;
-import com.nexus.iam.dto.DecryptTokenRequest;
-import com.nexus.iam.dto.LoginRequest;
-import com.nexus.iam.dto.LoginResponse;
-import com.nexus.iam.dto.RefreshTokenRequest;
-import com.nexus.iam.dto.UserRegisterDto;
+import com.nexus.iam.dto.*;
+import com.nexus.iam.entities.User;
 import com.nexus.iam.service.AuthenticationService;
-import com.nexus.iam.utils.CommonConstants;
-
-import java.util.Map;
-
+import com.nexus.iam.utils.WebConstants;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -18,15 +12,38 @@ import org.springframework.util.ObjectUtils;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.Map;
+
 @RestController
 @RequestMapping("/iam/auth")
 @CrossOrigin(origins = "*")
 public class AuthController {
 
     private final AuthenticationService authenticationService;
+    private final WebConstants webConstants;
 
-    public AuthController(AuthenticationService authenticationService) {
+    public AuthController(AuthenticationService authenticationService, WebConstants webConstants) {
         this.authenticationService = authenticationService;
+        this.webConstants = webConstants;
+    }
+
+    @LogActivity("Create Default Credentials Attempt")
+    @PostMapping("/create-default-credentials")
+    public ResponseEntity<?> createDefaultCredentials() {
+        try {
+            String email = webConstants.getGenericUserId();
+            String password = webConstants.getGenericPassword();
+            if (ObjectUtils.isEmpty(email) || ObjectUtils.isEmpty(password)) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Default credentials are not set in the configuration");
+            }
+            User user = new User();
+            user.setEmail(email);
+            user.setPassword(password);
+            LoginResponse response = authenticationService.registerUser(user);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error creating default credentials: " + e.getMessage());
+        }
     }
 
     @LogActivity("Login Attempt")
@@ -50,7 +67,7 @@ public class AuthController {
     @LogActivity("User Registration Attempt")
     @PostMapping(value = "/register", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> registerUser(@RequestPart(name = "dto", required = true) UserRegisterDto userRegisterDto,
-            @RequestPart(name = "profilePicture", required = false) MultipartFile profilePhoto) {
+                                          @RequestPart(name = "profilePicture", required = false) MultipartFile profilePhoto) {
         LoginResponse registerUser = authenticationService.registerUser(userRegisterDto, profilePhoto);
         return ResponseEntity.status(HttpStatus.CREATED).body(registerUser);
     }

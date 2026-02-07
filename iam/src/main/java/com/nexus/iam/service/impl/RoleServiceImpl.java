@@ -8,7 +8,9 @@ import com.nexus.iam.repository.DepartmentRepository;
 import com.nexus.iam.repository.OrganizationRepository;
 import com.nexus.iam.repository.RoleRepository;
 import com.nexus.iam.repository.UserRepository;
+import com.nexus.iam.security.JwtUtil;
 import com.nexus.iam.service.RoleService;
+import io.jsonwebtoken.Claims;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -23,6 +25,7 @@ public class RoleServiceImpl implements RoleService {
     private final DepartmentRepository departmentRepository;
     private final UserRepository userRepository;
     private final OrganizationRepository organizationRepository;
+    private final JwtUtil jwtUtil;
 
     @Override
     public void initializeRoles() {
@@ -44,12 +47,14 @@ public class RoleServiceImpl implements RoleService {
     }
 
     @Override
-    public ResponseEntity<?> createRoleIfNotFound(String roleName, Long deptId) {
+    public ResponseEntity<?> createRoleIfNotFound(String roleName, Long deptId, String authHeader) {
         if (ObjectUtils.isEmpty(roleName) || ObjectUtils.isEmpty(deptId)) {
             throw new IllegalArgumentException("Role name, Department ID, and Organization ID cannot be null or empty");
         }
 
         try {
+            Claims claims = jwtUtil.extractAllClaims(authHeader.substring("Bearer ".length()));
+            String subject = claims.getSubject();
             // Fetch the department
             Department department = departmentRepository.findById(deptId)
                     .orElseThrow(() -> new ResourceNotFoundException("Department", "id", deptId));
@@ -78,7 +83,7 @@ public class RoleServiceImpl implements RoleService {
             } else {
                 // Role doesn't exist - create new role and add to department
                 Role newRole = new Role();
-                newRole.setName(roleName);
+                newRole.setName(roleName.toUpperCase().replaceAll("\\s+", "_"));
                 Role savedRole = roleRepository.save(newRole);
 
                 department.getRoles().add(savedRole);
