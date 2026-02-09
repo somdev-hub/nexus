@@ -8,6 +8,7 @@ import com.nexus.dms.dto.OrgFileUploadDto;
 import com.nexus.dms.exception.UnauthorizedException;
 import com.nexus.dms.service.ImplementerService;
 import com.nexus.dms.utils.CommonUtils;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -19,13 +20,12 @@ import java.io.IOException;
 
 @RestController
 @RequestMapping("/dms/upload")
+@RequiredArgsConstructor
 public class DmsUploadController {
 
-    @Autowired
-    private ImplementerService implementerService;
+    private final ImplementerService implementerService;
+    private final CommonUtils commonUtils;
 
-    @Autowired
-    private CommonUtils commonUtils;
 
     /**
      * Upload individual file
@@ -37,7 +37,7 @@ public class DmsUploadController {
     @PostMapping(value = "/individual", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<?> individualUpload(@RequestPart(name = "dto") IndividualFileUploadDto dto,
                                               @RequestPart("file") MultipartFile file,
-                                              @RequestHeader("Authorization") String authHeader) throws JsonProcessingException, IOException {
+                                              @RequestHeader("Authorization") String authHeader) throws IOException {
         if (ObjectUtils.isEmpty(authHeader) || !commonUtils.validateToken(authHeader)) {
             throw new UnauthorizedException("Unauthorized! Please use credentials", "Unable to validate token");
         }
@@ -59,7 +59,7 @@ public class DmsUploadController {
     @PostMapping(value = "/org", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<?> orgUpload(@RequestPart(name = "dto") OrgFileUploadDto dto,
                                        @RequestPart("file") MultipartFile file,
-                                       @RequestHeader("Authorization") String authHeader) throws JsonProcessingException, IOException {
+                                       @RequestHeader("Authorization") String authHeader) throws IOException {
         if (ObjectUtils.isEmpty(authHeader) || !commonUtils.validateToken(authHeader)) {
             throw new UnauthorizedException("Unauthorized! Please use credentials", "Unable to validate token");
         }
@@ -81,7 +81,7 @@ public class DmsUploadController {
     @PostMapping(value = "/common", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<?> commonUpload(@RequestPart(name = "dto") CommonFileUploadDto dto,
                                           @RequestPart("file") MultipartFile file,
-                                          @RequestHeader("Authorization") String authHeader) throws JsonProcessingException, IOException {
+                                          @RequestHeader("Authorization") String authHeader) throws IOException {
         if (ObjectUtils.isEmpty(authHeader) || !commonUtils.validateToken(authHeader)) {
             throw new UnauthorizedException("Unauthorized! Please use credentials", "Unable to validate token");
         }

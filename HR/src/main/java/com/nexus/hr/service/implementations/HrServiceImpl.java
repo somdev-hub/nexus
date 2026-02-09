@@ -10,6 +10,7 @@ import com.nexus.hr.repository.HrRequestRepo;
 import com.nexus.hr.service.interfaces.CommunicationService;
 import com.nexus.hr.service.interfaces.HrService;
 import com.nexus.hr.utils.CommonUtils;
+import com.nexus.hr.utils.LeaveAllocationUtils;
 import com.nexus.hr.utils.RestServices;
 import com.nexus.hr.utils.WebConstants;
 import com.nexus.hr.views.CommunicationTemplateBuilder;
@@ -47,6 +48,7 @@ public class HrServiceImpl implements HrService {
     private final CommonUtils commonUtils;
     private final RestServices restServices;
     private final CommunicationTemplateBuilder communicationTemplateBuilder;
+    private final LeaveAllocationUtils leaveAllocationUtils;
 
     @Transactional
     @Override
@@ -246,12 +248,18 @@ public class HrServiceImpl implements HrService {
                 // Continue with the transaction - email failure shouldn't prevent HR creation
             }
 
+            // Initialize leave allocations for the new employee
+            log.info("=== Initializing leave allocations for employee: {} ===", savedHrEntity.getEmployeeId());
+            leaveAllocationUtils.initializeLeaveAllocations(savedHrEntity);
+            log.info("✓ Leave allocations initialized successfully");
+
             // Final save with all relationships (cascade will save everything)
             log.info("=== Attempting final save of HrEntity with all relationships ===");
-            log.debug("Saving compensation with {} bonuses, {} deductions, {} bank records",
+            log.debug("Saving compensation with {} bonuses, {} deductions, {} bank records, {} leave allocations",
                     savedHrEntity.getCompensation().getBonuses().size(),
                     savedHrEntity.getCompensation().getDeductions().size(),
-                    savedHrEntity.getCompensation().getBankRecords().size());
+                    savedHrEntity.getCompensation().getBankRecords().size(),
+                    savedHrEntity.getLeaveAllocations().size());
 
             try {
                 hrEntityRepo.save(savedHrEntity);

@@ -13,7 +13,7 @@ import java.util.List;
 @Entity
 @Getter
 @Setter
-@EqualsAndHashCode(exclude = {"compensation", "hrDocuments", "timeManagements", "positions"})
+@EqualsAndHashCode(exclude = {"compensation", "hrDocuments", "timeManagements", "positions", "leaveAllocations", "employeeLeaves"})
 @Table(name = "t_hr_entity", schema = "hr")
 public class HrEntity {
 
@@ -49,4 +49,12 @@ public class HrEntity {
     @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, mappedBy = "hrEntity")
     @JsonManagedReference("hrEntity-positions")
     private List<Position> positions = new ArrayList<>();
+
+    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, mappedBy = "hrEntity")
+    @JsonManagedReference("hrEntity-leaveAllocations")
+    private List<EmployeeLeaveAllocation> leaveAllocations = new ArrayList<>();
+
+    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, mappedBy = "hrEntity")
+    @JsonManagedReference("hrEntity-employeeLeaves")
+    private List<EmployeeLeaves> employeeLeaves = new ArrayList<>();
 }
