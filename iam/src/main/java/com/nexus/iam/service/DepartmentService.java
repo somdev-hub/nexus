@@ -5,4 +5,8 @@ import org.springframework.http.ResponseEntity;
 public interface DepartmentService {
 
     ResponseEntity<?> createDepartment(String departmentName, Long organizationId, String authHeader);
+
+    ResponseEntity<?> getDepartmentOverview(Long orgId, String token);
+
+    ResponseEntity<?> getAllDeptOverview(Long orgId, String token);
 }

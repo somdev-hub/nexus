@@ -24,4 +24,22 @@ public class DepartmentController {
         }
         return departmentService.createDepartment(deptName, orgId, authHeader);
     }
+
+    @LogActivity("Get Department Overview")
+    @GetMapping("/overview")
+    public ResponseEntity<?> getOverview(@RequestParam("orgId") Long orgId, @RequestHeader("Authorization") String token) {
+        if (ObjectUtils.isEmpty(token) || !jwtUtil.isValidToken(token)) {
+            return ResponseEntity.status(401).body("Unauthorized: Invalid or missing token");
+        }
+        return departmentService.getDepartmentOverview(orgId, token);
+    }
+
+    @LogActivity("Get All Departments Overview")
+    @GetMapping("/allDept/overview")
+    public ResponseEntity<?> getAllDeptOverview(@RequestParam("orgId") Long orgId, @RequestHeader("Authorization") String token) {
+        if (ObjectUtils.isEmpty(token) || !jwtUtil.isValidToken(token)) {
+            return ResponseEntity.status(401).body("Unauthorized: Invalid or missing token");
+        }
+        return departmentService.getAllDeptOverview(orgId, token);
+    }
 }
