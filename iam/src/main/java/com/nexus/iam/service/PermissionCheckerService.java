@@ -1,6 +1,5 @@
 package com.nexus.iam.service;
 
-import com.nexus.iam.entities.Permission;
 import com.nexus.iam.entities.User;
 import com.nexus.iam.entities.Role;
 import com.nexus.iam.entities.Department;
@@ -29,8 +28,9 @@ public class PermissionCheckerService {
                 .flatMap(role -> permissionRepository.findByRole(role).stream())
                 .anyMatch(permission -> permission.getResource() != null &&
                         permission.getResource().getResourceName().equals(resourceName) &&
-                        permission.getAction() != null &&
-                        permission.getAction().name().equals(action));
+                        permission.getActions() != null &&
+                        permission.getActions().stream()
+                            .anyMatch(action_enum -> action_enum.name().equals(action)));
     }
 
     /**
@@ -45,10 +45,11 @@ public class PermissionCheckerService {
                 .flatMap(role -> permissionRepository.findByRole(role).stream())
                 .anyMatch(permission -> permission.getResource() != null &&
                         permission.getResource().getResourceName().equals(resourceName) &&
-                        permission.getAction() != null &&
-                        permission.getAction().name().equals(action) &&
+                        permission.getActions() != null &&
+                        permission.getActions().stream()
+                            .anyMatch(action_enum -> action_enum.name().equals(action)) &&
                         (permission.getDepartment() == null ||
-                                (permission.getDepartment() != null && permission.getDepartment().equals(department))));
+                                permission.getDepartment().equals(department)));
     }
 
     /**
@@ -62,8 +63,9 @@ public class PermissionCheckerService {
         return permissionRepository.findByRole(role).stream()
                 .anyMatch(permission -> permission.getResource() != null &&
                         permission.getResource().getResourceName().equals(resourceName) &&
-                        permission.getAction() != null &&
-                        permission.getAction().name().equals(action));
+                        permission.getActions() != null &&
+                        permission.getActions().stream()
+                            .anyMatch(action_enum -> action_enum.name().equals(action)));
     }
 
     /**
@@ -78,7 +80,8 @@ public class PermissionCheckerService {
                 .flatMap(role -> permissionRepository.findByRole(role).stream())
                 .filter(permission -> permission.getResource() != null &&
                         permission.getResource().getResourceName().equals(resourceName))
-                .map(permission -> permission.getAction().name())
+                .flatMap(permission -> permission.getActions().stream())
+                .map(Enum::name)
                 .collect(Collectors.toSet());
     }
 
@@ -93,7 +96,8 @@ public class PermissionCheckerService {
         return permissionRepository.findByRole(role).stream()
                 .filter(permission -> permission.getResource() != null &&
                         permission.getResource().getResourceName().equals(resourceName))
-                .map(permission -> permission.getAction().name())
+                .flatMap(permission -> permission.getActions().stream())
+                .map(Enum::name)
                 .collect(Collectors.toSet());
     }
 }

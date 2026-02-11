@@ -1,5 +1,7 @@
 package com.nexus.iam.service.impl;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -40,9 +42,13 @@ public class PermissionServiceImpl implements PermissionService {
         try {
             if (ObjectUtils.isEmpty(grantPermissionDto.getRole()) ||
                     ObjectUtils.isEmpty(grantPermissionDto.getResourceName()) ||
-                    ObjectUtils.isEmpty(grantPermissionDto.getAction())) {
+                    ObjectUtils.isEmpty(grantPermissionDto.getActions())) {
                 return ResponseEntity.badRequest()
                         .body("Role, Resource, and Action cannot be null");
+            }
+
+            if (grantPermissionDto.getRole().startsWith("ROLE_")) {
+                grantPermissionDto.setRole(grantPermissionDto.getRole().substring(5)); // Remove "ROLE_" prefix if present
             }
 
             // Fetch role
@@ -56,6 +62,12 @@ public class PermissionServiceImpl implements PermissionService {
                         newResource.setResourceName(grantPermissionDto.getResourceName());
                         newResource.setDescription(grantPermissionDto.getDescription());
                         newResource.setResourceType(grantPermissionDto.getResourceType());
+                        if (!ObjectUtils.isEmpty(grantPermissionDto.getResourceUrl())){
+                            newResource.setResourceUrl(grantPermissionDto.getResourceUrl());
+                        }
+                        if (!ObjectUtils.isEmpty(grantPermissionDto.getFeatureId())){
+                            newResource.setFeatureId(grantPermissionDto.getFeatureId());
+                        }
                         return resourceRepository.save(newResource);
                     });
 
@@ -68,21 +80,40 @@ public class PermissionServiceImpl implements PermissionService {
             }
 
             // Check if permission already exists
-            PermissionAction action = grantPermissionDto.getAction();
-            if (permissionRepository.findByRoleAndResourceAndAction(role, resource, action).isPresent()) {
-                return ResponseEntity.status(HttpStatus.CONFLICT)
-                        .body("Permission already exists for this role and resource");
+            Set<PermissionAction> actions = grantPermissionDto.getActions();
+            Permission existingPermission = permissionRepository.findByRoleAndResourceAndDepartment(role, resource, department)
+                    .orElse(null);
+
+            if (existingPermission != null) {
+                // Check if all actions already exist
+                if (existingPermission.getActions().containsAll(actions)) {
+                    return ResponseEntity.status(HttpStatus.CONFLICT)
+                            .body("All requested permissions already exist for this role and resource");
+                }
+
+                // Add new actions to existing permission
+                existingPermission.getActions().addAll(actions);
+                Permission savedPermission = permissionRepository.save(existingPermission);
+                Map<String,String> response = new HashMap<>();
+                response.put("message", "Permission updated successfully with new actions");
+                response.put("permissionId", savedPermission.getPermissionId().toString());
+                response.put("status", "200");
+                return ResponseEntity.status(HttpStatus.OK).body(response);
             }
 
             // Create and save permission
             Permission permission = new Permission();
             permission.setRole(role);
             permission.setResource(resource);
-            permission.setAction(action);
+            permission.setActions(actions);
             permission.setDepartment(department);
 
             Permission savedPermission = permissionRepository.save(permission);
-            return ResponseEntity.status(HttpStatus.CREATED).body(savedPermission);
+            Map<String,String> response = new HashMap<>();
+            response.put("message", "Permission granted successfully");
+            response.put("permissionId", savedPermission.getPermissionId().toString());
+            response.put("status", "201");
+            return ResponseEntity.status(HttpStatus.CREATED).body(response);
         } catch (ResourceNotFoundException ex) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ex.getMessage());
         } catch (Exception ex) {
@@ -116,7 +147,7 @@ public class PermissionServiceImpl implements PermissionService {
         try {
             if (ObjectUtils.isEmpty(grantPermissionDto.getRole()) ||
                     ObjectUtils.isEmpty(grantPermissionDto.getResourceName()) ||
-                    ObjectUtils.isEmpty(grantPermissionDto.getAction())) {
+                    ObjectUtils.isEmpty(grantPermissionDto.getActions())) {
                 return ResponseEntity.badRequest()
                         .body("Role, Resource, and Action cannot be null");
             }
@@ -136,7 +167,9 @@ public class PermissionServiceImpl implements PermissionService {
             }
 
             boolean hasPermission = permissionRepository
-                    .findPermission(role, resource, grantPermissionDto.getAction(), department).isPresent();
+                    .findByRoleAndResourceAndDepartment(role, resource, department)
+                    .map(permission -> permission.getActions().containsAll(grantPermissionDto.getActions()))
+                    .orElse(false);
             return ResponseEntity.ok(hasPermission);
         } catch (ResourceNotFoundException ex) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ex.getMessage());
@@ -151,7 +184,7 @@ public class PermissionServiceImpl implements PermissionService {
         try {
             if (ObjectUtils.isEmpty(grantPermissionDto.getRole()) ||
                     ObjectUtils.isEmpty(grantPermissionDto.getResourceName()) ||
-                    ObjectUtils.isEmpty(grantPermissionDto.getAction())) {
+                    ObjectUtils.isEmpty(grantPermissionDto.getActions())) {
                 return ResponseEntity.badRequest()
                         .body("Role, Resource, and Action cannot be null");
             }
@@ -160,7 +193,7 @@ public class PermissionServiceImpl implements PermissionService {
                     .orElseThrow(() -> new ResourceNotFoundException("Role", "name", grantPermissionDto.getRole()));
 
             boolean hasPermission = roleHasPermissionCheck(role,
-                    grantPermissionDto.getResourceName(), grantPermissionDto.getAction().name());
+                    grantPermissionDto.getResourceName(), grantPermissionDto.getActions());
             return ResponseEntity.ok(hasPermission);
         } catch (ResourceNotFoundException ex) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ex.getMessage());
@@ -205,8 +238,9 @@ public class PermissionServiceImpl implements PermissionService {
                 .flatMap(role -> permissionRepository.findByRole(role).stream())
                 .anyMatch(permission -> permission.getResource() != null &&
                         permission.getResource().getResourceName().equals(resourceName) &&
-                        permission.getAction() != null &&
-                        permission.getAction().name().equals(action));
+                        permission.getActions() != null &&
+                        permission.getActions().stream()
+                            .anyMatch(action_enum -> action_enum.name().equals(action)));
     }
 
     /**
@@ -221,10 +255,11 @@ public class PermissionServiceImpl implements PermissionService {
                 .flatMap(role -> permissionRepository.findByRole(role).stream())
                 .anyMatch(permission -> permission.getResource() != null &&
                         permission.getResource().getResourceName().equals(resourceName) &&
-                        permission.getAction() != null &&
-                        permission.getAction().name().equals(action) &&
+                        permission.getActions() != null &&
+                        permission.getActions().stream()
+                            .anyMatch(action_enum -> action_enum.name().equals(action)) &&
                         (permission.getDepartment() == null ||
-                                (permission.getDepartment() != null && permission.getDepartment().equals(department))));
+                                permission.getDepartment().equals(department)));
     }
 
     /**
@@ -238,8 +273,24 @@ public class PermissionServiceImpl implements PermissionService {
         return permissionRepository.findByRole(role).stream()
                 .anyMatch(permission -> permission.getResource() != null &&
                         permission.getResource().getResourceName().equals(resourceName) &&
-                        permission.getAction() != null &&
-                        permission.getAction().name().equals(action));
+                        permission.getActions() != null &&
+                        permission.getActions().stream()
+                            .anyMatch(action_enum -> action_enum.name().equals(action)));
+    }
+
+    /**
+     * Check if role has permission for a resource and set of actions
+     */
+    public boolean roleHasPermissionCheck(Role role, String resourceName, Set<PermissionAction> requiredActions) {
+        if (role == null) {
+            return false;
+        }
+
+        return permissionRepository.findByRole(role).stream()
+                .anyMatch(permission -> permission.getResource() != null &&
+                        permission.getResource().getResourceName().equals(resourceName) &&
+                        permission.getActions() != null &&
+                        permission.getActions().containsAll(requiredActions));
     }
 
     /**
@@ -254,7 +305,8 @@ public class PermissionServiceImpl implements PermissionService {
                 .flatMap(role -> permissionRepository.findByRole(role).stream())
                 .filter(permission -> permission.getResource() != null &&
                         permission.getResource().getResourceName().equals(resourceName))
-                .map(permission -> permission.getAction().name())
+                .flatMap(permission -> permission.getActions().stream())
+                .map(PermissionAction::name)
                 .collect(Collectors.toSet());
     }
 
@@ -269,7 +321,8 @@ public class PermissionServiceImpl implements PermissionService {
         return permissionRepository.findByRole(role).stream()
                 .filter(permission -> permission.getResource() != null &&
                         permission.getResource().getResourceName().equals(resourceName))
-                .map(permission -> permission.getAction().name())
+                .flatMap(permission -> permission.getActions().stream())
+                .map(PermissionAction::name)
                 .collect(Collectors.toSet());
     }
 }

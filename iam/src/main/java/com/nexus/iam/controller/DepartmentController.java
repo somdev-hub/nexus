@@ -42,4 +42,20 @@ public class DepartmentController {
         }
         return departmentService.getAllDeptOverview(orgId, token);
     }
+
+    @GetMapping("/fetch/roles")
+    public ResponseEntity<?> fetchDepartmentRoles(@RequestParam Long deptId, @RequestHeader("Authorization") String auth){
+        if (ObjectUtils.isEmpty(auth) || !jwtUtil.isValidToken(auth)) {
+            return ResponseEntity.status(401).body("Unauthorized: Invalid or missing token");
+        }
+        return departmentService.fetchDeparmentRoles(deptId);
+    }
+
+    @GetMapping("/dept/roles/table")
+    public ResponseEntity<?> fetchDepartmentRolesTable(@RequestParam Long orgId, @RequestParam(value = "pageNo", required = false, defaultValue = "0") Integer pageNo, @RequestParam(value = "pageOffset", required = false, defaultValue = "10") Integer pageOffset, @RequestHeader("Authorization") String auth){
+        if (ObjectUtils.isEmpty(auth) || !jwtUtil.isValidToken(auth)) {
+            return ResponseEntity.status(401).body("Unauthorized: Invalid or missing token");
+        }
+        return departmentService.fetchDepartmentRolesTable(orgId, pageNo, pageOffset);
+    }
 }

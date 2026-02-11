@@ -19,14 +19,15 @@ public interface PermissionRepository extends JpaRepository<Permission, Long> {
 
     List<Permission> findByRoleAndDepartment(Role role, Department department);
 
-    List<Permission> findByRoleAndAction(Role role, PermissionAction action);
-
-    Optional<Permission> findByRoleAndResourceAndAction(Role role, Resource resource, PermissionAction action);
-
     List<Permission> findByResource(Resource resource);
 
     List<Permission> findByDepartment(Department department);
 
-    @Query("SELECT p FROM Permission p WHERE p.role = :role AND p.resource = :resource AND p.action = :action AND (p.department = :department OR p.department IS NULL)")
+    // New method for finding by role, resource, and department
+    Optional<Permission> findByRoleAndResourceAndDepartment(Role role, Resource resource, Department department);
+
+    Optional<Permission> findByRoleAndResource(Role role, Resource resource);
+
+    @Query("SELECT p FROM Permission p WHERE p.role = :role AND p.resource = :resource AND :action MEMBER OF p.actions AND (p.department = :department OR p.department IS NULL)")
     Optional<Permission> findPermission(Role role, Resource resource, PermissionAction action, Department department);
 }

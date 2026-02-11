@@ -9,4 +9,8 @@ public interface DepartmentService {
     ResponseEntity<?> getDepartmentOverview(Long orgId, String token);
 
     ResponseEntity<?> getAllDeptOverview(Long orgId, String token);
+
+    ResponseEntity<?> fetchDeparmentRoles(Long deptId);
+
+    ResponseEntity<?> fetchDepartmentRolesTable(Long orgId, Integer pageNo, Integer pageOffset);
 }

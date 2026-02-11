@@ -1,13 +1,15 @@
 package com.nexus.iam.entities;
 
 import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import lombok.AllArgsConstructor;
+
+import java.util.Set;
 
 @Entity
 @Table(name = "t_permissions", schema = "iam", uniqueConstraints = {
-        @UniqueConstraint(columnNames = { "role_id", "resource_id", "action" })
+        @UniqueConstraint(columnNames = {"role_id", "resource_id", "department_id"})
 })
 @Data
 @NoArgsConstructor
@@ -26,9 +28,11 @@ public class Permission {
     @JoinColumn(name = "resource_id", nullable = false)
     private Resource resource;
 
-    @Column(nullable = false)
+    @ElementCollection(fetch = FetchType.LAZY)
+    @CollectionTable(name = "t_permission_actions", joinColumns = @JoinColumn(name = "permission_id"))
+    @Column(name = "action")
     @Enumerated(EnumType.STRING)
-    private PermissionAction action; // e.g., "READ", "CREATE", "UPDATE", "DELETE"
+    private Set<PermissionAction> actions; // e.g., "READ", "CREATE", "UPDATE", "DELETE"
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "department_id")
