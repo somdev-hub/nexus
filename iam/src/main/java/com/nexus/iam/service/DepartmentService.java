@@ -1,5 +1,6 @@
 package com.nexus.iam.service;
 
+import com.nexus.iam.dto.EmployeePaycheckDto;
 import org.springframework.http.ResponseEntity;
 
 public interface DepartmentService {
@@ -13,4 +14,8 @@ public interface DepartmentService {
     ResponseEntity<?> fetchDeparmentRoles(Long deptId);
 
     ResponseEntity<?> fetchDepartmentRolesTable(Long orgId, Integer pageNo, Integer pageOffset);
+
+    ResponseEntity<?> addEmployeePaycheck(EmployeePaycheckDto employeePaycheckDto, String auth);
+
+    ResponseEntity<?> getEmployeePaychecks(Long orgId, Integer pageNo, Integer pageOffset, String authHeader);
 }

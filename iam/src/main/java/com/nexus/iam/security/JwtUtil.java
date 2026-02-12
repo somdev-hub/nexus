@@ -111,6 +111,21 @@ public class JwtUtil {
         }
     }
 
+    public Long extractUserIdFromToken(String token) {
+        try {
+            Claims claims = extractAllClaims(token);
+            Object userIdObj = claims.get("userId");
+            if (userIdObj instanceof Integer) {
+                return ((Integer) userIdObj).longValue();
+            } else if (userIdObj instanceof Long) {
+                return (Long) userIdObj;
+            }
+        } catch (Exception e) {
+            // Log the exception if needed
+        }
+        return null;
+    }
+
     public boolean isValidToken(String token) {
         if (token.startsWith("Bearer ")) {
             token = token.substring(7);

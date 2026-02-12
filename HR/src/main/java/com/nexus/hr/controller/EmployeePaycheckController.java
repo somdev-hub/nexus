@@ -28,4 +28,15 @@ public class EmployeePaycheckController {
         }
         return employeePaycheckService.addEmployeePaycheck(employeePaycheck);
     }
+
+    @GetMapping("/")
+    public ResponseEntity<?> getEmployeePaychecks(@RequestParam Long orgId, @RequestParam(value = "pageNo", required = false, defaultValue = "0") Integer pageNo, @RequestParam(value = "pageOffset", required = false, defaultValue = "10") Integer pageOffset, @RequestHeader("Authorization") String authHeader) {
+        if (ObjectUtils.isEmpty(authHeader) || !commonUtils.validateToken(authHeader)) {
+            throw new UnauthorizedException(
+                    "Unauthorized! Please use credentials",
+                    "Unable to validate token"
+            );
+        }
+        return employeePaycheckService.getEmployeePaychecks(orgId, pageNo, pageOffset);
+    }
 }

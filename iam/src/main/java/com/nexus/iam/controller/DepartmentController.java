@@ -1,6 +1,7 @@
 package com.nexus.iam.controller;
 
 import com.nexus.iam.annotation.LogActivity;
+import com.nexus.iam.dto.EmployeePaycheckDto;
 import com.nexus.iam.security.JwtUtil;
 import com.nexus.iam.service.DepartmentService;
 import lombok.RequiredArgsConstructor;
@@ -44,7 +45,7 @@ public class DepartmentController {
     }
 
     @GetMapping("/fetch/roles")
-    public ResponseEntity<?> fetchDepartmentRoles(@RequestParam Long deptId, @RequestHeader("Authorization") String auth){
+    public ResponseEntity<?> fetchDepartmentRoles(@RequestParam Long deptId, @RequestHeader("Authorization") String auth) {
         if (ObjectUtils.isEmpty(auth) || !jwtUtil.isValidToken(auth)) {
             return ResponseEntity.status(401).body("Unauthorized: Invalid or missing token");
         }
@@ -52,10 +53,28 @@ public class DepartmentController {
     }
 
     @GetMapping("/dept/roles/table")
-    public ResponseEntity<?> fetchDepartmentRolesTable(@RequestParam Long orgId, @RequestParam(value = "pageNo", required = false, defaultValue = "0") Integer pageNo, @RequestParam(value = "pageOffset", required = false, defaultValue = "10") Integer pageOffset, @RequestHeader("Authorization") String auth){
+    public ResponseEntity<?> fetchDepartmentRolesTable(@RequestParam Long orgId, @RequestParam(value = "pageNo", required = false, defaultValue = "0") Integer pageNo, @RequestParam(value = "pageOffset", required = false, defaultValue = "10") Integer pageOffset, @RequestHeader("Authorization") String auth) {
         if (ObjectUtils.isEmpty(auth) || !jwtUtil.isValidToken(auth)) {
             return ResponseEntity.status(401).body("Unauthorized: Invalid or missing token");
         }
         return departmentService.fetchDepartmentRolesTable(orgId, pageNo, pageOffset);
+    }
+
+    @LogActivity("Add Employee Paycheck")
+    @PostMapping("/add/employee/paycheck")
+    public ResponseEntity<?> addEmployeePaycheck(@RequestBody EmployeePaycheckDto employeePaycheckDto, @RequestHeader("Authorization") String auth) {
+        if (ObjectUtils.isEmpty(auth) || !jwtUtil.isValidToken(auth)) {
+            return ResponseEntity.status(401).body("Unauthorized: Invalid or missing token");
+        }
+        return departmentService.addEmployeePaycheck(employeePaycheckDto, auth);
+    }
+
+    @GetMapping("/employee/paycheck")
+    public ResponseEntity<?> getEmployeePaychecks(@RequestParam Long orgId, @RequestParam(value = "pageNo", required = false, defaultValue = "0") Integer pageNo, @RequestParam(value = "pageOffset", required = false, defaultValue = "10") Integer pageOffset, @RequestHeader("Authorization") String authHeader) {
+
+        if (ObjectUtils.isEmpty(authHeader) || !jwtUtil.isValidToken(authHeader)) {
+            return ResponseEntity.status(401).body("Unauthorized: Invalid or missing token");
+        }
+        return departmentService.getEmployeePaychecks(orgId, pageNo, pageOffset, authHeader);
     }
 }

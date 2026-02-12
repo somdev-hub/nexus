@@ -1,5 +1,6 @@
 package com.nexus.iam.service.impl;
 
+import com.nexus.iam.dto.EmployeePaycheckDto;
 import com.nexus.iam.dto.response.AllDeptOverview;
 import com.nexus.iam.dto.response.DeptOverview;
 import com.nexus.iam.dto.response.DeptRoleTable;
@@ -15,6 +16,9 @@ import com.nexus.iam.repository.PermissionRepository;
 import com.nexus.iam.repository.UserRepository;
 import com.nexus.iam.security.JwtUtil;
 import com.nexus.iam.service.DepartmentService;
+import com.nexus.iam.utils.CommonUtils;
+import com.nexus.iam.utils.RestService;
+import com.nexus.iam.utils.WebConstants;
 import io.jsonwebtoken.Claims;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,13 +26,16 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.util.ObjectUtils;
+import org.springframework.web.util.UriComponentsBuilder;
 
 import java.sql.Timestamp;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -41,6 +48,9 @@ public class DepartmentServiceImpl implements DepartmentService {
     private final JwtUtil jwtUtil;
     private final UserRepository userRepository;
     private final PermissionRepository permissionRepository;
+    private final CommonUtils commonUtils;
+    private final RestService restService;
+    private final WebConstants webConstants;
 
     @Override
     public ResponseEntity<?> createDepartment(String departmentName, Long organizationId, String authHeader) {
@@ -214,6 +224,64 @@ public class DepartmentServiceImpl implements DepartmentService {
                     e.getLocalizedMessage()
             );
         }
+    }
+
+    @Override
+    public ResponseEntity<?> addEmployeePaycheck(EmployeePaycheckDto employeePaycheckDto, String auth) {
+        if (ObjectUtils.isEmpty(employeePaycheckDto)) {
+            throw new IllegalArgumentException("Employee paycheck details are required");
+        }
+        ResponseEntity<?> response;
+        try {
+            Map<String, String> headers = commonUtils.buildJsonHeaders(auth);
+            response = restService.iamRestCall(
+                    webConstants.getEmployeePaycheckUrl(),
+                    employeePaycheckDto,
+                    headers,
+                    HttpMethod.POST,
+                    jwtUtil.extractUserIdFromToken(auth)
+            );
+        } catch (RuntimeException e) {
+            throw new ServiceLevelException(
+                    "DepartmentServiceImpl",
+                    "Failed to add employee paycheck: " + e.getMessage(),
+                    "addEmployeePaycheck",
+                    e.getClass().getSimpleName(),
+                    e.getLocalizedMessage()
+            );
+        }
+        return response;
+    }
+
+    @Override
+    public ResponseEntity<?> getEmployeePaychecks(Long orgId, Integer pageNo, Integer pageOffset, String authHeader) {
+        if (ObjectUtils.isEmpty(orgId)) {
+            throw new IllegalArgumentException("Organization ID is required");
+        }
+        ResponseEntity<?> response;
+        try {
+            Map<String, String> headers = commonUtils.buildJsonHeaders(authHeader);
+//            String url = webConstants.getEmployeePaycheckUrl() + "?orgId=" + orgId + "&pageNo=" + pageNo + "&pageOffset=" + pageOffset;
+            UriComponentsBuilder builder=UriComponentsBuilder.fromUriString(webConstants.getEmployeePaycheckGetUrl()).queryParam("orgId", orgId).queryParam("pageNo", pageNo).queryParam("pageOffset", pageOffset);
+            response = restService.iamRestCall(
+                    builder.toUriString(),
+                    null,
+                    headers,
+                    HttpMethod.GET,
+                    jwtUtil.extractUserIdFromToken(authHeader)
+            );
+        } catch (RuntimeException e) {
+            throw new ServiceLevelException(
+                    "DepartmentServiceImpl",
+                    "Failed to get employee paychecks: " + e.getMessage(),
+                    "getEmployeePaychecks",
+                    e.getClass().getSimpleName(),
+                    e.getLocalizedMessage()
+            );
+
+        }
+
+        return response;
     }
 
     /**

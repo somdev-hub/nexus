@@ -28,4 +28,10 @@ public class WebConstants {
 
     @Value("${hr.init.url}")
     public String hrInitUrl;
+
+    @Value("${hr.employee.paycheck.url}")
+    public String employeePaycheckUrl;
+
+    @Value("${hr.employee.paycheck.get.url}")
+    public String employeePaycheckGetUrl;
 }

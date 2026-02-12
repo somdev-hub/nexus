@@ -6,4 +6,6 @@ import org.springframework.http.ResponseEntity;
 public interface EmployeePaycheckService {
 
     ResponseEntity<?> addEmployeePaycheck(EmployeePaycheck employeePaycheck);
+
+    ResponseEntity<?> getEmployeePaychecks(Long orgId, Integer pageNo, Integer pageOffset);
 }

@@ -38,7 +38,7 @@ public class CommonUtils {
             // extract isValid from response
             Map<String, String> responseBody = response.getBody();
             return !response.getStatusCode().is2xxSuccessful() ||
-                    ObjectUtils.isEmpty(responseBody) ||
+                    !ObjectUtils.isEmpty(responseBody) ||
                     !Boolean.parseBoolean(responseBody.get("isValid"));
 
         } catch (Exception e) {
