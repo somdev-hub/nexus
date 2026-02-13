@@ -18,4 +18,6 @@ public interface DepartmentService {
     ResponseEntity<?> addEmployeePaycheck(EmployeePaycheckDto employeePaycheckDto, String auth);
 
     ResponseEntity<?> getEmployeePaychecks(Long orgId, Integer pageNo, Integer pageOffset, String authHeader);
+
+    ResponseEntity<?> getAllDepts(Long orgId);
 }

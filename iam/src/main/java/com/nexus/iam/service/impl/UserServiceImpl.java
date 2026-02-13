@@ -1,9 +1,11 @@
 package com.nexus.iam.service.impl;
 
 import com.nexus.iam.dto.*;
+import com.nexus.iam.entities.Department;
 import com.nexus.iam.entities.User;
 import com.nexus.iam.exception.ResourceNotFoundException;
 import com.nexus.iam.exception.ServiceLevelException;
+import com.nexus.iam.repository.DepartmentRepository;
 import com.nexus.iam.repository.OrganizationRepository;
 import com.nexus.iam.repository.RoleRepository;
 import com.nexus.iam.repository.UserRepository;
@@ -12,6 +14,7 @@ import com.nexus.iam.service.UserService;
 import com.nexus.iam.utils.CommonConstants;
 import com.nexus.iam.utils.RestService;
 import com.nexus.iam.utils.WebConstants;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.modelmapper.ModelMapper;
 import org.springframework.core.io.ByteArrayResource;
@@ -48,6 +51,8 @@ public class UserServiceImpl implements UserService {
     private final AuthenticationService authenticationService;
 
     private final RestService restService;
+
+    private final DepartmentRepository departmentRepository;
 
     @Override
     public ResponseEntity<?> getUserById(Long userId) {
@@ -222,10 +227,21 @@ public class UserServiceImpl implements UserService {
         }
     }
 
+    @Transactional
     @Override
     public ResponseEntity<?> createUser(UserProfileDto userDto, MultipartFile[] files) {
         try {
-            User user = modelMapper.map(userDto, User.class);
+            User user = new User();
+            user.setName(userDto.getName());
+            user.setEmail(userDto.getEmail());
+            user.setAddress(userDto.getAddress());
+            user.setPersonalEmail(userDto.getPersonalEmail());
+            user.setPhone(userDto.getPhone());
+            user.setAge(userDto.getAge());
+            user.setGender(userDto.getGender());
+            user.setDateOfBirth(userDto.getDateOfBirth());
+            user.setAge(userDto.getAge());
+            user.setNotes(userDto.getNotes());
             user.setCreatedAt(new Timestamp(System.currentTimeMillis()));
 
             // Set organization
@@ -235,6 +251,11 @@ public class UserServiceImpl implements UserService {
             // Set role
             user.getRoles().add(roleRepository.findByName(userDto.getRole())
                     .orElseThrow(() -> new ResourceNotFoundException("Role", "name", userDto.getRole())));
+
+            if (ObjectUtils.isEmpty(userDto.getDeptId())){
+                throw new ServiceLevelException("UserService", "Department ID is required", "createUser",
+                        new Timestamp(System.currentTimeMillis()), null, "Department ID is null or empty");
+            }
 
             // Generate a random password
             String generatedPassword = generateRandomPassword();
@@ -248,6 +269,13 @@ public class UserServiceImpl implements UserService {
 
             // Save user to repository
             userRepository.save(user);
+            // Set department
+            Department department = departmentRepository.findById(userDto.getDeptId()).orElseThrow(() -> new ResourceNotFoundException("Department", "id", userDto.getDeptId()));
+            if (userDto.isDeptHead()){
+                department.addDepartmentHead(user);
+            }else{
+                department.addMember(user);
+            }
 
             // prepare HR payload
             Map<String, Object> payload = new HashMap<>();
@@ -255,7 +283,7 @@ public class UserServiceImpl implements UserService {
             payload.put("fullName", user.getName());
             payload.put("email", user.getEmail());
             payload.put("orgId", user.getOrganization().getId());
-            payload.put("department", userDto.getDepartment());
+            payload.put("department", department.getDepartmentName());
             payload.put("title", userDto.getTitle());
             payload.put("remarks", userDto.getRemarks());
             payload.put("timestamp", userDto.getEffectiveFrom());
@@ -270,20 +298,24 @@ public class UserServiceImpl implements UserService {
                     try {
                         Map<String, Object> dto = new HashMap<>();
                         dto.put("userId", user.getId());
-                        dto.put("fileName", user.getId() + "_hr_doc");
+                        if (file.getOriginalFilename().contains("profile_pic")){
+                            dto.put("fileName", user.getId() + "_profile_photo");
+                        }else{
+                            dto.put("fileName", user.getId() + "_hr_doc"+file.getOriginalFilename());
+                        }
                         dto.put("remarks", "HR Doc Upload");
                         dto.put("documentType", "OTHER_HR_DOCUMENTS");
 
-                        ByteArrayResource resource = new ByteArrayResource(file.getBytes()) {
-                            @Override
-                            public String getFilename() {
-                                return file.getOriginalFilename();
-                            }
-                        };
+//                        ByteArrayResource resource = new ByteArrayResource(file.getBytes()) {
+//                            @Override
+//                            public String getFilename() {
+//                                return file.getOriginalFilename();
+//                            }
+//                        };
 
                         Map<String, Object> docPayload = new HashMap<>();
                         docPayload.put("dto", dto);
-                        docPayload.put("file", resource);
+                        docPayload.put("file", file);
 
                         Map<String, String> headers = new HashMap<>();
                         LoginResponse loginResponse = authenticationService
@@ -303,11 +335,16 @@ public class UserServiceImpl implements UserService {
                             Map<String, String> respBody = (Map<String, String>) response.getBody();
                             assert respBody != null;
                             if (respBody.containsKey("documentUrl")) {
-                                Map<String, String> docInfo = new HashMap<>();
-                                docInfo.put("documentName", file.getOriginalFilename());
-                                docInfo.put("hrDocumentType", "OTHER_HR_DOCUMENTS");
-                                docInfo.put("documentUrl", respBody.get("documentUrl"));
-                                hrDocumentsPayload.add(docInfo);
+                                if (file.getOriginalFilename().contains("profile_photo")) {
+                                    user.setProfilePhoto(respBody.get("documentUrl"));
+                                    userRepository.save(user);
+                                }else{
+                                    Map<String, String> docInfo = new HashMap<>();
+                                    docInfo.put("documentName", file.getOriginalFilename());
+                                    docInfo.put("hrDocumentType", "OTHER_HR_DOCUMENTS");
+                                    docInfo.put("documentUrl", respBody.get("documentUrl"));
+                                    hrDocumentsPayload.add(docInfo);
+                                }
                             } else {
                                 throw new ServiceLevelException("UserService",
                                         "Failed to retrieve document URL from DMS response for user ID: "
@@ -362,6 +399,13 @@ public class UserServiceImpl implements UserService {
                 response.put("joiningLetter", respBody.computeIfPresent("joiningLetterUrl", (k, v) -> v));
                 response.put("letterOfIntent", respBody.computeIfPresent("letterOfIntentUrl", (k, v) -> v));
                 response.put("compensationCard", respBody.computeIfPresent("compensationCardUrl", (k, v) -> v));
+            } else{
+                throw new ServiceLevelException("UserService",
+                        "Failed to initialize HR data for user ID: " + user.getId() + ". Response: "
+                                + hrResponse.getBody(),
+                        "createUser",
+                        new Timestamp(System.currentTimeMillis()), null,
+                        "HR initialization failed with status: " + hrResponse.getStatusCode());
             }
 
             // Return email and password instead of JWT

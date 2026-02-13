@@ -2,6 +2,7 @@ package com.nexus.iam.service.impl;
 
 import com.nexus.iam.dto.EmployeePaycheckDto;
 import com.nexus.iam.dto.response.AllDeptOverview;
+import com.nexus.iam.dto.response.AllDeptResponse;
 import com.nexus.iam.dto.response.DeptOverview;
 import com.nexus.iam.dto.response.DeptRoleTable;
 import com.nexus.iam.entities.Department;
@@ -282,6 +283,28 @@ public class DepartmentServiceImpl implements DepartmentService {
         }
 
         return response;
+    }
+
+    @Override
+    public ResponseEntity<?> getAllDepts(Long orgId) {
+        if (ObjectUtils.isEmpty(orgId)) {
+            throw new IllegalArgumentException("Organization ID is required");
+        }
+        try {
+            List<AllDeptResponse> allDeptIdAndName = departmentRepository.findAllDeptIdAndName(orgId);
+            if (allDeptIdAndName.isEmpty()) {
+                return ResponseEntity.noContent().build();
+            }
+            return ResponseEntity.ok(allDeptIdAndName);
+        } catch (RuntimeException e) {
+            throw new ServiceLevelException(
+                    "DepartmentServiceImpl",
+                    "Failed to get all departments: " + e.getMessage(),
+                    "getAllDepts",
+                    e.getClass().getSimpleName(),
+                    e.getLocalizedMessage()
+            );
+        }
     }
 
     /**

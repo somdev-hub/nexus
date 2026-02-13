@@ -30,6 +30,10 @@ public class UserProfileDto {
 
     private String department;
 
+    private Long deptId;
+
+    private boolean isDeptHead;
+
     private String title;
 
     private String remarks;

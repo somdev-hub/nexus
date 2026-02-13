@@ -77,4 +77,12 @@ public class DepartmentController {
         }
         return departmentService.getEmployeePaychecks(orgId, pageNo, pageOffset, authHeader);
     }
+
+    @GetMapping("/allDepts")
+    public ResponseEntity<?> getAllDepartments(@RequestParam Long orgId, @RequestHeader("Authorization") String authHeader) {
+        if (ObjectUtils.isEmpty(authHeader) || !jwtUtil.isValidToken(authHeader)) {
+            return ResponseEntity.status(401).body("Unauthorized: Invalid or missing token");
+        }
+        return departmentService.getAllDepts(orgId);
+    }
 }

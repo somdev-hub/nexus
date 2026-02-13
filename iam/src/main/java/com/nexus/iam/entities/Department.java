@@ -17,6 +17,7 @@ import java.util.Set;
 @Table(name = "t_departments", schema = "iam")
 @NoArgsConstructor
 @AllArgsConstructor
+@lombok.ToString(exclude = {"departmentHead", "members", "organization"})
 public class Department {
 
     @Id
@@ -54,4 +55,37 @@ public class Department {
     private Organization organization;
 
     private Timestamp createdAt;
+
+    // src/main/java/com/nexus/iam/entities/Department.java
+    public void addMember(User user) {
+        if (!this.members.contains(user)) {
+            this.members.add(user);
+        }
+        if (user.getMemberOfDepartments() == null) {
+            user.setMemberOfDepartments(new java.util.ArrayList<>());
+        }
+        if (!user.getMemberOfDepartments().contains(this)) {
+            user.getMemberOfDepartments().add(this);
+        }
+    }
+
+    public void addDepartmentHead(User user) {
+        if (this.departmentHead == null || !this.departmentHead.equals(user)) {
+            this.departmentHead=user;
+        }
+        if (user.getHeadedDepartments() == null) {
+            user.setHeadedDepartments(new java.util.ArrayList<>());
+        }
+        if (!user.getHeadedDepartments().contains(this)) {
+            user.getHeadedDepartments().add(this);
+        }
+    }
+
+    public void removeMember(User user) {
+        if (this.members.remove(user)) {
+            if (user.getMemberOfDepartments() != null) {
+                user.getMemberOfDepartments().remove(this);
+            }
+        }
+    }
 }

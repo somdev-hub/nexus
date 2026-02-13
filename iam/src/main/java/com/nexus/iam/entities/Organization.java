@@ -11,6 +11,7 @@ import java.util.List;
 @Entity
 @Table(name = "t_organizations", schema = "iam")
 @Data
+@lombok.ToString(exclude = {"users", "documents", "departments"})
 public class Organization {
 
     @Id

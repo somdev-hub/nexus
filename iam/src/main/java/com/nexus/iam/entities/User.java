@@ -31,6 +31,7 @@ import lombok.NoArgsConstructor;
 @Entity
 @Table(name = "t_users", schema = "iam")
 @NoArgsConstructor
+@lombok.ToString(exclude = {"headedDepartments", "memberOfDepartments", "organization", "roles"})
 public class User implements UserDetails {
 
     @Id
