@@ -12,11 +12,13 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.ObjectUtils;
 import org.springframework.web.bind.annotation.*;
 import tools.jackson.databind.ObjectMapper;
 
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -92,5 +94,21 @@ public class HrController {
             throw new UnauthorizedException("Unauthorized", "Invalid or missing authorization token");
         }
         return hrService.rewardAppraisal(hrId, compensation);
+    }
+
+    @GetMapping("/employee/onNoticePeriod")
+    public ResponseEntity<?> getEmployeesOnNoticePeriod(@RequestParam Long orgId, @RequestHeader("Authorization") String token) {
+        if (ObjectUtils.isEmpty(token) || !commonUtils.validateToken(token)) {
+            throw new UnauthorizedException("Unauthorized", "Invalid or missing authorization token");
+        }
+        return hrService.getEmployeesOnNoticePeriod(orgId);
+    }
+
+    @PostMapping(value = "/employee/directory", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<?> getEmployeesDirectory(@RequestBody List<Long> empIds, @RequestHeader("Authorization") String token) {
+        if (ObjectUtils.isEmpty(token) || !commonUtils.validateToken(token)) {
+            throw new UnauthorizedException("Unauthorized", "Invalid or missing authorization token");
+        }
+        return hrService.getEmployeesDirectory(empIds);
     }
 }

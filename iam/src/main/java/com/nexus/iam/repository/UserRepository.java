@@ -1,5 +1,6 @@
 package com.nexus.iam.repository;
 
+import com.nexus.iam.entities.Organization;
 import com.nexus.iam.entities.User;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -35,4 +36,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
             "AND d.department_id = :departmentId " +
             "AND u.organization_id = d.org_id", nativeQuery = true)
     Boolean existsByEmailAndDepartmentId(String email, Long departmentId);
+
+    Page<User> findByOrganization(Organization organization, Pageable pageable);
 }

@@ -111,4 +111,15 @@ public class OrganizationController {
         Map<String, Object> userOrgDetails = organizationService.getUserOrganizationDetails(userId);
         return ResponseEntity.ok(userOrgDetails);
     }
+
+    @LogActivity("Get Employee Insights")
+    @GetMapping("/employees/insights")
+    public ResponseEntity<?> getEmployeeInsights(@RequestParam Long orgId) {
+        return organizationService.getEmployeeInsights(orgId);
+    }
+
+    @GetMapping("/employee/directory")
+    public ResponseEntity<?> getEmployeeDirectory(@RequestParam Long orgId, @RequestParam(value = "pageNo", required = false, defaultValue = "0") Integer pageNo, @RequestParam(value = "pageOffset", required = false, defaultValue = "10") Integer pageOffset) {
+        return organizationService.getEmployeeDirectory(orgId, pageNo, pageOffset);
+    }
 }

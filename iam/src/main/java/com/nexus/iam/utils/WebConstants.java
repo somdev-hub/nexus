@@ -9,29 +9,35 @@ import org.springframework.stereotype.Component;
 public class WebConstants {
 
     @Value("${dms.service.url}")
-    public String dmsServiceUrl;
+    private String dmsServiceUrl;
 
     @Value("${individual.dms.url}")
-    public String individualFileUploadUrl;
+    private String individualFileUploadUrl;
 
     @Value("${org.dms.url}")
-    public String orgFileUploadUrl;
+    private String orgFileUploadUrl;
 
     @Value("${common.dms.url}")
-    public String commonDmsUrl;
+    private String commonDmsUrl;
 
     @Value("${generic.user.id}")
-    public String genericUserId;
+    private String genericUserId;
 
     @Value("${generic.password}")
-    public String genericPassword;
+    private String genericPassword;
 
     @Value("${hr.init.url}")
-    public String hrInitUrl;
+    private String hrInitUrl;
 
     @Value("${hr.employee.paycheck.url}")
-    public String employeePaycheckUrl;
+    private String employeePaycheckUrl;
 
     @Value("${hr.employee.paycheck.get.url}")
-    public String employeePaycheckGetUrl;
+    private String employeePaycheckGetUrl;
+    
+    @Value("${hr.employee.onnoticeperiod}")
+    private String employeeOnNoticePeriodUrl;
+
+    @Value("${hr.employee.directory.url}")
+    private String employeeDirectoryUrl;
 }

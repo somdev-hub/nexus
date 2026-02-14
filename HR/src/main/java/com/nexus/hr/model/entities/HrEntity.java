@@ -7,6 +7,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.sql.Date;
+import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -32,6 +33,12 @@ public class HrEntity {
     private Date dateOfLeaving;
 
     private Boolean isActive;
+
+    private Boolean onNoticePeriod = Boolean.FALSE;
+
+    private Date noticePeriodStartDate;
+
+    private Date noticePeriodEndDate;
 
     @OneToOne(cascade = CascadeType.ALL)
     @JoinColumn(name = "hr_compensation_id")

@@ -1,15 +1,14 @@
 package com.nexus.iam.controller;
 
 import com.nexus.iam.annotation.LogActivity;
+import com.nexus.iam.dto.UserProfileDto;
+import com.nexus.iam.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.ObjectUtils;
 import org.springframework.web.bind.annotation.*;
-
-import com.nexus.iam.dto.UserProfileDto;
-import com.nexus.iam.service.UserService;
 import org.springframework.web.multipart.MultipartFile;
 
 @RestController
@@ -66,4 +65,12 @@ public class UserController {
         return userService.getUserDetails(userId);
     }
 
+    @DeleteMapping("/delete")
+    @LogActivity("Delete User")
+    public ResponseEntity<?> deleteUser(@RequestParam("userId") Long userId) {
+        if (ObjectUtils.isEmpty(userId)) {
+            return new ResponseEntity<>("User ID must not be null", HttpStatus.BAD_REQUEST);
+        }
+        return userService.deleteUser(userId);
+    }
 }

@@ -183,7 +183,7 @@ public class CommonUtils {
             ResponseEntity<Map<String, String>> response = restClient.post().uri(authUrl)
                     .body(body)
                     .retrieve()
-                    .toEntity(new ParameterizedTypeReference<Map<String, String>>() {
+                    .toEntity(new ParameterizedTypeReference<>() {
                     });
             // extract token from response
             Map<String, String> responseBody = response.getBody();

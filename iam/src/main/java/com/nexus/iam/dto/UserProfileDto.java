@@ -2,6 +2,8 @@ package com.nexus.iam.dto;
 
 import java.sql.Date;
 import java.sql.Timestamp;
+
+import com.nexus.iam.entities.Gender;
 import lombok.Data;
 
 @Data
@@ -38,7 +40,7 @@ public class UserProfileDto {
 
     private String remarks;
 
-    private String gender;
+    private Gender gender;
 
     private Integer age;
 

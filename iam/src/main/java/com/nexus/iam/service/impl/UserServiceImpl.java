@@ -112,10 +112,42 @@ public class UserServiceImpl implements UserService {
         }
     }
 
+    @Transactional
     @Override
     public ResponseEntity<?> deleteUser(Long userId) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'deleteUser'");
+        try {
+            User user = userRepository.findById(userId)
+                    .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
+
+            // Clear department head relationships
+            if (user.getHeadedDepartments() != null && !user.getHeadedDepartments().isEmpty()) {
+                for (Department dept : new ArrayList<>(user.getHeadedDepartments())) {
+                    dept.setDepartmentHead(null);
+                    departmentRepository.save(dept);
+                }
+                user.getHeadedDepartments().clear();
+            }
+
+            // Remove user from all department members
+            if (user.getMemberOfDepartments() != null && !user.getMemberOfDepartments().isEmpty()) {
+                for (Department dept : new ArrayList<>(user.getMemberOfDepartments())) {
+                    dept.removeMember(user);
+                    departmentRepository.save(dept);
+                }
+                user.getMemberOfDepartments().clear();
+            }
+
+            // Clear roles
+            if (user.getRoles() != null && !user.getRoles().isEmpty()) {
+                user.getRoles().clear();
+            }
+
+            userRepository.delete(user);
+            return ResponseEntity.ok("User deleted successfully");
+        } catch (Exception e) {
+            throw new ServiceLevelException("UserService", e.getLocalizedMessage(), "deleteUser",
+                    new Timestamp(System.currentTimeMillis()), e.getCause() != null ? e.getCause().toString() : null, e.getMessage());
+        }
     }
 
     @Override

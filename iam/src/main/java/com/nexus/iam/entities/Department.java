@@ -31,7 +31,7 @@ public class Department {
     @JsonBackReference(value = "department-head")
     private User departmentHead;
 
-    @ManyToMany(fetch = FetchType.LAZY)
+    @ManyToMany(fetch = FetchType.LAZY, cascade = CascadeType.REMOVE)
     @JoinTable(
         name = "t_department_members",
         schema = "iam",

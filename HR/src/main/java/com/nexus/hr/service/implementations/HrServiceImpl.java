@@ -5,6 +5,7 @@ import com.nexus.hr.exception.ServiceLevelException;
 import com.nexus.hr.model.entities.*;
 import com.nexus.hr.model.enums.HrRequestStatus;
 import com.nexus.hr.payload.*;
+import com.nexus.hr.payload.response.EmployeeDirectoryResponse;
 import com.nexus.hr.repository.HrEntityRepo;
 import com.nexus.hr.repository.HrRequestRepo;
 import com.nexus.hr.service.interfaces.CommunicationService;
@@ -635,11 +636,11 @@ public class HrServiceImpl implements HrService {
             log.info("Building PDF template data for revised compensation card");
             Position currentPosition = hrEntity.getPositions().getLast();
             PdfTemplateDto pdfTemplateData = buildPdfTemplateData(HrInitRequestDto.builder()
-                    .employeeId(hrEntity.getEmployeeId())
-                    .department(hrEntity.getDepartment())
-                    .title(currentPosition.getTitle())
-                    .remarks("Reward Appraisal - Compensation Revision")
-                    .compensation(modelMapper.map(compensation, CompensationDto.class)).build(),
+                            .employeeId(hrEntity.getEmployeeId())
+                            .department(hrEntity.getDepartment())
+                            .title(currentPosition.getTitle())
+                            .remarks("Reward Appraisal - Compensation Revision")
+                            .compensation(modelMapper.map(compensation, CompensationDto.class)).build(),
                     new Timestamp(System.currentTimeMillis()));
 
             // Generate revised compensation card asynchronously
@@ -776,6 +777,43 @@ public class HrServiceImpl implements HrService {
             throw new ServiceLevelException("HR Service", "Exception occurred while processing reward appraisal",
                     "rewardAppraisal", e.getClass().getName(), e.getMessage());
         }
+    }
+
+    @Override
+    public ResponseEntity<?> getEmployeesOnNoticePeriod(Long orgId) {
+        if (ObjectUtils.isEmpty(orgId)) {
+            throw new ServiceLevelException("HR Service", "Organization ID cannot be null or empty",
+                    "getEmployeesOnNoticePeriod", "InvalidInput", "Organization ID is null or empty");
+        }
+        ResponseEntity<?> response;
+        try {
+            Integer allWhoAreOnNoticePeriod = hrEntityRepo.getAllWhoAreOnNoticePeriod(orgId);
+            response = ResponseEntity.ok(allWhoAreOnNoticePeriod);
+        } catch (Exception e) {
+            throw new ServiceLevelException("HR Service", "Exception occurred while fetching employees on notice period",
+                    "getEmployeesOnNoticePeriod", e.getClass().getName(), e.getMessage());
+        }
+        return response;
+    }
+
+    @Override
+    public ResponseEntity<?> getEmployeesDirectory(List<Long> empIds) {
+        if (ObjectUtils.isEmpty(empIds)) {
+            throw new ServiceLevelException("HR Service", "Employee IDs list cannot be null or empty",
+                    "getEmployeesDirectory", "InvalidInput", "Employee IDs list is null or empty");
+        }
+        ResponseEntity<?> response;
+        try {
+            List<EmployeeDirectoryResponse> list = empIds.stream().map(id -> {
+                HrEntity hrEntity = hrEntityRepo.findByEmployeeId(id).orElseThrow(() -> new ResourceNotFoundException("HrEntity", "employeeId", id));
+                return new EmployeeDirectoryResponse(hrEntity.getEmployeeId(), hrEntity.getDepartment(), hrEntity.getPositions().getLast().getTitle(), hrEntity.getCompensation().getNetPay(), hrEntity.getDateOfJoining());
+            }).toList();
+            response = ResponseEntity.ok(list);
+        } catch (RuntimeException e) {
+            throw new ServiceLevelException("HR Service", "Exception occurred while fetching employees directory",
+                    "getEmployeesDirectory", e.getClass().getName(), e.getMessage());
+        }
+        return response;
     }
 
     /**
