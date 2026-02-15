@@ -24,6 +24,8 @@ public class Position {
 
     private String title;
 
+    private String department;
+
     private String remarks;
 
     private Boolean isActive;

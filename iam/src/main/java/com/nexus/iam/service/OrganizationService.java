@@ -32,4 +32,6 @@ public interface OrganizationService {
     ResponseEntity<?> getEmployeeInsights(Long orgId);
 
     ResponseEntity<?> getEmployeeDirectory(Long orgId, Integer pageNo, Integer pageOffset);
+
+    ResponseEntity<?> getEmployeeDetails(Long userId);
 }

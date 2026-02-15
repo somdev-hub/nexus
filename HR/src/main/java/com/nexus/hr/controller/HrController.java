@@ -111,4 +111,12 @@ public class HrController {
         }
         return hrService.getEmployeesDirectory(empIds);
     }
+
+    @GetMapping("/employee/details")
+    public ResponseEntity<?> getEmployeeDetails(@RequestParam Long empId, @RequestHeader("Authorization") String token) {
+        if (ObjectUtils.isEmpty(token) || !commonUtils.validateToken(token)) {
+            throw new UnauthorizedException("Unauthorized", "Invalid or missing authorization token");
+        }
+        return hrService.getEmployeeDetails(empId);
+    }
 }

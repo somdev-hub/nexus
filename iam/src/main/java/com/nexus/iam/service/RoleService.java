@@ -3,12 +3,11 @@ package com.nexus.iam.service;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
-@Service
 public interface RoleService {
-    public void initializeRoles();
+    void initializeRoles();
 
-    public ResponseEntity<?> createRoleIfNotFound(String roleName, Long deptId, String authHeader);
+    ResponseEntity<?> createRoleIfNotFound(String roleName, Long deptId, String authHeader);
 
-    public void deleteRoleByName(String roleName);
+    void deleteRoleByName(String roleName);
 
 }

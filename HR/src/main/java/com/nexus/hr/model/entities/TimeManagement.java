@@ -2,9 +2,9 @@ package com.nexus.hr.model.entities;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.Setter;
-import lombok.EqualsAndHashCode;
 
 import java.sql.Timestamp;
 
@@ -41,11 +41,11 @@ public class TimeManagement {
 
     private Double overtimeHours;
 
-    private Boolean isPresent;
+    private Boolean isPresent = Boolean.FALSE;
 
-    private Boolean isOnLeave;
+    private Boolean isOnLeave = Boolean.FALSE;
 
-    private Boolean isHalfDay;
+    private Boolean isHalfDay = Boolean.FALSE;
 
     @ManyToOne
     @JoinColumn(name = "hr_entity_hr_id")

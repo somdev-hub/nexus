@@ -38,4 +38,6 @@ public interface HrService {
     ResponseEntity<?> getEmployeesOnNoticePeriod(Long orgId);
 
     ResponseEntity<?> getEmployeesDirectory(List<Long> empIds);
+
+    ResponseEntity<?> getEmployeeDetails(Long empId);
 }

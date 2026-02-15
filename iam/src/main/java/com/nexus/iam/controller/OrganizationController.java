@@ -122,4 +122,9 @@ public class OrganizationController {
     public ResponseEntity<?> getEmployeeDirectory(@RequestParam Long orgId, @RequestParam(value = "pageNo", required = false, defaultValue = "0") Integer pageNo, @RequestParam(value = "pageOffset", required = false, defaultValue = "10") Integer pageOffset) {
         return organizationService.getEmployeeDirectory(orgId, pageNo, pageOffset);
     }
+
+    @GetMapping("/employee/details")
+    public ResponseEntity<?> getEmployeeDetails(@RequestParam Long userId){
+        return organizationService.getEmployeeDetails(userId);
+    }
 }

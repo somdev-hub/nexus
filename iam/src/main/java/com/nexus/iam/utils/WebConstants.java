@@ -40,4 +40,7 @@ public class WebConstants {
 
     @Value("${hr.employee.directory.url}")
     private String employeeDirectoryUrl;
+
+    @Value("${hr.employee.details.url}")
+    private String employeeDetailsUrl;
 }

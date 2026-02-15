@@ -3,8 +3,10 @@ package com.nexus.hr.service.implementations;
 import com.nexus.hr.exception.ResourceNotFoundException;
 import com.nexus.hr.exception.ServiceLevelException;
 import com.nexus.hr.model.entities.*;
+import com.nexus.hr.model.enums.AttendanceStatus;
 import com.nexus.hr.model.enums.HrRequestStatus;
 import com.nexus.hr.payload.*;
+import com.nexus.hr.payload.response.EmployeeDetailsResponse;
 import com.nexus.hr.payload.response.EmployeeDirectoryResponse;
 import com.nexus.hr.repository.HrEntityRepo;
 import com.nexus.hr.repository.HrRequestRepo;
@@ -18,6 +20,7 @@ import com.nexus.hr.views.CommunicationTemplateBuilder;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.NonNull;
 import org.modelmapper.ModelMapper;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -30,6 +33,8 @@ import org.springframework.util.ObjectUtils;
 import java.sql.Date;
 import java.sql.Timestamp;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -51,6 +56,17 @@ public class HrServiceImpl implements HrService {
     private final CommunicationTemplateBuilder communicationTemplateBuilder;
     private final LeaveAllocationUtils leaveAllocationUtils;
 
+    private static @NonNull AttendanceStatus getAttendanceStatus(TimeManagement attendance) {
+        AttendanceStatus status;
+        switch (attendance){
+            case TimeManagement tm when tm.getIsPresent() && tm.getIsHalfDay() -> status = AttendanceStatus.HALF_DAY;
+            case TimeManagement tm when tm.getIsPresent() -> status = AttendanceStatus.PRESENT;
+            case TimeManagement tm when tm.getIsOnLeave() -> status = AttendanceStatus.ON_LEAVE;
+            default -> status = AttendanceStatus.ABSENT;
+        }
+        return status;
+    }
+
     @Transactional
     @Override
     public ResponseEntity<?> initHr(HrInitRequestDto hrInitRequestDto) {
@@ -65,6 +81,7 @@ public class HrServiceImpl implements HrService {
 
             Position position = new Position();
             position.setTitle(hrInitRequestDto.getTitle());
+            position.setDepartment(hrInitRequestDto.getDepartment());
             position.setRemarks(hrInitRequestDto.getRemarks());
             Timestamp effectiveFrom;
             if (!ObjectUtils.isEmpty(hrInitRequestDto.getEffectiveFrom())) {
@@ -812,6 +829,47 @@ public class HrServiceImpl implements HrService {
         } catch (RuntimeException e) {
             throw new ServiceLevelException("HR Service", "Exception occurred while fetching employees directory",
                     "getEmployeesDirectory", e.getClass().getName(), e.getMessage());
+        }
+        return response;
+    }
+
+    @Override
+    public ResponseEntity<?> getEmployeeDetails(Long empId) {
+        if (ObjectUtils.isEmpty(empId)) {
+            throw new ServiceLevelException("HR Service", "Employee ID cannot be null or empty",
+                    "getEmployeeDetails", "InvalidInput", "Employee ID is null or empty");
+        }
+        ResponseEntity<?> response = null;
+        try {
+            HrEntity hrEntity = hrEntityRepo.findByEmployeeId(empId).orElseThrow(() -> new ResourceNotFoundException("HrEntity", "employeeId", empId));
+            EmployeeDetailsResponse employeeDetailsResponse = new EmployeeDetailsResponse();
+            employeeDetailsResponse.setDepartment(hrEntity.getDepartment());
+            employeeDetailsResponse.setJobTitle(hrEntity.getPositions().getLast().getTitle());
+            employeeDetailsResponse.setJoiningDate(hrEntity.getDateOfJoining());
+            employeeDetailsResponse.setAnnualSalary(hrEntity.getCompensation().getNetPay()); // later to be changed to gross pay
+            List<EmployeeDetailsResponse.PositionsHeld> positionsHeld = hrEntity.getPositions().stream().map(position -> {
+                Double duration = position.getLastEffectiveDate() != null ? (position.getLastEffectiveDate().getTime() - position.getEffectiveFrom().getTime()) / (1000.0 * 60 * 60 * 24 * 30) : (System.currentTimeMillis() - position.getEffectiveFrom().getTime()) / (1000.0 * 60 * 60 * 24 * 30);
+                return new EmployeeDetailsResponse.PositionsHeld(position.getTitle(), position.getDepartment(), position.getEffectiveFrom(), position.getLastEffectiveDate(), duration);
+            }).toList();
+            employeeDetailsResponse.setPositionsHeld(positionsHeld);
+            employeeDetailsResponse.setCompensation(modelMapper.map(hrEntity.getCompensation(), CompensationDto.class));
+            List<EmployeeDetailsResponse.HrDocuments> hrDocuments = hrEntity.getHrDocuments().stream().map(document -> new EmployeeDetailsResponse.HrDocuments(document.getDocumentName(), document.getDocumentUrl(), document.getCreatedOn(), document.getHrDocumentType())).toList();
+            employeeDetailsResponse.setHrDocuments(hrDocuments);
+            // attendance
+            List<EmployeeDetailsResponse.AttendanceRecord> attendanceRecords = hrEntity.getTimeManagements().stream().map(attendance -> {
+                Date date=Date.valueOf(attendance.getCreatedOn().toLocalDateTime().toLocalDate());
+                // decide status
+                AttendanceStatus status = getAttendanceStatus(attendance);
+                Double totalBreakHours = attendance.getBreakEndTime() != null && attendance.getBreakStartTime() != null ? (attendance.getBreakEndTime().getTime() - attendance.getBreakStartTime().getTime()) / (1000.0 * 60 * 60) : 0.0;
+                return new EmployeeDetailsResponse.AttendanceRecord(date, status, attendance.getCheckInTime(), attendance.getCheckOutTime(), attendance.getTotalHoursWorked(), totalBreakHours, attendance.getOvertimeHours());
+            }).toList();
+            List<EmployeeDetailsResponse.LeaveRecord> leaveRecords = hrEntity.getLeaveAllocations().stream().map(leave -> new EmployeeDetailsResponse.LeaveRecord(leave.getLeaveType().name(), leave.getAllocatedDays(), leave.getUsedDays(), leave.getRemainingDays())).toList();
+            employeeDetailsResponse.setAttendanceRecords(attendanceRecords);
+            employeeDetailsResponse.setLeaveRecords(leaveRecords);
+            response = ResponseEntity.ok(employeeDetailsResponse);
+        } catch (RuntimeException e) {
+            throw new ServiceLevelException("HR Service", "Exception occurred while fetching employee details",
+                    "getEmployeeDetails", e.getClass().getName(), e.getMessage());
         }
         return response;
     }

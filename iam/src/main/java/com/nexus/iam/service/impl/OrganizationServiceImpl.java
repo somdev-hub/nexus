@@ -1,11 +1,9 @@
 package com.nexus.iam.service.impl;
 
-import com.nexus.iam.dto.LoginRequest;
-import com.nexus.iam.dto.LoginResponse;
-import com.nexus.iam.dto.OrganizationDto;
-import com.nexus.iam.dto.OrganizationFetchDto;
+import com.nexus.iam.dto.*;
 import com.nexus.iam.dto.response.EmployeeDirectoryResponse;
 import com.nexus.iam.dto.response.EmployeePageInsights;
+import com.nexus.iam.dto.response.EmployeeProfileResponse;
 import com.nexus.iam.dto.response.PaginatedResponse;
 import com.nexus.iam.entities.Organization;
 import com.nexus.iam.entities.Role;
@@ -18,6 +16,7 @@ import com.nexus.iam.repository.UserRepository;
 import com.nexus.iam.service.AuthenticationService;
 import com.nexus.iam.service.OrganizationService;
 import com.nexus.iam.utils.CommonUtils;
+import com.nexus.iam.utils.DataMapper;
 import com.nexus.iam.utils.RestService;
 import com.nexus.iam.utils.WebConstants;
 import lombok.RequiredArgsConstructor;
@@ -339,17 +338,18 @@ public class OrganizationServiceImpl implements OrganizationService {
             // 6. Combine data using map lookup
             List<EmployeeDirectoryResponse> result = employeeDetails.stream()
                     .map(detail -> {
-                        Long empId = extractLong(detail, "empId");
+                        Long empId = DataMapper.extractField(detail, "empId", Long.class);
                         User user = userMap.get(empId);
+                        LocalDateTime joiningDate = DataMapper.extractField(detail, "joiningDate", LocalDateTime.class);
 
                         return new EmployeeDirectoryResponse(
                                 empId,
                                 user != null ? user.getName() : "",
                                 user != null ? user.getEmail() : "",
-                                extractString(detail, "deptName"),
-                                extractString(detail, "position"),
-                                extractDouble(detail, "salary"),
-                                extractDate(detail, "joiningDate")
+                                DataMapper.extractField(detail, "deptName", String.class),
+                                DataMapper.extractField(detail, "position", String.class),
+                                DataMapper.extractField(detail, "salary", Double.class),
+                                joiningDate
                         );
                     })
                     .toList();
@@ -377,31 +377,144 @@ public class OrganizationServiceImpl implements OrganizationService {
         }
     }
 
-    private Long extractLong(Map<String, Object> map, String key) {
-        Object value = map.get(key);
-        return value != null ? Long.valueOf(value.toString()) : null;
-    }
-
-    private String extractString(Map<String, Object> map, String key) {
-        Object value = map.get(key);
-        return value != null ? value.toString() : "";
-    }
-
-    private Double extractDouble(Map<String, Object> map, String key) {
-        Object value = map.get(key);
-        return value != null ? Double.valueOf(value.toString()) : 0.0;
-    }
-
-    private LocalDateTime extractDate(Map<String, Object> map, String key) {
-        Object value = map.get(key);
-        if (value == null) {
-            return null;
+    @Override
+    public ResponseEntity<?> getEmployeeDetails(Long userId) {
+        if (ObjectUtils.isEmpty(userId)) {
+            throw new IllegalArgumentException("User ID cannot be null");
         }
+        ResponseEntity<?> response = null;
+        try {
+            User user = userRepository.findById(userId)
+                    .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
+            EmployeeProfileResponse employeeProfileResponse = new EmployeeProfileResponse();
+            employeeProfileResponse.setEmpId(user.getId());
+            employeeProfileResponse.setFullName(user.getName());
+            employeeProfileResponse.setEmail(user.getEmail());
+            employeeProfileResponse.setGender(user.getGender());
+            employeeProfileResponse.setPhone(user.getPhone());
+            employeeProfileResponse.setAddress(user.getAddress());
+            employeeProfileResponse.setAge(user.getAge());
+            employeeProfileResponse.setProfileImageUrl(user.getProfilePhoto());
 
-        String dateString = value.toString();
-        if (dateString.contains("T")){
-            dateString=dateString.substring(0,dateString.indexOf("T"));
+            // for other details contact HR microservice
+            LoginResponse loginResponse = authenticationService.authenticate(
+                    new LoginRequest(webConstants.getGenericUserId(), webConstants.getGenericPassword())
+            );
+            Map<String, String> headers = commonUtils.buildJsonHeaders(loginResponse.getAccessToken());
+            UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getEmployeeDetailsUrl()).queryParam("empId", user.getId());
+            ResponseEntity<?> hrResponse = restService.iamRestCall(
+                    builder.toUriString(),
+                    null,
+                    headers,
+                    HttpMethod.GET,
+                    null
+            );
+            if (hrResponse.getStatusCode().is2xxSuccessful() && hrResponse.getBody() != null) {
+                // Get the response body as Map
+                @SuppressWarnings("unchecked")
+                Map<String, Object> responseData = (Map<String, Object>) hrResponse.getBody();
+
+                // Create a new map with the HR data plus IAM service user details
+                Map<String, Object> combinedData = new HashMap<>(responseData);
+
+                // Add IAM service user details
+                combinedData.put("empId", user.getId());
+                combinedData.put("fullName", user.getName());
+                combinedData.put("email", user.getEmail());
+                combinedData.put("gender", user.getGender());
+                combinedData.put("phone", user.getPhone());
+                combinedData.put("address", user.getAddress());
+                combinedData.put("age", user.getAge());
+                combinedData.put("profileImageUrl", user.getProfilePhoto());
+
+                // Return the combined data directly - Spring will serialize it properly
+                response = ResponseEntity.ok(combinedData);
+
+
+
+//                @SuppressWarnings("unchecked") Map<String, Object> hrDetails = (Map<String, Object>) hrResponse.getBody();
+//                if (hrDetails != null) {
+//                    // Map basic fields
+//                    employeeProfileResponse.setDepartment(DataMapper.extractField(hrDetails, "department", String.class));
+//                    employeeProfileResponse.setJobTitle(DataMapper.extractField(hrDetails, "jobTitle", String.class));
+//                    employeeProfileResponse.setAnnualSalary(DataMapper.extractField(hrDetails, "annualSalary", Double.class));
+//                    employeeProfileResponse.setJoiningDate(DataMapper.extractField(hrDetails, "joiningDate", Date.class));
+//                    employeeProfileResponse.setCoverImageUrl(DataMapper.extractField(hrDetails, "coverImageUrl", String.class));
+//                    employeeProfileResponse.setProfileImageUrl(DataMapper.extractField(hrDetails, "profileImageUrl", String.class));
+//
+//                    // Map compensation details with automatic conversion of nested objects and lists
+//                    Map<String, Object> compensationData = DataMapper.extractMapField(hrDetails, "compensation");
+//                    if (!compensationData.isEmpty()) {
+//                        CompensationDto compensationDto = DataMapper.mapToObject(compensationData, CompensationDto.class);
+//                        // Map nested lists within compensation
+//                        compensationDto.setBonuses(DataMapper.extractListField(compensationData, "bonuses", BonusDto.class));
+//                        compensationDto.setDeductions(DataMapper.extractListField(compensationData, "deductions", DeductionDto.class));
+//                        compensationDto.setBankRecords(DataMapper.extractListField(compensationData, "bankRecords", BankRecordsDto.class));
+//                        employeeProfileResponse.setCompensation(compensationDto);
+//                    }
+//
+//                    // Map leave records
+//                    List<Map<String, Object>> leaveRecordsList = DataMapper.extractListOfMaps(hrDetails, "leaveRecords");
+//                    List<EmployeeProfileResponse.LeaveRecord> leaveRecords = leaveRecordsList.stream()
+//                            .map(record -> new EmployeeProfileResponse.LeaveRecord(
+//                                    DataMapper.extractField(record, "leaveType", String.class),
+//                                    DataMapper.extractField(record, "totalLeaves", Double.class),
+//                                    DataMapper.extractField(record, "leavesTaken", Double.class),
+//                                    DataMapper.extractField(record, "remainingLeaves", Double.class)
+//                            ))
+//                            .toList();
+//                    employeeProfileResponse.setLeaveRecords(leaveRecords);
+//
+//                    // Map attendance records
+//                    List<Map<String, Object>> attendanceList = DataMapper.extractListOfMaps(hrDetails, "attendanceRecords");
+//                    List<EmployeeProfileResponse.AttendanceRecord> attendanceRecords = attendanceList.stream()
+//                            .map(record -> new EmployeeProfileResponse.AttendanceRecord(
+//                                    DataMapper.extractField(record, "date", LocalDateTime.class),
+//                                    DataMapper.extractField(record, "status", String.class),
+//                                    DataMapper.extractField(record, "checkInTime", LocalDateTime.class),
+//                                    DataMapper.extractField(record, "checkOutTime", LocalDateTime.class),
+//                                    DataMapper.extractField(record, "hoursWorked", Double.class),
+//                                    DataMapper.extractField(record, "breakHours", Double.class),
+//                                    DataMapper.extractField(record, "overtimeHours", Double.class)
+//                            ))
+//                            .toList();
+//                    employeeProfileResponse.setAttendanceRecords(attendanceRecords);
+//
+//                    // Map positions held
+//                    List<Map<String, Object>> positionsList = DataMapper.extractListOfMaps(hrDetails, "positionsHeld");
+//                    List<EmployeeProfileResponse.PositionsHeld> positionsHeld = positionsList.stream()
+//                            .map(position -> new EmployeeProfileResponse.PositionsHeld(
+//                                    DataMapper.extractField(position, "title", String.class),
+//                                    DataMapper.extractField(position, "department", String.class),
+//                                    DataMapper.extractField(position, "fromDate", LocalDateTime.class),
+//                                    DataMapper.extractField(position, "toDate", LocalDateTime.class),
+//                                    DataMapper.extractField(position, "duration", Double.class)
+//                            ))
+//                            .toList();
+//                    employeeProfileResponse.setPositionsHeld(positionsHeld);
+//
+//                    // Map HR documents
+//                    List<Map<String, Object>> documentsList = DataMapper.extractListOfMaps(hrDetails, "hrDocuments");
+//                    List<EmployeeProfileResponse.HrDocuments> hrDocuments = documentsList.stream()
+//                            .map(doc -> new EmployeeProfileResponse.HrDocuments(
+//                                    DataMapper.extractField(doc, "documentName", String.class),
+//                                    DataMapper.extractField(doc, "documentUrl", String.class),
+//                                    DataMapper.extractField(doc, "uploadedOn", Timestamp.class),
+//                                    DataMapper.extractField(doc, "documentType", String.class)
+//                            ))
+//                            .toList();
+//                    employeeProfileResponse.setHrDocuments(hrDocuments);
+//                }
+//                response = ResponseEntity.ok(jsonObject);
+            }
+        } catch (RuntimeException e) {
+            throw new ServiceLevelException(
+                    "OrganizationService", "Failed to get employee details", "getEmployeeDetails",
+                    e.getClass().getSimpleName(), e.getLocalizedMessage()
+            );
         }
-        return LocalDateTime.of(Date.valueOf(dateString).toLocalDate(), LocalDateTime.MIN.toLocalTime());
+        return response;
     }
+
+    // ...existing code...
 }
