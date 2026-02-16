@@ -34,7 +34,7 @@ import java.sql.Date;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
+import java.time.LocalTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -58,7 +58,7 @@ public class HrServiceImpl implements HrService {
 
     private static @NonNull AttendanceStatus getAttendanceStatus(TimeManagement attendance) {
         AttendanceStatus status;
-        switch (attendance){
+        switch (attendance) {
             case TimeManagement tm when tm.getIsPresent() && tm.getIsHalfDay() -> status = AttendanceStatus.HALF_DAY;
             case TimeManagement tm when tm.getIsPresent() -> status = AttendanceStatus.PRESENT;
             case TimeManagement tm when tm.getIsOnLeave() -> status = AttendanceStatus.ON_LEAVE;
@@ -845,7 +845,7 @@ public class HrServiceImpl implements HrService {
             EmployeeDetailsResponse employeeDetailsResponse = new EmployeeDetailsResponse();
             employeeDetailsResponse.setDepartment(hrEntity.getDepartment());
             employeeDetailsResponse.setJobTitle(hrEntity.getPositions().getLast().getTitle());
-            employeeDetailsResponse.setJoiningDate(hrEntity.getDateOfJoining());
+            employeeDetailsResponse.setJoiningDate(LocalDateTime.of(hrEntity.getDateOfJoining().toLocalDate(), LocalTime.MIDNIGHT));
             employeeDetailsResponse.setAnnualSalary(hrEntity.getCompensation().getNetPay()); // later to be changed to gross pay
             List<EmployeeDetailsResponse.PositionsHeld> positionsHeld = hrEntity.getPositions().stream().map(position -> {
                 Double duration = position.getLastEffectiveDate() != null ? (position.getLastEffectiveDate().getTime() - position.getEffectiveFrom().getTime()) / (1000.0 * 60 * 60 * 24 * 30) : (System.currentTimeMillis() - position.getEffectiveFrom().getTime()) / (1000.0 * 60 * 60 * 24 * 30);
@@ -857,11 +857,12 @@ public class HrServiceImpl implements HrService {
             employeeDetailsResponse.setHrDocuments(hrDocuments);
             // attendance
             List<EmployeeDetailsResponse.AttendanceRecord> attendanceRecords = hrEntity.getTimeManagements().stream().map(attendance -> {
-                Date date=Date.valueOf(attendance.getCreatedOn().toLocalDateTime().toLocalDate());
+//                Date date = Date.valueOf(attendance.getCreatedOn().toLocalDateTime().toLocalDate());
+                LocalDateTime datetime= LocalDateTime.of(attendance.getCreatedOn().toLocalDateTime().toLocalDate(), LocalTime.MIDNIGHT);
                 // decide status
                 AttendanceStatus status = getAttendanceStatus(attendance);
                 Double totalBreakHours = attendance.getBreakEndTime() != null && attendance.getBreakStartTime() != null ? (attendance.getBreakEndTime().getTime() - attendance.getBreakStartTime().getTime()) / (1000.0 * 60 * 60) : 0.0;
-                return new EmployeeDetailsResponse.AttendanceRecord(date, status, attendance.getCheckInTime(), attendance.getCheckOutTime(), attendance.getTotalHoursWorked(), totalBreakHours, attendance.getOvertimeHours());
+                return new EmployeeDetailsResponse.AttendanceRecord(datetime, status, attendance.getCheckInTime(), attendance.getCheckOutTime(), attendance.getTotalHoursWorked(), totalBreakHours, attendance.getOvertimeHours());
             }).toList();
             List<EmployeeDetailsResponse.LeaveRecord> leaveRecords = hrEntity.getLeaveAllocations().stream().map(leave -> new EmployeeDetailsResponse.LeaveRecord(leave.getLeaveType().name(), leave.getAllocatedDays(), leave.getUsedDays(), leave.getRemainingDays())).toList();
             employeeDetailsResponse.setAttendanceRecords(attendanceRecords);

@@ -1,5 +1,6 @@
 package com.nexus.iam.service.impl;
 
+import com.nexus.iam.config.CacheConfig;
 import com.nexus.iam.dto.*;
 import com.nexus.iam.dto.response.EmployeeDirectoryResponse;
 import com.nexus.iam.dto.response.EmployeePageInsights;
@@ -21,6 +22,8 @@ import com.nexus.iam.utils.RestService;
 import com.nexus.iam.utils.WebConstants;
 import lombok.RequiredArgsConstructor;
 import org.modelmapper.ModelMapper;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -93,6 +96,7 @@ public class OrganizationServiceImpl implements OrganizationService {
     }
 
     @Override
+    @Cacheable(value = CacheConfig.ORGANIZATION_CACHE, key = "#id")
     public OrganizationFetchDto getOrganizationById(Long id) {
         if (ObjectUtils.isEmpty(id)) {
             throw new IllegalArgumentException("Organization ID cannot be null");
@@ -183,6 +187,7 @@ public class OrganizationServiceImpl implements OrganizationService {
     }
 
     @Override
+    @Cacheable(value = CacheConfig.USER_ORGANIZATION_DETAILS_CACHE, key = "#userId")
     public Map<String, Object> getUserOrganizationDetails(Long userId) {
         try {
             Map<String, Object> result = new HashMap<>();
@@ -208,6 +213,7 @@ public class OrganizationServiceImpl implements OrganizationService {
     }
 
     @Override
+    @Cacheable(value = CacheConfig.EMPLOYEE_INSIGHTS_CACHE, key = "#orgId")
     public ResponseEntity<?> getEmployeeInsights(Long orgId) {
         if (ObjectUtils.isEmpty(orgId)) {
             throw new IllegalArgumentException("Organization ID cannot be null");
@@ -262,10 +268,10 @@ public class OrganizationServiceImpl implements OrganizationService {
 
         return response;
 
-
     }
 
     @Override
+    @Cacheable(value = CacheConfig.EMPLOYEE_DIRECTORY_CACHE, key = "#orgId + '-' + #pageNo + '-' + #pageOffset")
     public ResponseEntity<?> getEmployeeDirectory(Long orgId, Integer pageNo, Integer pageOffset) {
         if (ObjectUtils.isEmpty(orgId)) {
             throw new IllegalArgumentException("Organization ID cannot be null");
@@ -378,6 +384,7 @@ public class OrganizationServiceImpl implements OrganizationService {
     }
 
     @Override
+    @Cacheable(value = CacheConfig.EMPLOYEE_DETAILS_CACHE, key = "#userId")
     public ResponseEntity<?> getEmployeeDetails(Long userId) {
         if (ObjectUtils.isEmpty(userId)) {
             throw new IllegalArgumentException("User ID cannot be null");

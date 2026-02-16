@@ -2,16 +2,18 @@ package com.nexus.hr.payload.response;
 
 import com.nexus.hr.model.enums.AttendanceStatus;
 import com.nexus.hr.payload.CompensationDto;
+import com.nexus.hr.utils.LocalDateTimeSerializer;
 import lombok.Data;
+import tools.jackson.databind.annotation.JsonSerialize;
 
-import java.sql.Date;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.util.List;
 
 @Data
 public class EmployeeDetailsResponse {
-    private Date joiningDate;
+    @JsonSerialize(using = LocalDateTimeSerializer.class)
+    private LocalDateTime joiningDate;
     private Double annualSalary;
     private String jobTitle;
     private String department;
@@ -24,7 +26,8 @@ public class EmployeeDetailsResponse {
     public record LeaveRecord(String leaveType, Double totalLeaves, Double leavesTaken, Double remainingLeaves) {
     }
 
-    public record AttendanceRecord(Date date, AttendanceStatus status, Timestamp checkInTime, Timestamp checkOutTime,
+    public record AttendanceRecord(@JsonSerialize(using = LocalDateTimeSerializer.class) LocalDateTime date,
+                                   AttendanceStatus status, Timestamp checkInTime, Timestamp checkOutTime,
                                    Double hoursWorked, Double breakHours, Double overtimeHours) {
     }
 
