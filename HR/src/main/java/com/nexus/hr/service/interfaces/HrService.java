@@ -30,7 +30,7 @@ public interface HrService {
 
     ResponseEntity<Page<HrRequestDto>> getAllHrRequests(Pageable pageable);
 
-    ResponseEntity<?> promoteEmployee(Long hrId, Position position, CompensationDto compensation);
+    ResponseEntity<?> promoteEmployee(Long hrId, Position position, CompensationDto compensation, String role);
 
     ResponseEntity<?> rewardAppraisal(Long hrId, CompensationDto compensation);
 

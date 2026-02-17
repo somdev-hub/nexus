@@ -75,16 +75,17 @@ public class HrController {
 
     @LogActivity("Promote Employee")
     @PostMapping("/employee/promote")
-    public ResponseEntity<?> promoteEmployee(@RequestParam Long hrId, @RequestBody Map<String, Object> payload, @RequestHeader("Authorization") String token) {
+    public ResponseEntity<?> promoteEmployee(@RequestParam Long empId, @RequestBody Map<String, Object> payload, @RequestHeader("Authorization") String token) {
         if (ObjectUtils.isEmpty(token) || !commonUtils.validateToken(token)) {
             throw new UnauthorizedException("Unauthorized", "Invalid or missing authorization token");
         }
         Position position = objectMapper.convertValue(payload.get("position"), Position.class);
         CompensationDto compensation = objectMapper.convertValue(payload.get("compensation"), CompensationDto.class);
-        if (ObjectUtils.isEmpty(position) || ObjectUtils.isEmpty(compensation)) {
+        String role = (String) payload.get("role");
+        if (ObjectUtils.isEmpty(position) || ObjectUtils.isEmpty(compensation) || ObjectUtils.isEmpty(role)) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Position and Compensation details are required for promotion.");
         }
-        return hrService.promoteEmployee(hrId, position, compensation);
+        return hrService.promoteEmployee(empId, position, compensation, role);
     }
 
     @LogActivity("Reward Appraisal")

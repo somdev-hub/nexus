@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reward Appraisal</title>
+</head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+    <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+        <h2 style="color: #ff9800; border-bottom: 3px solid #ff9800; padding-bottom: 10px;">
+            🏆 Reward Appraisal - Compensation Revision
+        </h2>
+
+        <p>Dear <strong th:text="${employeeName}">Employee Name</strong>,</p>
+
+        <p>We are pleased to inform you that your performance has been recognized through a <strong>compensation revision</strong>
+        as part of our reward appraisal process. This reflects your outstanding contributions and dedication to <span th:text="${organizationName}">Organization</span>.</p>
+
+        <div style="background-color: #fff3e0; border-left: 4px solid #ff9800; padding: 15px; margin: 20px 0;">
+            <p><strong>Appraisal Details:</strong></p>
+            <ul style="margin: 10px 0;">
+                <li><strong>Position:</strong> <span th:text="${position}">Position</span></li>
+                <li><strong>Department:</strong> <span th:text="${department}">Department</span></li>
+                <li><strong>Appraisal Date:</strong> <span th:text="${appraisalDate}">DD-MM-YYYY</span></li>
+            </ul>
+        </div>
+
+        <p>Your revised compensation package effective from <strong th:text="${effectiveDate}">DD-MM-YYYY</strong> is as follows:</p>
+        <div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin: 15px 0;">
+            <ul style="margin: 10px 0; list-style: none; padding: 0;">
+                <li><strong>Base Salary:</strong> <span th:text="${basePay}">₹0</span></li>
+                <li><strong>HRA:</strong> <span th:text="${hra}">₹0</span></li>
+                <li><strong>Net Monthly Pay:</strong> <span th:text="${netMonthlyPay}">₹0</span></li>
+                <li><strong>Annual Package:</strong> <span th:text="${annualPackage}">₹0</span></li>
+            </ul>
+        </div>
+
+        <p>Please find attached the revised compensation card with complete details on your benefits, bonuses,
+        deductions, and other compensation components.</p>
+
+        <p>Your performance continues to be an asset to our organization. We appreciate your hard work and
+        commitment, and we look forward to your continued success and growth with us.</p>
+
+        <p>If you have any questions regarding your revised compensation package,
+        please feel free to reach out to our HR Department at <a th:href="'mailto:' + ${hrEmail}" th:text="${hrEmail}">hr@company.com</a>.</p>
+
+        <p style="margin-top: 30px;">Thank you for your exceptional contributions!<br/>
+        <strong><span th:text="${organizationName}">Organization</span> HR Team</strong></p>
+
+        <hr style="border: none; border-top: 1px solid #ddd; margin-top: 30px;">
+        <p style="font-size: 12px; color: #666;">
+            This is an automated email. Please do not reply directly to this message.
+        </p>
+    </div>
+</body>
+</html>
+

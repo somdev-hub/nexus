@@ -10,6 +10,7 @@ import com.nexus.hr.payload.response.EmployeeDetailsResponse;
 import com.nexus.hr.payload.response.EmployeeDirectoryResponse;
 import com.nexus.hr.repository.HrEntityRepo;
 import com.nexus.hr.repository.HrRequestRepo;
+import com.nexus.hr.repository.PositionRepository;
 import com.nexus.hr.service.interfaces.CommunicationService;
 import com.nexus.hr.service.interfaces.HrService;
 import com.nexus.hr.utils.CommonUtils;
@@ -55,6 +56,7 @@ public class HrServiceImpl implements HrService {
     private final RestServices restServices;
     private final CommunicationTemplateBuilder communicationTemplateBuilder;
     private final LeaveAllocationUtils leaveAllocationUtils;
+    private final PositionRepository positionRepository;
 
     private static @NonNull AttendanceStatus getAttendanceStatus(TimeManagement attendance) {
         AttendanceStatus status;
@@ -367,16 +369,16 @@ public class HrServiceImpl implements HrService {
     }
 
     @Override
-    public ResponseEntity<?> promoteEmployee(Long hrId, Position position, CompensationDto compensation) {
-        if (ObjectUtils.isEmpty(hrId) || ObjectUtils.isEmpty(position) || ObjectUtils.isEmpty(compensation)) {
+    public ResponseEntity<?> promoteEmployee(Long empId, Position position, CompensationDto compensation, String role) {
+        if (ObjectUtils.isEmpty(empId) || ObjectUtils.isEmpty(position) || ObjectUtils.isEmpty(compensation) || ObjectUtils.isEmpty(role)) {
             throw new ServiceLevelException("HR Service", "HR ID, Position, and Compensation cannot be null or empty",
                     "promoteEmployee", "InvalidInput", "One or more inputs are null or empty");
         }
         try {
-            log.info("=== Starting promotion process for hrId: {} ===", hrId);
+            log.info("=== Starting promotion process for hrId: {} ===", empId);
 
-            HrEntity hrEntity = hrEntityRepo.findById(hrId)
-                    .orElseThrow(() -> new ResourceNotFoundException("HrEntity", "hrId", hrId));
+            HrEntity hrEntity = hrEntityRepo.findByEmployeeId(empId)
+                    .orElseThrow(() -> new ResourceNotFoundException("HrEntity", "empId", empId));
 
             // Deactivate last position and set end date
             log.info("Deactivating previous position for employee: {}", hrEntity.getEmployeeId());
@@ -388,6 +390,7 @@ public class HrServiceImpl implements HrService {
             position.setIsActive(Boolean.TRUE);
             position.setHrEntity(hrEntity);
             position.setEffectiveFrom(new Timestamp(System.currentTimeMillis()));
+            positionRepository.save(position);
             hrEntity.getPositions().add(position);
             log.info("✓ New position {} added for employee: {}", position.getTitle(), hrEntity.getEmployeeId());
 

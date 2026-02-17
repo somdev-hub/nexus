@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Promotion Notification</title>
+</head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+    <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+        <h2 style="color: #27ae60; border-bottom: 3px solid #27ae60; padding-bottom: 10px;">
+            🎉 Congratulations on Your Promotion!
+        </h2>
+
+        <p>Dear <strong th:text="${employeeName}">Employee Name</strong>,</p>
+
+        <p>We are delighted to inform you of your <strong>promotion</strong>, which is a testament to your
+        outstanding performance, dedication, and valuable contributions to <span th:text="${organizationName}">Organization</span>.</p>
+
+        <div style="background-color: #e8f5e9; border-left: 4px solid #27ae60; padding: 15px; margin: 20px 0;">
+            <p><strong>Promotion Details:</strong></p>
+            <ul style="margin: 10px 0;">
+                <li><strong>Previous Position:</strong> <span th:text="${previousPosition}">Previous Position</span></li>
+                <li><strong>New Position:</strong> <span th:text="${newPosition}">New Position</span></li>
+                <li><strong>Department:</strong> <span th:text="${department}">Department</span></li>
+                <li><strong>Effective Date:</strong> <span th:text="${effectiveDate}">DD-MM-YYYY</span></li>
+            </ul>
+        </div>
+
+        <p>Your revised compensation package details are outlined below:</p>
+        <div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin: 15px 0;">
+            <ul style="margin: 10px 0; list-style: none; padding: 0;">
+                <li><strong>Base Salary:</strong> <span th:text="${basePay}">₹0</span></li>
+                <li><strong>HRA:</strong> <span th:text="${hra}">₹0</span></li>
+                <li><strong>Net Monthly Pay:</strong> <span th:text="${netMonthlyPay}">₹0</span></li>
+                <li><strong>Annual Package:</strong> <span th:text="${annualPackage}">₹0</span></li>
+            </ul>
+        </div>
+
+        <p>Please find attached the following documents:</p>
+        <ol>
+            <li>Promotion Letter</li>
+            <li>Revised Compensation Card</li>
+        </ol>
+
+        <p>This promotion recognizes your exceptional abilities, leadership qualities, and commitment to excellence.
+        We are confident that you will continue to demonstrate the same level of professional excellence in your new role.</p>
+
+        <p>Should you have any questions regarding this promotion or your revised compensation package,
+        please do not hesitate to contact our HR Department at <a th:href="'mailto:' + ${hrEmail}" th:text="${hrEmail}">hr@company.com</a>.</p>
+
+        <p style="margin-top: 30px;">Once again, congratulations on this well-deserved promotion!<br/>
+        <strong><span th:text="${organizationName}">Organization</span> HR Team</strong></p>
+
+        <hr style="border: none; border-top: 1px solid #ddd; margin-top: 30px;">
+        <p style="font-size: 12px; color: #666;">
+            This is an automated email. Please do not reply directly to this message.
+        </p>
+    </div>
+</body>
+</html>
+
