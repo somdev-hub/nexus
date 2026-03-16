@@ -2,6 +2,7 @@ package com.nexus.hr.service.implementations;
 
 import com.nexus.hr.exception.ResourceNotFoundException;
 import com.nexus.hr.exception.ServiceLevelException;
+import com.nexus.hr.kafka.KafkaProducer;
 import com.nexus.hr.model.entities.*;
 import com.nexus.hr.model.enums.AttendanceStatus;
 import com.nexus.hr.model.enums.HrRequestStatus;
@@ -13,10 +14,7 @@ import com.nexus.hr.repository.HrRequestRepo;
 import com.nexus.hr.repository.PositionRepository;
 import com.nexus.hr.service.interfaces.CommunicationService;
 import com.nexus.hr.service.interfaces.HrService;
-import com.nexus.hr.utils.CommonUtils;
-import com.nexus.hr.utils.LeaveAllocationUtils;
-import com.nexus.hr.utils.RestServices;
-import com.nexus.hr.utils.WebConstants;
+import com.nexus.hr.utils.*;
 import com.nexus.hr.views.CommunicationTemplateBuilder;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -30,6 +28,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.util.ObjectUtils;
+import tools.jackson.databind.ObjectMapper;
 
 import java.sql.Date;
 import java.sql.Timestamp;
@@ -39,6 +38,7 @@ import java.time.LocalTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 @Service
@@ -57,6 +57,8 @@ public class HrServiceImpl implements HrService {
     private final CommunicationTemplateBuilder communicationTemplateBuilder;
     private final LeaveAllocationUtils leaveAllocationUtils;
     private final PositionRepository positionRepository;
+    private final KafkaProducer kafkaProducer;
+    private final ObjectMapper objectMapper;
 
     private static @NonNull AttendanceStatus getAttendanceStatus(TimeManagement attendance) {
         AttendanceStatus status;
@@ -256,7 +258,7 @@ public class HrServiceImpl implements HrService {
 
             // Send email - if this fails, it won't affect the transaction
             try {
-                communicationService.sendCommunicationOverEmail(emailCommunicationDto);
+                communicationService.sendCommunicationOverKafka(emailCommunicationDto);
                 log.info("Welcome email sent successfully to {} for employee ID: {}",
                         hrInitRequestDto.getPersonalEmail(), savedHrEntity.getEmployeeId());
             } catch (Exception emailException) {

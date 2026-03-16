@@ -50,4 +50,6 @@ public class HrCommunication {
     @Column(columnDefinition = "TEXT")
     private List<String> bccEmails;
 
+    private String uuid;
+
 }

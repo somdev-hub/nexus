@@ -1,5 +1,7 @@
 package com.nexus.cms.config;
 
+import com.nexus.cms.util.WebConstants;
+import lombok.RequiredArgsConstructor;
 import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.ProducerConfig;
@@ -31,13 +33,10 @@ import java.util.Map;
  */
 @Configuration
 @EnableKafka
+@RequiredArgsConstructor
 public class KafkaConfig {
 
-    @Value("${spring.kafka.bootstrap-servers}")
-    private String bootstrapServers;
-
-    @Value("${spring.kafka.consumer.group-id}")
-    private String consumerGroupId;
+    private final WebConstants webConstants;
 
     /**
      * Kafka Admin Configuration
@@ -45,7 +44,7 @@ public class KafkaConfig {
     @Bean
     public KafkaAdmin kafkaAdmin() {
         Map<String, Object> configs = new HashMap<>();
-        configs.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
+        configs.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, webConstants.getBootstrapServers());
         return new KafkaAdmin(configs);
     }
 
@@ -58,7 +57,7 @@ public class KafkaConfig {
         Map<String, Object> configProps = new HashMap<>();
 
         // Connection
-        configProps.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
+        configProps.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, webConstants.getBootstrapServers());
 
         // Serialization
         configProps.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
@@ -107,8 +106,8 @@ public class KafkaConfig {
         Map<String, Object> configProps = new HashMap<>();
 
         // Connection
-        configProps.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
-        configProps.put(ConsumerConfig.GROUP_ID_CONFIG, consumerGroupId);
+        configProps.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, webConstants.getBootstrapServers());
+        configProps.put(ConsumerConfig.GROUP_ID_CONFIG, webConstants.getConsumerGroupId());
 
         // Deserialization - Use StringDeserializer for both key and value
         configProps.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
@@ -221,6 +220,36 @@ public class KafkaConfig {
             .config("retention.ms", "1209600000") // 14 days
             .config("compression.type", "snappy")
             .build();
+    }
+
+    @Bean
+    public Object candidateSelectionMailTopic(){
+        return TopicBuilder.name("candidate-selection-mail")
+                .partitions(3)
+                .replicas(1)
+                .config("retention.ms", "1209600000")
+                .config("compression.type", "snappy")
+                .build();
+    }
+
+    @Bean
+    public Object candidateRejectionMailTopic(){
+        return TopicBuilder.name("candidate-rejection-mail")
+                .partitions(3)
+                .replicas(1)
+                .config("retention.ms", "1209600000")
+                .config("compression.type", "snappy")
+                .build();
+    }
+
+    @Bean
+    public Object candidatePromotionMailTopic(){
+        return TopicBuilder.name("candidate-promotion-mail")
+                .partitions(3)
+                .replicas(1)
+                .config("retention.ms", "1209600000")
+                .config("compression.type", "snappy")
+                .build();
     }
 }
 

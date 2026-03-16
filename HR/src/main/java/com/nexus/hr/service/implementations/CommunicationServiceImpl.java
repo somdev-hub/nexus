@@ -1,13 +1,17 @@
 package com.nexus.hr.service.implementations;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.nexus.hr.kafka.KafkaProducer;
 import com.nexus.hr.model.entities.HrCommunication;
 import com.nexus.hr.model.enums.CommunicationStatus;
 import com.nexus.hr.model.enums.CommunicationType;
 import com.nexus.hr.payload.EmailAttachmentDto;
 import com.nexus.hr.payload.EmailCommunicationDto;
 import com.nexus.hr.payload.ErrorResponseDto;
+import com.nexus.hr.payload.KafkaMessageDto;
 import com.nexus.hr.repository.HrCommunicationRepo;
 import com.nexus.hr.service.interfaces.CommunicationService;
+import com.nexus.hr.utils.CommonConstants;
 import com.nexus.hr.utils.Logger;
 import com.nexus.hr.utils.WebConstants;
 import jakarta.mail.MessagingException;
@@ -23,11 +27,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.ObjectUtils;
 import org.springframework.web.client.RestClient;
+import tools.jackson.databind.ObjectMapper;
 
 import java.sql.Timestamp;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -38,6 +44,8 @@ public class CommunicationServiceImpl implements CommunicationService {
     private final Logger logger;
     private final HrCommunicationRepo hrCommunicationRepo;
     private final WebConstants webConstants;
+    private final KafkaProducer kafkaProducer;
+    private final ObjectMapper objectMapper;
 
 
     @Override
@@ -84,7 +92,7 @@ public class CommunicationServiceImpl implements CommunicationService {
             javaMailSender.send(mimeMessage);
 
             // Log successful operation to database
-            logCommunicationToDatabase(emailCommunicationDto, CommunicationStatus.SENT);
+            logCommunicationToDatabase(emailCommunicationDto, CommunicationStatus.SENT, null);
 
             // Log to application logs
             logger.saveLogs(
@@ -106,11 +114,46 @@ public class CommunicationServiceImpl implements CommunicationService {
         } catch (IllegalArgumentException e) {
             return handleValidationError(emailCommunicationDto, e);
         } catch (MessagingException e) {
-            logCommunicationToDatabase(emailCommunicationDto, CommunicationStatus.FAILED);
+            logCommunicationToDatabase(emailCommunicationDto, CommunicationStatus.FAILED, null);
             return handleMessagingError(emailCommunicationDto, e);
         } catch (Exception e) {
-            logCommunicationToDatabase(emailCommunicationDto, CommunicationStatus.FAILED);
+            logCommunicationToDatabase(emailCommunicationDto, CommunicationStatus.FAILED, null);
             return handleGenericError(emailCommunicationDto, e);
+        }
+    }
+
+    @Override
+    public void sendCommunicationOverKafka(EmailCommunicationDto emailCommunicationDto) throws JsonProcessingException {
+        try {
+            validateEmailCommunication(emailCommunicationDto);
+            KafkaMessageDto kafkaMessageDto = new KafkaMessageDto();
+            kafkaMessageDto.setCommsType("email");
+            kafkaMessageDto.setTopic(CommonConstants.CANDIDATE_SELECTION_MAIL_TOPIC);
+            String uuid = UUID.randomUUID().toString();
+            kafkaMessageDto.setUuid(uuid);
+            // emailcommunicationdto as json
+            kafkaMessageDto.setMessage(objectMapper.writeValueAsString(emailCommunicationDto));
+            kafkaProducer.publishMessage(CommonConstants.CANDIDATE_SELECTION_MAIL_TOPIC, "email-selection-key", objectMapper.writeValueAsString(kafkaMessageDto));
+            logCommunicationToDatabase(emailCommunicationDto, CommunicationStatus.SENT, uuid);
+            logger.saveLogs(
+                    "/communication/send-email-kafka",
+                    HttpMethod.POST,
+                    HttpStatus.OK,
+                    emailCommunicationDto,
+                    "Email communication sent over Kafka successfully",
+                    null
+            );
+        } catch (RuntimeException e) {
+            log.error("Error sending communication over Kafka: {}", e.getMessage(), e);
+            logger.saveLogs(
+                    "/communication/send-email-kafka",
+                    HttpMethod.POST,
+                    HttpStatus.INTERNAL_SERVER_ERROR,
+                    emailCommunicationDto,
+                    e.getMessage(),
+                    null
+            );
+            throw e; // Rethrow to let caller handle it
         }
     }
 
@@ -379,7 +422,7 @@ public class CommunicationServiceImpl implements CommunicationService {
      * NOTE: This method is non-transactional. Failures are caught and logged but won't affect the caller.
      * The HrCommunication entity columns have been updated to TEXT type to prevent VARCHAR(255) overflow.
      */
-    private void logCommunicationToDatabase(EmailCommunicationDto dto, CommunicationStatus status) {
+    private void logCommunicationToDatabase(EmailCommunicationDto dto, CommunicationStatus status, String uuid) {
         try {
             HrCommunication communication = new HrCommunication();
             communication.setCommunicationType(CommunicationType.EMAIL);
@@ -391,7 +434,7 @@ public class CommunicationServiceImpl implements CommunicationService {
             communication.setBccEmails(dto.getBccEmails());
             communication.setStatus(status);
             communication.setTimestamp(new Timestamp(System.currentTimeMillis()));
-
+            communication.setUuid(uuid);
             if (!CollectionUtils.isEmpty(dto.getAttachments())) {
                 communication.setAttachments(
                         dto.getAttachments().stream()
