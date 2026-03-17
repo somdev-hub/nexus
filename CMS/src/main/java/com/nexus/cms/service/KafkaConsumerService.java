@@ -31,6 +31,7 @@ public class KafkaConsumerService {
     private final WebConstants webConstants;
     private final ObjectMapper objectMapper;
     private final EmailCommunicationService emailCommunicationService;
+    private final KafkaBacklogService kafkaBacklogService;
 
     /**
      * Consume notification messages (batch)
@@ -142,15 +143,18 @@ public class KafkaConsumerService {
         try {
             @SuppressWarnings("unchecked")
             Map<String, Object> payload = objectMapper.readValue(message, Map.class);
-            if (payload.containsKey("commsType") && payload.get("commsType").equals("email")) {
+            if (payload.containsKey("commsType") && payload.containsKey("uuid") && payload.containsKey("topic") && payload.get("commsType").equals("email")) {
                 log.info("Processing candidate selection email with key: {}, offset: {}", key, offset);
                 // Add your email processing logic here
+                kafkaBacklogService.logReceived(
+                        payload.get("topic").toString(),
+                        payload.get("uuid").toString()
+                );
                 emailCommunicationService.handleEmailCommunication(message);
             } else {
                 log.warn("Received message with unsupported commsType: {}", payload.get("commsType"));
             }
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             log.error("Error processing events batch", e);
         }
     }

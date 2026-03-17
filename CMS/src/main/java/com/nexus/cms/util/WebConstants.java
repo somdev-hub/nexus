@@ -12,4 +12,10 @@ public class WebConstants {
 
     @Value("${spring.kafka.consumer.group-id}")
     private String consumerGroupId;
+
+    @Value("${spring.mail.from:noreply@nexushr.com}")
+    private String defaultFromEmail;
+
+    @Value("${spring.mail.max-recipients:100}")
+    private Integer maxRecipients;
 }

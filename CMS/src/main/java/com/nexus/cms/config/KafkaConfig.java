@@ -1,5 +1,6 @@
 package com.nexus.cms.config;
 
+import com.nexus.cms.util.CommonConstants;
 import com.nexus.cms.util.WebConstants;
 import lombok.RequiredArgsConstructor;
 import org.apache.kafka.clients.admin.AdminClientConfig;
@@ -7,7 +8,6 @@ import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.annotation.EnableKafka;
@@ -23,7 +23,7 @@ import java.util.Map;
 
 /**
  * Production-Ready Kafka Configuration
- *
+ * <p>
  * This configuration provides:
  * - High availability and fault tolerance
  * - Exactly-once semantics
@@ -142,7 +142,7 @@ public class KafkaConfig {
     @Bean
     public KafkaListenerContainerFactory<ConcurrentMessageListenerContainer<String, String>> kafkaListenerContainerFactory() {
         ConcurrentKafkaListenerContainerFactory<String, String> factory =
-            new ConcurrentKafkaListenerContainerFactory<>();
+                new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(consumerFactory());
 
         // Enable batch processing
@@ -169,7 +169,7 @@ public class KafkaConfig {
     @Bean(name = "singleRecordKafkaListenerContainerFactory")
     public KafkaListenerContainerFactory<ConcurrentMessageListenerContainer<String, String>> singleRecordKafkaListenerContainerFactory() {
         ConcurrentKafkaListenerContainerFactory<String, String> factory =
-            new ConcurrentKafkaListenerContainerFactory<>();
+                new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(consumerFactory());
 
         // Single record processing (default)
@@ -194,37 +194,37 @@ public class KafkaConfig {
     @Bean
     public Object notificationTopic() {
         return TopicBuilder.name("cms-notifications")
-            .partitions(3)
-            .replicas(1)
-            .config("retention.ms", "604800000") // 7 days
-            .config("compression.type", "snappy")
-            .config("segment.ms", "86400000") // 1 day
-            .build();
+                .partitions(3)
+                .replicas(1)
+                .config("retention.ms", "604800000") // 7 days
+                .config("compression.type", "snappy")
+                .config("segment.ms", "86400000") // 1 day
+                .build();
     }
 
     @Bean
     public Object auditTopic() {
         return TopicBuilder.name("cms-audit-logs")
-            .partitions(3)
-            .replicas(1)
-            .config("retention.ms", "2592000000") // 30 days
-            .config("compression.type", "snappy")
-            .build();
+                .partitions(3)
+                .replicas(1)
+                .config("retention.ms", "2592000000") // 30 days
+                .config("compression.type", "snappy")
+                .build();
     }
 
     @Bean
     public Object eventTopic() {
         return TopicBuilder.name("cms-events")
-            .partitions(5)
-            .replicas(1)
-            .config("retention.ms", "1209600000") // 14 days
-            .config("compression.type", "snappy")
-            .build();
+                .partitions(5)
+                .replicas(1)
+                .config("retention.ms", "1209600000") // 14 days
+                .config("compression.type", "snappy")
+                .build();
     }
 
     @Bean
-    public Object candidateSelectionMailTopic(){
-        return TopicBuilder.name("candidate-selection-mail")
+    public Object candidateSelectionMailTopic() {
+        return TopicBuilder.name(CommonConstants.CANDIDATE_SELECTION_MAIL_TOPIC)
                 .partitions(3)
                 .replicas(1)
                 .config("retention.ms", "1209600000")
@@ -233,8 +233,8 @@ public class KafkaConfig {
     }
 
     @Bean
-    public Object candidateRejectionMailTopic(){
-        return TopicBuilder.name("candidate-rejection-mail")
+    public Object candidateRejectionMailTopic() {
+        return TopicBuilder.name(CommonConstants.CANDIDATE_REJECTION_MAIL_TOPIC)
                 .partitions(3)
                 .replicas(1)
                 .config("retention.ms", "1209600000")
@@ -243,8 +243,18 @@ public class KafkaConfig {
     }
 
     @Bean
-    public Object candidatePromotionMailTopic(){
-        return TopicBuilder.name("candidate-promotion-mail")
+    public Object candidatePromotionMailTopic() {
+        return TopicBuilder.name(CommonConstants.CANDIDATE_PROMOTION_MAIL_TOPIC)
+                .partitions(3)
+                .replicas(1)
+                .config("retention.ms", "1209600000")
+                .config("compression.type", "snappy")
+                .build();
+    }
+
+    @Bean
+    public Object rewardAppraisalMailTopic() {
+        return TopicBuilder.name(CommonConstants.REWARD_APPRAISAL_MAIL_TOPIC)
                 .partitions(3)
                 .replicas(1)
                 .config("retention.ms", "1209600000")
