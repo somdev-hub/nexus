@@ -3,11 +3,13 @@ package com.nexus.cms.config;
 import com.nexus.cms.util.CommonConstants;
 import com.nexus.cms.util.WebConstants;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.annotation.EnableKafka;
@@ -34,17 +36,29 @@ import java.util.Map;
 @Configuration
 @EnableKafka
 @RequiredArgsConstructor
+@Slf4j
 public class KafkaConfig {
 
     private final WebConstants webConstants;
 
     /**
      * Kafka Admin Configuration
+     * Only created if kafka.topic.auto-create is enabled (default: false)
      */
     @Bean
+    @ConditionalOnProperty(name = "kafka.topic.auto-create", havingValue = "true", matchIfMissing = false)
     public KafkaAdmin kafkaAdmin() {
         Map<String, Object> configs = new HashMap<>();
         configs.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, webConstants.getBootstrapServers());
+        
+        // Add timeout configuration to prevent hanging
+        configs.put(AdminClientConfig.REQUEST_TIMEOUT_MS_CONFIG, 30000);
+        configs.put(AdminClientConfig.CONNECTIONS_MAX_IDLE_MS_CONFIG, 540000);
+        configs.put(AdminClientConfig.RECONNECT_BACKOFF_MS_CONFIG, 100);
+        configs.put(AdminClientConfig.RECONNECT_BACKOFF_MAX_MS_CONFIG, 10000);
+        configs.put(AdminClientConfig.RETRIES_CONFIG, 3);
+        
+        log.info("Initializing Kafka Admin with bootstrap servers: {}", webConstants.getBootstrapServers());
         return new KafkaAdmin(configs);
     }
 
@@ -116,9 +130,8 @@ public class KafkaConfig {
         // Offset Management - Start from earliest unread message
         configProps.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
 
-        // Auto-commit configuration
-        configProps.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, true);
-        configProps.put(ConsumerConfig.AUTO_COMMIT_INTERVAL_MS_CONFIG, 100);
+        // Auto-commit configuration - MUST be false when using MANUAL_IMMEDIATE ack mode
+        configProps.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
 
         // Session timeout configuration
         configProps.put(ConsumerConfig.SESSION_TIMEOUT_MS_CONFIG, 30000);
@@ -190,40 +203,13 @@ public class KafkaConfig {
     /**
      * Define topics programmatically
      * For production, you may want to manage topics externally
+     * Enable with: kafka.topic.auto-create=true
      */
-    @Bean
-    public Object notificationTopic() {
-        return TopicBuilder.name("cms-notifications")
-                .partitions(3)
-                .replicas(1)
-                .config("retention.ms", "604800000") // 7 days
-                .config("compression.type", "snappy")
-                .config("segment.ms", "86400000") // 1 day
-                .build();
-    }
 
     @Bean
-    public Object auditTopic() {
-        return TopicBuilder.name("cms-audit-logs")
-                .partitions(3)
-                .replicas(1)
-                .config("retention.ms", "2592000000") // 30 days
-                .config("compression.type", "snappy")
-                .build();
-    }
-
-    @Bean
-    public Object eventTopic() {
-        return TopicBuilder.name("cms-events")
-                .partitions(5)
-                .replicas(1)
-                .config("retention.ms", "1209600000") // 14 days
-                .config("compression.type", "snappy")
-                .build();
-    }
-
-    @Bean
+    @ConditionalOnProperty(name = "kafka.topic.auto-create", havingValue = "true", matchIfMissing = false)
     public Object candidateSelectionMailTopic() {
+        log.info("Creating topic: {}", CommonConstants.CANDIDATE_SELECTION_MAIL_TOPIC);
         return TopicBuilder.name(CommonConstants.CANDIDATE_SELECTION_MAIL_TOPIC)
                 .partitions(3)
                 .replicas(1)
@@ -233,7 +219,9 @@ public class KafkaConfig {
     }
 
     @Bean
+    @ConditionalOnProperty(name = "kafka.topic.auto-create", havingValue = "true", matchIfMissing = false)
     public Object candidateRejectionMailTopic() {
+        log.info("Creating topic: {}", CommonConstants.CANDIDATE_REJECTION_MAIL_TOPIC);
         return TopicBuilder.name(CommonConstants.CANDIDATE_REJECTION_MAIL_TOPIC)
                 .partitions(3)
                 .replicas(1)
@@ -243,7 +231,9 @@ public class KafkaConfig {
     }
 
     @Bean
+    @ConditionalOnProperty(name = "kafka.topic.auto-create", havingValue = "true", matchIfMissing = false)
     public Object candidatePromotionMailTopic() {
+        log.info("Creating topic: {}", CommonConstants.CANDIDATE_PROMOTION_MAIL_TOPIC);
         return TopicBuilder.name(CommonConstants.CANDIDATE_PROMOTION_MAIL_TOPIC)
                 .partitions(3)
                 .replicas(1)
@@ -253,7 +243,9 @@ public class KafkaConfig {
     }
 
     @Bean
+    @ConditionalOnProperty(name = "kafka.topic.auto-create", havingValue = "true", matchIfMissing = false)
     public Object rewardAppraisalMailTopic() {
+        log.info("Creating topic: {}", CommonConstants.REWARD_APPRAISAL_MAIL_TOPIC);
         return TopicBuilder.name(CommonConstants.REWARD_APPRAISAL_MAIL_TOPIC)
                 .partitions(3)
                 .replicas(1)
