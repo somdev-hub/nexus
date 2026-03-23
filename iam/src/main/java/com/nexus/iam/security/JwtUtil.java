@@ -20,7 +20,7 @@ public class JwtUtil {
     @Value("${jwt.secret:mySecretKeyForJWTTokenGenerationWithMinimum256BitsForHS256AlgorithmSecurityPurpose}")
     private String jwtSecret;
 
-    @Value("${jwt.access.expiration:900000}")
+    @Value("${jwt.access.expiration:3000000}")
     private long accessTokenExpiration;
 
     @Value("${jwt.refresh.expiration:604800000}")

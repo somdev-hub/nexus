@@ -6,6 +6,8 @@ import com.nexus.hr.repository.HrLogsRepo;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
@@ -13,6 +15,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.util.Map;
+import java.util.logging.Logger;
 
 @Service
 public class RestServices {
@@ -20,6 +23,8 @@ public class RestServices {
     private final HrLogsRepo hrLogsRepo;
 
     private final CommonUtils commonUtils;
+    
+    private static final Logger LOGGER = Logger.getLogger(RestServices.class.getName());
 
     public RestServices(HrLogsRepo hrLogsRepo, CommonUtils commonUtils) {
         this.hrLogsRepo = hrLogsRepo;
@@ -44,10 +49,27 @@ public class RestServices {
                     HttpStatus.INTERNAL_SERVER_ERROR);
             requestLog = payload != null ? serializePayload(payload) : null;
         } finally {
+            // Log asynchronously to prevent transaction conflicts
+            logRestCallAsync(url, method, requestLog, responseEntity, hrId);
+        }
+
+        return responseEntity;
+    }
+    
+    /**
+     * Logs REST calls in a separate transaction to prevent prepared statement conflicts
+     * during concurrent async operations. Uses REQUIRES_NEW to create a new transaction
+     * independent of the calling transaction context.
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW, timeout = 10)
+    public void logRestCallAsync(String url, HttpMethod method, String requestLog, 
+                                  ResponseEntity<?> responseEntity, Long hrId) {
+        try {
             HrLogs log = new HrLogs();
             log.setRequestUrl(url);
             log.setHttpMethod(method.name());
             log.setRequest(requestLog);
+            
             if (responseEntity != null) {
                 Object respBody = responseEntity.getBody();
                 String responseString = respBody != null ? respBody.toString() : null;
@@ -59,9 +81,10 @@ public class RestServices {
             log.setHrId(hrId != null ? hrId : 0L);
 
             hrLogsRepo.save(log);
+        } catch (Exception e) {
+            // Log error but don't propagate - logging failure shouldn't crash the main operation
+            LOGGER.warning("Failed to log REST call to " + url + ": " + e.getMessage());
         }
-
-        return responseEntity;
     }
 
 
