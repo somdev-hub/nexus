@@ -15,7 +15,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/iam/auth")
+@RequestMapping("/v1/iam/auth")
 @CrossOrigin(origins = "*")
 public class AuthController {
 

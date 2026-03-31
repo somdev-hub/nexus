@@ -62,19 +62,28 @@ public class DepartmentServiceImpl implements DepartmentService {
             throw new IllegalArgumentException("Organization ID is required");
         }
 
-
         ResponseEntity<?> response;
         try {
-            Claims claims = jwtUtil.extractAllClaims(authHeader.substring("Bearer ".length()));
-            String subject = claims.getSubject();
+            // Extract username from token (handles both Keycloak and traditional JWT)
+            String cleanToken = authHeader;
+            if (authHeader.startsWith("Bearer ")) {
+                cleanToken = authHeader.substring(7);
+            }
+            String subject = jwtUtil.extractUsernameFromToken(cleanToken);
+
+            if (subject == null) {
+                return ResponseEntity.badRequest().body("Invalid token: unable to extract user information");
+            }
+
             Boolean exists = userRepository.existsByEmailAndOrganizationId(subject, organizationId);
             if (!exists) {
-                response = ResponseEntity.badRequest().body("User " + subject + " does not belong to the organization with ID: " + organizationId);
+                response = ResponseEntity.badRequest()
+                        .body("User " + subject + " does not belong to the organization with ID: " + organizationId);
                 return response;
             }
-            Organization organization = organizationRepository.findById(organizationId).orElseThrow(() -> new ResourceNotFoundException(
-                    "Organization", "id", organizationId
-            ));
+            Organization organization = organizationRepository.findById(organizationId)
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            "Organization", "id", organizationId));
 
             // Check if department with the same name already exists in the organization
             if (departmentRepository.existsByDepartmentNameAndOrganization(departmentName, organization)) {
@@ -97,8 +106,7 @@ public class DepartmentServiceImpl implements DepartmentService {
                     "Failed to create department: " + e.getMessage(),
                     "createDepartment",
                     e.getClass().getSimpleName(),
-                    e.getLocalizedMessage()
-            );
+                    e.getLocalizedMessage());
         }
 
         return response;
@@ -118,8 +126,7 @@ public class DepartmentServiceImpl implements DepartmentService {
                     department.getDepartmentId(),
                     department.getDepartmentHead() != null ? department.getDepartmentHead().getName() : null,
                     department.getMembers().size(),
-                    department.getRoles().size()
-            )).toList();
+                    department.getRoles().size())).toList();
             if (deptOverviews.isEmpty()) {
                 return ResponseEntity.noContent().build();
             }
@@ -130,8 +137,7 @@ public class DepartmentServiceImpl implements DepartmentService {
                     "Failed to get department overview: " + e.getMessage(),
                     "getDepartmentOverview",
                     e.getClass().getSimpleName(),
-                    e.getLocalizedMessage()
-            );
+                    e.getLocalizedMessage());
         }
     }
 
@@ -145,17 +151,18 @@ public class DepartmentServiceImpl implements DepartmentService {
             Integer totalDepartments = departments.size();
             Integer totalEmployees = departments.stream().mapToInt(department -> department.getMembers().size()).sum();
             Integer totalRoles = departments.stream().mapToInt(department -> department.getRoles().size()).sum();
-            Integer totalPermissions = departments.stream().flatMap(department -> department.getRoles().stream()).flatMap(role -> permissionRepository.findByRole(role).stream()).mapToInt(permission -> 1).sum();
+            Integer totalPermissions = departments.stream().flatMap(department -> department.getRoles().stream())
+                    .flatMap(role -> permissionRepository.findByRole(role).stream()).mapToInt(permission -> 1).sum();
 
-            return new ResponseEntity<>(new AllDeptOverview(totalDepartments, totalEmployees, totalRoles, totalPermissions), HttpStatus.OK);
+            return new ResponseEntity<>(
+                    new AllDeptOverview(totalDepartments, totalEmployees, totalRoles, totalPermissions), HttpStatus.OK);
         } catch (RuntimeException e) {
             throw new ServiceLevelException(
                     "DepartmentServiceImpl",
                     "Failed to get all department overview: " + e.getMessage(),
                     "getAllDeptOverview",
                     e.getClass().getSimpleName(),
-                    e.getLocalizedMessage()
-            );
+                    e.getLocalizedMessage());
         }
     }
 
@@ -165,9 +172,9 @@ public class DepartmentServiceImpl implements DepartmentService {
             throw new IllegalArgumentException("Department ID is required");
         }
         try {
-            Department department = departmentRepository.findById(deptId).orElseThrow(() -> new ResourceNotFoundException(
-                    "Department", "id", deptId
-            ));
+            Department department = departmentRepository.findById(deptId)
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            "Department", "id", deptId));
             return ResponseEntity.ok(department.getRoles());
         } catch (RuntimeException e) {
             throw new ServiceLevelException(
@@ -175,8 +182,7 @@ public class DepartmentServiceImpl implements DepartmentService {
                     "Failed to fetch department roles: " + e.getMessage(),
                     "fetchDeparmentRoles",
                     e.getClass().getSimpleName(),
-                    e.getLocalizedMessage()
-            );
+                    e.getLocalizedMessage());
         }
     }
 
@@ -207,8 +213,7 @@ public class DepartmentServiceImpl implements DepartmentService {
             Page<DeptRoleTable> resultPage = new PageImpl<>(
                     deptRoleTables,
                     pageable,
-                    departmentsPage.getTotalElements()
-            );
+                    departmentsPage.getTotalElements());
 
             if (deptRoleTables.isEmpty()) {
                 return ResponseEntity.noContent().build();
@@ -222,8 +227,7 @@ public class DepartmentServiceImpl implements DepartmentService {
                     "Failed to fetch department roles table: " + e.getMessage(),
                     "fetchDepartmentRolesTable",
                     e.getClass().getSimpleName(),
-                    e.getLocalizedMessage()
-            );
+                    e.getLocalizedMessage());
         }
     }
 
@@ -240,16 +244,14 @@ public class DepartmentServiceImpl implements DepartmentService {
                     employeePaycheckDto,
                     headers,
                     HttpMethod.POST,
-                    jwtUtil.extractUserIdFromToken(auth)
-            );
+                    jwtUtil.extractUserIdFromToken(auth));
         } catch (RuntimeException e) {
             throw new ServiceLevelException(
                     "DepartmentServiceImpl",
                     "Failed to add employee paycheck: " + e.getMessage(),
                     "addEmployeePaycheck",
                     e.getClass().getSimpleName(),
-                    e.getLocalizedMessage()
-            );
+                    e.getLocalizedMessage());
         }
         return response;
     }
@@ -262,23 +264,23 @@ public class DepartmentServiceImpl implements DepartmentService {
         ResponseEntity<?> response;
         try {
             Map<String, String> headers = commonUtils.buildJsonHeaders(authHeader);
-//            String url = webConstants.getEmployeePaycheckUrl() + "?orgId=" + orgId + "&pageNo=" + pageNo + "&pageOffset=" + pageOffset;
-            UriComponentsBuilder builder=UriComponentsBuilder.fromUriString(webConstants.getEmployeePaycheckGetUrl()).queryParam("orgId", orgId).queryParam("pageNo", pageNo).queryParam("pageOffset", pageOffset);
+            // String url = webConstants.getEmployeePaycheckUrl() + "?orgId=" + orgId +
+            // "&pageNo=" + pageNo + "&pageOffset=" + pageOffset;
+            UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getEmployeePaycheckGetUrl())
+                    .queryParam("orgId", orgId).queryParam("pageNo", pageNo).queryParam("pageOffset", pageOffset);
             response = restService.iamRestCall(
                     builder.toUriString(),
                     null,
                     headers,
                     HttpMethod.GET,
-                    jwtUtil.extractUserIdFromToken(authHeader)
-            );
+                    jwtUtil.extractUserIdFromToken(authHeader));
         } catch (RuntimeException e) {
             throw new ServiceLevelException(
                     "DepartmentServiceImpl",
                     "Failed to get employee paychecks: " + e.getMessage(),
                     "getEmployeePaychecks",
                     e.getClass().getSimpleName(),
-                    e.getLocalizedMessage()
-            );
+                    e.getLocalizedMessage());
 
         }
 
@@ -302,8 +304,7 @@ public class DepartmentServiceImpl implements DepartmentService {
                     "Failed to get all departments: " + e.getMessage(),
                     "getAllDepts",
                     e.getClass().getSimpleName(),
-                    e.getLocalizedMessage()
-            );
+                    e.getLocalizedMessage());
         }
     }
 
@@ -343,7 +344,6 @@ public class DepartmentServiceImpl implements DepartmentService {
                 noOfEmployees,
                 createdOn,
                 permissions,
-                status
-        );
+                status);
     }
 }

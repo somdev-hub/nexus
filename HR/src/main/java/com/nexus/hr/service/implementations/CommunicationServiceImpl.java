@@ -27,7 +27,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.ObjectUtils;
 import org.springframework.web.client.RestClient;
-import tools.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.sql.Timestamp;
 import java.util.HashMap;
@@ -46,7 +46,6 @@ public class CommunicationServiceImpl implements CommunicationService {
     private final WebConstants webConstants;
     private final KafkaProducer kafkaProducer;
     private final ObjectMapper objectMapper;
-
 
     @Override
     public ResponseEntity<?> sendCommunicationOverEmail(EmailCommunicationDto emailCommunicationDto) {
@@ -101,8 +100,7 @@ public class CommunicationServiceImpl implements CommunicationService {
                     HttpStatus.OK,
                     emailCommunicationDto,
                     "Email sent successfully",
-                    null
-            );
+                    null);
 
             long duration = System.currentTimeMillis() - startTime;
             log.info("Email sent successfully to {} recipients in {}ms",
@@ -133,7 +131,8 @@ public class CommunicationServiceImpl implements CommunicationService {
             kafkaMessageDto.setUuid(uuid);
             // emailcommunicationdto as json
             kafkaMessageDto.setMessage(objectMapper.writeValueAsString(emailCommunicationDto));
-            kafkaProducer.publishMessage(CommonConstants.CANDIDATE_SELECTION_MAIL_TOPIC, "email-selection-key", objectMapper.writeValueAsString(kafkaMessageDto));
+            kafkaProducer.publishMessage(CommonConstants.CANDIDATE_SELECTION_MAIL_TOPIC, "email-selection-key",
+                    objectMapper.writeValueAsString(kafkaMessageDto));
             logCommunicationToDatabase(emailCommunicationDto, CommunicationStatus.SENT, uuid);
             logger.saveLogs(
                     "/communication/send-email-kafka",
@@ -141,8 +140,7 @@ public class CommunicationServiceImpl implements CommunicationService {
                     HttpStatus.OK,
                     emailCommunicationDto,
                     "Email communication sent over Kafka successfully",
-                    null
-            );
+                    null);
         } catch (RuntimeException e) {
             log.error("Error sending communication over Kafka: {}", e.getMessage(), e);
             logger.saveLogs(
@@ -151,8 +149,7 @@ public class CommunicationServiceImpl implements CommunicationService {
                     HttpStatus.INTERNAL_SERVER_ERROR,
                     emailCommunicationDto,
                     e.getMessage(),
-                    null
-            );
+                    null);
             throw e; // Rethrow to let caller handle it
         }
     }
@@ -179,8 +176,7 @@ public class CommunicationServiceImpl implements CommunicationService {
 
         if (dto.getRecipientEmails().size() > webConstants.getMaxRecipients()) {
             throw new IllegalArgumentException(
-                    String.format("Number of recipients exceeds maximum limit of %d", webConstants.getMaxRecipients())
-            );
+                    String.format("Number of recipients exceeds maximum limit of %d", webConstants.getMaxRecipients()));
         }
 
         // Validate email formats
@@ -204,8 +200,7 @@ public class CommunicationServiceImpl implements CommunicationService {
 
         if (!invalidEmails.isEmpty()) {
             throw new IllegalArgumentException(
-                    String.format("Invalid %s email format: %s", type, String.join(", ", invalidEmails))
-            );
+                    String.format("Invalid %s email format: %s", type, String.join(", ", invalidEmails)));
         }
     }
 
@@ -231,8 +226,7 @@ public class CommunicationServiceImpl implements CommunicationService {
                 helper.addAttachment(
                         attachment.getFileName(),
                         () -> new java.io.ByteArrayInputStream(fileData),
-                        contentType
-                );
+                        contentType);
 
                 log.debug("Attached file: {} with content type: {}", attachment.getFileName(), contentType);
             } catch (Exception e) {
@@ -340,7 +334,7 @@ public class CommunicationServiceImpl implements CommunicationService {
      * Handles validation errors
      */
     private ResponseEntity<?> handleValidationError(EmailCommunicationDto dto,
-                                                    IllegalArgumentException e) {
+            IllegalArgumentException e) {
         log.error("Validation error while sending email: {}", e.getMessage());
 
         ErrorResponseDto errorResponse = new ErrorResponseDto(
@@ -348,8 +342,7 @@ public class CommunicationServiceImpl implements CommunicationService {
                 HttpStatus.BAD_REQUEST.value(),
                 new Timestamp(System.currentTimeMillis()),
                 e.getMessage(),
-                "Invalid email communication parameters"
-        );
+                "Invalid email communication parameters");
 
         logger.saveLogs(
                 "/communication/send-email",
@@ -357,8 +350,7 @@ public class CommunicationServiceImpl implements CommunicationService {
                 HttpStatus.BAD_REQUEST,
                 dto,
                 e.getMessage(),
-                null
-        );
+                null);
 
         return ResponseEntity.badRequest().body(errorResponse);
     }
@@ -367,7 +359,7 @@ public class CommunicationServiceImpl implements CommunicationService {
      * Handles messaging errors from JavaMailSender
      */
     private ResponseEntity<?> handleMessagingError(EmailCommunicationDto dto,
-                                                   MessagingException e) {
+            MessagingException e) {
         log.error("Error sending email: {}", e.getMessage(), e);
 
         ErrorResponseDto errorResponse = new ErrorResponseDto(
@@ -375,8 +367,7 @@ public class CommunicationServiceImpl implements CommunicationService {
                 HttpStatus.INTERNAL_SERVER_ERROR.value(),
                 new Timestamp(System.currentTimeMillis()),
                 "Failed to send email",
-                e.getMessage()
-        );
+                e.getMessage());
 
         logger.saveLogs(
                 "/communication/send-email",
@@ -384,8 +375,7 @@ public class CommunicationServiceImpl implements CommunicationService {
                 HttpStatus.INTERNAL_SERVER_ERROR,
                 dto,
                 e.getMessage(),
-                null
-        );
+                null);
 
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
     }
@@ -394,7 +384,7 @@ public class CommunicationServiceImpl implements CommunicationService {
      * Handles generic/unexpected errors
      */
     private ResponseEntity<?> handleGenericError(EmailCommunicationDto dto,
-                                                 Exception e) {
+            Exception e) {
         log.error("Unexpected error while sending email: {}", e.getMessage(), e);
 
         ErrorResponseDto errorResponse = new ErrorResponseDto(
@@ -402,8 +392,7 @@ public class CommunicationServiceImpl implements CommunicationService {
                 HttpStatus.INTERNAL_SERVER_ERROR.value(),
                 new Timestamp(System.currentTimeMillis()),
                 "An unexpected error occurred while sending email",
-                e.getMessage()
-        );
+                e.getMessage());
 
         logger.saveLogs(
                 "/communication/send-email",
@@ -411,16 +400,17 @@ public class CommunicationServiceImpl implements CommunicationService {
                 HttpStatus.INTERNAL_SERVER_ERROR,
                 dto,
                 e.getMessage(),
-                null
-        );
+                null);
 
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
     }
 
     /**
      * Saves communication record to database for audit trail and monitoring
-     * NOTE: This method is non-transactional. Failures are caught and logged but won't affect the caller.
-     * The HrCommunication entity columns have been updated to TEXT type to prevent VARCHAR(255) overflow.
+     * NOTE: This method is non-transactional. Failures are caught and logged but
+     * won't affect the caller.
+     * The HrCommunication entity columns have been updated to TEXT type to prevent
+     * VARCHAR(255) overflow.
      */
     private void logCommunicationToDatabase(EmailCommunicationDto dto, CommunicationStatus status, String uuid) {
         try {
@@ -428,7 +418,8 @@ public class CommunicationServiceImpl implements CommunicationService {
             communication.setCommunicationType(CommunicationType.EMAIL);
             communication.setSubject(dto.getSubject());
             communication.setBody(dto.getBody());
-            communication.setSenderId(ObjectUtils.isEmpty(dto.getSenderEmail()) ? webConstants.getDefaultFromEmail() : dto.getSenderEmail());
+            communication.setSenderId(ObjectUtils.isEmpty(dto.getSenderEmail()) ? webConstants.getDefaultFromEmail()
+                    : dto.getSenderEmail());
             communication.setReceiverIds(dto.getRecipientEmails());
             communication.setCcEmails(dto.getCcEmails());
             communication.setBccEmails(dto.getBccEmails());
@@ -439,8 +430,7 @@ public class CommunicationServiceImpl implements CommunicationService {
                 communication.setAttachments(
                         dto.getAttachments().stream()
                                 .map(EmailAttachmentDto::getFileName)
-                                .toList()
-                );
+                                .toList());
             }
 
             hrCommunicationRepo.save(communication);
@@ -470,7 +460,8 @@ public class CommunicationServiceImpl implements CommunicationService {
 
     /**
      * Replaces placeholders in the email body with actual values
-     * Placeholders are in the format {key} where key matches a key in the placeholders map
+     * Placeholders are in the format {key} where key matches a key in the
+     * placeholders map
      * Example: {name} will be replaced with the value from placeholders.get("name")
      *
      * @param body The email body containing placeholders

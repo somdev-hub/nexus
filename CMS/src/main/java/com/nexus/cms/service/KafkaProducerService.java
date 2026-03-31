@@ -30,8 +30,8 @@ public class KafkaProducerService {
     /**
      * Publish a message to a topic
      *
-     * @param topic Topic name
-     * @param key Message key for partitioning
+     * @param topic   Topic name
+     * @param key     Message key for partitioning
      * @param message Message content
      * @return CompletableFuture for async handling
      */
@@ -42,11 +42,11 @@ public class KafkaProducerService {
             log.info("Publishing message to topic: {} with key: {}", topic, key);
 
             Message<String> kafkaMessage = MessageBuilder
-                .withPayload(message)
-                .setHeader(KafkaHeaders.TOPIC, topic)
-                .setHeader("kafka_messageKey", key)
-                .setHeader("timestamp", LocalDateTime.now().toString())
-                .build();
+                    .withPayload(message)
+                    .setHeader(KafkaHeaders.TOPIC, topic)
+                    .setHeader("kafka_messageKey", key)
+                    .setHeader("message-timestamp", LocalDateTime.now().toString())
+                    .build();
 
             kafkaTemplate.send(kafkaMessage).whenComplete((result, ex) -> {
                 if (ex != null) {
@@ -54,9 +54,9 @@ public class KafkaProducerService {
                     completableFuture.completeExceptionally(ex);
                 } else {
                     log.info("Message published successfully to topic: {} with partition: {} and offset: {}",
-                        topic,
-                        result.getRecordMetadata().partition(),
-                        result.getRecordMetadata().offset());
+                            topic,
+                            result.getRecordMetadata().partition(),
+                            result.getRecordMetadata().offset());
                     completableFuture.complete(result.getRecordMetadata().toString());
                 }
             });
@@ -71,30 +71,30 @@ public class KafkaProducerService {
     /**
      * Publish message with headers
      *
-     * @param topic Topic name
-     * @param key Message key
-     * @param message Message content
-     * @param headerKey Header key
+     * @param topic       Topic name
+     * @param key         Message key
+     * @param message     Message content
+     * @param headerKey   Header key
      * @param headerValue Header value
      * @return CompletableFuture for async handling
      */
     public CompletableFuture<String> publishMessageWithHeaders(
-        String topic,
-        String key,
-        String message,
-        String headerKey,
-        String headerValue) {
+            String topic,
+            String key,
+            String message,
+            String headerKey,
+            String headerValue) {
 
         CompletableFuture<String> completableFuture = new CompletableFuture<>();
 
         try {
             Message<String> kafkaMessage = MessageBuilder
-                .withPayload(message)
-                .setHeader(KafkaHeaders.TOPIC, topic)
-                .setHeader("kafka_messageKey", key)
-                .setHeader(headerKey, headerValue)
-                .setHeader("timestamp", LocalDateTime.now().toString())
-                .build();
+                    .withPayload(message)
+                    .setHeader(KafkaHeaders.TOPIC, topic)
+                    .setHeader("kafka_messageKey", key)
+                    .setHeader(headerKey, headerValue)
+                    .setHeader("message-timestamp", LocalDateTime.now().toString())
+                    .build();
 
             kafkaTemplate.send(kafkaMessage).whenComplete((result, ex) -> {
                 if (ex != null) {
@@ -131,6 +131,3 @@ public class KafkaProducerService {
         return publishMessage("cms-events", eventType, eventData);
     }
 }
-
-
-

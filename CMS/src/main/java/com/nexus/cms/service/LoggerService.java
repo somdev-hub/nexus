@@ -29,6 +29,7 @@ public class LoggerService {
             cmsLogs.setCommsType(commsType);
             cmsLogs.setMessage(message);
             cmsLogs.setUuid(uuid);
+            cmsLogs.setStatus(status);
             cmsLogs.setCreatedAt(new Timestamp(System.currentTimeMillis()));
             cmsLogsRepo.save(cmsLogs);
         } catch (RuntimeException e) {

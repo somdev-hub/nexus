@@ -1,6 +1,17 @@
 package com.nexus.dms.controller;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
+import java.io.IOException;
+
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.util.ObjectUtils;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestPart;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
+
 import com.nexus.dms.annotation.LogActivity;
 import com.nexus.dms.dto.CommonFileUploadDto;
 import com.nexus.dms.dto.IndividualFileUploadDto;
@@ -8,15 +19,8 @@ import com.nexus.dms.dto.OrgFileUploadDto;
 import com.nexus.dms.exception.UnauthorizedException;
 import com.nexus.dms.service.ImplementerService;
 import com.nexus.dms.utils.CommonUtils;
-import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
-import org.springframework.util.ObjectUtils;
-import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
+import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequestMapping("/dms/upload")

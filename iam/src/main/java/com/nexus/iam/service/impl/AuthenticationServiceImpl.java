@@ -33,11 +33,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.ObjectUtils;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.util.UriComponentsBuilder;
+import lombok.extern.slf4j.Slf4j;
 
 import java.sql.Timestamp;
 import java.util.HashMap;
 import java.util.Map;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AuthenticationServiceImpl implements AuthenticationService {
@@ -244,7 +246,7 @@ public class AuthenticationServiceImpl implements AuthenticationService {
             user.getRoles().add(role);
             user = userRepository.save(user);
 
-            Department department=new Department();
+            Department department = new Department();
             department.setDepartmentName(userRegisterDto.getDepartment());
             department.setDepartmentHead(user);
             department.setOrganization(org);
@@ -332,13 +334,34 @@ public class AuthenticationServiceImpl implements AuthenticationService {
             throw new IllegalArgumentException("Invalid token");
         }
 
-        Claims claims = jwtUtil.extractAllClaims(token);
         Map<String, String> result = new HashMap<>();
-        // return isValid, username, expiration, role
+
+        // Extract username using configuration-aware method (handles both Keycloak and
+        // Traditional JWT)
+        String username = jwtUtil.extractUsernameFromToken(token);
+        if (username == null) {
+            throw new IllegalArgumentException("Unable to extract username from token");
+        }
+
         result.put("isValid", "true");
-        result.put("username", claims.getSubject());
-        result.put("expiration", claims.getExpiration().toString());
-        result.put("role", claims.get("role", String.class));
+        result.put("username", username);
+
+        // For traditional JWT (HMAC-SHA256), extract additional claims
+        // NOTE: Keycloak tokens (RS256) don't use the Claims format, so we skip
+        // additional extraction for Keycloak mode
+        try {
+            // Attempt to extract claims - will succeed for traditional JWT, fail for
+            // Keycloak
+            Claims claims = jwtUtil.extractAllClaims(token);
+            result.put("expiration", claims.getExpiration().toString());
+            result.put("role", claims.get("role", String.class));
+        } catch (Exception e) {
+            // This is expected for Keycloak tokens which use RS256 signature
+            log.debug("Could not extract Claims from token (likely Keycloak RS256): {}", e.getMessage());
+            result.put("expiration", "");
+            result.put("role", "");
+        }
+
         return result;
     }
 
@@ -355,21 +378,38 @@ public class AuthenticationServiceImpl implements AuthenticationService {
                 token = token.substring(7).trim();
             }
 
-            Claims claims = jwtUtil.extractAllClaims(token);
+            // Validate token first using configuration-aware method
+            if (!jwtUtil.validateToken(token)) {
+                throw new IllegalArgumentException("Invalid or expired token");
+            }
+
             Map<String, Object> decryptedData = new HashMap<>();
+            String username = jwtUtil.extractUsernameFromToken(token);
+            if (username != null) {
+                decryptedData.put("username", username);
+            }
 
-            // Extract all claims from the token
-            decryptedData.put("username", claims.getSubject());
-            decryptedData.put("issuedAt", claims.getIssuedAt());
-            decryptedData.put("expiration", claims.getExpiration());
-            decryptedData.put("isValid", !jwtUtil.isTokenExpired(token));
+            // For traditional JWT (HMAC-SHA256), extract all claims
+            // NOTE: Keycloak tokens (RS256) claims are extracted differently, so we attempt
+            // this gracefully
+            try {
+                Claims claims = jwtUtil.extractAllClaims(token);
+                decryptedData.put("issuedAt", claims.getIssuedAt());
+                decryptedData.put("expiration", claims.getExpiration());
+                decryptedData.put("isValid", !jwtUtil.isTokenExpired(token));
 
-            // Extract all additional claims
-            claims.forEach((key, value) -> {
-                if (!key.equals("sub") && !key.equals("iat") && !key.equals("exp")) {
-                    decryptedData.put(key, value);
-                }
-            });
+                // Extract all additional claims
+                claims.forEach((key, value) -> {
+                    if (!key.equals("sub") && !key.equals("iat") && !key.equals("exp")) {
+                        decryptedData.put(key, value);
+                    }
+                });
+            } catch (Exception e) {
+                // For Keycloak tokens (RS256), we can still return basic info
+                log.debug("Could not extract Claims from token (likely Keycloak RS256): {}", e.getMessage());
+                decryptedData.put("isValid", true);
+                decryptedData.put("note", "Additional claims not available for Keycloak RS256 tokens");
+            }
 
             return decryptedData;
         } catch (Exception e) {

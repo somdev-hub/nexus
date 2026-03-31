@@ -4,8 +4,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.scheduling.annotation.Async;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -32,20 +30,11 @@ public class Logger {
     }
 
     /**
-     * Save logs to database asynchronously with independent transaction
-     * This method runs in a separate thread with its own transaction context,
-     * completely isolating it from the parent transaction.
-     * This prevents "current transaction is aborted" errors from Supabase connection pooler.
-     *
-     * @param requestUrl The API endpoint URL
-     * @param httpMethod The HTTP method (GET, POST, PUT, DELETE, etc.)
-     * @param httpStatus The HTTP response status code
-     * @param request The request body (can be a DTO object or String)
-     * @param response The response body (can be any object or String)
-     * @param documentRecordId The ID of the document (if available)
+     * Save logs to database asynchronously
+     * Uses manual transaction management to avoid connection pool conflicts
+     * Silently handles failures since logging is non-critical
      */
     @Async
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void saveLogs(String requestUrl, HttpMethod httpMethod, HttpStatus httpStatus, Object request,
             Object response, Long documentRecordId) {
         try {
@@ -53,20 +42,20 @@ public class Logger {
             dmsLogs.setRequestUrl(requestUrl);
             dmsLogs.setHttpMethod(httpMethod.name());
             dmsLogs.setResponseStatus(httpStatus.value());
-
-            // Serialize request body (handle both objects and already-serialized strings)
             dmsLogs.setRequest(serializeObject(request));
-
-            // Serialize response body (handle both objects and already-serialized strings)
             dmsLogs.setResponse(serializeObject(response));
-
             dmsLogs.setDocumentRecordId(documentRecordId);
+
+            // Use repository which manages its own transaction
+            // HikariCP will deallocate prepared statements automatically
             dmsLogsRepo.save(dmsLogs);
-            
             log.debug("Activity log saved successfully for URL: {}", requestUrl);
+
         } catch (Exception e) {
-            // Log error but don't throw - async methods should handle their own errors
-            log.error("Failed to save activity log for URL: {} - Error: {}", requestUrl, e.getMessage(), e);
+            // Non-critical logging - silently handle all errors
+            // The HikariCP DEALLOCATE ALL will clean up stale statements
+            log.debug("Non-critical: Failed to save activity log for URL: {} - {}",
+                    requestUrl, e.getMessage());
         }
     }
 

@@ -8,9 +8,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.ObjectUtils;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.util.UriComponentsBuilder;
-import tools.jackson.core.JacksonException;
-import tools.jackson.databind.JsonNode;
-import tools.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.core.JacksonException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -20,6 +20,7 @@ public class CommonUtils {
 
     private final WebConstants webConstants;
     private String token;
+    private final Object tokenLock = new Object(); // Lock for thread-safe token management
 
     public CommonUtils(WebConstants webConstants) {
         this.webConstants = webConstants;
@@ -35,19 +36,25 @@ public class CommonUtils {
                     .retrieve()
                     .toEntity(new ParameterizedTypeReference<Map<String, String>>() {
                     });
-            // extract isValid from response
+            // extract isValid from response - fixed logic
             Map<String, String> responseBody = response.getBody();
-            return !response.getStatusCode().is2xxSuccessful() ||
-                    !ObjectUtils.isEmpty(responseBody) ||
-                    !Boolean.parseBoolean(responseBody.get("isValid"));
+            return response.getStatusCode().is2xxSuccessful() &&
+                    !ObjectUtils.isEmpty(responseBody) &&
+                    Boolean.parseBoolean(responseBody.get("isValid"));
 
         } catch (Exception e) {
             e.printStackTrace();
-            return true;
+            return false;
         }
     }
 
-    public String getToken() {
+    /**
+     * Thread-safe token retrieval with synchronized access to prevent concurrent
+     * token generation.
+     * Fixes race condition when multiple async tasks call getToken()
+     * simultaneously.
+     */
+    public synchronized String getToken() {
         if (this.token == null || !validateToken(this.token)) {
             this.token = generateToken();
         }
@@ -68,7 +75,8 @@ public class CommonUtils {
                     });
             // extract token from response
             Map<String, String> responseBody = response.getBody();
-            if (response.getStatusCode().is2xxSuccessful() && responseBody != null && responseBody.containsKey("accessToken")) {
+            if (response.getStatusCode().is2xxSuccessful() && responseBody != null
+                    && responseBody.containsKey("accessToken")) {
                 return "Bearer " + responseBody.get("accessToken");
             } else {
                 return null;
@@ -108,13 +116,14 @@ public class CommonUtils {
         ObjectMapper objectMapper = new ObjectMapper();
         try {
             jsonNode = objectMapper.readTree(jsonString);
-        } catch (JacksonException _) {
-            jsonNode = objectMapper.createObjectNode().put("message", jsonString);
+            return objectMapper.writeValueAsString(jsonNode);
+        } catch (Exception e) {
+            return objectMapper.createObjectNode().put("message", jsonString).toString();
         }
-        return objectMapper.writeValueAsString(jsonNode);
     }
 
-    public RestPayload buildRestPayload(String url, Map<String, String> queriesParams, Map<Integer, String> pathVariables, String headerType) {
+    public RestPayload buildRestPayload(String url, Map<String, String> queriesParams,
+            Map<Integer, String> pathVariables, String headerType) {
         RestPayload restPayload = new RestPayload();
         UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(url);
 

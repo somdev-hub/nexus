@@ -1,24 +1,15 @@
 package com.nexus.hr.service.implementations;
 
-import com.nexus.hr.exception.ResourceNotFoundException;
-import com.nexus.hr.exception.ServiceLevelException;
-import com.nexus.hr.kafka.KafkaProducer;
-import com.nexus.hr.model.entities.*;
-import com.nexus.hr.model.enums.AttendanceStatus;
-import com.nexus.hr.model.enums.HrRequestStatus;
-import com.nexus.hr.payload.*;
-import com.nexus.hr.payload.response.EmployeeDetailsResponse;
-import com.nexus.hr.payload.response.EmployeeDirectoryResponse;
-import com.nexus.hr.repository.HrEntityRepo;
-import com.nexus.hr.repository.HrRequestRepo;
-import com.nexus.hr.repository.PositionRepository;
-import com.nexus.hr.service.interfaces.CommunicationService;
-import com.nexus.hr.service.interfaces.HrService;
-import com.nexus.hr.utils.*;
-import com.nexus.hr.views.CommunicationTemplateBuilder;
-import jakarta.transaction.Transactional;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import java.sql.Date;
+import java.sql.Timestamp;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+
 import org.jspecify.annotations.NonNull;
 import org.modelmapper.ModelMapper;
 import org.springframework.data.domain.Page;
@@ -28,18 +19,46 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.util.ObjectUtils;
-import tools.jackson.databind.ObjectMapper;
 
-import java.sql.Date;
-import java.sql.Timestamp;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
+import com.nexus.hr.exception.ResourceNotFoundException;
+import com.nexus.hr.exception.ServiceLevelException;
+import com.nexus.hr.model.entities.BankRecord;
+import com.nexus.hr.model.entities.Bonus;
+import com.nexus.hr.model.entities.Compensation;
+import com.nexus.hr.model.entities.Deduction;
+import com.nexus.hr.model.entities.HrDocument;
+import com.nexus.hr.model.entities.HrEntity;
+import com.nexus.hr.model.entities.HrRequest;
+import com.nexus.hr.model.entities.Position;
+import com.nexus.hr.model.entities.TimeManagement;
+import com.nexus.hr.model.enums.AttendanceStatus;
+import com.nexus.hr.model.enums.HrRequestStatus;
+import com.nexus.hr.payload.CompensationDto;
+import com.nexus.hr.payload.EmailAttachmentDto;
+import com.nexus.hr.payload.EmailCommunicationDto;
+import com.nexus.hr.payload.ErrorResponseDto;
+import com.nexus.hr.payload.GeneratedPdfDto;
+import com.nexus.hr.payload.HrInitRequestDto;
+import com.nexus.hr.payload.HrInitResponse;
+import com.nexus.hr.payload.HrRequestDto;
+import com.nexus.hr.payload.PdfTemplateDto;
+import com.nexus.hr.payload.RestPayload;
+import com.nexus.hr.payload.response.EmployeeDetailsResponse;
+import com.nexus.hr.payload.response.EmployeeDirectoryResponse;
+import com.nexus.hr.repository.HrEntityRepo;
+import com.nexus.hr.repository.HrRequestRepo;
+import com.nexus.hr.repository.PositionRepository;
+import com.nexus.hr.service.interfaces.CommunicationService;
+import com.nexus.hr.service.interfaces.HrService;
+import com.nexus.hr.utils.CommonUtils;
+import com.nexus.hr.utils.LeaveAllocationUtils;
+import com.nexus.hr.utils.RestServices;
+import com.nexus.hr.utils.WebConstants;
+import com.nexus.hr.views.CommunicationTemplateBuilder;
+
+import jakarta.transaction.Transactional;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
 @RequiredArgsConstructor
@@ -57,8 +76,6 @@ public class HrServiceImpl implements HrService {
     private final CommunicationTemplateBuilder communicationTemplateBuilder;
     private final LeaveAllocationUtils leaveAllocationUtils;
     private final PositionRepository positionRepository;
-    private final KafkaProducer kafkaProducer;
-    private final ObjectMapper objectMapper;
 
     private static @NonNull AttendanceStatus getAttendanceStatus(TimeManagement attendance) {
         AttendanceStatus status;
@@ -71,104 +88,135 @@ public class HrServiceImpl implements HrService {
         return status;
     }
 
-    @Transactional
     @Override
     public ResponseEntity<?> initHr(HrInitRequestDto hrInitRequestDto) {
         ResponseEntity<?> response = null;
         try {
-            HrEntity hrEntity = new HrEntity();
-            hrEntity.setEmployeeId(hrInitRequestDto.getEmployeeId());
-            hrEntity.setOrg(hrInitRequestDto.getOrgId());
-            hrEntity.setDepartment(hrInitRequestDto.getDepartment());
-            hrEntity.setDateOfJoining(Date.valueOf(LocalDate.now()));
-            hrEntity.setIsActive(Boolean.TRUE);
+            // CRITICAL: Transactional part - only save to database
+            HrEntity savedHrEntity = saveHrEntityTransaction(hrInitRequestDto);
 
-            Position position = new Position();
-            position.setTitle(hrInitRequestDto.getTitle());
-            position.setDepartment(hrInitRequestDto.getDepartment());
-            position.setRemarks(hrInitRequestDto.getRemarks());
-            Timestamp effectiveFrom;
-            if (!ObjectUtils.isEmpty(hrInitRequestDto.getEffectiveFrom())) {
-                position.setEffectiveFrom(hrInitRequestDto.getEffectiveFrom());
-                effectiveFrom = hrInitRequestDto.getEffectiveFrom();
-            } else {
-                effectiveFrom = new Timestamp(System.currentTimeMillis());
-                position.setEffectiveFrom(effectiveFrom);
-            }
-            position.setIsActive(true);
-            position.setHrEntity(hrEntity);
-            hrEntity.getPositions().add(position);
+            // Fire async operations in background (OUTSIDE transaction)
+            // This prevents connection leaks and blocking on Kafka operations
+            CompletableFuture.runAsync(() -> {
+                try {
+                    processAsyncHrOperations(hrInitRequestDto, savedHrEntity);
+                } catch (Exception e) {
+                    log.error("Error processing async HR operations for employee: {}",
+                            savedHrEntity.getEmployeeId(), e);
+                }
+            });
 
-            if (!ObjectUtils.isEmpty(hrInitRequestDto.getHrDocuments())
-                    && !hrInitRequestDto.getHrDocuments().isEmpty()) {
-                List<HrDocument> hrDocuments = hrInitRequestDto.getHrDocuments().stream().map(document -> {
-                    HrDocument hrDocument = modelMapper.map(document, HrDocument.class);
-                    hrDocument.setHrEntity(hrEntity);
-                    return hrDocument;
-                }).toList();
-                hrEntity.setHrDocuments(hrDocuments);
-            }
+            // Return successful response immediately after database save
+            response = ResponseEntity.ok(HrInitResponse.builder()
+                    .hrId(savedHrEntity.getHrId())
+                    .build());
 
-            // Save HR entity FIRST to get the ID - but don't add compensation yet
-            log.info("=== Attempting to save HrEntity for employeeId: {} ===", hrInitRequestDto.getEmployeeId());
-            log.debug("HrEntity details: org={}, department={}, positions count={}, documents count={}",
-                    hrEntity.getOrg(), hrEntity.getDepartment(),
-                    hrEntity.getPositions().size(),
-                    hrEntity.getHrDocuments() != null ? hrEntity.getHrDocuments().size() : 0);
+        } catch (Exception e) {
+            throw new ServiceLevelException("HR Service", "Exception occurred while initializing HR module", "initHr",
+                    e.getClass().getName(), e.getMessage());
+        }
 
-            HrEntity savedHrEntity = hrEntityRepo.save(hrEntity);
-            log.info("✓ Successfully saved HrEntity with hrId: {}", savedHrEntity.getHrId());
+        return response;
+    }
 
-            // Generate PDF template data
-            PdfTemplateDto pdfTemplateData = buildPdfTemplateData(hrInitRequestDto, effectiveFrom);
+    /**
+     * CRITICAL: Transactional method that ONLY saves HR entity to database
+     * Does NOT block on async operations - fixes HikariCP connection leak
+     */
+    @Transactional
+    private HrEntity saveHrEntityTransaction(HrInitRequestDto hrInitRequestDto) {
+        HrEntity hrEntity = new HrEntity();
+        hrEntity.setEmployeeId(hrInitRequestDto.getEmployeeId());
+        hrEntity.setOrg(hrInitRequestDto.getOrgId());
+        hrEntity.setDepartment(hrInitRequestDto.getDepartment());
+        hrEntity.setDateOfJoining(Date.valueOf(LocalDate.now()));
+        hrEntity.setIsActive(Boolean.TRUE);
 
-            // Start async PDF generation and DMS uploads in parallel
-            log.info("Starting parallel document generation and upload for employee: {}",
-                    savedHrEntity.getEmployeeId());
-            CompletableFuture<AsyncDocumentService.DocumentResult> joiningLetterFuture = asyncDocumentService
-                    .generateAndUploadJoiningLetter(pdfTemplateData, savedHrEntity.getEmployeeId(),
-                            savedHrEntity.getHrId());
+        Position position = new Position();
+        position.setTitle(hrInitRequestDto.getTitle());
+        position.setDepartment(hrInitRequestDto.getDepartment());
+        position.setRemarks(hrInitRequestDto.getRemarks());
+        Timestamp effectiveFrom;
+        if (!ObjectUtils.isEmpty(hrInitRequestDto.getEffectiveFrom())) {
+            position.setEffectiveFrom(hrInitRequestDto.getEffectiveFrom());
+            effectiveFrom = hrInitRequestDto.getEffectiveFrom();
+        } else {
+            effectiveFrom = new Timestamp(System.currentTimeMillis());
+            position.setEffectiveFrom(effectiveFrom);
+        }
+        position.setIsActive(true);
+        position.setHrEntity(hrEntity);
+        hrEntity.getPositions().add(position);
 
-            CompletableFuture<AsyncDocumentService.DocumentResult> letterOfIntentFuture = asyncDocumentService
-                    .generateAndUploadLetterOfIntent(pdfTemplateData, savedHrEntity.getEmployeeId(),
-                            savedHrEntity.getHrId());
+        if (!ObjectUtils.isEmpty(hrInitRequestDto.getHrDocuments())
+                && !hrInitRequestDto.getHrDocuments().isEmpty()) {
+            List<HrDocument> hrDocuments = hrInitRequestDto.getHrDocuments().stream().map(document -> {
+                HrDocument hrDocument = modelMapper.map(document, HrDocument.class);
+                hrDocument.setHrEntity(hrEntity);
+                return hrDocument;
+            }).toList();
+            hrEntity.setHrDocuments(hrDocuments);
+        }
 
-            CompletableFuture<AsyncDocumentService.DocumentResult> compensationCardFuture = asyncDocumentService
-                    .generateAndUploadCompensationCard(pdfTemplateData, savedHrEntity.getEmployeeId(),
-                            savedHrEntity.getHrId());
+        log.info("=== Attempting to save HrEntity for employeeId: {} ===", hrInitRequestDto.getEmployeeId());
+        log.debug("HrEntity details: org={}, department={}, positions count={}, documents count={}",
+                hrEntity.getOrg(), hrEntity.getDepartment(),
+                hrEntity.getPositions().size(),
+                hrEntity.getHrDocuments() != null ? hrEntity.getHrDocuments().size() : 0);
 
-            // Wait for all async operations to complete
-            CompletableFuture.allOf(joiningLetterFuture, letterOfIntentFuture, compensationCardFuture).join();
-            log.info("All document generation and upload tasks completed for employee: {}",
-                    savedHrEntity.getEmployeeId());
+        HrEntity savedHrEntity = hrEntityRepo.save(hrEntity);
+        log.info("✓ Successfully saved HrEntity with hrId: {}", savedHrEntity.getHrId());
 
-            // Get results
+        return savedHrEntity;
+    }
+
+    /**
+     * CRITICAL: Non-transactional method that handles async operations
+     * This runs AFTER the database transaction commits
+     * Prevents connection leaks and allows Kafka publishing to complete
+     */
+    private void processAsyncHrOperations(HrInitRequestDto hrInitRequestDto, HrEntity savedHrEntity) {
+        // Generate PDF template data
+        PdfTemplateDto pdfTemplateData = buildPdfTemplateData(hrInitRequestDto,
+                new Timestamp(savedHrEntity.getDateOfJoining().getTime()));
+
+        // Start async PDF generation and DMS uploads in parallel
+        log.info("Starting parallel document generation and upload for employee: {}",
+                savedHrEntity.getEmployeeId());
+        CompletableFuture<AsyncDocumentService.DocumentResult> joiningLetterFuture = asyncDocumentService
+                .generateAndUploadJoiningLetter(pdfTemplateData, savedHrEntity.getEmployeeId(),
+                        savedHrEntity.getHrId());
+
+        CompletableFuture<AsyncDocumentService.DocumentResult> letterOfIntentFuture = asyncDocumentService
+                .generateAndUploadLetterOfIntent(pdfTemplateData, savedHrEntity.getEmployeeId(),
+                        savedHrEntity.getHrId());
+
+        CompletableFuture<AsyncDocumentService.DocumentResult> compensationCardFuture = asyncDocumentService
+                .generateAndUploadCompensationCard(pdfTemplateData, savedHrEntity.getEmployeeId(),
+                        savedHrEntity.getHrId());
+
+        // Wait for all async operations to complete (outside transaction)
+        CompletableFuture.allOf(joiningLetterFuture, letterOfIntentFuture, compensationCardFuture).join();
+        log.info("All document generation and upload tasks completed for employee: {}",
+                savedHrEntity.getEmployeeId());
+
+        // Get results
+        try {
             AsyncDocumentService.DocumentResult joiningLetterResult = joiningLetterFuture.join();
             AsyncDocumentService.DocumentResult letterOfIntentResult = letterOfIntentFuture.join();
             AsyncDocumentService.DocumentResult compensationCardResult = compensationCardFuture.join();
 
-            // Validate results
+            // Log results - don't fail, just log errors
             if (!joiningLetterResult.isSuccess()) {
-                ErrorResponseDto error = new ErrorResponseDto();
-                error.setMessage("Error uploading Joining Letter to DMS: " + joiningLetterResult.getErrorMessage());
-                error.setStatusCode(HttpStatus.INTERNAL_SERVER_ERROR.value());
-                error.setTimestamp(new Timestamp(System.currentTimeMillis()));
-                error.setServiceMethod("initHr");
-                return new ResponseEntity<>(error, HttpStatus.INTERNAL_SERVER_ERROR);
+                log.error("Error uploading Joining Letter to DMS: {}", joiningLetterResult.getErrorMessage());
             }
-
             if (!letterOfIntentResult.isSuccess()) {
-                ErrorResponseDto error = new ErrorResponseDto();
-                error.setMessage("Error uploading Letter of Intent to DMS: " + letterOfIntentResult.getErrorMessage());
-                error.setStatusCode(HttpStatus.INTERNAL_SERVER_ERROR.value());
-                error.setTimestamp(new Timestamp(System.currentTimeMillis()));
-                error.setServiceMethod("initHr");
-                return new ResponseEntity<>(error, HttpStatus.INTERNAL_SERVER_ERROR);
+                log.error("Error uploading Letter of Intent to DMS: {}", letterOfIntentResult.getErrorMessage());
             }
 
             // Extract URLs from results
-            String joiningLetterUrl = joiningLetterResult.getDocumentUrl();
-            String letterOfIntentUrl = letterOfIntentResult.getDocumentUrl();
+            String joiningLetterUrl = joiningLetterResult.isSuccess() ? joiningLetterResult.getDocumentUrl() : "";
+            String letterOfIntentUrl = letterOfIntentResult.isSuccess() ? letterOfIntentResult.getDocumentUrl() : "";
             String compensationCardUrl = "";
 
             // Build compensation with bonuses, deductions, and bank records
@@ -196,14 +244,11 @@ public class HrServiceImpl implements HrService {
             compensation.setBankRecords(hrInitRequestDto.getCompensation().getBankRecords().stream()
                     .map(bankRecordDto -> {
                         BankRecord bankRecord = modelMapper.map(bankRecordDto, BankRecord.class);
-
-                        // Log bank record details before encryption (sensitive data masked)
                         log.debug("BankRecord: bank={}, accountType={}, hasAccountNumber={}, hasIfsc={}",
                                 bankRecord.getBankName() != null ? "***" : "null",
                                 bankRecord.getAccountType(),
                                 bankRecord.getAccountNumber() != null,
                                 bankRecord.getIfscCode() != null);
-
                         bankRecord.setCompensation(compensation);
                         return bankRecord;
                     }).toList());
@@ -211,113 +256,68 @@ public class HrServiceImpl implements HrService {
 
             if (compensationCardResult.isSuccess()) {
                 HrDocument hrDocument = compensationCardResult.toHrDocument(compensation);
-                // Add document to compensation's compensationCard list
                 compensation.getCompensationCard().add(hrDocument);
                 compensationCardUrl = compensationCardResult.getDocumentUrl();
             } else {
-                ErrorResponseDto error = new ErrorResponseDto();
-                error.setMessage(
-                        "Error uploading Compensation Card to DMS: " + compensationCardResult.getErrorMessage());
-                error.setStatusCode(HttpStatus.INTERNAL_SERVER_ERROR.value());
-                error.setTimestamp(new Timestamp(System.currentTimeMillis()));
-                error.setServiceMethod("initHr");
-                return new ResponseEntity<>(error, HttpStatus.INTERNAL_SERVER_ERROR);
+                log.error("Error uploading Compensation Card to DMS: {}", compensationCardResult.getErrorMessage());
             }
 
             // Link compensation to hrEntity
             compensation.setHrEntity(savedHrEntity);
             savedHrEntity.setCompensation(compensation);
 
-            // Send communication email (this runs in its own transaction for logging)
-            EmailCommunicationDto emailCommunicationDto = new EmailCommunicationDto();
-            emailCommunicationDto.setSenderEmail("hr@nexus.com");
-            emailCommunicationDto.setRecipientEmails(List.of(hrInitRequestDto.getPersonalEmail()));
-            emailCommunicationDto.setSubject("Update on your application");
-
-            // Use email template with placeholders instead of String.formatted()
-            emailCommunicationDto.setBody(communicationTemplateBuilder.buildHrInitEmailTemplate());
-
-            // Create placeholders map for dynamic content replacement
-            Map<String, Object> placeholders = new HashMap<>();
-            placeholders.put("name", hrInitRequestDto.getFullName());
-            placeholders.put("employeeId", savedHrEntity.getEmployeeId());
-            placeholders.put("department", hrInitRequestDto.getDepartment());
-            placeholders.put("position", hrInitRequestDto.getTitle());
-            placeholders.put("dateOfJoining", savedHrEntity.getDateOfJoining().toString());
-            placeholders.put("organizationName", "Nexus Corporation");
-            emailCommunicationDto.setPlaceholders(placeholders);
-
-            // Set attachments with proper MIME types
-            emailCommunicationDto.setAttachments(List.of(
-                    new EmailAttachmentDto("Joining_Letter_" + savedHrEntity.getEmployeeId() + ".pdf",
-                            "application/pdf", joiningLetterUrl),
-                    new EmailAttachmentDto("Letter_Of_Intent_" + savedHrEntity.getEmployeeId() + ".pdf",
-                            "application/pdf", letterOfIntentUrl),
-                    new EmailAttachmentDto("Compensation_Card_" + savedHrEntity.getEmployeeId() + ".pdf",
-                            "application/pdf", compensationCardUrl)));
-
-            // Send email - if this fails, it won't affect the transaction
+            // Send communication email and Kafka message
             try {
+                EmailCommunicationDto emailCommunicationDto = new EmailCommunicationDto();
+                emailCommunicationDto.setSenderEmail("hr@nexus.com");
+                emailCommunicationDto.setRecipientEmails(List.of(hrInitRequestDto.getPersonalEmail()));
+                emailCommunicationDto.setSubject("Update on your application");
+                emailCommunicationDto.setBody(communicationTemplateBuilder.buildHrInitEmailTemplate());
+
+                Map<String, Object> placeholders = new HashMap<>();
+                placeholders.put("name", hrInitRequestDto.getFullName());
+                placeholders.put("employeeId", savedHrEntity.getEmployeeId());
+                placeholders.put("department", hrInitRequestDto.getDepartment());
+                placeholders.put("position", hrInitRequestDto.getTitle());
+                placeholders.put("dateOfJoining", savedHrEntity.getDateOfJoining().toString());
+                placeholders.put("organizationName", "Nexus Corporation");
+                emailCommunicationDto.setPlaceholders(placeholders);
+
+                emailCommunicationDto.setAttachments(List.of(
+                        new EmailAttachmentDto("Joining_Letter_" + savedHrEntity.getEmployeeId() + ".pdf",
+                                "application/pdf", joiningLetterUrl),
+                        new EmailAttachmentDto("Letter_Of_Intent_" + savedHrEntity.getEmployeeId() + ".pdf",
+                                "application/pdf", letterOfIntentUrl),
+                        new EmailAttachmentDto("Compensation_Card_" + savedHrEntity.getEmployeeId() + ".pdf",
+                                "application/pdf", compensationCardUrl)));
+
+                // CRITICAL: Publish to Kafka (now outside transaction)
                 communicationService.sendCommunicationOverKafka(emailCommunicationDto);
-                log.info("Welcome email sent successfully to {} for employee ID: {}",
-                        hrInitRequestDto.getPersonalEmail(), savedHrEntity.getEmployeeId());
+                log.info("Welcome email published to Kafka successfully for employee ID: {}",
+                        savedHrEntity.getEmployeeId());
             } catch (Exception emailException) {
-                // Log the email error but don't throw exception - prevents transaction rollback
-                log.error(
-                        "Email sending failed but HR entity was created successfully. Employee ID: {}, Email: {}, Error: {}",
-                        savedHrEntity.getEmployeeId(), hrInitRequestDto.getPersonalEmail(),
-                        emailException.getMessage(), emailException);
-                // Continue with the transaction - email failure shouldn't prevent HR creation
+                log.error("Error sending Kafka message for employee: {}. Error: {}",
+                        savedHrEntity.getEmployeeId(), emailException.getMessage(), emailException);
             }
 
-            // Initialize leave allocations for the new employee
+            // Initialize leave allocations
             log.info("=== Initializing leave allocations for employee: {} ===", savedHrEntity.getEmployeeId());
             leaveAllocationUtils.initializeLeaveAllocations(savedHrEntity);
             log.info("✓ Leave allocations initialized successfully");
 
-            // Final save with all relationships (cascade will save everything)
-            log.info("=== Attempting final save of HrEntity with all relationships ===");
-            log.debug("Saving compensation with {} bonuses, {} deductions, {} bank records, {} leave allocations",
-                    savedHrEntity.getCompensation().getBonuses().size(),
-                    savedHrEntity.getCompensation().getDeductions().size(),
-                    savedHrEntity.getCompensation().getBankRecords().size(),
-                    savedHrEntity.getLeaveAllocations().size());
-
+            // Final save with all relationships (now in a new transaction)
+            log.info("=== Attempting save of HrEntity with compensation and leave allocations ===");
             try {
                 hrEntityRepo.save(savedHrEntity);
                 log.info("✓✓✓ Successfully saved HrEntity with all relationships. HrId: {}", savedHrEntity.getHrId());
             } catch (Exception saveException) {
-                log.error("✗✗✗ FAILED to save HrEntity with relationships. Error: {}", saveException.getMessage());
-                log.error("Exception details:", saveException);
-
-                // Check for specific database constraint violations
-                String errorMsg = saveException.getMessage().toLowerCase();
-                if (errorMsg.contains("null value") && errorMsg.contains("violates not-null")) {
-                    log.error("NULL CONSTRAINT VIOLATION - Check which field is null in the logs above");
-                } else if (errorMsg.contains("foreign key") || errorMsg.contains("violates foreign key")) {
-                    log.error("FOREIGN KEY VIOLATION - Check relationship mappings");
-                } else if (errorMsg.contains("unique constraint")) {
-                    log.error("UNIQUE CONSTRAINT VIOLATION - Duplicate value detected");
-                } else if (errorMsg.contains("invalid input syntax for type")) {
-                    log.error("DATA TYPE MISMATCH - Check encryption converter or data types");
-                }
-
-                throw saveException;
+                log.error("✗✗✗ FAILED to save HrEntity with relationships. Error: {}", saveException.getMessage(),
+                        saveException);
             }
-
-            response = ResponseEntity.ok(HrInitResponse.builder()
-                    .hrId(savedHrEntity.getHrId())
-                    .joiningLetterUrl(joiningLetterUrl)
-                    .letterOfIntentUrl(letterOfIntentUrl)
-                    .compensationCardUrl(compensationCardUrl)
-                    .build());
-
         } catch (Exception e) {
-            throw new ServiceLevelException("HR Service", "Exception occurred while initializing HR module", "initHr",
-                    e.getClass().getName(), e.getMessage());
+            log.error("Error processing async HR operations for employee: {}",
+                    savedHrEntity.getEmployeeId(), e);
         }
-
-        return response;
     }
 
     @Override
@@ -372,7 +372,8 @@ public class HrServiceImpl implements HrService {
 
     @Override
     public ResponseEntity<?> promoteEmployee(Long empId, Position position, CompensationDto compensation, String role) {
-        if (ObjectUtils.isEmpty(empId) || ObjectUtils.isEmpty(position) || ObjectUtils.isEmpty(compensation) || ObjectUtils.isEmpty(role)) {
+        if (ObjectUtils.isEmpty(empId) || ObjectUtils.isEmpty(position) || ObjectUtils.isEmpty(compensation)
+                || ObjectUtils.isEmpty(role)) {
             throw new ServiceLevelException("HR Service", "HR ID, Position, and Compensation cannot be null or empty",
                     "promoteEmployee", "InvalidInput", "One or more inputs are null or empty");
         }
@@ -658,11 +659,11 @@ public class HrServiceImpl implements HrService {
             log.info("Building PDF template data for revised compensation card");
             Position currentPosition = hrEntity.getPositions().getLast();
             PdfTemplateDto pdfTemplateData = buildPdfTemplateData(HrInitRequestDto.builder()
-                            .employeeId(hrEntity.getEmployeeId())
-                            .department(hrEntity.getDepartment())
-                            .title(currentPosition.getTitle())
-                            .remarks("Reward Appraisal - Compensation Revision")
-                            .compensation(modelMapper.map(compensation, CompensationDto.class)).build(),
+                    .employeeId(hrEntity.getEmployeeId())
+                    .department(hrEntity.getDepartment())
+                    .title(currentPosition.getTitle())
+                    .remarks("Reward Appraisal - Compensation Revision")
+                    .compensation(modelMapper.map(compensation, CompensationDto.class)).build(),
                     new Timestamp(System.currentTimeMillis()));
 
             // Generate revised compensation card asynchronously
@@ -812,7 +813,8 @@ public class HrServiceImpl implements HrService {
             Integer allWhoAreOnNoticePeriod = hrEntityRepo.getAllWhoAreOnNoticePeriod(orgId);
             response = ResponseEntity.ok(allWhoAreOnNoticePeriod);
         } catch (Exception e) {
-            throw new ServiceLevelException("HR Service", "Exception occurred while fetching employees on notice period",
+            throw new ServiceLevelException("HR Service",
+                    "Exception occurred while fetching employees on notice period",
                     "getEmployeesOnNoticePeriod", e.getClass().getName(), e.getMessage());
         }
         return response;
@@ -827,8 +829,11 @@ public class HrServiceImpl implements HrService {
         ResponseEntity<?> response;
         try {
             List<EmployeeDirectoryResponse> list = empIds.stream().map(id -> {
-                HrEntity hrEntity = hrEntityRepo.findByEmployeeId(id).orElseThrow(() -> new ResourceNotFoundException("HrEntity", "employeeId", id));
-                return new EmployeeDirectoryResponse(hrEntity.getEmployeeId(), hrEntity.getDepartment(), hrEntity.getPositions().getLast().getTitle(), hrEntity.getCompensation().getNetPay(), hrEntity.getDateOfJoining());
+                HrEntity hrEntity = hrEntityRepo.findByEmployeeId(id)
+                        .orElseThrow(() -> new ResourceNotFoundException("HrEntity", "employeeId", id));
+                return new EmployeeDirectoryResponse(hrEntity.getEmployeeId(), hrEntity.getDepartment(),
+                        hrEntity.getPositions().getLast().getTitle(), hrEntity.getCompensation().getNetPay(),
+                        hrEntity.getDateOfJoining());
             }).toList();
             response = ResponseEntity.ok(list);
         } catch (RuntimeException e) {
@@ -846,30 +851,54 @@ public class HrServiceImpl implements HrService {
         }
         ResponseEntity<?> response = null;
         try {
-            HrEntity hrEntity = hrEntityRepo.findByEmployeeId(empId).orElseThrow(() -> new ResourceNotFoundException("HrEntity", "employeeId", empId));
+            HrEntity hrEntity = hrEntityRepo.findByEmployeeId(empId)
+                    .orElseThrow(() -> new ResourceNotFoundException("HrEntity", "employeeId", empId));
             EmployeeDetailsResponse employeeDetailsResponse = new EmployeeDetailsResponse();
             employeeDetailsResponse.setDepartment(hrEntity.getDepartment());
             employeeDetailsResponse.setJobTitle(hrEntity.getPositions().getLast().getTitle());
-            employeeDetailsResponse.setJoiningDate(LocalDateTime.of(hrEntity.getDateOfJoining().toLocalDate(), LocalTime.MIDNIGHT));
-            employeeDetailsResponse.setAnnualSalary(hrEntity.getCompensation().getNetPay()); // later to be changed to gross pay
-            List<EmployeeDetailsResponse.PositionsHeld> positionsHeld = hrEntity.getPositions().stream().map(position -> {
-                Double duration = position.getLastEffectiveDate() != null ? (position.getLastEffectiveDate().getTime() - position.getEffectiveFrom().getTime()) / (1000.0 * 60 * 60 * 24 * 30) : (System.currentTimeMillis() - position.getEffectiveFrom().getTime()) / (1000.0 * 60 * 60 * 24 * 30);
-                return new EmployeeDetailsResponse.PositionsHeld(position.getTitle(), position.getDepartment(), position.getEffectiveFrom(), position.getLastEffectiveDate(), duration);
-            }).toList();
+            employeeDetailsResponse
+                    .setJoiningDate(LocalDateTime.of(hrEntity.getDateOfJoining().toLocalDate(), LocalTime.MIDNIGHT));
+            employeeDetailsResponse.setAnnualSalary(hrEntity.getCompensation().getNetPay()); // later to be changed to
+                                                                                             // gross pay
+            List<EmployeeDetailsResponse.PositionsHeld> positionsHeld = hrEntity.getPositions().stream()
+                    .map(position -> {
+                        Double duration = position.getLastEffectiveDate() != null
+                                ? (position.getLastEffectiveDate().getTime() - position.getEffectiveFrom().getTime())
+                                        / (1000.0 * 60 * 60 * 24 * 30)
+                                : (System.currentTimeMillis() - position.getEffectiveFrom().getTime())
+                                        / (1000.0 * 60 * 60 * 24 * 30);
+                        return new EmployeeDetailsResponse.PositionsHeld(position.getTitle(), position.getDepartment(),
+                                position.getEffectiveFrom(), position.getLastEffectiveDate(), duration);
+                    }).toList();
             employeeDetailsResponse.setPositionsHeld(positionsHeld);
             employeeDetailsResponse.setCompensation(modelMapper.map(hrEntity.getCompensation(), CompensationDto.class));
-            List<EmployeeDetailsResponse.HrDocuments> hrDocuments = hrEntity.getHrDocuments().stream().map(document -> new EmployeeDetailsResponse.HrDocuments(document.getDocumentName(), document.getDocumentUrl(), document.getCreatedOn(), document.getHrDocumentType())).toList();
+            List<EmployeeDetailsResponse.HrDocuments> hrDocuments = hrEntity.getHrDocuments().stream()
+                    .map(document -> new EmployeeDetailsResponse.HrDocuments(document.getDocumentName(),
+                            document.getDocumentUrl(), document.getCreatedOn(), document.getHrDocumentType()))
+                    .toList();
             employeeDetailsResponse.setHrDocuments(hrDocuments);
             // attendance
-            List<EmployeeDetailsResponse.AttendanceRecord> attendanceRecords = hrEntity.getTimeManagements().stream().map(attendance -> {
-//                Date date = Date.valueOf(attendance.getCreatedOn().toLocalDateTime().toLocalDate());
-                LocalDateTime datetime= LocalDateTime.of(attendance.getCreatedOn().toLocalDateTime().toLocalDate(), LocalTime.MIDNIGHT);
-                // decide status
-                AttendanceStatus status = getAttendanceStatus(attendance);
-                Double totalBreakHours = attendance.getBreakEndTime() != null && attendance.getBreakStartTime() != null ? (attendance.getBreakEndTime().getTime() - attendance.getBreakStartTime().getTime()) / (1000.0 * 60 * 60) : 0.0;
-                return new EmployeeDetailsResponse.AttendanceRecord(datetime, status, attendance.getCheckInTime(), attendance.getCheckOutTime(), attendance.getTotalHoursWorked(), totalBreakHours, attendance.getOvertimeHours());
-            }).toList();
-            List<EmployeeDetailsResponse.LeaveRecord> leaveRecords = hrEntity.getLeaveAllocations().stream().map(leave -> new EmployeeDetailsResponse.LeaveRecord(leave.getLeaveType().name(), leave.getAllocatedDays(), leave.getUsedDays(), leave.getRemainingDays())).toList();
+            List<EmployeeDetailsResponse.AttendanceRecord> attendanceRecords = hrEntity.getTimeManagements().stream()
+                    .map(attendance -> {
+                        // Date date =
+                        // Date.valueOf(attendance.getCreatedOn().toLocalDateTime().toLocalDate());
+                        LocalDateTime datetime = LocalDateTime
+                                .of(attendance.getCreatedOn().toLocalDateTime().toLocalDate(), LocalTime.MIDNIGHT);
+                        // decide status
+                        AttendanceStatus status = getAttendanceStatus(attendance);
+                        Double totalBreakHours = attendance.getBreakEndTime() != null
+                                && attendance.getBreakStartTime() != null
+                                        ? (attendance.getBreakEndTime().getTime()
+                                                - attendance.getBreakStartTime().getTime()) / (1000.0 * 60 * 60)
+                                        : 0.0;
+                        return new EmployeeDetailsResponse.AttendanceRecord(datetime, status,
+                                attendance.getCheckInTime(), attendance.getCheckOutTime(),
+                                attendance.getTotalHoursWorked(), totalBreakHours, attendance.getOvertimeHours());
+                    }).toList();
+            List<EmployeeDetailsResponse.LeaveRecord> leaveRecords = hrEntity.getLeaveAllocations().stream()
+                    .map(leave -> new EmployeeDetailsResponse.LeaveRecord(leave.getLeaveType().name(),
+                            leave.getAllocatedDays(), leave.getUsedDays(), leave.getRemainingDays()))
+                    .toList();
             employeeDetailsResponse.setAttendanceRecords(attendanceRecords);
             employeeDetailsResponse.setLeaveRecords(leaveRecords);
             response = ResponseEntity.ok(employeeDetailsResponse);

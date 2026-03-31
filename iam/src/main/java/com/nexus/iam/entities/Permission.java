@@ -29,7 +29,6 @@ public class Permission {
     private Resource resource;
 
     @ElementCollection(fetch = FetchType.LAZY)
-    @CollectionTable(name = "t_permission_actions", joinColumns = @JoinColumn(name = "permission_id"))
     @Column(name = "action")
     @Enumerated(EnumType.STRING)
     private Set<PermissionAction> actions; // e.g., "READ", "CREATE", "UPDATE", "DELETE"

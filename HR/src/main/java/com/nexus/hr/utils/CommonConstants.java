@@ -8,7 +8,7 @@ public class CommonConstants {
     public static final String MULTIPART_FORM_DATA = "multipart/form-data";
     public static final String X_WWW_URL_ENCODED = "application/x-www-form-urlencoded";
     public static final String POST = "POST";
-    public static final String CANDIDATE_SELECTION_MAIL_TOPIC = "candidate-selection-mail";
+    public static final String CANDIDATE_SELECTION_MAIL_TOPIC = "candidate-selection-mail-topic";
 
 
     public static final String HR_INIT_EMAIL_TEMPLATE = """

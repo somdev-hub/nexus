@@ -18,7 +18,7 @@ import org.springframework.util.ObjectUtils;
 import org.springframework.web.client.RestClient;
 import org.thymeleaf.ITemplateEngine;
 import org.thymeleaf.context.Context;
-import tools.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.util.List;
 import java.util.Map;
@@ -41,7 +41,10 @@ public class EmailCommunicationService {
         try {
             kafkaContent = objectMapper.readValue(message, Map.class);
             if (kafkaContent.containsKey("message")) {
-                emailCommunicationDto = objectMapper.convertValue(kafkaContent.get("message"), EmailCommunicationDto.class);
+                // The message field contains a JSON string, so we need to parse it with
+                // readValue
+                String emailDtoJson = kafkaContent.get("message").toString();
+                emailCommunicationDto = objectMapper.readValue(emailDtoJson, EmailCommunicationDto.class);
             }
 
             long startTime = System.currentTimeMillis();
@@ -52,14 +55,17 @@ public class EmailCommunicationService {
                 MimeMessage mimeMessage = javaMailSender.createMimeMessage();
                 MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, true, "UTF-8");
 
-                String fromEmail = ObjectUtils.isEmpty(emailCommunicationDto.getSenderEmail()) ? webConstants.getDefaultFromEmail() : emailCommunicationDto.getSenderEmail();
+                String fromEmail = ObjectUtils.isEmpty(emailCommunicationDto.getSenderEmail())
+                        ? webConstants.getDefaultFromEmail()
+                        : emailCommunicationDto.getSenderEmail();
 
                 helper.setFrom(fromEmail);
                 helper.setTo(emailCommunicationDto.getRecipientEmails().toArray(new String[0]));
                 helper.setSubject(emailCommunicationDto.getSubject());
 
                 String emailFilename = null;
-                if (kafkaContent.containsKey("topic") && kafkaContent.get("topic").equals(CommonConstants.CANDIDATE_SELECTION_MAIL_TOPIC)) {
+                if (kafkaContent.containsKey("topic")
+                        && kafkaContent.get("topic").equals(CommonConstants.CANDIDATE_SELECTION_MAIL_TOPIC)) {
                     emailFilename = CommonConstants.HR_INIT_EMAIL_FILE_NAME;
                 }
                 String processedBody = renderThymeleafTemplate(emailFilename, emailCommunicationDto.getPlaceholders());
@@ -81,19 +87,29 @@ public class EmailCommunicationService {
                 // Send email
                 javaMailSender.send(mimeMessage);
 
-                loggerService.log("HR", emailCommunicationDto.getRecipientEmails(), emailCommunicationDto.getCcEmails(), emailCommunicationDto.getBccEmails(), null, CommsType.EMAIL, objectMapper.writeValueAsString(emailCommunicationDto.getPlaceholders()), kafkaContent.get("uuid").toString(), CommsStatus.SENT);
+                loggerService.log("HR", emailCommunicationDto.getRecipientEmails(), emailCommunicationDto.getCcEmails(),
+                        emailCommunicationDto.getBccEmails(), null, CommsType.EMAIL,
+                        objectMapper.writeValueAsString(emailCommunicationDto.getPlaceholders()),
+                        kafkaContent.get("uuid").toString(), CommsStatus.SENT);
 
                 long duration = System.currentTimeMillis() - startTime;
-                log.info("Email sent successfully to {} recipients in {}ms", emailCommunicationDto.getRecipientEmails().size(), duration);
+                log.info("Email sent successfully to {} recipients in {}ms",
+                        emailCommunicationDto.getRecipientEmails().size(), duration);
             } catch (IllegalArgumentException e) {
                 log.error("Validation error while processing email communication: {}", e.getMessage());
             } catch (MessagingException e) {
                 assert emailCommunicationDto != null;
-                loggerService.log("HR", emailCommunicationDto.getRecipientEmails(), emailCommunicationDto.getCcEmails(), emailCommunicationDto.getBccEmails(), null, CommsType.EMAIL, objectMapper.writeValueAsString(emailCommunicationDto.getPlaceholders()), kafkaContent.get("uuid").toString(), CommsStatus.FAILED);
+                loggerService.log("HR", emailCommunicationDto.getRecipientEmails(), emailCommunicationDto.getCcEmails(),
+                        emailCommunicationDto.getBccEmails(), null, CommsType.EMAIL,
+                        objectMapper.writeValueAsString(emailCommunicationDto.getPlaceholders()),
+                        kafkaContent.get("uuid").toString(), CommsStatus.FAILED);
                 log.error("Error sending email communication: {}", e.getMessage(), e);
             } catch (Exception e) {
                 assert emailCommunicationDto != null;
-                loggerService.log("HR", emailCommunicationDto.getRecipientEmails(), emailCommunicationDto.getCcEmails(), emailCommunicationDto.getBccEmails(), null, CommsType.EMAIL, objectMapper.writeValueAsString(emailCommunicationDto.getPlaceholders()), kafkaContent.get("uuid").toString(), CommsStatus.FAILED);
+                loggerService.log("HR", emailCommunicationDto.getRecipientEmails(), emailCommunicationDto.getCcEmails(),
+                        emailCommunicationDto.getBccEmails(), null, CommsType.EMAIL,
+                        objectMapper.writeValueAsString(emailCommunicationDto.getPlaceholders()),
+                        kafkaContent.get("uuid").toString(), CommsStatus.FAILED);
                 log.error("Unexpected error while processing email communication: {}", e.getMessage(), e);
             }
             kafkaBacklogService.logProcessed(kafkaContent.get("topic").toString(), kafkaContent.get("uuid").toString());
@@ -103,7 +119,6 @@ public class EmailCommunicationService {
             kafkaBacklogService.logFailed(kafkaContent.get("topic").toString(), kafkaContent.get("uuid").toString());
         }
     }
-
 
     /**
      * Validates email communication data
@@ -122,7 +137,8 @@ public class EmailCommunicationService {
         }
 
         if (dto.getRecipientEmails().size() > webConstants.getMaxRecipients()) {
-            throw new IllegalArgumentException(String.format("Number of recipients exceeds maximum limit of %d", webConstants.getMaxRecipients()));
+            throw new IllegalArgumentException(
+                    String.format("Number of recipients exceeds maximum limit of %d", webConstants.getMaxRecipients()));
         }
 
         // Validate email formats
@@ -143,14 +159,16 @@ public class EmailCommunicationService {
         List<String> invalidEmails = emails.stream().filter(email -> !email.matches(emailRegex)).toList();
 
         if (!invalidEmails.isEmpty()) {
-            throw new IllegalArgumentException(String.format("Invalid %s email format: %s", type, String.join(", ", invalidEmails)));
+            throw new IllegalArgumentException(
+                    String.format("Invalid %s email format: %s", type, String.join(", ", invalidEmails)));
         }
     }
 
     /**
      * Attaches files to email from provided URLs
      */
-    private void attachFilesToEmail(MimeMessageHelper helper, List<EmailAttachmentDto> attachments) throws MessagingException {
+    private void attachFilesToEmail(MimeMessageHelper helper, List<EmailAttachmentDto> attachments)
+            throws MessagingException {
         for (EmailAttachmentDto attachment : attachments) {
             try {
                 if (ObjectUtils.isEmpty(attachment.getFileUrl()) || ObjectUtils.isEmpty(attachment.getFileName())) {
@@ -164,7 +182,8 @@ public class EmailCommunicationService {
                 // Normalize content type to proper MIME format
                 String contentType = normalizeContentType(attachment.getContentType(), attachment.getFileName());
 
-                helper.addAttachment(attachment.getFileName(), () -> new java.io.ByteArrayInputStream(fileData), contentType);
+                helper.addAttachment(attachment.getFileName(), () -> new java.io.ByteArrayInputStream(fileData),
+                        contentType);
 
                 log.debug("Attached file: {} with content type: {}", attachment.getFileName(), contentType);
             } catch (Exception e) {
@@ -269,7 +288,8 @@ public class EmailCommunicationService {
      * Templates should be placed in src/main/resources/templates/emails/
      *
      * @param templateFileName The name of the template file (e.g., "hr-init-email")
-     * @param placeholders     Map containing context variables for template rendering
+     * @param placeholders     Map containing context variables for template
+     *                         rendering
      * @return The rendered HTML content
      */
     private String renderThymeleafTemplate(String templateFileName, Map<String, Object> placeholders) {

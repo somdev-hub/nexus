@@ -61,8 +61,7 @@ public class CommonUtils {
                     FileExceptionType.EMPTY_FILE,
                     "No File",
                     "The uploaded file is empty. Please upload a valid file.",
-                    new Timestamp(System.currentTimeMillis())
-            );
+                    new Timestamp(System.currentTimeMillis()));
         }
 
         // fileNameValidation using regex
@@ -74,8 +73,7 @@ public class CommonUtils {
                     FileExceptionType.INVALID_FORMAT,
                     originalFilename,
                     "The file name contains invalid characters. Only alphanumeric characters, dots, underscores, and hyphens are allowed.",
-                    new Timestamp(System.currentTimeMillis())
-            );
+                    new Timestamp(System.currentTimeMillis()));
         }
 
         // file size check
@@ -88,8 +86,7 @@ public class CommonUtils {
                     originalFilename,
                     String.format("The uploaded file exceeds the maximum allowed size of %d MB.",
                             CommonConstants.MAX_FILE_SIZE_MB),
-                    new Timestamp(System.currentTimeMillis())
-            );
+                    new Timestamp(System.currentTimeMillis()));
         }
 
         // file type check
@@ -101,8 +98,7 @@ public class CommonUtils {
                     FileExceptionType.UNSUPPORTED_TYPE,
                     originalFilename,
                     "The uploaded file type is not supported. Allowed types are PDF, JPEG, JPG, and PNG.",
-                    new Timestamp(System.currentTimeMillis())
-            );
+                    new Timestamp(System.currentTimeMillis()));
 
         }
 
@@ -117,8 +113,7 @@ public class CommonUtils {
                             FileExceptionType.UNSUPPORTED_TYPE,
                             originalFilename,
                             "The uploaded PDF file is password protected. Please upload an unprotected PDF file.",
-                            new Timestamp(System.currentTimeMillis())
-                    );
+                            new Timestamp(System.currentTimeMillis()));
                 }
 
             } catch (InvalidPasswordException e) {
@@ -128,8 +123,7 @@ public class CommonUtils {
                         FileExceptionType.UNSUPPORTED_TYPE,
                         originalFilename,
                         e.getMessage(),
-                        new Timestamp(System.currentTimeMillis())
-                );
+                        new Timestamp(System.currentTimeMillis()));
             } catch (IOException e) {
                 throw new FileValidationException(
                         "Error reading PDF file",
@@ -137,8 +131,7 @@ public class CommonUtils {
                         FileExceptionType.UNSUPPORTED_TYPE,
                         originalFilename,
                         e.getMessage(),
-                        new Timestamp(System.currentTimeMillis())
-                );
+                        new Timestamp(System.currentTimeMillis()));
             }
         }
 
@@ -154,19 +147,25 @@ public class CommonUtils {
                     .retrieve()
                     .toEntity(new ParameterizedTypeReference<Map<String, String>>() {
                     });
-            // extract isValid from response
+            // extract isValid from response - fixed logic
             Map<String, String> responseBody = response.getBody();
-            return !response.getStatusCode().is2xxSuccessful() ||
-                    !ObjectUtils.isEmpty(responseBody) ||
-                    !Boolean.parseBoolean(responseBody.get("isValid"));
+            return response.getStatusCode().is2xxSuccessful() &&
+                    !ObjectUtils.isEmpty(responseBody) &&
+                    Boolean.parseBoolean(responseBody.get("isValid"));
 
         } catch (Exception e) {
             e.printStackTrace();
-            return true;
+            return false;
         }
     }
 
-    public String getToken() {
+    /**
+     * Thread-safe token retrieval with synchronized access to prevent concurrent
+     * token generation.
+     * Fixes race condition when multiple async tasks call getToken()
+     * simultaneously.
+     */
+    public synchronized String getToken() {
         if (this.token == null || !validateToken(this.token)) {
             this.token = generateToken();
         }
@@ -187,7 +186,8 @@ public class CommonUtils {
                     });
             // extract token from response
             Map<String, String> responseBody = response.getBody();
-            if (response.getStatusCode().is2xxSuccessful() && responseBody != null && responseBody.containsKey("accessToken")) {
+            if (response.getStatusCode().is2xxSuccessful() && responseBody != null
+                    && responseBody.containsKey("accessToken")) {
                 return "Bearer " + responseBody.get("accessToken");
             } else {
                 return null;
@@ -225,14 +225,12 @@ public class CommonUtils {
         }
         JsonNode jsonNode = null;
         ObjectMapper objectMapper = new ObjectMapper();
-        try{
+        try {
             jsonNode = objectMapper.readTree(jsonString);
-        }
-        catch (JacksonException _){
+        } catch (JacksonException _) {
             jsonNode = objectMapper.createObjectNode().put("message", jsonString);
         }
         return objectMapper.writeValueAsString(jsonNode);
     }
-
 
 }

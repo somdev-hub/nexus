@@ -4,7 +4,7 @@ import com.nexus.hr.model.enums.AttendanceStatus;
 import com.nexus.hr.payload.CompensationDto;
 import com.nexus.hr.utils.LocalDateTimeSerializer;
 import lombok.Data;
-import tools.jackson.databind.annotation.JsonSerialize;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
@@ -27,20 +27,17 @@ public class EmployeeDetailsResponse {
     }
 
     public record AttendanceRecord(@JsonSerialize(using = LocalDateTimeSerializer.class) LocalDateTime date,
-                                   AttendanceStatus status, Timestamp checkInTime, Timestamp checkOutTime,
-                                   Double hoursWorked, Double breakHours, Double overtimeHours) {
+            AttendanceStatus status, Timestamp checkInTime, Timestamp checkOutTime,
+            Double hoursWorked, Double breakHours, Double overtimeHours) {
     }
 
     public record HrDocuments(String documentName, String documentUrl, Timestamp uploadedOn, String documentType) {
     }
 
-
-    public record PositionsHeld
-            (String title,
-             String department,
-             Timestamp fromDate,
-             Timestamp toDate,
-             Double duration
-            ) {
+    public record PositionsHeld(String title,
+            String department,
+            Timestamp fromDate,
+            Timestamp toDate,
+            Double duration) {
     }
 }

@@ -9,7 +9,8 @@ import org.springframework.kafka.support.KafkaHeaders;
 import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.stereotype.Service;
-import tools.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.core.JsonParseException;
 
 import java.util.List;
 import java.util.Map;
@@ -37,11 +38,7 @@ public class KafkaConsumerService {
      * Consume notification messages (batch)
      * Processes multiple messages in one go for efficiency
      */
-    @KafkaListener(
-            topics = "cms-notifications",
-            groupId = "cms-notification-group",
-            containerFactory = "kafkaListenerContainerFactory"
-    )
+    @KafkaListener(topics = "cms-notifications", groupId = "cms-notification-group", containerFactory = "kafkaListenerContainerFactory")
     public void consumeNotifications(
             List<String> messages,
             @Header(name = KafkaHeaders.RECEIVED_PARTITION, required = false) Integer partition,
@@ -69,11 +66,7 @@ public class KafkaConsumerService {
     /**
      * Consume audit logs (batch)
      */
-    @KafkaListener(
-            topics = "cms-audit-logs",
-            groupId = "cms-audit-group",
-            containerFactory = "kafkaListenerContainerFactory"
-    )
+    @KafkaListener(topics = "cms-audit-logs", groupId = "cms-audit-group", containerFactory = "kafkaListenerContainerFactory")
     public void consumeAuditLogs(
             List<String> messages,
             @Header(name = KafkaHeaders.RECEIVED_PARTITION, required = false) Integer partition,
@@ -97,11 +90,7 @@ public class KafkaConsumerService {
     /**
      * Consume events (batch)
      */
-    @KafkaListener(
-            topics = "cms-events",
-            groupId = "cms-event-group",
-            containerFactory = "kafkaListenerContainerFactory"
-    )
+    @KafkaListener(topics = "cms-events", groupId = "cms-event-group", containerFactory = "kafkaListenerContainerFactory")
     public void consumeEvents(
             List<String> messages,
             @Header(name = KafkaHeaders.RECEIVED_PARTITION, required = false) Integer partition,
@@ -122,18 +111,14 @@ public class KafkaConsumerService {
         }
     }
 
-    @KafkaListener(
-            topics = "candidate-selection-mail",
-            groupId = "cms-group",
-            containerFactory = "kafkaListenerContainerFactory"
-    )
+    @KafkaListener(topics = "candidate-selection-mail-topic", groupId = "cms-group", containerFactory = "singleRecordKafkaListenerContainerFactory")
     /**
      * Message<String> kafkaMessage = MessageBuilder
-     *                     .withPayload(message)
-     *                     .setHeader(KafkaHeaders.TOPIC, topic)
-     *                     .setHeader("kafka_messageKey", key)
-     *                     .setHeader("timestamp", LocalDateTime.now().toString())
-     *                     .build();
+     * .withPayload(message)
+     * .setHeader(KafkaHeaders.TOPIC, topic)
+     * .setHeader("kafka_messageKey", key)
+     * .setHeader("timestamp", LocalDateTime.now().toString())
+     * .build();
      */
     public void consumeCandidateSelectionMail(
             @Payload String message,
@@ -141,54 +126,79 @@ public class KafkaConsumerService {
             @Header(KafkaHeaders.OFFSET) long offset,
             Acknowledgment acknowledgment) {
         try {
+            // Trim whitespace and validate message
+            String trimmedMessage = message.trim();
+
+            if (trimmedMessage.isEmpty()) {
+                log.warn("Received empty message from topic candidate-selection-mail");
+                acknowledgment.acknowledge();
+                return;
+            }
+
+            log.debug("Raw Kafka message (first 500 chars): {}",
+                    trimmedMessage.length() > 500 ? trimmedMessage.substring(0, 500) : trimmedMessage);
+
             @SuppressWarnings("unchecked")
-            Map<String, Object> payload = objectMapper.readValue(message, Map.class);
-            if (payload.containsKey("commsType") && payload.containsKey("uuid") && payload.containsKey("topic") && payload.get("commsType").equals("email")) {
+            Map<String, Object> payload = objectMapper.readValue(trimmedMessage, Map.class);
+
+            if (payload.containsKey("commsType") && payload.containsKey("uuid") && payload.containsKey("topic")
+                    && payload.get("commsType").equals("email")) {
                 log.info("Processing candidate selection email with key: {}, offset: {}", key, offset);
                 // Add your email processing logic here
                 kafkaBacklogService.logReceived(
                         payload.get("topic").toString(),
-                        payload.get("uuid").toString()
-                );
-                emailCommunicationService.handleEmailCommunication(message);
+                        payload.get("uuid").toString());
+                emailCommunicationService.handleEmailCommunication(trimmedMessage);
+                acknowledgment.acknowledge();
             } else {
                 log.warn("Received message with unsupported commsType: {}", payload.get("commsType"));
+                acknowledgment.acknowledge();
             }
+        } catch (JsonParseException e) {
+            log.error(
+                    "JSON parsing error for candidate selection email. Message content (first 1000 chars): {}. Error: {}",
+                    message.length() > 1000 ? message.substring(0, 1000) : message,
+                    e.getMessage(), e);
+            acknowledgment.acknowledge();
         } catch (Exception e) {
-            log.error("Error processing events batch", e);
+            log.error("Error processing candidate selection email with key: {}, offset: {}", key, offset, e);
+            acknowledgment.acknowledge();
         }
     }
-
 
     /**
      * Alternative: Single record consumer (uncomment if needed)
      * Use this instead of batch for high-latency requirements
      */
     /*
-    @KafkaListener(
-        topics = "cms-notifications",
-        groupId = "cms-notification-group-single",
-        containerFactory = "singleRecordKafkaListenerContainerFactory"
-    )
-    public void consumeNotificationSingleRecord(
-        @Payload String message,
-        @Header(KafkaHeaders.RECEIVED_KEY) String key,
-        @Header(KafkaHeaders.RECEIVED_PARTITION_ID) int partition,
-        @Header(KafkaHeaders.OFFSET) long offset,
-        Acknowledgment acknowledgment) {
-
-        try {
-            log.info("Processing single notification: key={}, partition={}, offset={}",
-                key, partition, offset);
-
-            processNotification(message);
-            acknowledgment.acknowledge();
-
-        } catch (Exception e) {
-            log.error("Error processing single notification", e);
-        }
-    }
-    */
+     * @KafkaListener(
+     * topics = "cms-notifications",
+     * groupId = "cms-notification-group-single",
+     * containerFactory = "singleRecordKafkaListenerContainerFactory"
+     * )
+     * public void consumeNotificationSingleRecord(
+     * 
+     * @Payload String message,
+     * 
+     * @Header(KafkaHeaders.RECEIVED_KEY) String key,
+     * 
+     * @Header(KafkaHeaders.RECEIVED_PARTITION_ID) int partition,
+     * 
+     * @Header(KafkaHeaders.OFFSET) long offset,
+     * Acknowledgment acknowledgment) {
+     * 
+     * try {
+     * log.info("Processing single notification: key={}, partition={}, offset={}",
+     * key, partition, offset);
+     * 
+     * processNotification(message);
+     * acknowledgment.acknowledge();
+     * 
+     * } catch (Exception e) {
+     * log.error("Error processing single notification", e);
+     * }
+     * }
+     */
 
     /**
      * Process notification message
@@ -232,10 +242,3 @@ public class KafkaConsumerService {
         }
     }
 }
-
-
-
-
-
-
-

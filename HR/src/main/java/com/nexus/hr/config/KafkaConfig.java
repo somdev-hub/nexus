@@ -74,13 +74,12 @@ public class KafkaConfig {
         configProps.put(ProducerConfig.REQUEST_TIMEOUT_MS_CONFIG, 30000);
         configProps.put(ProducerConfig.DELIVERY_TIMEOUT_MS_CONFIG, 120000);
 
-        // Idempotence - Ensures exactly-once semantics
+        // Idempotence - Ensures exactly-once semantics without transactions
+        // CRITICAL: Do NOT enable transactions (TRANSACTIONAL_ID_CONFIG) as it
+        // conflicts with Spring @Transactional
         configProps.put(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, true);
 
-        // Transactional configuration
-        configProps.put(ProducerConfig.TRANSACTIONAL_ID_CONFIG, "cms-producer-");
-
-        // Max in-flight requests (must be 1 for ordering guarantee with idempotence)
+        // Max in-flight requests for idempotent producer
         configProps.put(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, 5);
 
         return new DefaultKafkaProducerFactory<>(configProps);
@@ -91,8 +90,3 @@ public class KafkaConfig {
         return new KafkaTemplate<>(producerFactory());
     }
 }
-
-
-
-
-

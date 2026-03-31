@@ -50,14 +50,14 @@ public class KafkaConfig {
     public KafkaAdmin kafkaAdmin() {
         Map<String, Object> configs = new HashMap<>();
         configs.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, webConstants.getBootstrapServers());
-        
+
         // Add timeout configuration to prevent hanging
         configs.put(AdminClientConfig.REQUEST_TIMEOUT_MS_CONFIG, 30000);
         configs.put(AdminClientConfig.CONNECTIONS_MAX_IDLE_MS_CONFIG, 540000);
         configs.put(AdminClientConfig.RECONNECT_BACKOFF_MS_CONFIG, 100);
         configs.put(AdminClientConfig.RECONNECT_BACKOFF_MAX_MS_CONFIG, 10000);
         configs.put(AdminClientConfig.RETRIES_CONFIG, 3);
-        
+
         log.info("Initializing Kafka Admin with bootstrap servers: {}", webConstants.getBootstrapServers());
         return new KafkaAdmin(configs);
     }
@@ -94,13 +94,12 @@ public class KafkaConfig {
         configProps.put(ProducerConfig.REQUEST_TIMEOUT_MS_CONFIG, 30000);
         configProps.put(ProducerConfig.DELIVERY_TIMEOUT_MS_CONFIG, 120000);
 
-        // Idempotence - Ensures exactly-once semantics
+        // Idempotence - Ensures exactly-once semantics without transactions
+        // CRITICAL: Do NOT enable transactions (TRANSACTIONAL_ID_CONFIG) as it
+        // conflicts with Spring @Transactional
         configProps.put(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, true);
 
-        // Transactional configuration
-        configProps.put(ProducerConfig.TRANSACTIONAL_ID_CONFIG, "cms-producer-");
-
-        // Max in-flight requests (must be 1 for ordering guarantee with idempotence)
+        // Max in-flight requests for idempotent producer
         configProps.put(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, 5);
 
         return new DefaultKafkaProducerFactory<>(configProps);
@@ -130,7 +129,8 @@ public class KafkaConfig {
         // Offset Management - Start from earliest unread message
         configProps.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
 
-        // Auto-commit configuration - MUST be false when using MANUAL_IMMEDIATE ack mode
+        // Auto-commit configuration - MUST be false when using MANUAL_IMMEDIATE ack
+        // mode
         configProps.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
 
         // Session timeout configuration
@@ -154,8 +154,7 @@ public class KafkaConfig {
      */
     @Bean
     public KafkaListenerContainerFactory<ConcurrentMessageListenerContainer<String, String>> kafkaListenerContainerFactory() {
-        ConcurrentKafkaListenerContainerFactory<String, String> factory =
-                new ConcurrentKafkaListenerContainerFactory<>();
+        ConcurrentKafkaListenerContainerFactory<String, String> factory = new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(consumerFactory());
 
         // Enable batch processing
@@ -181,8 +180,7 @@ public class KafkaConfig {
      */
     @Bean(name = "singleRecordKafkaListenerContainerFactory")
     public KafkaListenerContainerFactory<ConcurrentMessageListenerContainer<String, String>> singleRecordKafkaListenerContainerFactory() {
-        ConcurrentKafkaListenerContainerFactory<String, String> factory =
-                new ConcurrentKafkaListenerContainerFactory<>();
+        ConcurrentKafkaListenerContainerFactory<String, String> factory = new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(consumerFactory());
 
         // Single record processing (default)
@@ -254,8 +252,3 @@ public class KafkaConfig {
                 .build();
     }
 }
-
-
-
-
-

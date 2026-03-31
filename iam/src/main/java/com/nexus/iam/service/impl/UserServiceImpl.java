@@ -146,7 +146,8 @@ public class UserServiceImpl implements UserService {
             return ResponseEntity.ok("User deleted successfully");
         } catch (Exception e) {
             throw new ServiceLevelException("UserService", e.getLocalizedMessage(), "deleteUser",
-                    new Timestamp(System.currentTimeMillis()), e.getCause() != null ? e.getCause().toString() : null, e.getMessage());
+                    new Timestamp(System.currentTimeMillis()), e.getCause() != null ? e.getCause().toString() : null,
+                    e.getMessage());
         }
     }
 
@@ -263,6 +264,10 @@ public class UserServiceImpl implements UserService {
     @Override
     public ResponseEntity<?> createUser(UserProfileDto userDto, MultipartFile[] files) {
         try {
+            // NOTE: This method is for Phase 1 (Traditional JWT) user creation
+            // Phase 2 (Keycloak) user creation is handled by
+            // KeycloakAuthenticationService.register()
+
             User user = new User();
             user.setName(userDto.getName());
             user.setEmail(userDto.getEmail());
@@ -280,16 +285,18 @@ public class UserServiceImpl implements UserService {
             user.setOrganization(organizationRepository.findById(userDto.getOrgId())
                     .orElseThrow(() -> new ResourceNotFoundException("Organization", "id", userDto.getOrgId())));
 
-            // Set role
-            user.getRoles().add(roleRepository.findByName(userDto.getRole())
-                    .orElseThrow(() -> new ResourceNotFoundException("Role", "name", userDto.getRole())));
+            // Set role - only assign application roles (filtered by KeycloakUserSyncService
+            // in Keycloak mode)
+            String roleName = !ObjectUtils.isEmpty(userDto.getRole()) ? userDto.getRole() : "USER";
+            user.getRoles().add(roleRepository.findByName(roleName)
+                    .orElseThrow(() -> new ResourceNotFoundException("Role", "name", roleName)));
 
-            if (ObjectUtils.isEmpty(userDto.getDeptId())){
+            if (ObjectUtils.isEmpty(userDto.getDeptId())) {
                 throw new ServiceLevelException("UserService", "Department ID is required", "createUser",
                         new Timestamp(System.currentTimeMillis()), null, "Department ID is null or empty");
             }
 
-            // Generate a random password
+            // Generate a random password (only used for Phase 1 - traditional JWT)
             String generatedPassword = generateRandomPassword();
             user.setPassword(passwordEncoder.encode(generatedPassword));
 
@@ -301,15 +308,17 @@ public class UserServiceImpl implements UserService {
 
             // Save user to repository
             userRepository.save(user);
-            // Set department
-            Department department = departmentRepository.findById(userDto.getDeptId()).orElseThrow(() -> new ResourceNotFoundException("Department", "id", userDto.getDeptId()));
-            if (userDto.isDeptHead()){
+
+            // Set department membership
+            Department department = departmentRepository.findById(userDto.getDeptId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Department", "id", userDto.getDeptId()));
+            if (userDto.isDeptHead()) {
                 department.addDepartmentHead(user);
-            }else{
+            } else {
                 department.addMember(user);
             }
 
-            // prepare HR payload
+            // Prepare HR payload
             Map<String, Object> payload = new HashMap<>();
             payload.put("employeeId", user.getId());
             payload.put("fullName", user.getName());
@@ -322,7 +331,7 @@ public class UserServiceImpl implements UserService {
             payload.put("personalEmail", userDto.getPersonalEmail());
             payload.put("compensation", userDto.getCompensation());
 
-            // upload documents to dms
+            // Upload documents to DMS
             if (!ObjectUtils.isEmpty(files)) {
                 List<Map<String, String>> hrDocumentsPayload = new ArrayList<>();
                 UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getOrgFileUploadUrl());
@@ -330,25 +339,20 @@ public class UserServiceImpl implements UserService {
                     try {
                         Map<String, Object> dto = new HashMap<>();
                         dto.put("userId", user.getId());
-                        if (file.getOriginalFilename().contains("profile_pic")){
+                        if (file.getOriginalFilename().contains("profile_pic")) {
                             dto.put("fileName", user.getId() + "_profile_photo");
-                        }else{
-                            dto.put("fileName", user.getId() + "_hr_doc"+file.getOriginalFilename());
+                        } else {
+                            dto.put("fileName", user.getId() + "_hr_doc" + file.getOriginalFilename());
                         }
                         dto.put("remarks", "HR Doc Upload");
                         dto.put("documentType", "OTHER_HR_DOCUMENTS");
-
-//                        ByteArrayResource resource = new ByteArrayResource(file.getBytes()) {
-//                            @Override
-//                            public String getFilename() {
-//                                return file.getOriginalFilename();
-//                            }
-//                        };
 
                         Map<String, Object> docPayload = new HashMap<>();
                         docPayload.put("dto", dto);
                         docPayload.put("file", file);
 
+                        // Get authentication token for DMS call
+                        // Uses generic user credentials for inter-service communication
                         Map<String, String> headers = new HashMap<>();
                         LoginResponse loginResponse = authenticationService
                                 .authenticate(new LoginRequest(webConstants.getGenericUserId(),
@@ -356,21 +360,22 @@ public class UserServiceImpl implements UserService {
                         headers.put(CommonConstants.AUTHORIZATION, "Bearer " + loginResponse.getAccessToken());
                         // Do NOT set Content-Type header - RestTemplate will automatically set it to
                         // multipart/form-data
+
                         ResponseEntity<?> response = restService.iamRestCall(
                                 builder.toUriString(),
                                 docPayload,
                                 headers,
                                 HttpMethod.POST,
                                 user.getId());
+
                         if (response.getStatusCode().is2xxSuccessful()) {
                             @SuppressWarnings("unchecked")
                             Map<String, String> respBody = (Map<String, String>) response.getBody();
-                            assert respBody != null;
-                            if (respBody.containsKey("documentUrl")) {
+                            if (respBody != null && respBody.containsKey("documentUrl")) {
                                 if (file.getOriginalFilename().contains("profile_photo")) {
                                     user.setProfilePhoto(respBody.get("documentUrl"));
                                     userRepository.save(user);
-                                }else{
+                                } else {
                                     Map<String, String> docInfo = new HashMap<>();
                                     docInfo.put("documentName", file.getOriginalFilename());
                                     docInfo.put("hrDocumentType", "OTHER_HR_DOCUMENTS");
@@ -402,9 +407,9 @@ public class UserServiceImpl implements UserService {
                 });
 
                 payload.put("hrDocuments", hrDocumentsPayload);
-
             }
 
+            // Call HR service to initialize employee record
             Map<String, String> headers = new HashMap<>();
             LoginResponse loginResponse = authenticationService
                     .authenticate(new LoginRequest(webConstants.getGenericUserId(),
@@ -424,14 +429,15 @@ public class UserServiceImpl implements UserService {
             if (hrResponse.getStatusCode().is2xxSuccessful()) {
                 @SuppressWarnings("unchecked")
                 Map<String, String> respBody = (Map<String, String>) hrResponse.getBody();
-                assert respBody != null;
-                response.put("email", user.getEmail());
-                response.put("userId", user.getId().toString());
-                response.put("password", generatedPassword);
-                response.put("joiningLetter", respBody.computeIfPresent("joiningLetterUrl", (k, v) -> v));
-                response.put("letterOfIntent", respBody.computeIfPresent("letterOfIntentUrl", (k, v) -> v));
-                response.put("compensationCard", respBody.computeIfPresent("compensationCardUrl", (k, v) -> v));
-            } else{
+                if (respBody != null) {
+                    response.put("email", user.getEmail());
+                    response.put("userId", user.getId().toString());
+                    response.put("password", generatedPassword);
+                    response.put("joiningLetter", respBody.getOrDefault("joiningLetterUrl", ""));
+                    response.put("letterOfIntent", respBody.getOrDefault("letterOfIntentUrl", ""));
+                    response.put("compensationCard", respBody.getOrDefault("compensationCardUrl", ""));
+                }
+            } else {
                 throw new ServiceLevelException("UserService",
                         "Failed to initialize HR data for user ID: " + user.getId() + ". Response: "
                                 + hrResponse.getBody(),
@@ -440,9 +446,10 @@ public class UserServiceImpl implements UserService {
                         "HR initialization failed with status: " + hrResponse.getStatusCode());
             }
 
-            // Return email and password instead of JWT
-
+            // Return email and password for Phase 1 (traditional JWT)
+            // Phase 2 (Keycloak) returns full LoginResponse with tokens
             return ResponseEntity.ok(response);
+
         } catch (Exception e) {
             throw new ServiceLevelException("UserService", e.getLocalizedMessage(), "createUser",
                     new Timestamp(System.currentTimeMillis()), null, e.getMessage());
