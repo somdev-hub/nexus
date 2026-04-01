@@ -15,6 +15,7 @@ import com.nexus.iam.repository.OrganizationRepository;
 import com.nexus.iam.repository.RoleRepository;
 import com.nexus.iam.repository.UserRepository;
 import com.nexus.iam.service.AuthenticationService;
+import com.nexus.iam.service.KeycloakAuthenticationService;
 import com.nexus.iam.service.OrganizationService;
 import com.nexus.iam.utils.CommonUtils;
 import com.nexus.iam.utils.DataMapper;
@@ -55,7 +56,7 @@ public class OrganizationServiceImpl implements OrganizationService {
     private final CommonUtils commonUtils;
     private final AuthenticationService authenticationService;
     private final RestService restService;
-
+    private final KeycloakAuthenticationService keycloakAuthenticationService;
 
     @Override
     public OrganizationDto createOrganization(OrganizationDto organizationDto, Long userId) {
@@ -122,7 +123,9 @@ public class OrganizationServiceImpl implements OrganizationService {
         Organization organization = organizationRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Organization", "id", id));
 
-        if (Boolean.TRUE.equals(organizationRepository.existsByOrgName(organizationDto.getOrgName())) && !ObjectUtils.isEmpty(organizationDto.getOrgName()) && !organizationDto.getOrgName().equals(organization.getOrgName())) {
+        if (Boolean.TRUE.equals(organizationRepository.existsByOrgName(organizationDto.getOrgName()))
+                && !ObjectUtils.isEmpty(organizationDto.getOrgName())
+                && !organizationDto.getOrgName().equals(organization.getOrgName())) {
             throw new IllegalArgumentException(
                     "Organization with name already exists: " + organizationDto.getOrgName());
         }
@@ -207,8 +210,7 @@ public class OrganizationServiceImpl implements OrganizationService {
         } catch (Exception e) {
             throw new ServiceLevelException(
                     "OrganizationService", "Failed to get user organization details", "getUserOrganizationDetails",
-                    e.getClass().getSimpleName(), e.getLocalizedMessage()
-            );
+                    e.getClass().getSimpleName(), e.getLocalizedMessage());
         }
     }
 
@@ -239,31 +241,32 @@ public class OrganizationServiceImpl implements OrganizationService {
             }
 
             // fetch notice period count
-            UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getEmployeeOnNoticePeriodUrl()).queryParam("orgId", orgId);
-            LoginResponse loginResponse = authenticationService.authenticate(new LoginRequest(webConstants.getGenericUserId(), webConstants.getGenericPassword()));
+            UriComponentsBuilder builder = UriComponentsBuilder
+                    .fromUriString(webConstants.getEmployeeOnNoticePeriodUrl()).queryParam("orgId", orgId);
+            ResponseEntity<LoginResponse> loginResponseEntity = keycloakAuthenticationService
+                    .login(webConstants.getGenericUserId(), webConstants.getGenericPassword());
+            LoginResponse loginResponse = loginResponseEntity.getBody();
             Map<String, String> headers = commonUtils.buildJsonHeaders(loginResponse.getAccessToken());
             ResponseEntity<?> apiResponse = restService.iamRestCall(
                     builder.toUriString(),
                     null,
                     headers,
                     HttpMethod.GET,
-                    null
-            );
+                    null);
             if (apiResponse.getStatusCode().is2xxSuccessful()) {
-                @SuppressWarnings("unchecked") Map<String, Object> body = (Map<String, Object>) apiResponse.getBody();
+                @SuppressWarnings("unchecked")
+                Map<String, Object> body = (Map<String, Object>) apiResponse.getBody();
                 if (body != null && body.containsKey("onNoticePeriodCount")) {
                     onNoticePeriod = (Integer) body.get("allWhoAreOnNoticePeriod");
                 }
             }
 
             response = ResponseEntity.ok(new EmployeePageInsights(
-                    totalEmployees, totalDepartments, employeesPerDepartment, genderRatio, onNoticePeriod
-            ));
+                    totalEmployees, totalDepartments, employeesPerDepartment, genderRatio, onNoticePeriod));
         } catch (RuntimeException e) {
             throw new ServiceLevelException(
                     "OrganizationService", "Failed to get employee insights", "getEmployeeInsights",
-                    e.getClass().getSimpleName(), e.getLocalizedMessage()
-            );
+                    e.getClass().getSimpleName(), e.getLocalizedMessage());
         }
 
         return response;
@@ -284,7 +287,8 @@ public class OrganizationServiceImpl implements OrganizationService {
 
             // 2. Fetch only users from this organization
             Pageable pageable = PageRequest.of(pageNo, pageOffset);
-            Organization organization = organizationRepository.findById(orgId).orElseThrow(() -> new ResourceNotFoundException("Organization", "id", orgId));
+            Organization organization = organizationRepository.findById(orgId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Organization", "id", orgId));
             Page<User> users = userRepository.findByOrganization(organization, pageable);
 
             if (users.isEmpty()) {
@@ -297,8 +301,7 @@ public class OrganizationServiceImpl implements OrganizationService {
                         true,
                         true,
                         false,
-                        false
-                ));
+                        false));
             }
 
             // 3. Create lookup map for O(1) access instead of O(n) search
@@ -308,25 +311,24 @@ public class OrganizationServiceImpl implements OrganizationService {
             List<Long> userIds = new ArrayList<>(userMap.keySet());
 
             // 4. Fetch employee details
-            LoginResponse loginResponse = authenticationService.authenticate(
-                    new LoginRequest(webConstants.getGenericUserId(), webConstants.getGenericPassword())
-            );
+            ResponseEntity<LoginResponse> loginResponseEntity = keycloakAuthenticationService.login(
+                    webConstants.getGenericUserId(), webConstants.getGenericPassword());
+            LoginResponse loginResponse = loginResponseEntity.getBody();
             Map<String, String> headers = commonUtils.buildJsonHeaders(loginResponse.getAccessToken());
 
             UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getEmployeeDirectoryUrl());
             ResponseEntity<?> apiResponse = restService.iamRestCall(
-                    builder.toUriString(), userIds, headers, HttpMethod.POST, null
-            );
+                    builder.toUriString(), userIds, headers, HttpMethod.POST, null);
 
             // 5. Process response safely
             if (!apiResponse.getStatusCode().is2xxSuccessful()) {
                 throw new ServiceLevelException(
                         "OrganizationService", "Failed to fetch employee details", "getEmployeeDirectory",
-                        "API_ERROR", "External API returned status: " + apiResponse.getStatusCode()
-                );
+                        "API_ERROR", "External API returned status: " + apiResponse.getStatusCode());
             }
 
-            @SuppressWarnings("unchecked") List<Map<String, Object>> employeeDetails = (List<Map<String, Object>>) apiResponse.getBody();
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> employeeDetails = (List<Map<String, Object>>) apiResponse.getBody();
             if (employeeDetails == null) {
                 return ResponseEntity.ok(new PaginatedResponse<>(
                         new ArrayList<>(),
@@ -337,8 +339,7 @@ public class OrganizationServiceImpl implements OrganizationService {
                         users.isFirst(),
                         users.isLast(),
                         users.hasNext(),
-                        users.hasPrevious()
-                ));
+                        users.hasPrevious()));
             }
 
             // 6. Combine data using map lookup
@@ -355,8 +356,7 @@ public class OrganizationServiceImpl implements OrganizationService {
                                 DataMapper.extractField(detail, "deptName", String.class),
                                 DataMapper.extractField(detail, "position", String.class),
                                 DataMapper.extractField(detail, "salary", Double.class),
-                                joiningDate
-                        );
+                                joiningDate);
                     })
                     .toList();
 
@@ -370,16 +370,14 @@ public class OrganizationServiceImpl implements OrganizationService {
                     users.isFirst(),
                     users.isLast(),
                     users.hasNext(),
-                    users.hasPrevious()
-            ));
+                    users.hasPrevious()));
 
         } catch (ResourceNotFoundException | ServiceLevelException e) {
             throw e;
         } catch (RuntimeException e) {
             throw new ServiceLevelException(
                     "OrganizationService", "Failed to get employee directory", "getEmployeeDirectory",
-                    e.getClass().getSimpleName(), e.getLocalizedMessage()
-            );
+                    e.getClass().getSimpleName(), e.getLocalizedMessage());
         }
     }
 
@@ -404,18 +402,18 @@ public class OrganizationServiceImpl implements OrganizationService {
             employeeProfileResponse.setProfileImageUrl(user.getProfilePhoto());
 
             // for other details contact HR microservice
-            LoginResponse loginResponse = authenticationService.authenticate(
-                    new LoginRequest(webConstants.getGenericUserId(), webConstants.getGenericPassword())
-            );
+            ResponseEntity<LoginResponse> loginResponseEntity = keycloakAuthenticationService.login(
+                    webConstants.getGenericUserId(), webConstants.getGenericPassword());
+            LoginResponse loginResponse = loginResponseEntity.getBody();
             Map<String, String> headers = commonUtils.buildJsonHeaders(loginResponse.getAccessToken());
-            UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getEmployeeDetailsUrl()).queryParam("empId", user.getId());
+            UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getEmployeeDetailsUrl())
+                    .queryParam("empId", user.getId());
             ResponseEntity<?> hrResponse = restService.iamRestCall(
                     builder.toUriString(),
                     null,
                     headers,
                     HttpMethod.GET,
-                    null
-            );
+                    null);
             if (hrResponse.getStatusCode().is2xxSuccessful() && hrResponse.getBody() != null) {
                 // Get the response body as Map
                 @SuppressWarnings("unchecked")
@@ -437,88 +435,106 @@ public class OrganizationServiceImpl implements OrganizationService {
                 // Return the combined data directly - Spring will serialize it properly
                 response = ResponseEntity.ok(combinedData);
 
-
-
-//                @SuppressWarnings("unchecked") Map<String, Object> hrDetails = (Map<String, Object>) hrResponse.getBody();
-//                if (hrDetails != null) {
-//                    // Map basic fields
-//                    employeeProfileResponse.setDepartment(DataMapper.extractField(hrDetails, "department", String.class));
-//                    employeeProfileResponse.setJobTitle(DataMapper.extractField(hrDetails, "jobTitle", String.class));
-//                    employeeProfileResponse.setAnnualSalary(DataMapper.extractField(hrDetails, "annualSalary", Double.class));
-//                    employeeProfileResponse.setJoiningDate(DataMapper.extractField(hrDetails, "joiningDate", Date.class));
-//                    employeeProfileResponse.setCoverImageUrl(DataMapper.extractField(hrDetails, "coverImageUrl", String.class));
-//                    employeeProfileResponse.setProfileImageUrl(DataMapper.extractField(hrDetails, "profileImageUrl", String.class));
-//
-//                    // Map compensation details with automatic conversion of nested objects and lists
-//                    Map<String, Object> compensationData = DataMapper.extractMapField(hrDetails, "compensation");
-//                    if (!compensationData.isEmpty()) {
-//                        CompensationDto compensationDto = DataMapper.mapToObject(compensationData, CompensationDto.class);
-//                        // Map nested lists within compensation
-//                        compensationDto.setBonuses(DataMapper.extractListField(compensationData, "bonuses", BonusDto.class));
-//                        compensationDto.setDeductions(DataMapper.extractListField(compensationData, "deductions", DeductionDto.class));
-//                        compensationDto.setBankRecords(DataMapper.extractListField(compensationData, "bankRecords", BankRecordsDto.class));
-//                        employeeProfileResponse.setCompensation(compensationDto);
-//                    }
-//
-//                    // Map leave records
-//                    List<Map<String, Object>> leaveRecordsList = DataMapper.extractListOfMaps(hrDetails, "leaveRecords");
-//                    List<EmployeeProfileResponse.LeaveRecord> leaveRecords = leaveRecordsList.stream()
-//                            .map(record -> new EmployeeProfileResponse.LeaveRecord(
-//                                    DataMapper.extractField(record, "leaveType", String.class),
-//                                    DataMapper.extractField(record, "totalLeaves", Double.class),
-//                                    DataMapper.extractField(record, "leavesTaken", Double.class),
-//                                    DataMapper.extractField(record, "remainingLeaves", Double.class)
-//                            ))
-//                            .toList();
-//                    employeeProfileResponse.setLeaveRecords(leaveRecords);
-//
-//                    // Map attendance records
-//                    List<Map<String, Object>> attendanceList = DataMapper.extractListOfMaps(hrDetails, "attendanceRecords");
-//                    List<EmployeeProfileResponse.AttendanceRecord> attendanceRecords = attendanceList.stream()
-//                            .map(record -> new EmployeeProfileResponse.AttendanceRecord(
-//                                    DataMapper.extractField(record, "date", LocalDateTime.class),
-//                                    DataMapper.extractField(record, "status", String.class),
-//                                    DataMapper.extractField(record, "checkInTime", LocalDateTime.class),
-//                                    DataMapper.extractField(record, "checkOutTime", LocalDateTime.class),
-//                                    DataMapper.extractField(record, "hoursWorked", Double.class),
-//                                    DataMapper.extractField(record, "breakHours", Double.class),
-//                                    DataMapper.extractField(record, "overtimeHours", Double.class)
-//                            ))
-//                            .toList();
-//                    employeeProfileResponse.setAttendanceRecords(attendanceRecords);
-//
-//                    // Map positions held
-//                    List<Map<String, Object>> positionsList = DataMapper.extractListOfMaps(hrDetails, "positionsHeld");
-//                    List<EmployeeProfileResponse.PositionsHeld> positionsHeld = positionsList.stream()
-//                            .map(position -> new EmployeeProfileResponse.PositionsHeld(
-//                                    DataMapper.extractField(position, "title", String.class),
-//                                    DataMapper.extractField(position, "department", String.class),
-//                                    DataMapper.extractField(position, "fromDate", LocalDateTime.class),
-//                                    DataMapper.extractField(position, "toDate", LocalDateTime.class),
-//                                    DataMapper.extractField(position, "duration", Double.class)
-//                            ))
-//                            .toList();
-//                    employeeProfileResponse.setPositionsHeld(positionsHeld);
-//
-//                    // Map HR documents
-//                    List<Map<String, Object>> documentsList = DataMapper.extractListOfMaps(hrDetails, "hrDocuments");
-//                    List<EmployeeProfileResponse.HrDocuments> hrDocuments = documentsList.stream()
-//                            .map(doc -> new EmployeeProfileResponse.HrDocuments(
-//                                    DataMapper.extractField(doc, "documentName", String.class),
-//                                    DataMapper.extractField(doc, "documentUrl", String.class),
-//                                    DataMapper.extractField(doc, "uploadedOn", Timestamp.class),
-//                                    DataMapper.extractField(doc, "documentType", String.class)
-//                            ))
-//                            .toList();
-//                    employeeProfileResponse.setHrDocuments(hrDocuments);
-//                }
-//                response = ResponseEntity.ok(jsonObject);
+                // @SuppressWarnings("unchecked") Map<String, Object> hrDetails = (Map<String,
+                // Object>) hrResponse.getBody();
+                // if (hrDetails != null) {
+                // // Map basic fields
+                // employeeProfileResponse.setDepartment(DataMapper.extractField(hrDetails,
+                // "department", String.class));
+                // employeeProfileResponse.setJobTitle(DataMapper.extractField(hrDetails,
+                // "jobTitle", String.class));
+                // employeeProfileResponse.setAnnualSalary(DataMapper.extractField(hrDetails,
+                // "annualSalary", Double.class));
+                // employeeProfileResponse.setJoiningDate(DataMapper.extractField(hrDetails,
+                // "joiningDate", Date.class));
+                // employeeProfileResponse.setCoverImageUrl(DataMapper.extractField(hrDetails,
+                // "coverImageUrl", String.class));
+                // employeeProfileResponse.setProfileImageUrl(DataMapper.extractField(hrDetails,
+                // "profileImageUrl", String.class));
+                //
+                // // Map compensation details with automatic conversion of nested objects and
+                // lists
+                // Map<String, Object> compensationData = DataMapper.extractMapField(hrDetails,
+                // "compensation");
+                // if (!compensationData.isEmpty()) {
+                // CompensationDto compensationDto = DataMapper.mapToObject(compensationData,
+                // CompensationDto.class);
+                // // Map nested lists within compensation
+                // compensationDto.setBonuses(DataMapper.extractListField(compensationData,
+                // "bonuses", BonusDto.class));
+                // compensationDto.setDeductions(DataMapper.extractListField(compensationData,
+                // "deductions", DeductionDto.class));
+                // compensationDto.setBankRecords(DataMapper.extractListField(compensationData,
+                // "bankRecords", BankRecordsDto.class));
+                // employeeProfileResponse.setCompensation(compensationDto);
+                // }
+                //
+                // // Map leave records
+                // List<Map<String, Object>> leaveRecordsList =
+                // DataMapper.extractListOfMaps(hrDetails, "leaveRecords");
+                // List<EmployeeProfileResponse.LeaveRecord> leaveRecords =
+                // leaveRecordsList.stream()
+                // .map(record -> new EmployeeProfileResponse.LeaveRecord(
+                // DataMapper.extractField(record, "leaveType", String.class),
+                // DataMapper.extractField(record, "totalLeaves", Double.class),
+                // DataMapper.extractField(record, "leavesTaken", Double.class),
+                // DataMapper.extractField(record, "remainingLeaves", Double.class)
+                // ))
+                // .toList();
+                // employeeProfileResponse.setLeaveRecords(leaveRecords);
+                //
+                // // Map attendance records
+                // List<Map<String, Object>> attendanceList =
+                // DataMapper.extractListOfMaps(hrDetails, "attendanceRecords");
+                // List<EmployeeProfileResponse.AttendanceRecord> attendanceRecords =
+                // attendanceList.stream()
+                // .map(record -> new EmployeeProfileResponse.AttendanceRecord(
+                // DataMapper.extractField(record, "date", LocalDateTime.class),
+                // DataMapper.extractField(record, "status", String.class),
+                // DataMapper.extractField(record, "checkInTime", LocalDateTime.class),
+                // DataMapper.extractField(record, "checkOutTime", LocalDateTime.class),
+                // DataMapper.extractField(record, "hoursWorked", Double.class),
+                // DataMapper.extractField(record, "breakHours", Double.class),
+                // DataMapper.extractField(record, "overtimeHours", Double.class)
+                // ))
+                // .toList();
+                // employeeProfileResponse.setAttendanceRecords(attendanceRecords);
+                //
+                // // Map positions held
+                // List<Map<String, Object>> positionsList =
+                // DataMapper.extractListOfMaps(hrDetails, "positionsHeld");
+                // List<EmployeeProfileResponse.PositionsHeld> positionsHeld =
+                // positionsList.stream()
+                // .map(position -> new EmployeeProfileResponse.PositionsHeld(
+                // DataMapper.extractField(position, "title", String.class),
+                // DataMapper.extractField(position, "department", String.class),
+                // DataMapper.extractField(position, "fromDate", LocalDateTime.class),
+                // DataMapper.extractField(position, "toDate", LocalDateTime.class),
+                // DataMapper.extractField(position, "duration", Double.class)
+                // ))
+                // .toList();
+                // employeeProfileResponse.setPositionsHeld(positionsHeld);
+                //
+                // // Map HR documents
+                // List<Map<String, Object>> documentsList =
+                // DataMapper.extractListOfMaps(hrDetails, "hrDocuments");
+                // List<EmployeeProfileResponse.HrDocuments> hrDocuments =
+                // documentsList.stream()
+                // .map(doc -> new EmployeeProfileResponse.HrDocuments(
+                // DataMapper.extractField(doc, "documentName", String.class),
+                // DataMapper.extractField(doc, "documentUrl", String.class),
+                // DataMapper.extractField(doc, "uploadedOn", Timestamp.class),
+                // DataMapper.extractField(doc, "documentType", String.class)
+                // ))
+                // .toList();
+                // employeeProfileResponse.setHrDocuments(hrDocuments);
+                // }
+                // response = ResponseEntity.ok(jsonObject);
             }
         } catch (RuntimeException e) {
             throw new ServiceLevelException(
                     "OrganizationService", "Failed to get employee details", "getEmployeeDetails",
-                    e.getClass().getSimpleName(), e.getLocalizedMessage()
-            );
+                    e.getClass().getSimpleName(), e.getLocalizedMessage());
         }
         return response;
     }

@@ -20,4 +20,6 @@ public interface DepartmentService {
     ResponseEntity<?> getEmployeePaychecks(Long orgId, Integer pageNo, Integer pageOffset, String authHeader);
 
     ResponseEntity<?> getAllDepts(Long orgId);
+
+    ResponseEntity<?> getEmployeesAttendance(Long orgId, Long deptId, Integer pageNo, Integer pageOffset, String authHeader);
 }

@@ -29,7 +29,7 @@ public class CommonUtils {
     public boolean validateToken(String token) {
         String authUrl = webConstants.getVerifyTokenUrl();
         try {
-            Map<String, String> body = Map.of("token", token.substring(7));
+            Map<String, String> body = Map.of("token", token.contains("Bearer ") ? token.substring(7) : token);
             RestClient restClient = RestClient.create();
             ResponseEntity<Map<String, String>> response = restClient.post().uri(authUrl)
                     .body(body)

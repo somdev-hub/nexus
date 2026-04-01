@@ -8,6 +8,7 @@ import com.nexus.hr.model.entities.TimeManagement;
 import com.nexus.hr.model.enums.HrRequestStatus;
 import com.nexus.hr.model.enums.HrRequestType;
 import com.nexus.hr.payload.BulkRegularizationRequestDto;
+import com.nexus.hr.payload.response.AttendanceResponse;
 import com.nexus.hr.repository.HrEntityRepo;
 import com.nexus.hr.repository.HrRequestRepo;
 import com.nexus.hr.repository.TimeManagementRepo;
@@ -39,9 +40,8 @@ public class TimeManagementServiceImpl implements TimeManagementService {
     public ResponseEntity<?> toggleAttendance(Long hrId) {
         try {
             // Validate HrEntity exists
-            HrEntity hrEntity = hrEntityRepo.findById(hrId).orElseThrow(() ->
-                    new ResourceNotFoundException("HrEntity", "hrId", hrId)
-            );
+            HrEntity hrEntity = hrEntityRepo.findById(hrId)
+                    .orElseThrow(() -> new ResourceNotFoundException("HrEntity", "hrId", hrId));
 
             // Check if employee is active
             if (hrEntity.getIsActive() == null || !hrEntity.getIsActive()) {
@@ -57,8 +57,7 @@ public class TimeManagementServiceImpl implements TimeManagementService {
                     today.getDayOfMonth(),
                     today.getMonthValue(),
                     today.getYear(),
-                    hrId
-            );
+                    hrId);
 
             // If no record exists for today, create a new one
             if (todayRecord == null) {
@@ -75,8 +74,7 @@ public class TimeManagementServiceImpl implements TimeManagementService {
                     "Error while toggling attendance",
                     "toggleAttendance",
                     e.getClass().getName(),
-                    e.getMessage()
-            );
+                    e.getMessage());
         }
     }
 
@@ -126,7 +124,8 @@ public class TimeManagementServiceImpl implements TimeManagementService {
             return buildAttendanceResponse(todayRecord, "Break ended");
         }
 
-        // Case 3: Break ended, checkout not recorded - record checkout and calculate hours
+        // Case 3: Break ended, checkout not recorded - record checkout and calculate
+        // hours
         if (todayRecord.getBreakEndTime() != null && todayRecord.getCheckOutTime() == null) {
             todayRecord.setCheckOutTime(currentTime);
             calculateWorkingHours(todayRecord);
@@ -148,8 +147,7 @@ public class TimeManagementServiceImpl implements TimeManagementService {
                 hrEntity.getHrId(),
                 today.getYear(),
                 today.getMonthValue(),
-                today.getDayOfMonth()
-        );
+                today.getDayOfMonth());
 
         LocalDate startDate;
 
@@ -169,8 +167,7 @@ public class TimeManagementServiceImpl implements TimeManagementService {
             LocalDate lastLoggedDate = LocalDate.of(
                     mostRecentRecord.getYear(),
                     mostRecentRecord.getMonth(),
-                    mostRecentRecord.getDay()
-            );
+                    mostRecentRecord.getDay());
             startDate = lastLoggedDate.plusDays(1);
 
         } else {
@@ -183,7 +180,8 @@ public class TimeManagementServiceImpl implements TimeManagementService {
             }
         }
 
-        // Step 2: Create leave entries for all missing days between startDate and today (exclusive)
+        // Step 2: Create leave entries for all missing days between startDate and today
+        // (exclusive)
         LocalDate currentDate = startDate;
         while (currentDate.isBefore(today)) {
             // Check if an entry already exists for this date
@@ -191,8 +189,7 @@ public class TimeManagementServiceImpl implements TimeManagementService {
                     currentDate.getDayOfMonth(),
                     currentDate.getMonthValue(),
                     currentDate.getYear(),
-                    hrEntity.getHrId()
-            );
+                    hrEntity.getHrId());
 
             // Only create if no record exists
             if (existingRecord == null) {
@@ -298,15 +295,14 @@ public class TimeManagementServiceImpl implements TimeManagementService {
                     "Bulk regularization request is empty",
                     "bulkRegularize",
                     "InvalidInput",
-                    "The provided BulkRegularizationRequestDto is null or empty"
-            );
+                    "The provided BulkRegularizationRequestDto is null or empty");
         }
         try {
             for (BulkRegularizationRequestDto bulkRegularizationRequestDto : bulkRegularizationRequestDtos) {
                 HrRequest hrRequests = new HrRequest();
                 hrRequests.setAppliedBy(hrEntityRepo.findById(bulkRegularizationRequestDto.getHrId()).orElseThrow(
-                        () -> new ResourceNotFoundException("HrEntity", "hrId", bulkRegularizationRequestDto.getHrId())
-                ));
+                        () -> new ResourceNotFoundException("HrEntity", "hrId",
+                                bulkRegularizationRequestDto.getHrId())));
                 hrRequests.setRequestType(HrRequestType.BULK_REGULARIZATION);
                 hrRequests.setAppliedOn(Timestamp.valueOf(LocalDateTime.now()));
                 hrRequests.setFromDate(bulkRegularizationRequestDto.getDate());
@@ -328,8 +324,7 @@ public class TimeManagementServiceImpl implements TimeManagementService {
                     "Error during bulk regularization",
                     "bulkRegularize",
                     e.getClass().getName(),
-                    e.getMessage()
-            );
+                    e.getMessage());
         }
     }
 
@@ -341,15 +336,13 @@ public class TimeManagementServiceImpl implements TimeManagementService {
                     "HrId is required for applying weekly off",
                     "applyWeeklyOff",
                     "InvalidInput",
-                    "The provided hrId is null or empty"
-            );
+                    "The provided hrId is null or empty");
         }
 
         try {
             HrRequest hrRequests = new HrRequest();
             hrRequests.setAppliedBy(hrEntityRepo.findById(hrId).orElseThrow(
-                    () -> new ResourceNotFoundException("HrEntity", "hrId", hrId)
-            ));
+                    () -> new ResourceNotFoundException("HrEntity", "hrId", hrId)));
             hrRequests.setRequestType(HrRequestType.WEEKLY_OFF);
             hrRequests.setAppliedOn(Timestamp.valueOf(LocalDateTime.now()));
             hrRequests.setFromDate(fromDate);
@@ -368,8 +361,7 @@ public class TimeManagementServiceImpl implements TimeManagementService {
                     "Error during weekly off application",
                     "applyWeeklyOff",
                     e.getClass().getName(),
-                    e.getMessage()
-            );
+                    e.getMessage());
         }
     }
 
@@ -381,15 +373,13 @@ public class TimeManagementServiceImpl implements TimeManagementService {
                     "HrId is required for applying holiday",
                     "applyHoliday",
                     "InvalidInput",
-                    "The provided hrId is null or empty"
-            );
+                    "The provided hrId is null or empty");
         }
 
         try {
             HrRequest hrRequests = new HrRequest();
             hrRequests.setAppliedBy(hrEntityRepo.findById(hrId).orElseThrow(
-                    () -> new ResourceNotFoundException("HrEntity", "hrId", hrId)
-            ));
+                    () -> new ResourceNotFoundException("HrEntity", "hrId", hrId)));
             hrRequests.setRequestType(HrRequestType.LEAVE_APPLICATION);
             hrRequests.setAppliedOn(Timestamp.valueOf(LocalDateTime.now()));
             hrRequests.setFromDate(fromDate);
@@ -408,8 +398,81 @@ public class TimeManagementServiceImpl implements TimeManagementService {
                     "Error during holiday application",
                     "applyHoliday",
                     e.getClass().getName(),
-                    e.getMessage()
-            );
+                    e.getMessage());
+        }
+    }
+
+    @Override
+    public ResponseEntity<?> getEmployeesAttendance(List<Long> empIds) {
+
+        if (ObjectUtils.isEmpty(empIds)) {
+            throw new ServiceLevelException(
+                    "TimeManagementService",
+                    "Employee IDs are required to fetch attendance",
+                    "getEmployeesAttendance",
+                    "InvalidInput",
+                    "The provided list of employee IDs is null or empty");
+        }
+        try {
+            // Fetch HrEntity records for the given employee IDs
+            List<HrEntity> hrEntities = hrEntityRepo.findAllById(empIds);
+
+            if (hrEntities.isEmpty()) {
+                return ResponseEntity.ok(List.of());
+            }
+
+            // Extract HrIds from HrEntities
+            List<Long> hrIds = hrEntities.stream()
+                    .map(HrEntity::getHrId)
+                    .toList();
+
+            // Fetch all TimeManagement records for these employees
+            List<TimeManagement> timeManagements = timeManagementRepo.findAllByHrEntityIdIn(hrIds);
+
+            // Map TimeManagement records to AttendanceResponse
+            List<AttendanceResponse> attendanceResponses = timeManagements.stream()
+                    .map(tm -> {
+                        AttendanceResponse response = new AttendanceResponse();
+
+                        // Set date from TimeManagement record
+                        response.setDate(LocalDate.of(tm.getYear(), tm.getMonth(), tm.getDay()));
+
+                        // Set employee ID from associated HrEntity
+                        response.setEmployeeId(tm.getHrEntity().getEmployeeId());
+
+                        // Set attendance timestamps
+                        response.setCheckInTime(tm.getCheckInTime());
+                        response.setCheckOutTime(tm.getCheckOutTime());
+
+                        // Set total hours worked
+                        response.setTotalHoursWorked(tm.getTotalHoursWorked());
+
+                        // Set status based on attendance flags
+                        String status;
+                        if (Boolean.TRUE.equals(tm.getIsOnLeave())) {
+                            status = "ON_LEAVE";
+                        } else if (Boolean.TRUE.equals(tm.getIsHalfDay())) {
+                            status = "HALF_DAY";
+                        } else if (Boolean.TRUE.equals(tm.getIsPresent())) {
+                            status = "PRESENT";
+                        } else {
+                            status = "ABSENT";
+                        }
+                        response.setStatus(status);
+
+                        return response;
+                    })
+                    .toList();
+
+            return ResponseEntity.ok(attendanceResponses);
+
+        } catch (RuntimeException e) {
+            throw new ServiceLevelException(
+                    "TimeManagementService",
+                    "Error while fetching employees attendance",
+                    "getEmployeesAttendance",
+                    e.getClass().getName(),
+                    e.getMessage());
         }
     }
 }

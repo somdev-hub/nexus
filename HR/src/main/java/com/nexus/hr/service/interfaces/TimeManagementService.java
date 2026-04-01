@@ -15,4 +15,6 @@ public interface TimeManagementService {
     ResponseEntity<?> applyWeeklyOff(Long hrId, Date fromDate, Date toDate, String remarks);
 
     ResponseEntity<?> applyHoliday(Long hrId, Date fromDate, Date toDate, String remarks);
+
+    ResponseEntity<?> getEmployeesAttendance(List<Long> empIds);
 }

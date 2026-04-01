@@ -1,1 +1,10 @@
 dms/src/main/resources/application-local.properties
+
+*.log
+*.tmp
+*.yml
+
+.vscode/launch.json
+.vscode/settings.json
+*.md
+CMS/dependencies.txt

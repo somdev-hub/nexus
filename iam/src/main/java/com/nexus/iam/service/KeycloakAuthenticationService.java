@@ -23,7 +23,7 @@ public interface KeycloakAuthenticationService {
      * @param password User password
      * @return LoginResponse with tokens and user data
      */
-    ResponseEntity<?> login(String email, String password);
+    ResponseEntity<LoginResponse> login(String email, String password);
 
     /**
      * Register new user in Keycloak (without profile photo)
@@ -31,7 +31,7 @@ public interface KeycloakAuthenticationService {
      * @param userRegisterDto User registration data
      * @return LoginResponse or success message
      */
-    ResponseEntity<?> register(UserRegisterDto userRegisterDto);
+    ResponseEntity<LoginResponse> register(UserRegisterDto userRegisterDto);
 
     /**
      * Register new user in Keycloak (with optional profile photo)
@@ -40,7 +40,7 @@ public interface KeycloakAuthenticationService {
      * @param profilePhoto    Optional profile picture file
      * @return LoginResponse with authenticated tokens and user data
      */
-    ResponseEntity<?> register(UserRegisterDto userRegisterDto, MultipartFile profilePhoto);
+    ResponseEntity<LoginResponse> register(UserRegisterDto userRegisterDto, MultipartFile profilePhoto);
 
     /**
      * Refresh access token using refresh token
@@ -48,7 +48,7 @@ public interface KeycloakAuthenticationService {
      * @param refreshToken Keycloak refresh token
      * @return New tokens
      */
-    ResponseEntity<?> refreshToken(String refreshToken);
+    ResponseEntity<LoginResponse> refreshToken(String refreshToken);
 
     /**
      * Authenticate with Keycloak using Direct Access Grant

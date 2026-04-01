@@ -8,6 +8,8 @@ import com.nexus.iam.entities.Department;
 import com.nexus.iam.entities.Organization;
 import com.nexus.iam.entities.Role;
 import com.nexus.iam.entities.User;
+import com.nexus.iam.exception.ServiceLevelException;
+import com.nexus.iam.exception.UnauthorizedException;
 import com.nexus.iam.repository.DepartmentRepository;
 import com.nexus.iam.repository.OrganizationRepository;
 import com.nexus.iam.repository.RoleRepository;
@@ -87,13 +89,12 @@ public class KeycloakAuthenticationServiceImpl implements KeycloakAuthentication
     @Override
     @CircuitBreaker(name = "keycloak-auth", fallbackMethod = "loginFallback")
     @Retry(name = "keycloak-auth")
-    public ResponseEntity<?> login(String email, String password) {
+    public ResponseEntity<LoginResponse> login(String email, String password) {
         try {
             // Validate input
             if (email == null || email.isEmpty() || password == null || password.isEmpty()) {
                 log.warn("Login attempt with missing email or password");
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                        .body(Map.of("error", "Email and password are required"));
+                throw new UnauthorizedException("Unauthorized", "Email and password are required");
             }
 
             log.info("Keycloak login attempt for user: {}", email);
@@ -103,8 +104,7 @@ public class KeycloakAuthenticationServiceImpl implements KeycloakAuthentication
 
             if (tokenResponse == null || !tokenResponse.containsKey("access_token")) {
                 log.warn("Keycloak authentication failed for user: {}", email);
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                        .body(Map.of("error", "Invalid credentials or user not found in Keycloak"));
+                throw new UnauthorizedException("Unauthorized", "Invalid credentials or user not found in Keycloak");
             }
 
             String accessToken = (String) tokenResponse.get("access_token");
@@ -118,8 +118,7 @@ public class KeycloakAuthenticationServiceImpl implements KeycloakAuthentication
 
         } catch (Exception e) {
             log.error("Error during Keycloak login: {}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(Map.of("error", "Authentication failed: " + e.getMessage()));
+            throw new UnauthorizedException("Unauthorized", "Authentication failed: " + e.getMessage());
         }
     }
 
@@ -145,25 +144,22 @@ public class KeycloakAuthenticationServiceImpl implements KeycloakAuthentication
     @Override
     @CircuitBreaker(name = "keycloak-auth", fallbackMethod = "registerFallback")
     @Retry(name = "keycloak-auth")
-    public ResponseEntity<?> register(UserRegisterDto userRegisterDto, MultipartFile profilePhoto) {
+    public ResponseEntity<LoginResponse> register(UserRegisterDto userRegisterDto, MultipartFile profilePhoto) {
         try {
             // Step 1: VALIDATION
             if (ObjectUtils.isEmpty(userRegisterDto)) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                        .body(Map.of("error", "User registration data cannot be null or empty"));
+                throw new UnauthorizedException("Unauthorized", "User registration data cannot be null or empty");
             }
 
             if (ObjectUtils.isEmpty(userRegisterDto.getName()) ||
                     ObjectUtils.isEmpty(userRegisterDto.getEmail()) ||
                     ObjectUtils.isEmpty(userRegisterDto.getPassword())) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                        .body(Map.of("error", "Name, email, and password are required"));
+                throw new UnauthorizedException("Unauthorized", "Name, email, and password are required");
             }
 
             if (ObjectUtils.isEmpty(userRegisterDto.getOrgType()) ||
                     ObjectUtils.isEmpty(userRegisterDto.getOrgName())) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                        .body(Map.of("error", "Organization Type and Name are required"));
+                throw new UnauthorizedException("Unauthorized", "Organization Type and Name are required");
             }
 
             log.info("Starting registration process for user: {}", userRegisterDto.getEmail());
@@ -171,8 +167,7 @@ public class KeycloakAuthenticationServiceImpl implements KeycloakAuthentication
             // Check if email already exists in database
             if (userRepository.existsByEmail(userRegisterDto.getEmail())) {
                 log.warn("Registration attempt with existing email in IAM database: {}", userRegisterDto.getEmail());
-                return ResponseEntity.status(HttpStatus.CONFLICT)
-                        .body(Map.of("error", "Email already exists"));
+                throw new UnauthorizedException("Unauthorized", "Email already exists");
             }
 
             // Step 2: CREATE USER IN KEYCLOAK (Outside transaction to prevent rollback)
@@ -199,8 +194,7 @@ public class KeycloakAuthenticationServiceImpl implements KeycloakAuthentication
                 // Check if it's a 409 Conflict (user already exists)
                 if (runtimeEx.getCause() instanceof org.springframework.web.client.HttpClientErrorException.Conflict) {
                     log.warn("User already exists in Keycloak: {}", userRegisterDto.getEmail());
-                    return ResponseEntity.status(HttpStatus.CONFLICT)
-                            .body(Map.of("error", "User with this email already exists in Keycloak"));
+                    throw new UnauthorizedException("Unauthorized", "User with this email already exists in Keycloak");
                 }
                 throw runtimeEx;
             }
@@ -210,17 +204,23 @@ public class KeycloakAuthenticationServiceImpl implements KeycloakAuthentication
 
         } catch (Exception e) {
             log.error("Error during user registration: {}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("error", "Registration failed: " + e.getMessage()));
+            throw new ServiceLevelException("KeycloakAuthenticationService", e.getLocalizedMessage(), "register",
+                    new Timestamp(System.currentTimeMillis()), e.getCause().toString(), e.getMessage());
         }
     }
 
     /**
+     * .body(Map.of("error", "Registration failed: " + e.getMessage()));
+     * }
+     * }
+     * 
+     * /**
      * Create user in database and related entities (in separate transaction)
      * This allows Keycloak user to persist even if database operations fail
      */
     @Transactional
-    private ResponseEntity<?> createUserInDatabase(UserRegisterDto userRegisterDto, MultipartFile profilePhoto,
+    private ResponseEntity<LoginResponse> createUserInDatabase(UserRegisterDto userRegisterDto,
+            MultipartFile profilePhoto,
             String keycloakUserId) {
         try {
             // Step 3: CREATE ORGANIZATION
@@ -306,8 +306,8 @@ public class KeycloakAuthenticationServiceImpl implements KeycloakAuthentication
 
         } catch (Exception e) {
             log.error("Error creating user in database: {}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("error", "Failed to complete user registration: " + e.getMessage()));
+            throw new ServiceLevelException("KeycloakAuthenticationService", e.getLocalizedMessage(), "register",
+                    new Timestamp(System.currentTimeMillis()), e.getCause().toString(), e.getMessage());
         }
     }
 
@@ -427,7 +427,7 @@ public class KeycloakAuthenticationServiceImpl implements KeycloakAuthentication
      * @return LoginResponse or error
      */
     @Override
-    public ResponseEntity<?> register(UserRegisterDto userRegisterDto) {
+    public ResponseEntity<LoginResponse> register(UserRegisterDto userRegisterDto) {
         return register(userRegisterDto, null);
     }
 
@@ -443,12 +443,11 @@ public class KeycloakAuthenticationServiceImpl implements KeycloakAuthentication
     @Override
     @CircuitBreaker(name = "keycloak-auth", fallbackMethod = "refreshTokenFallback")
     @Retry(name = "keycloak-auth")
-    public ResponseEntity<?> refreshToken(String refreshToken) {
+    public ResponseEntity<LoginResponse> refreshToken(String refreshToken) {
         try {
             if (refreshToken == null || refreshToken.isEmpty()) {
                 log.warn("Token refresh called without refresh token");
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                        .body(Map.of("error", "Refresh token required"));
+                throw new UnauthorizedException("Unauthorized", "Refresh token is required");
             }
 
             log.debug("Refreshing access token with Keycloak");
@@ -482,13 +481,10 @@ public class KeycloakAuthenticationServiceImpl implements KeycloakAuthentication
             }
 
             log.error("Token refresh failed with status: {}", response.getStatusCode());
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(Map.of("error", "Failed to refresh token"));
-
+            throw new UnauthorizedException("Unauthorized", "Failed to refresh token");
         } catch (Exception e) {
             log.error("Error refreshing token: {}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(Map.of("error", "Token refresh failed: " + e.getMessage()));
+            throw new UnauthorizedException("Unauthorized", "Token refresh failed: " + e.getMessage());
         }
     }
 
@@ -573,20 +569,19 @@ public class KeycloakAuthenticationServiceImpl implements KeycloakAuthentication
      * @return LoginResponse with user data and tokens
      */
     @Override
-    public ResponseEntity<?> validateAndSyncUser(String accessToken, String refreshToken, Long expiresIn) {
+    public ResponseEntity<LoginResponse> validateAndSyncUser(String accessToken, String refreshToken, Long expiresIn) {
         try {
             log.debug("Validating and syncing user from Keycloak token");
 
-            // Step 1: Validate JWT signature using Keycloak's public key from JWKS endpoint
-            Jwt jwt = jwtDecoder.decode(accessToken);
-            log.debug("JWT signature validated successfully");
+            // log.debug("JWT signature validated successfully");
 
             // Step 2: Extract user data from JWT claims
             var userDto = keycloakUserSyncService.extractUserFromToken(accessToken);
             if (userDto == null) {
                 log.error("Failed to extract user data from Keycloak token");
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                        .body(Map.of("error", "Invalid token: missing user data"));
+                // return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                // .body(Map.of("error", "Invalid token: missing user data"));
+                throw new UnauthorizedException("Unauthorized", "Invalid token: missing user data");
             }
 
             // Step 3: Extract roles from JWT
@@ -633,8 +628,7 @@ public class KeycloakAuthenticationServiceImpl implements KeycloakAuthentication
 
         } catch (Exception e) {
             log.error("Error validating and syncing user: {}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(Map.of("error", "Token validation failed: " + e.getMessage()));
+            throw new UnauthorizedException("Unauthorized", "Token validation failed: " + e.getMessage());
         }
     }
 

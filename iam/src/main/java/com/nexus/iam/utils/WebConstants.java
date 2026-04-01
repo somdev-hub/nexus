@@ -35,7 +35,7 @@ public class WebConstants {
 
     @Value("${hr.employee.paycheck.get.url}")
     private String employeePaycheckGetUrl;
-    
+
     @Value("${hr.employee.onnoticeperiod}")
     private String employeeOnNoticePeriodUrl;
 
@@ -85,6 +85,9 @@ public class WebConstants {
 
     @Value("${keycloak.oauth2.enabled:true}")
     private boolean keycloakOAuth2Enabled;
+
+    @Value("${hr.employee.attendance.url}")
+    private String employeeAttendanceUrl;
 
     // Keycloak URLs
     public String getKeycloakAdminUrl() {

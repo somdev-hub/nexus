@@ -17,7 +17,8 @@ import java.time.LocalDate;
 public class LeaveAllocationUtils {
 
     /**
-     * Initialize leave allocations for a new employee based on the current month and year
+     * Initialize leave allocations for a new employee based on the current month
+     * and year
      * <p>
      * Allocations:
      * - EARNED_LEAVE: 15 days/year (1.25 days/month)
@@ -32,6 +33,24 @@ public class LeaveAllocationUtils {
 
         log.info("Initializing leave allocations for employee: {} in year: {}",
                 hrEntity.getEmployeeId(), currentYear);
+
+        // Check if allocations already exist for this year to prevent duplicates
+        if (hrEntity.getLeaveAllocations() != null && !hrEntity.getLeaveAllocations().isEmpty()) {
+            boolean hasEarnedLeaveForYear = hrEntity.getLeaveAllocations().stream()
+                    .anyMatch(
+                            leave -> leave.getLeaveType() == LeaveType.EARNED_LEAVE && leave.getYear() == currentYear);
+
+            if (hasEarnedLeaveForYear) {
+                log.warn("Leave allocations for year {} already exist for employee: {}. Skipping initialization.",
+                        currentYear, hrEntity.getEmployeeId());
+                return;
+            }
+        }
+
+        // Clear existing leave allocations to prevent duplicates when updating
+        if (hrEntity.getLeaveAllocations() != null) {
+            hrEntity.getLeaveAllocations().clear();
+        }
 
         // 1. EARNED_LEAVE: 1.25 days for the joining month only
         // This will accrue monthly as we add scheduled tasks for each month
@@ -107,7 +126,3 @@ public class LeaveAllocationUtils {
         log.info("✓ Successfully initialized all leave allocations for employee: {}", hrEntity.getEmployeeId());
     }
 }
-
-
-
-

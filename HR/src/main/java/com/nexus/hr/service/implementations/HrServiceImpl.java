@@ -95,20 +95,27 @@ public class HrServiceImpl implements HrService {
             // CRITICAL: Transactional part - only save to database
             HrEntity savedHrEntity = saveHrEntityTransaction(hrInitRequestDto);
 
-            // Fire async operations in background (OUTSIDE transaction)
+            // Generate documents and get URLs (this will wait for document generation to
+            // complete)
+            DocumentUrls documentUrls = getDocumentUrls(hrInitRequestDto, savedHrEntity);
+
+            // Fire remaining async operations in background (OUTSIDE transaction)
             // This prevents connection leaks and blocking on Kafka operations
             CompletableFuture.runAsync(() -> {
                 try {
-                    processAsyncHrOperations(hrInitRequestDto, savedHrEntity);
+                    processAsyncHrOperations(hrInitRequestDto, savedHrEntity, documentUrls);
                 } catch (Exception e) {
                     log.error("Error processing async HR operations for employee: {}",
                             savedHrEntity.getEmployeeId(), e);
                 }
             });
 
-            // Return successful response immediately after database save
+            // Return successful response with document URLs
             response = ResponseEntity.ok(HrInitResponse.builder()
                     .hrId(savedHrEntity.getHrId())
+                    .joiningLetterUrl(documentUrls.getJoiningLetterUrl())
+                    .letterOfIntentUrl(documentUrls.getLetterOfIntentUrl())
+                    .compensationCardUrl(documentUrls.getCompensationCardUrl())
                     .build());
 
         } catch (Exception e) {
@@ -117,6 +124,83 @@ public class HrServiceImpl implements HrService {
         }
 
         return response;
+    }
+
+    /**
+     * Generate documents and return their URLs
+     */
+    private DocumentUrls getDocumentUrls(HrInitRequestDto hrInitRequestDto, HrEntity savedHrEntity) {
+        // Generate PDF template data
+        PdfTemplateDto pdfTemplateData = buildPdfTemplateData(hrInitRequestDto,
+                new Timestamp(savedHrEntity.getDateOfJoining().getTime()));
+
+        // Start async PDF generation and DMS uploads in parallel
+        log.info("Starting parallel document generation for employee: {}", savedHrEntity.getEmployeeId());
+        CompletableFuture<AsyncDocumentService.DocumentResult> joiningLetterFuture = asyncDocumentService
+                .generateAndUploadJoiningLetter(pdfTemplateData, savedHrEntity.getEmployeeId(),
+                        savedHrEntity.getHrId());
+
+        CompletableFuture<AsyncDocumentService.DocumentResult> letterOfIntentFuture = asyncDocumentService
+                .generateAndUploadLetterOfIntent(pdfTemplateData, savedHrEntity.getEmployeeId(),
+                        savedHrEntity.getHrId());
+
+        CompletableFuture<AsyncDocumentService.DocumentResult> compensationCardFuture = asyncDocumentService
+                .generateAndUploadCompensationCard(pdfTemplateData, savedHrEntity.getEmployeeId(),
+                        savedHrEntity.getHrId());
+
+        // Wait for all document generation to complete
+        CompletableFuture.allOf(joiningLetterFuture, letterOfIntentFuture, compensationCardFuture).join();
+        log.info("All document generation tasks completed for employee: {}", savedHrEntity.getEmployeeId());
+
+        // Get results
+        AsyncDocumentService.DocumentResult joiningLetterResult = joiningLetterFuture.join();
+        AsyncDocumentService.DocumentResult letterOfIntentResult = letterOfIntentFuture.join();
+        AsyncDocumentService.DocumentResult compensationCardResult = compensationCardFuture.join();
+
+        // Log results
+        if (!joiningLetterResult.isSuccess()) {
+            log.error("Error uploading Joining Letter to DMS: {}", joiningLetterResult.getErrorMessage());
+        }
+        if (!letterOfIntentResult.isSuccess()) {
+            log.error("Error uploading Letter of Intent to DMS: {}", letterOfIntentResult.getErrorMessage());
+        }
+        if (!compensationCardResult.isSuccess()) {
+            log.error("Error uploading Compensation Card to DMS: {}", compensationCardResult.getErrorMessage());
+        }
+
+        // Extract URLs from results
+        String joiningLetterUrl = joiningLetterResult.isSuccess() ? joiningLetterResult.getDocumentUrl() : "";
+        String letterOfIntentUrl = letterOfIntentResult.isSuccess() ? letterOfIntentResult.getDocumentUrl() : "";
+        String compensationCardUrl = compensationCardResult.isSuccess() ? compensationCardResult.getDocumentUrl() : "";
+
+        return new DocumentUrls(joiningLetterUrl, letterOfIntentUrl, compensationCardUrl);
+    }
+
+    /**
+     * Helper class to hold document URLs
+     */
+    private static class DocumentUrls {
+        private final String joiningLetterUrl;
+        private final String letterOfIntentUrl;
+        private final String compensationCardUrl;
+
+        DocumentUrls(String joiningLetterUrl, String letterOfIntentUrl, String compensationCardUrl) {
+            this.joiningLetterUrl = joiningLetterUrl;
+            this.letterOfIntentUrl = letterOfIntentUrl;
+            this.compensationCardUrl = compensationCardUrl;
+        }
+
+        String getJoiningLetterUrl() {
+            return joiningLetterUrl;
+        }
+
+        String getLetterOfIntentUrl() {
+            return letterOfIntentUrl;
+        }
+
+        String getCompensationCardUrl() {
+            return compensationCardUrl;
+        }
     }
 
     /**
@@ -171,54 +255,39 @@ public class HrServiceImpl implements HrService {
     }
 
     /**
+     * Save HrEntity with all relationships (compensation, leaves, documents) in a
+     * transactional context
+     * This ensures proper handling of collections and prevents duplicate inserts
+     */
+    @Transactional
+    private void saveHrEntityWithRelationships(HrEntity hrEntity) {
+        try {
+            hrEntityRepo.save(hrEntity);
+            log.info("✓✓✓ Successfully saved HrEntity with all relationships. HrId: {}", hrEntity.getHrId());
+        } catch (Exception saveException) {
+            log.error("✗✗✗ FAILED to save HrEntity with relationships. Error: {}", saveException.getMessage(),
+                    saveException);
+            throw new ServiceLevelException("HR Service",
+                    "Exception occurred while saving HR entity with relationships",
+                    "saveHrEntityWithRelationships",
+                    saveException.getClass().getName(),
+                    saveException.getMessage());
+        }
+    }
+
+    /**
      * CRITICAL: Non-transactional method that handles async operations
      * This runs AFTER the database transaction commits
      * Prevents connection leaks and allows Kafka publishing to complete
      */
-    private void processAsyncHrOperations(HrInitRequestDto hrInitRequestDto, HrEntity savedHrEntity) {
-        // Generate PDF template data
-        PdfTemplateDto pdfTemplateData = buildPdfTemplateData(hrInitRequestDto,
-                new Timestamp(savedHrEntity.getDateOfJoining().getTime()));
+    private void processAsyncHrOperations(HrInitRequestDto hrInitRequestDto, HrEntity savedHrEntity,
+            DocumentUrls documentUrls) {
+        // Get extracted URLs
+        String joiningLetterUrl = documentUrls.getJoiningLetterUrl();
+        String letterOfIntentUrl = documentUrls.getLetterOfIntentUrl();
+        String compensationCardUrl = documentUrls.getCompensationCardUrl();
 
-        // Start async PDF generation and DMS uploads in parallel
-        log.info("Starting parallel document generation and upload for employee: {}",
-                savedHrEntity.getEmployeeId());
-        CompletableFuture<AsyncDocumentService.DocumentResult> joiningLetterFuture = asyncDocumentService
-                .generateAndUploadJoiningLetter(pdfTemplateData, savedHrEntity.getEmployeeId(),
-                        savedHrEntity.getHrId());
-
-        CompletableFuture<AsyncDocumentService.DocumentResult> letterOfIntentFuture = asyncDocumentService
-                .generateAndUploadLetterOfIntent(pdfTemplateData, savedHrEntity.getEmployeeId(),
-                        savedHrEntity.getHrId());
-
-        CompletableFuture<AsyncDocumentService.DocumentResult> compensationCardFuture = asyncDocumentService
-                .generateAndUploadCompensationCard(pdfTemplateData, savedHrEntity.getEmployeeId(),
-                        savedHrEntity.getHrId());
-
-        // Wait for all async operations to complete (outside transaction)
-        CompletableFuture.allOf(joiningLetterFuture, letterOfIntentFuture, compensationCardFuture).join();
-        log.info("All document generation and upload tasks completed for employee: {}",
-                savedHrEntity.getEmployeeId());
-
-        // Get results
         try {
-            AsyncDocumentService.DocumentResult joiningLetterResult = joiningLetterFuture.join();
-            AsyncDocumentService.DocumentResult letterOfIntentResult = letterOfIntentFuture.join();
-            AsyncDocumentService.DocumentResult compensationCardResult = compensationCardFuture.join();
-
-            // Log results - don't fail, just log errors
-            if (!joiningLetterResult.isSuccess()) {
-                log.error("Error uploading Joining Letter to DMS: {}", joiningLetterResult.getErrorMessage());
-            }
-            if (!letterOfIntentResult.isSuccess()) {
-                log.error("Error uploading Letter of Intent to DMS: {}", letterOfIntentResult.getErrorMessage());
-            }
-
-            // Extract URLs from results
-            String joiningLetterUrl = joiningLetterResult.isSuccess() ? joiningLetterResult.getDocumentUrl() : "";
-            String letterOfIntentUrl = letterOfIntentResult.isSuccess() ? letterOfIntentResult.getDocumentUrl() : "";
-            String compensationCardUrl = "";
-
             // Build compensation with bonuses, deductions, and bank records
             log.info("=== Building Compensation with bonuses: {}, deductions: {}, bank records: {} ===",
                     hrInitRequestDto.getCompensation().getBonuses().size(),
@@ -254,12 +323,16 @@ public class HrServiceImpl implements HrService {
                     }).toList());
             log.info("✓ Compensation entity built successfully");
 
-            if (compensationCardResult.isSuccess()) {
-                HrDocument hrDocument = compensationCardResult.toHrDocument(compensation);
-                compensation.getCompensationCard().add(hrDocument);
-                compensationCardUrl = compensationCardResult.getDocumentUrl();
-            } else {
-                log.error("Error uploading Compensation Card to DMS: {}", compensationCardResult.getErrorMessage());
+            // Add compensation card document if URL is available
+            if (!compensationCardUrl.isEmpty()) {
+                // Note: We need to fetch the document result to create HrDocument
+                // For now, we'll create a basic HrDocument from the URL
+                HrDocument compensationCardDoc = new HrDocument();
+                compensationCardDoc.setDocumentName("Compensation_Card_" + savedHrEntity.getEmployeeId() + ".pdf");
+                compensationCardDoc.setDocumentUrl(compensationCardUrl);
+                compensationCardDoc.setHrEntity(savedHrEntity);
+                compensationCardDoc.setHrDocumentType("COMPENSATION_CARD");
+                compensation.getCompensationCard().add(compensationCardDoc);
             }
 
             // Link compensation to hrEntity
@@ -300,20 +373,20 @@ public class HrServiceImpl implements HrService {
                         savedHrEntity.getEmployeeId(), emailException.getMessage(), emailException);
             }
 
+            // Reload entity from database to ensure we have the latest state and avoid
+            // detached entity issues
+            log.info("=== Reloading HrEntity from database before leave allocation ===");
+            HrEntity refreshedHrEntity = hrEntityRepo.findById(savedHrEntity.getHrId())
+                    .orElseThrow(() -> new ResourceNotFoundException("HrEntity", "hrId", savedHrEntity.getHrId()));
+
             // Initialize leave allocations
-            log.info("=== Initializing leave allocations for employee: {} ===", savedHrEntity.getEmployeeId());
-            leaveAllocationUtils.initializeLeaveAllocations(savedHrEntity);
+            log.info("=== Initializing leave allocations for employee: {} ===", refreshedHrEntity.getEmployeeId());
+            leaveAllocationUtils.initializeLeaveAllocations(refreshedHrEntity);
             log.info("✓ Leave allocations initialized successfully");
 
-            // Final save with all relationships (now in a new transaction)
+            // Save with all relationships in a transactional context
             log.info("=== Attempting save of HrEntity with compensation and leave allocations ===");
-            try {
-                hrEntityRepo.save(savedHrEntity);
-                log.info("✓✓✓ Successfully saved HrEntity with all relationships. HrId: {}", savedHrEntity.getHrId());
-            } catch (Exception saveException) {
-                log.error("✗✗✗ FAILED to save HrEntity with relationships. Error: {}", saveException.getMessage(),
-                        saveException);
-            }
+            saveHrEntityWithRelationships(refreshedHrEntity);
         } catch (Exception e) {
             log.error("Error processing async HR operations for employee: {}",
                     savedHrEntity.getEmployeeId(), e);

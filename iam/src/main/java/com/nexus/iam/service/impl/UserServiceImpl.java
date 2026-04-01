@@ -10,6 +10,7 @@ import com.nexus.iam.repository.OrganizationRepository;
 import com.nexus.iam.repository.RoleRepository;
 import com.nexus.iam.repository.UserRepository;
 import com.nexus.iam.service.AuthenticationService;
+import com.nexus.iam.service.KeycloakAuthenticationService;
 import com.nexus.iam.service.UserService;
 import com.nexus.iam.utils.CommonConstants;
 import com.nexus.iam.utils.RestService;
@@ -53,6 +54,8 @@ public class UserServiceImpl implements UserService {
     private final RestService restService;
 
     private final DepartmentRepository departmentRepository;
+
+    private final KeycloakAuthenticationService keycloakAuthenticationService;
 
     @Override
     public ResponseEntity<?> getUserById(Long userId) {
@@ -354,9 +357,9 @@ public class UserServiceImpl implements UserService {
                         // Get authentication token for DMS call
                         // Uses generic user credentials for inter-service communication
                         Map<String, String> headers = new HashMap<>();
-                        LoginResponse loginResponse = authenticationService
-                                .authenticate(new LoginRequest(webConstants.getGenericUserId(),
-                                        webConstants.getGenericPassword()));
+                        LoginResponse loginResponse = keycloakAuthenticationService
+                                .login(webConstants.getGenericUserId(),
+                                        webConstants.getGenericPassword()).getBody();
                         headers.put(CommonConstants.AUTHORIZATION, "Bearer " + loginResponse.getAccessToken());
                         // Do NOT set Content-Type header - RestTemplate will automatically set it to
                         // multipart/form-data
@@ -411,9 +414,9 @@ public class UserServiceImpl implements UserService {
 
             // Call HR service to initialize employee record
             Map<String, String> headers = new HashMap<>();
-            LoginResponse loginResponse = authenticationService
-                    .authenticate(new LoginRequest(webConstants.getGenericUserId(),
-                            webConstants.getGenericPassword()));
+            LoginResponse loginResponse = keycloakAuthenticationService
+                    .login(webConstants.getGenericUserId(),
+                            webConstants.getGenericPassword()).getBody();
             headers.put(CommonConstants.AUTHORIZATION, "Bearer " + loginResponse.getAccessToken());
             headers.put(CommonConstants.CONTENT_TYPE, CommonConstants.APPLICATION_JSON);
 
