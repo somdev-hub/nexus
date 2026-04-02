@@ -1,10 +1,35 @@
 package com.nexus.iam.service.impl;
 
+import java.sql.Timestamp;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+
+import org.modelmapper.ModelMapper;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Service;
+import org.springframework.util.ObjectUtils;
+import org.springframework.web.util.UriComponentsBuilder;
+
 import com.nexus.iam.config.CacheConfig;
-import com.nexus.iam.dto.*;
+import com.nexus.iam.dto.LoginResponse;
+import com.nexus.iam.dto.OrganizationDto;
+import com.nexus.iam.dto.OrganizationFetchDto;
 import com.nexus.iam.dto.response.EmployeeDirectoryResponse;
 import com.nexus.iam.dto.response.EmployeePageInsights;
 import com.nexus.iam.dto.response.EmployeeProfileResponse;
+import com.nexus.iam.dto.response.EmployeesAttendanceDto;
 import com.nexus.iam.dto.response.PaginatedResponse;
 import com.nexus.iam.entities.Organization;
 import com.nexus.iam.entities.Role;
@@ -21,28 +46,8 @@ import com.nexus.iam.utils.CommonUtils;
 import com.nexus.iam.utils.DataMapper;
 import com.nexus.iam.utils.RestService;
 import com.nexus.iam.utils.WebConstants;
-import lombok.RequiredArgsConstructor;
-import org.modelmapper.ModelMapper;
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Cacheable;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.ResponseEntity;
-import org.springframework.stereotype.Service;
-import org.springframework.util.ObjectUtils;
-import org.springframework.web.util.UriComponentsBuilder;
 
-import java.sql.Date;
-import java.sql.Timestamp;
-import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.function.Function;
-import java.util.stream.Collectors;
+import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
@@ -539,5 +544,152 @@ public class OrganizationServiceImpl implements OrganizationService {
         return response;
     }
 
-    // ...existing code...
+    @Override
+    public ResponseEntity<?> getEmployeesAttendance(Long orgId, Long deptId, String date, Integer pageNo, Integer pageOffset,
+            String authHeader) {
+        if (ObjectUtils.isEmpty(orgId)) {
+            throw new IllegalArgumentException("Organization ID is required");
+        }
+
+        Pageable pageable = PageRequest.of(pageNo, pageOffset);
+        try {
+            // 1. Fetch users from database
+            Page<User> users;
+            if (ObjectUtils.isEmpty(deptId)) {
+                // Fetch attendance for all departments in the organization
+                users = userRepository.findAll(pageable);
+            } else {
+                // Fetch attendance for a specific department
+                users = userRepository.findByDepartmentId(deptId, pageable);
+            }
+
+            if (users.isEmpty()) {
+                return ResponseEntity.ok(new PageImpl<>(
+                        List.of(),
+                        pageable,
+                        0));
+            }
+
+            // 2. Create a lookup map for O(1) access to user names
+            Map<Long, User> userMap = users.stream()
+                    .collect(Collectors.toMap(User::getId, Function.identity()));
+
+            // 3. Extract employee IDs
+            List<Long> empIds = new ArrayList<>(userMap.keySet());
+
+            // 4. Call HR service to get attendance data
+            Map<String, String> headers = new HashMap<>(commonUtils.buildJsonHeaders(authHeader));
+            headers.put(HttpHeaders.AUTHORIZATION, authHeader);
+            UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getEmployeeAttendanceUrl());
+            Map<String, Object> requestBody = new HashMap<>();
+            requestBody.put("empIds", empIds);
+            requestBody.put("date", date);
+            ResponseEntity<?> hrCallResponse = restService.iamRestCall(
+                    builder.toUriString(),
+                    requestBody,
+                    headers,
+                    HttpMethod.POST,
+                    null);
+
+            // 5. Process HR response
+            if (!hrCallResponse.getStatusCode().is2xxSuccessful()) {
+                return ResponseEntity.status(hrCallResponse.getStatusCode())
+                        .body("Failed to fetch attendance from HR service");
+            }
+
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> attendanceDataList = (List<Map<String, Object>>) hrCallResponse.getBody();
+
+            if (attendanceDataList == null || attendanceDataList.isEmpty()) {
+                return ResponseEntity.ok(new PageImpl<>(
+                        List.of(),
+                        pageable,
+                        users.getTotalElements()));
+            }
+
+            // 6. Map attendance data to EmployeesAttendanceDto with employee names
+            List<EmployeesAttendanceDto> attendanceResponses = attendanceDataList.stream()
+                    .map(attendanceData -> {
+                        Long empId = ((Number) attendanceData.get("employeeId")).longValue();
+                        User user = userMap.get(empId);
+
+                        EmployeesAttendanceDto dto = new EmployeesAttendanceDto();
+                        dto.setDate(attendanceData.get("date") != null
+                                ? java.time.LocalDate.parse(attendanceData.get("date").toString())
+                                : null);
+                        dto.setEmployeeId(empId);
+                        dto.setEmployeeName(user != null ? user.getName() : "");
+                        dto.setCheckInTime(attendanceData.get("checkInTime") != null ? attendanceData.get("checkInTime").toString() : "");
+                        dto.setCheckOutTime(attendanceData.get("checkOutTime") != null ? attendanceData.get("checkOutTime").toString() : "");
+                        dto.setTotalHoursWorked(attendanceData.get("totalHoursWorked") != null
+                                ? ((Number) attendanceData.get("totalHoursWorked")).doubleValue()
+                                : 0.0);
+                        dto.setStatus((String) attendanceData.get("status"));
+
+                        return dto;
+                    })
+                    .toList();
+
+            // 7. Return paginated response
+            return ResponseEntity.ok(new PageImpl<>(
+                    attendanceResponses,
+                    pageable,
+                    users.getTotalElements()));
+
+        } catch (RuntimeException e) {
+            throw new ServiceLevelException(
+                    "DepartmentServiceImpl",
+                    "Failed to get employees attendance: " + e.getMessage(),
+                    "getEmployeesAttendance",
+                    e.getClass().getSimpleName(),
+                    e.getLocalizedMessage());
+        }
+    }
+
+    @Override
+    public ResponseEntity<?> toggleAttendance(Long userId, String authHeader) {
+        if (ObjectUtils.isEmpty(userId)) {
+            throw new IllegalArgumentException("User ID is required");
+        }
+
+        try {
+            // 1. Validate user exists
+            if (!userRepository.existsById(userId)) {
+                throw new ResourceNotFoundException("User", "id", userId);
+            }
+
+            // 2. Call HR service to toggle attendance
+            Map<String, String> headers = new HashMap<>(commonUtils.buildJsonHeaders(authHeader));
+            headers.put(HttpHeaders.AUTHORIZATION, authHeader);
+            UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getToggleAttendanceUrl())
+                    .queryParam("empId", userId);
+            ResponseEntity<?> hrCallResponse = restService.iamRestCall(
+                    builder.toUriString(),
+                    null,
+                    headers,
+                    HttpMethod.POST,
+                    null);
+
+            // 3. Process HR response
+            if (!hrCallResponse.getStatusCode().is2xxSuccessful()) {
+                return ResponseEntity.status(hrCallResponse.getStatusCode())
+                        .body("Failed to toggle attendance in HR service");
+            }
+
+            @SuppressWarnings("unchecked")
+            Map<String, Object> responseData = (Map<String, Object>) hrCallResponse.getBody();
+            return ResponseEntity.ok(responseData);
+
+        } catch (ResourceNotFoundException e) {
+            throw e;
+        } catch (RuntimeException e) {
+            throw new ServiceLevelException(
+                    "OrganizationServiceImpl",
+                    "Failed to toggle attendance: " + e.getMessage(),
+                    "toggleAttendance",
+                    e.getClass().getSimpleName(),
+                    e.getLocalizedMessage());
+        }
+    }
+
 }

@@ -403,7 +403,11 @@ public class TimeManagementServiceImpl implements TimeManagementService {
     }
 
     @Override
-    public ResponseEntity<?> getEmployeesAttendance(List<Long> empIds) {
+    public ResponseEntity<?> getEmployeesAttendance(Map<String, Object> requestBody) {
+
+        @SuppressWarnings("unchecked")
+        List<Long> empIds = (List<Long>) requestBody.get("empIds");
+        String date = (String) requestBody.get("date");
 
         if (ObjectUtils.isEmpty(empIds)) {
             throw new ServiceLevelException(
@@ -413,7 +417,30 @@ public class TimeManagementServiceImpl implements TimeManagementService {
                     "InvalidInput",
                     "The provided list of employee IDs is null or empty");
         }
+
+        if (ObjectUtils.isEmpty(date)) {
+            throw new ServiceLevelException(
+                    "TimeManagementService",
+                    "Date is required to fetch attendance",
+                    "getEmployeesAttendance",
+                    "InvalidInput",
+                    "The provided date is null or empty. Expected format: YYYY-MM-DD (e.g., 2026-04-03)");
+        }
+
         try {
+            // Parse date with validation
+            LocalDate parsedDate;
+            try {
+                parsedDate = LocalDate.parse(date.trim());
+            } catch (Exception e) {
+                throw new ServiceLevelException(
+                        "TimeManagementService",
+                        "Invalid date format",
+                        "getEmployeesAttendance",
+                        "InvalidInput",
+                        "Date must be in YYYY-MM-DD format (e.g., 2026-04-03). Received: " + date);
+            }
+
             // Fetch HrEntity records for the given employee IDs
             List<HrEntity> hrEntities = hrEntityRepo.findAllById(empIds);
 
@@ -427,7 +454,11 @@ public class TimeManagementServiceImpl implements TimeManagementService {
                     .toList();
 
             // Fetch all TimeManagement records for these employees
-            List<TimeManagement> timeManagements = timeManagementRepo.findAllByHrEntityIdIn(hrIds);
+            List<TimeManagement> timeManagements = timeManagementRepo.findAllByDateAndHrEntityIdIn(
+                    parsedDate.getDayOfMonth(),
+                    parsedDate.getMonthValue(),
+                    parsedDate.getYear(),
+                    hrIds);
 
             // Map TimeManagement records to AttendanceResponse
             List<AttendanceResponse> attendanceResponses = timeManagements.stream()
@@ -471,6 +502,37 @@ public class TimeManagementServiceImpl implements TimeManagementService {
                     "TimeManagementService",
                     "Error while fetching employees attendance",
                     "getEmployeesAttendance",
+                    e.getClass().getName(),
+                    e.getMessage());
+        }
+    }
+
+    @Override
+    public ResponseEntity<?> toggleAttandenceByEmpId(Long empId) {
+        if (ObjectUtils.isEmpty(empId)) {
+            throw new ServiceLevelException(
+                    "TimeManagementService",
+                    "Employee ID is required to toggle attendance",
+                    "toggleAttandenceByEmpId",
+                    "InvalidInput",
+                    "The provided employee ID is null or empty");
+        }
+
+        try {
+            // Find HrEntity by employee ID
+            HrEntity hrEntity = hrEntityRepo.findByEmployeeId(empId)
+                    .orElseThrow(() -> new ResourceNotFoundException("HrEntity", "employeeId", empId));
+
+            // Delegate to toggleAttendance using the found HrId
+            return toggleAttendance(hrEntity.getHrId());
+
+        } catch (ResourceNotFoundException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new ServiceLevelException(
+                    "TimeManagementService",
+                    "Error while toggling attendance by employee ID",
+                    "toggleAttandenceByEmpId",
                     e.getClass().getName(),
                     e.getMessage());
         }

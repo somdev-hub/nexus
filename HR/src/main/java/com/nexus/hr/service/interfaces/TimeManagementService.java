@@ -5,6 +5,7 @@ import org.springframework.http.ResponseEntity;
 
 import java.sql.Date;
 import java.util.List;
+import java.util.Map;
 
 public interface TimeManagementService {
 
@@ -16,5 +17,7 @@ public interface TimeManagementService {
 
     ResponseEntity<?> applyHoliday(Long hrId, Date fromDate, Date toDate, String remarks);
 
-    ResponseEntity<?> getEmployeesAttendance(List<Long> empIds);
+    ResponseEntity<?> getEmployeesAttendance(Map<String, Object> requestBody);
+
+    ResponseEntity<?> toggleAttandenceByEmpId(Long empId);
 }

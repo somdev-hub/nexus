@@ -8,12 +8,15 @@ import com.nexus.hr.utils.CommonUtils;
 import lombok.RequiredArgsConstructor;
 
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.ObjectUtils;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+
 
 
 @RestController
@@ -24,7 +27,7 @@ public class TimeManagementController {
     private final TimeManagementService timeManagementService;
     private final CommonUtils commonUtils;
 
-    @GetMapping("/toggle-attendance")
+    @PostMapping("/toggle-attendance")
     public ResponseEntity<?> toggleAttendance(@RequestParam Long hrId, @RequestHeader("Authorization") String authorizationHeader) {
 
         if (ObjectUtils.isEmpty(hrId)) {
@@ -42,15 +45,33 @@ public class TimeManagementController {
         return timeManagementService.toggleAttendance(hrId);
     }
 
-    @PostMapping("/attendance")
-    public ResponseEntity<?> getEmployeesAttendance(@RequestBody List<Long> empIds, @RequestHeader("Authorization") String token) {
+    @PostMapping("/toggle-attendance/emp-id")
+    public ResponseEntity<?> toggleAttandenceByEmpId(@RequestParam Long empId, @RequestHeader("Authorization") String token) {
         if (ObjectUtils.isEmpty(token) || !commonUtils.validateToken(token)) {
             throw new UnauthorizedException(
                     "TimeManagementController",
                     "Invalid or missing authorization token"
             );
         }
-        return timeManagementService.getEmployeesAttendance(empIds);
+        if (ObjectUtils.isEmpty(empId)) {
+            throw new UnauthorizedException(
+                    "TimeManagementController",
+                    "Employee ID is required to toggle attendance"
+            );
+        }
+        return timeManagementService.toggleAttandenceByEmpId(empId);
+    }
+    
+
+    @PostMapping("/attendance")
+    public ResponseEntity<?> getEmployeesAttendance(@RequestBody Map<String, Object> requestBody, @RequestHeader("Authorization") String token) {
+        if (ObjectUtils.isEmpty(token) || !commonUtils.validateToken(token)) {
+            throw new UnauthorizedException(
+                    "TimeManagementController",
+                    "Invalid or missing authorization token"
+            );
+        }
+        return timeManagementService.getEmployeesAttendance(requestBody);
     }
     
 

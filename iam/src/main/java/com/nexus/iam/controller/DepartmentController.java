@@ -88,13 +88,5 @@ public class DepartmentController {
         }
         return departmentService.getAllDepts(orgId);
     }
-
-    @GetMapping("/employees/attendance")
-    public ResponseEntity<?> getEmployeesAttendance(@RequestParam Long orgId, @RequestParam(required = false) Long deptId, @RequestParam(required = false, defaultValue = "0") Integer pageNo, @RequestParam(required = false, defaultValue = "10") Integer pageOffset, @RequestHeader("Authorization") String authHeader) {
-        if (ObjectUtils.isEmpty(authHeader) || !jwtUtil.isValidToken(authHeader)) {
-            return ResponseEntity.status(401).body("Unauthorized: Invalid or missing token");
-        }
-        return departmentService.getEmployeesAttendance(orgId, deptId, pageNo, pageOffset, authHeader);
-    }
     
 }

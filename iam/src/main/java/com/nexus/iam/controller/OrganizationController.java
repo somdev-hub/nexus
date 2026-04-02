@@ -5,7 +5,11 @@ import com.nexus.iam.dto.OrganizationDto;
 import com.nexus.iam.entities.Organization;
 import com.nexus.iam.entities.User;
 import com.nexus.iam.repository.UserRepository;
+import com.nexus.iam.security.JwtUtil;
 import com.nexus.iam.service.OrganizationService;
+
+import lombok.RequiredArgsConstructor;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.ObjectUtils;
@@ -18,16 +22,14 @@ import java.util.Map;
 @RestController
 @RequestMapping("/iam/organizations")
 @CrossOrigin(origins = "*")
+@RequiredArgsConstructor
 public class OrganizationController {
 
     private final OrganizationService organizationService;
 
     private final UserRepository userRepository;
 
-    public OrganizationController(OrganizationService organizationService, UserRepository userRepository) {
-        this.organizationService = organizationService;
-        this.userRepository = userRepository;
-    }
+    private final JwtUtil jwtUtil;
 
     @LogActivity("Create Organization")
     @PostMapping("/add")
@@ -119,12 +121,38 @@ public class OrganizationController {
     }
 
     @GetMapping("/employee/directory")
-    public ResponseEntity<?> getEmployeeDirectory(@RequestParam Long orgId, @RequestParam(value = "pageNo", required = false, defaultValue = "0") Integer pageNo, @RequestParam(value = "pageOffset", required = false, defaultValue = "10") Integer pageOffset) {
+    public ResponseEntity<?> getEmployeeDirectory(@RequestParam Long orgId,
+            @RequestParam(value = "pageNo", required = false, defaultValue = "0") Integer pageNo,
+            @RequestParam(value = "pageOffset", required = false, defaultValue = "10") Integer pageOffset) {
         return organizationService.getEmployeeDirectory(orgId, pageNo, pageOffset);
     }
 
     @GetMapping("/employee/details")
-    public ResponseEntity<?> getEmployeeDetails(@RequestParam Long userId){
+    public ResponseEntity<?> getEmployeeDetails(@RequestParam Long userId) {
         return organizationService.getEmployeeDetails(userId);
     }
+
+    @GetMapping("/employees/attendance")
+    public ResponseEntity<?> getEmployeesAttendance(@RequestParam Long orgId,
+            @RequestParam(required = false) Long deptId,
+            @RequestParam String date,
+            @RequestParam(required = false, defaultValue = "0") Integer pageNo,
+            @RequestParam(required = false, defaultValue = "10") Integer pageOffset,
+            @RequestHeader("Authorization") String authHeader) {
+        if (ObjectUtils.isEmpty(authHeader) || !jwtUtil.isValidToken(authHeader)) {
+            return ResponseEntity.status(401).body("Unauthorized: Invalid or missing token");
+        }
+        return organizationService.getEmployeesAttendance(orgId, deptId, date, pageNo, pageOffset, authHeader);
+    }
+
+    @GetMapping("/employee/toggle-attendance")
+    public ResponseEntity<?> toggleAttendance(@RequestParam Long userId,
+            @RequestHeader("Authorization") String authHeader) {
+        if (ObjectUtils.isEmpty(authHeader) || !jwtUtil.isValidToken(authHeader)) {
+            return ResponseEntity.status(401).body("Unauthorized: Invalid or missing token");
+        }
+        return organizationService.toggleAttendance(userId, authHeader);
+
+    }
+
 }

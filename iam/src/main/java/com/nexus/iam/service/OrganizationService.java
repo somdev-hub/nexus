@@ -34,4 +34,8 @@ public interface OrganizationService {
     ResponseEntity<?> getEmployeeDirectory(Long orgId, Integer pageNo, Integer pageOffset);
 
     ResponseEntity<?> getEmployeeDetails(Long userId);
+
+    ResponseEntity<?> getEmployeesAttendance(Long orgId, Long deptId, String date, Integer pageNo, Integer pageOffset, String authHeader);
+
+    ResponseEntity<?> toggleAttendance(Long userId, String authHeader);
 }
