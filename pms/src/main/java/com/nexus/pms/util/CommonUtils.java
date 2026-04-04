@@ -1,4 +1,4 @@
-package com.nexus.hr.utils;
+package com.nexus.pms.util;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -12,19 +12,17 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.nexus.hr.payload.RestPayload;
-import com.nexus.hr.payload.TokenPayloadDto;
+import com.nexus.pms.payload.RestPayload;
+import com.nexus.pms.payload.TokenPayloadDto;
+
+import lombok.RequiredArgsConstructor;
 
 @Service
+@RequiredArgsConstructor
 public class CommonUtils {
 
     private final WebConstants webConstants;
     private String token;
-    private final Object tokenLock = new Object(); // Lock for thread-safe token management
-
-    public CommonUtils(WebConstants webConstants) {
-        this.webConstants = webConstants;
-    }
 
     public boolean validateToken(String token) {
         String authUrl = webConstants.getVerifyTokenUrl();

@@ -1,4 +1,4 @@
-package com.nexus.iam.util;
+package com.nexus.iam.utils;
 
 import java.util.Collection;
 import java.util.HashSet;
@@ -9,8 +9,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.stereotype.Component;
-
-import com.nexus.iam.utils.WebConstants;
 
 import lombok.extern.slf4j.Slf4j;
 

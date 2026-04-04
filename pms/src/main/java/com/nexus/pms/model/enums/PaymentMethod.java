@@ -1,0 +1,11 @@
+package com.nexus.pms.model.enums;
+
+public enum PaymentMethod {
+    CREDIT_CARD,
+    DEBIT_CARD,
+    NET_BANKING,
+    UPI,
+    WALLET,
+    EMI,
+    OTHER
+}

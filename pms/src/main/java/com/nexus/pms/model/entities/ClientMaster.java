@@ -1,0 +1,40 @@
+package com.nexus.pms.model.entities;
+
+import jakarta.persistence.*;
+import lombok.Data;
+
+import java.sql.Timestamp;
+import java.util.List;
+
+@Entity
+@Table(name = "t_client_master", schema = "pms")
+@Data
+public class ClientMaster {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long clientMasterId;
+
+    private String clientName;
+
+    @OneToMany(mappedBy = "clientMaster", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<ClientPaymentTypes> clientPaymentTypes;
+
+    private Timestamp createdAt;
+
+    private Timestamp updatedAt;
+
+    private Boolean isActive;
+
+    @PrePersist
+    protected void onCreate() {
+        createdAt = new Timestamp(System.currentTimeMillis());
+        isActive = true;
+        updatedAt = new Timestamp(System.currentTimeMillis());
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = new Timestamp(System.currentTimeMillis());
+    }
+}
