@@ -5,6 +5,8 @@ import com.nexus.pms.payload.ClientMasterRequest;
 
 import java.util.List;
 
+import org.springframework.http.ResponseEntity;
+
 /**
  * Service interface for Client Master (Microservice Registry).
  * 
@@ -24,7 +26,7 @@ public interface ClientService {
      * @param request ClientMasterRequest with clientName
      * @return Created ClientMaster entity
      */
-    ClientMaster createClient(ClientMasterRequest request);
+    ResponseEntity<?> createClient(ClientMaster request);
 
     /**
      * Get client by ID.
@@ -32,21 +34,21 @@ public interface ClientService {
      * @param clientMasterId Client ID
      * @return ClientMaster entity
      */
-    ClientMaster getClientById(Long clientMasterId);
+    ResponseEntity<?> getClientById(Long clientMasterId);
 
     /**
      * Get all clients (active and inactive).
      * 
      * @return List of all ClientMaster entities
      */
-    List<ClientMaster> getAllClients();
+    ResponseEntity<?> getAllClients();
 
     /**
      * Get only active clients.
      * 
      * @return List of active ClientMaster entities
      */
-    List<ClientMaster> getActiveClients();
+    ResponseEntity<?> getActiveClients();
 
     /**
      * Update client name and active status.
@@ -55,13 +57,6 @@ public interface ClientService {
      * @param request        Updated client data
      * @return Updated ClientMaster entity
      */
-    ClientMaster updateClient(Long clientMasterId, ClientMasterRequest request);
+    ResponseEntity<?> updateClient(Long clientMasterId, ClientMasterRequest request);
 
-    /**
-     * Deactivate a client (soft delete).
-     * 
-     * @param clientMasterId Client ID
-     * @return Deactivated ClientMaster entity (isActive = false)
-     */
-    ClientMaster deactivateClient(Long clientMasterId);
 }

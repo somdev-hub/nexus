@@ -26,20 +26,6 @@ public class Customer {
 
     private String customerPhone;
 
-    @Column(columnDefinition = "VARCHAR(255)")
-    private String bankAccountNumber; // Encrypted in application
-
-    private String bankAccountName; // Account holder name
-
-    private String bankName;
-
-    private String bankIfscCode;
-
-    private String bankAccountType; // SAVINGS, CURRENT
-
-    @Column(columnDefinition = "VARCHAR(100)")
-    private String upiId; // Alternative payment method
-
     private String addressLine1;
 
     private String addressLine2;

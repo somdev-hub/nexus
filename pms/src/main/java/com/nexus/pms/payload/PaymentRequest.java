@@ -111,6 +111,13 @@ public class PaymentRequest {
     @Builder
     public static class MerchantDetailsRequest {
         /**
+         * Client Master ID - Required.
+         * Links merchant to the parent client entity.
+         */
+        @NotNull(message = "Client Master ID is required")
+        private Long clientMasterId;
+
+        /**
          * Source system reference.
          */
         private Long sourceSystemId;
@@ -257,6 +264,11 @@ public class PaymentRequest {
          */
         @DecimalMin(value = "0.00", message = "Total amount receivable must be >= 0")
         private Double totalAmountReceivable;
+
+        /**
+         * Whether member is eligible for payment.
+         */
+        private Boolean isEligibleForPayment;
     }
 
     /**
@@ -336,12 +348,21 @@ public class PaymentRequest {
 
     /**
      * Nested DTO: Customer details (maps to t_customers table).
+     * Contains only customer identification and address information.
+     * Payment method details are stored separately in PaymentMethodRequest.
      */
     @Data
     @AllArgsConstructor
     @NoArgsConstructor
     @Builder
     public static class CustomerDetailsRequest {
+        /**
+         * Client Master ID - Required.
+         * Links customer to the parent client entity.
+         */
+        @NotNull(message = "Client Master ID is required")
+        private Long clientMasterId;
+
         /**
          * Customer name.
          */
@@ -361,42 +382,6 @@ public class PaymentRequest {
          */
         @Size(max = 20, message = "Customer phone must not exceed 20 characters")
         private String customerPhone;
-
-        /**
-         * Bank account number (will be encrypted).
-         */
-        @Size(max = 255, message = "Bank account number must not exceed 255 characters")
-        private String bankAccountNumber;
-
-        /**
-         * Bank account holder name.
-         */
-        @Size(max = 255, message = "Bank account name must not exceed 255 characters")
-        private String bankAccountName;
-
-        /**
-         * Bank name.
-         */
-        @Size(max = 100, message = "Bank name must not exceed 100 characters")
-        private String bankName;
-
-        /**
-         * Bank IFSC code.
-         */
-        @Size(max = 20, message = "IFSC code must not exceed 20 characters")
-        private String ifscCode;
-
-        /**
-         * Bank account type (SAVINGS, CURRENT, etc.).
-         */
-        @Size(max = 50, message = "Bank account type must not exceed 50 characters")
-        private String bankAccountType;
-
-        /**
-         * UPI ID (alternative payment method).
-         */
-        @Size(max = 100, message = "UPI ID must not exceed 100 characters")
-        private String upiId;
 
         /**
          * Address line 1.

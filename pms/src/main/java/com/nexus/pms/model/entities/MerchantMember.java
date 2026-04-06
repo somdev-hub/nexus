@@ -41,6 +41,8 @@ public class MerchantMember {
     @Enumerated(EnumType.STRING)
     private PaymentStatus status;
 
+    private Boolean isEligibleForPayment;
+
     private Timestamp createdAt;
 
     private Timestamp updatedAt;

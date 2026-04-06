@@ -27,7 +27,7 @@ import java.util.List;
  * - DELETE /api/admin/clients/{id} Deactivate client
  */
 @RestController
-@RequestMapping("/api/admin/clients")
+@RequestMapping("/pms/admin/clients")
 @RequiredArgsConstructor
 @Slf4j
 public class ClientController {
@@ -36,17 +36,39 @@ public class ClientController {
 
     /**
      * Create a new client (register a microservice).
-     * POST /api/admin/clients
+     * POST /pms/admin/clients
      * 
-     * @param request Client name
+     * Accepts both ClientMaster entity and ClientMasterRequest DTO.
+     * 
+     * Example 1 - Simple client:
+     * {
+     * "clientName": "Human Resources System",
+     * "clientCode": "HR",
+     * "isActive": true
+     * }
+     * 
+     * Example 2 - Client with payment types:
+     * {
+     * "clientName": "Employee Payroll System",
+     * "clientCode": "PAYROLL",
+     * "isActive": true,
+     * "paymentTypes": [
+     * {
+     * "clientPaymentTypeName": "Salary Payments",
+     * "recipient": "CUSTOMER",
+     * "description": "Monthly salary disbursement"
+     * }
+     * ]
+     * }
+     * 
+     * @param request Client details (ClientMaster or ClientMasterRequest)
      * @return 201 Created with client details
      */
     @PostMapping
-    public ResponseEntity<ClientMaster> createClient(@Valid @RequestBody ClientMasterRequest request) {
+    public ResponseEntity<?> createClient(@Valid @RequestBody ClientMaster request) {
         log.info("Creating new client: {}", request.getClientName());
         try {
-            ClientMaster client = clientService.createClient(request);
-            return ResponseEntity.status(HttpStatus.CREATED).body(client);
+            return clientService.createClient(request);
         } catch (Exception e) {
             log.error("Error creating client: {}", e.getMessage());
             return ResponseEntity.badRequest().build();
@@ -61,11 +83,10 @@ public class ClientController {
      * @return 200 OK with client details, or 404 Not Found
      */
     @GetMapping("/{clientMasterId}")
-    public ResponseEntity<ClientMaster> getClientById(@PathVariable Long clientMasterId) {
+    public ResponseEntity<?> getClientById(@PathVariable Long clientMasterId) {
         log.info("Fetching client with ID: {}", clientMasterId);
         try {
-            ClientMaster client = clientService.getClientById(clientMasterId);
-            return ResponseEntity.ok(client);
+            return clientService.getClientById(clientMasterId);
         } catch (Exception e) {
             log.error("Client not found: {}", clientMasterId);
             return ResponseEntity.notFound().build();
@@ -79,11 +100,10 @@ public class ClientController {
      * @return 200 OK with list of all clients
      */
     @GetMapping
-    public ResponseEntity<List<ClientMaster>> getAllClients() {
+    public ResponseEntity<?> getAllClients() {
         log.info("Fetching all clients");
         try {
-            List<ClientMaster> clients = clientService.getAllClients();
-            return ResponseEntity.ok(clients);
+            return clientService.getAllClients();
         } catch (Exception e) {
             log.error("Error fetching clients: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
@@ -97,11 +117,10 @@ public class ClientController {
      * @return 200 OK with list of active clients
      */
     @GetMapping("/active")
-    public ResponseEntity<List<ClientMaster>> getActiveClients() {
+    public ResponseEntity<?> getActiveClients() {
         log.info("Fetching active clients");
         try {
-            List<ClientMaster> clients = clientService.getActiveClients();
-            return ResponseEntity.ok(clients);
+            return clientService.getActiveClients();
         } catch (Exception e) {
             log.error("Error fetching active clients: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
@@ -117,34 +136,14 @@ public class ClientController {
      * @return 200 OK with updated client, or 404 Not Found
      */
     @PutMapping("/{clientMasterId}")
-    public ResponseEntity<ClientMaster> updateClient(
+    public ResponseEntity<?> updateClient(
             @PathVariable Long clientMasterId,
             @Valid @RequestBody ClientMasterRequest request) {
         log.info("Updating client with ID: {}", clientMasterId);
         try {
-            ClientMaster client = clientService.updateClient(clientMasterId, request);
-            return ResponseEntity.ok(client);
+            return clientService.updateClient(clientMasterId, request);
         } catch (Exception e) {
             log.error("Error updating client: {}", e.getMessage());
-            return ResponseEntity.notFound().build();
-        }
-    }
-
-    /**
-     * Deactivate client (soft delete).
-     * DELETE /api/admin/clients/{clientMasterId}
-     * 
-     * @param clientMasterId Client ID
-     * @return 200 OK with deactivated client, or 404 Not Found
-     */
-    @DeleteMapping("/{clientMasterId}")
-    public ResponseEntity<ClientMaster> deactivateClient(@PathVariable Long clientMasterId) {
-        log.info("Deactivating client: {}", clientMasterId);
-        try {
-            ClientMaster client = clientService.deactivateClient(clientMasterId);
-            return ResponseEntity.ok(client);
-        } catch (Exception e) {
-            log.error("Error deactivating client: {}", e.getMessage());
             return ResponseEntity.notFound().build();
         }
     }

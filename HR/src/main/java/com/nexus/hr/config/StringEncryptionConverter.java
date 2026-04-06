@@ -3,7 +3,6 @@ package com.nexus.hr.config;
 import com.nexus.hr.utils.EncryptionUtil;
 import jakarta.persistence.AttributeConverter;
 import jakarta.persistence.Converter;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 /**
@@ -15,7 +14,6 @@ public class StringEncryptionConverter implements AttributeConverter<String, Str
 
     private static EncryptionUtil encryptionUtilInstance;
 
-    @Autowired
     public StringEncryptionConverter(EncryptionUtil encryptionUtil) {
         StringEncryptionConverter.encryptionUtilInstance = encryptionUtil;
     }

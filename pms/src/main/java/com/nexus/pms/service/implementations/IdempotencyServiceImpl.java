@@ -8,6 +8,7 @@ import com.nexus.pms.service.interfaces.IdempotencyService;
 import com.nexus.pms.service.interfaces.PaymentService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,7 +27,7 @@ import java.util.UUID;
 public class IdempotencyServiceImpl implements IdempotencyService {
 
     private final IdempotencyRepository idempotencyRepository;
-    private final PaymentService paymentService;
+    private final ObjectProvider<PaymentService> paymentServiceProvider;
 
     /**
      * Check if an idempotency key already exists and retrieve cached payment
@@ -44,8 +45,8 @@ public class IdempotencyServiceImpl implements IdempotencyService {
                 .map(record -> {
                     log.info("Found existing payment for idempotency key: {}", idempotencyKey);
                     // Retrieve the payment details and build response
-                    Payment payment = paymentService.getPaymentById(record.getPaymentId());
-                    return paymentService.mapPaymentToResponse(payment);
+                    Payment payment = paymentServiceProvider.getObject().getPaymentById(record.getPaymentId());
+                    return paymentServiceProvider.getObject().mapPaymentToResponse(payment);
                 })
                 .orElse(null);
     }

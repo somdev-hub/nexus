@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.nexus.pms.config.RazorpayProperties;
+import com.nexus.pms.model.entities.ClientMaster;
 import com.nexus.pms.model.entities.Customer;
 import com.nexus.pms.model.entities.Merchant;
 import com.nexus.pms.model.entities.MerchantMember;
@@ -27,6 +28,7 @@ import com.nexus.pms.payload.PaymentRequest.MerchantDetailsRequest;
 import com.nexus.pms.payload.PaymentRequest.MerchantMemberRequest;
 import com.nexus.pms.payload.PaymentRequest.PaymentMethodRequest;
 import com.nexus.pms.payload.PaymentResponse;
+import com.nexus.pms.repository.ClientRepository;
 import com.nexus.pms.repository.CustomerRepository;
 import com.nexus.pms.repository.MerchantMemberRepository;
 import com.nexus.pms.repository.MerchantRepository;
@@ -56,6 +58,7 @@ public class PaymentServiceImpl implements PaymentService {
     private final MerchantMemberRepository merchantMemberRepository;
     private final CustomerRepository customerRepository;
     private final PaymentMethodRepository paymentMethodRepository;
+    private final ClientRepository clientRepository;
     private final IdempotencyService idempotencyService;
     private final RazorpayProperties configProperties;
     private final BankTransferService bankTransferService;
@@ -199,7 +202,8 @@ public class PaymentServiceImpl implements PaymentService {
             if (isPaymentMethodBankTransfer(paymentMethod)) {
                 log.info("Routing to direct bank transfer (no Razorpay)");
                 return processBankTransfer(payment, request);
-            } else if (isPaymentMethodCard(paymentMethod) || isPaymentMethodUPI(paymentMethod)) {
+            } else if (isPaymentMethodCard(paymentMethod) || isPaymentMethodUPI(paymentMethod)
+                    || isPaymentMethodNetBanking(paymentMethod)) {
                 log.info("Routing to Razorpay for {}", paymentMethod.getPaymentMethod());
                 return processRazorpayPayment(payment, request);
             } else {
@@ -217,39 +221,110 @@ public class PaymentServiceImpl implements PaymentService {
     /**
      * BANK_TRANSFER PAYMENT METHOD
      * Direct bank-to-bank transfer (NO Razorpay involved)
-     * Uses: Merchant's bank → Customer's bank via NEFT/RTGS/IMPS
+     * Routes based on payment type:
+     * - SALARY: Organization (Customer) → Employee (MerchantMember) via
+     * NEFT/RTGS/IMPS
+     * - REFUND/INVOICE: Merchant → Customer via NEFT/RTGS/IMPS
      */
     private PaymentResponse processBankTransfer(Payment payment, PaymentRequest request) {
-        log.info("Processing direct bank transfer for payment ID: {}", payment.getPaymentId());
+        log.info("Processing direct bank transfer for payment ID: {}, Type: {}", payment.getPaymentId(),
+                payment.getPaymentType());
 
         try {
-            // Validate both parties have bank details
-            if (payment.getMerchant().getBankAccountNumber() == null
-                    || payment.getCustomer().getBankAccountNumber() == null) {
-                throw new IllegalArgumentException("Bank details missing for merchant or customer");
+            // Route based on payment type
+            if (payment.getPaymentType().name().equalsIgnoreCase("SALARY")) {
+                return processSalaryBankTransfer(payment, request);
+            } else {
+                return processCustomerBankTransfer(payment, request);
+            }
+        } catch (Exception e) {
+            log.error("Bank transfer error for payment ID: {}", payment.getPaymentId(), e);
+            return buildErrorResponse("Bank transfer initiation failed: " + e.getMessage(),
+                    payment.getIdempotencyKey());
+        }
+    }
+
+    /**
+     * SALARY BANK TRANSFER
+     * Transfer from organization (CUSTOMER) to employee (MERCHANTMEMBER).
+     * 
+     * Flow: Organization Bank Account (from PaymentMethod) → Employee Bank Account
+     * - PaymentMethodRequest = Organization/Employer's bank account (source)
+     * - MerchantMember = Employee (payee, destination account)
+     * 
+     * PaymentMethodEntity has source account, MerchantMember has destination
+     * account.
+     */
+    private PaymentResponse processSalaryBankTransfer(Payment payment, PaymentRequest request) {
+        log.info("Processing salary bank transfer for payment ID: {}, Employee Member ID: {}",
+                payment.getPaymentId(), payment.getMerchantMemberId());
+
+        try {
+            // Validate payment method has source bank details
+            if (payment.getPaymentMethodEntity() == null) {
+                throw new IllegalArgumentException("Payment method details are required for salary payment");
+            }
+            if (payment.getPaymentMethodEntity().getBankAccountNumber() == null ||
+                    payment.getPaymentMethodEntity().getBankAccountNumber().trim().isEmpty()) {
+                throw new IllegalArgumentException(
+                        "Organization bank account number (source) is required for salary payment");
+            }
+            if (payment.getPaymentMethodEntity().getBankName() == null ||
+                    payment.getPaymentMethodEntity().getBankName().trim().isEmpty()) {
+                throw new IllegalArgumentException("Organization bank name (source) is required for salary payment");
             }
 
-            // Initiate bank transfer
+            // Get employee (merchant member) details
+            Optional<MerchantMember> memberOpt = merchantMemberRepository.findById(payment.getMerchantMemberId());
+            if (!memberOpt.isPresent()) {
+                throw new IllegalArgumentException(
+                        "Employee (merchant member) not found with ID: " + payment.getMerchantMemberId());
+            }
+
+            MerchantMember employee = memberOpt.get();
+
+            // Validate employee has bank details (required for salary transfer)
+            if (employee.getBankAccountNumber() == null || employee.getBankAccountNumber().trim().isEmpty()) {
+                throw new IllegalArgumentException(
+                        "Employee bank account number is required for salary payment. Member ID: "
+                                + payment.getMerchantMemberId());
+            }
+            if (employee.getBankName() == null || employee.getBankName().trim().isEmpty()) {
+                throw new IllegalArgumentException(
+                        "Employee bank name is required for salary payment. Member ID: "
+                                + payment.getMerchantMemberId());
+            }
+            if (employee.getIfscCode() == null || employee.getIfscCode().trim().isEmpty()) {
+                throw new IllegalArgumentException(
+                        "Employee IFSC code is required for salary payment. Member ID: "
+                                + payment.getMerchantMemberId());
+            }
+
+            log.info("Salary payment validated - Organization: {}, Employee: {}, Amount: {}",
+                    payment.getCustomer().getCustomerEmail(), employee.getName(), payment.getGrossAmount());
+
+            // Initiate bank transfer from organization to employee
             BankTransferService.BankTransferResult result = bankTransferService.initiateTransfer(
-                    payment.getMerchant().getBankAccountNumber(),
-                    payment.getMerchant().getBankName(),
-                    payment.getMerchant().getIfscCode(),
-                    payment.getMerchant().getBankAccountName(),
-                    payment.getCustomer().getBankAccountNumber(),
-                    payment.getCustomer().getBankName(),
-                    payment.getCustomer().getBankIfscCode(),
-                    payment.getCustomer().getBankAccountName(),
+                    payment.getPaymentMethodEntity().getBankAccountNumber(), // Organization source account
+                    payment.getPaymentMethodEntity().getBankName(), // Organization source bank
+                    payment.getPaymentMethodEntity().getBankIfscCode(), // Organization source IFSC
+                    payment.getPaymentMethodEntity().getBankAccountHolderName(), // Organization account name
+                    employee.getBankAccountNumber(), // Employee destination account
+                    employee.getBankName(), // Employee destination bank
+                    employee.getIfscCode(), // Employee destination IFSC
+                    employee.getBankAccountName(), // Employee name
                     payment.getGrossAmount(),
                     payment.getCurrency(),
-                    "Payment_" + payment.getPaymentId());
+                    "SALARY_" + payment.getPaymentId() + "_EMP_" + payment.getMerchantMemberId());
 
             if (result.getStatus().equals("FAILED")) {
-                log.error("Bank transfer failed: {}", result.getErrorMessage());
-                return buildErrorResponse("Bank transfer failed: " + result.getErrorMessage(),
+                log.error("Salary bank transfer failed: {}", result.getErrorMessage());
+                return buildErrorResponse("Salary transfer failed: " + result.getErrorMessage(),
                         payment.getIdempotencyKey());
             }
 
-            log.info("Bank transfer initiated: {}", result.getTransactionId());
+            log.info("Salary bank transfer initiated: {}, From: {}, To: {}", result.getTransactionId(),
+                    payment.getCustomer().getCustomerEmail(), employee.getName());
 
             // Return PENDING - bank will send webhook when transfer completes
             return PaymentResponse.builder()
@@ -259,7 +334,79 @@ public class PaymentServiceImpl implements PaymentService {
                     .build();
 
         } catch (Exception e) {
-            log.error("Bank transfer error for payment ID: {}", payment.getPaymentId(), e);
+            log.error("Salary bank transfer error for payment ID: {}", payment.getPaymentId(), e);
+            return buildErrorResponse("Salary transfer initiation failed: " + e.getMessage(),
+                    payment.getIdempotencyKey());
+        }
+    }
+
+    /**
+     * CUSTOMER BANK TRANSFER (REFUND/INVOICE)
+     * Transfer from merchant to customer using PaymentMethod details.
+     * Destination account details come from PaymentMethodEntity.
+     */
+    private PaymentResponse processCustomerBankTransfer(Payment payment, PaymentRequest request) {
+        log.info("Processing customer bank transfer for payment ID: {}, Type: {}",
+                payment.getPaymentId(), payment.getPaymentType());
+
+        try {
+            // Validate merchant has bank details (source account)
+            if (payment.getMerchant().getBankAccountNumber() == null ||
+                    payment.getMerchant().getBankAccountNumber().trim().isEmpty()) {
+                throw new IllegalArgumentException("Merchant bank account number is required for customer transfers");
+            }
+            if (payment.getMerchant().getBankName() == null ||
+                    payment.getMerchant().getBankName().trim().isEmpty()) {
+                throw new IllegalArgumentException("Merchant bank name is required for customer transfers");
+            }
+
+            // Validate payment method has destination bank details
+            if (payment.getPaymentMethodEntity() == null) {
+                throw new IllegalArgumentException("Payment method details are required");
+            }
+            if (payment.getPaymentMethodEntity().getBankAccountNumber() == null ||
+                    payment.getPaymentMethodEntity().getBankAccountNumber().trim().isEmpty()) {
+                throw new IllegalArgumentException("Destination bank account number is required");
+            }
+            if (payment.getPaymentMethodEntity().getBankName() == null ||
+                    payment.getPaymentMethodEntity().getBankName().trim().isEmpty()) {
+                throw new IllegalArgumentException("Destination bank name is required");
+            }
+
+            log.info("Bank details validated for merchant {} and payment method",
+                    payment.getMerchant().getMerchantOfficialEmail());
+
+            // Initiate bank transfer from merchant to destination (via payment method)
+            BankTransferService.BankTransferResult result = bankTransferService.initiateTransfer(
+                    payment.getMerchant().getBankAccountNumber(),
+                    payment.getMerchant().getBankName(),
+                    payment.getMerchant().getIfscCode(),
+                    payment.getMerchant().getBankAccountName(),
+                    payment.getPaymentMethodEntity().getBankAccountNumber(),
+                    payment.getPaymentMethodEntity().getBankName(),
+                    payment.getPaymentMethodEntity().getBankIfscCode(),
+                    payment.getPaymentMethodEntity().getBankAccountHolderName(),
+                    payment.getGrossAmount(),
+                    payment.getCurrency(),
+                    "Payment_" + payment.getPaymentId());
+
+            if (result.getStatus().equals("FAILED")) {
+                log.error("Customer bank transfer failed: {}", result.getErrorMessage());
+                return buildErrorResponse("Bank transfer failed: " + result.getErrorMessage(),
+                        payment.getIdempotencyKey());
+            }
+
+            log.info("Customer bank transfer initiated: {}", result.getTransactionId());
+
+            // Return PENDING - bank will send webhook when transfer completes
+            return PaymentResponse.builder()
+                    .razorpayPaymentId(result.getTransactionId()) // Bank transaction ID
+                    .paymentStatus("PENDING")
+                    .success(false) // Will be confirmed by bank webhook
+                    .build();
+
+        } catch (Exception e) {
+            log.error("Customer bank transfer error for payment ID: {}", payment.getPaymentId(), e);
             return buildErrorResponse("Bank transfer initiation failed: " + e.getMessage(),
                     payment.getIdempotencyKey());
         }
@@ -324,11 +471,16 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
     private boolean isPaymentMethodCard(PaymentMethodRequest paymentMethod) {
-        return paymentMethod != null && paymentMethod.getPaymentMethod().name().equalsIgnoreCase("CARD");
+        return paymentMethod != null && (paymentMethod.getPaymentMethod().name().equalsIgnoreCase("CREDIT_CARD") ||
+                paymentMethod.getPaymentMethod().name().equalsIgnoreCase("DEBIT_CARD"));
     }
 
     private boolean isPaymentMethodUPI(PaymentMethodRequest paymentMethod) {
         return paymentMethod != null && paymentMethod.getPaymentMethod().name().equalsIgnoreCase("UPI");
+    }
+
+    private boolean isPaymentMethodNetBanking(PaymentMethodRequest paymentMethod) {
+        return paymentMethod != null && paymentMethod.getPaymentMethod().name().equalsIgnoreCase("NET_BANKING");
     }
 
     /**
@@ -520,10 +672,31 @@ public class PaymentServiceImpl implements PaymentService {
     /**
      * Create merchant if doesn't exist, otherwise load by email.
      * Includes creating merchant members if provided.
+     * 
+     * NOTE: For SALARY payments, merchant bank details (bankAccountNumber,
+     * bankName, ifscCode)
+     * are OPTIONAL. Only merchantMembers' bank details are required.
+     * For REFUND/INVOICE payments, merchant bank details ARE REQUIRED.
      */
     private Merchant createOrLoadMerchant(MerchantDetailsRequest merchantDetails) {
         log.info("Creating new merchant with email: {}", merchantDetails.getMerchantOfficialEmail());
+
+        // Validate and load ClientMaster
+        if (merchantDetails.getClientMasterId() == null || merchantDetails.getClientMasterId() <= 0) {
+            throw new IllegalArgumentException("Client Master ID is required for merchant creation");
+        }
+
+        Optional<ClientMaster> clientMasterOpt = clientRepository.findById(merchantDetails.getClientMasterId());
+        if (!clientMasterOpt.isPresent()) {
+            throw new IllegalArgumentException(
+                    "Client Master not found with ID: " + merchantDetails.getClientMasterId());
+        }
+
+        ClientMaster clientMaster = clientMasterOpt.get();
+        log.info("Found ClientMaster: {} (ID: {})", clientMaster.getClientName(), clientMaster.getClientMasterId());
+
         Merchant merchant = new Merchant();
+        merchant.setSourceSystem(clientMaster);
         merchant.setSourceSystemId(merchantDetails.getSourceSystemId());
         merchant.setMerchantOfficialEmail(merchantDetails.getMerchantOfficialEmail());
         merchant.setAddressLine1(merchantDetails.getAddressLine1());
@@ -532,6 +705,7 @@ public class PaymentServiceImpl implements PaymentService {
         merchant.setState(merchantDetails.getState());
         merchant.setPinCode(merchantDetails.getPinCode());
         merchant.setCountry(merchantDetails.getCountry());
+        // Bank details are stored but may be optional depending on payment type
         merchant.setBankAccountNumber(merchantDetails.getBankAccountNumber());
         merchant.setBankAccountName(merchantDetails.getBankAccountName());
         merchant.setBankName(merchantDetails.getBankName());
@@ -539,7 +713,8 @@ public class PaymentServiceImpl implements PaymentService {
         merchant.setBankAccountType(merchantDetails.getBankAccountType());
 
         merchant = merchantRepository.save(merchant);
-        log.info("Saved merchant with ID: {}", merchant.getMerchantId());
+        log.info("Saved merchant with ID: {} linked to ClientMaster: {}", merchant.getMerchantId(),
+                clientMaster.getClientName());
 
         // Create merchant members if provided
         if (merchantDetails.getMerchantMembers() != null && !merchantDetails.getMerchantMembers().isEmpty()) {
@@ -556,6 +731,14 @@ public class PaymentServiceImpl implements PaymentService {
                 member.setIfscCode(memberRequest.getIfscCode());
                 member.setBankAccountType(memberRequest.getBankAccountType());
                 member.setTotalAmountReceivable(memberRequest.getTotalAmountReceivable());
+
+                // Status is set programmatically by the service during payment processing
+                // (PENDING -> SUCCESS/FAILED)
+                member.setStatus(PaymentStatus.PENDING);
+
+                member.setIsEligibleForPayment(
+                        memberRequest.getIsEligibleForPayment() != null ? memberRequest.getIsEligibleForPayment()
+                                : true);
                 membersList.add(member);
             }
 
@@ -575,59 +758,100 @@ public class PaymentServiceImpl implements PaymentService {
         PaymentMethodEntity paymentMethod = new PaymentMethodEntity();
         paymentMethod.setPaymentMethod(paymentMethodRequest.getPaymentMethod());
 
-        if (paymentMethodRequest.getPaymentMethod().name().equalsIgnoreCase("CARD")) {
+        String methodName = paymentMethodRequest.getPaymentMethod().name();
+
+        if (methodName.equalsIgnoreCase("CREDIT_CARD") || methodName.equalsIgnoreCase("DEBIT_CARD")) {
             paymentMethod.setCardBrand(paymentMethodRequest.getCardBrand());
             paymentMethod.setCardLast4(paymentMethodRequest.getCardLast4());
             paymentMethod.setCardExpMonth(paymentMethodRequest.getCardExpMonth());
             paymentMethod.setCardExpYear(paymentMethodRequest.getCardExpYear());
+            log.info("Saved card details for {} payment method", methodName);
         }
 
-        if (paymentMethodRequest.getPaymentMethod().name().equalsIgnoreCase("BANK_TRANSFER")) {
+        if (methodName.equalsIgnoreCase("BANK_TRANSFER")) {
             paymentMethod.setBankName(paymentMethodRequest.getBankName());
             paymentMethod.setBankAccountNumber(paymentMethodRequest.getBankAccountNumber());
             paymentMethod.setBankIfscCode(paymentMethodRequest.getBankIfscCode());
             paymentMethod.setBankAccountHolderName(paymentMethodRequest.getBankAccountHolderName());
+            log.info("Saved bank transfer details");
         }
 
-        if (paymentMethodRequest.getPaymentMethod().name().equalsIgnoreCase("UPI")) {
+        if (methodName.equalsIgnoreCase("NET_BANKING")) {
+            if (paymentMethodRequest.getBankName() != null) {
+                paymentMethod.setBankName(paymentMethodRequest.getBankName());
+                paymentMethod.setBankAccountNumber(paymentMethodRequest.getBankAccountNumber());
+                paymentMethod.setBankIfscCode(paymentMethodRequest.getBankIfscCode());
+                paymentMethod.setBankAccountHolderName(paymentMethodRequest.getBankAccountHolderName());
+                log.info("Saved bank details for NET_BANKING");
+            }
+        }
+
+        if (methodName.equalsIgnoreCase("UPI")) {
             paymentMethod.setUpiId(paymentMethodRequest.getUpiId());
             paymentMethod.setUpiVpa(paymentMethodRequest.getUpiVpa());
+            log.info("Saved UPI details");
+        }
+
+        if (methodName.equalsIgnoreCase("WALLET") || methodName.equalsIgnoreCase("EMI")
+                || methodName.equalsIgnoreCase("OTHER")) {
+            log.info("Payment method {} will be handled by Razorpay", methodName);
         }
 
         paymentMethod = paymentMethodRepository.save(paymentMethod);
-        log.info("Created payment method with ID: {}", paymentMethod.getPaymentMethodId());
+        log.info("Created payment method with ID: {} (Type: {})", paymentMethod.getPaymentMethodId(), methodName);
         return paymentMethod;
     }
 
     /**
      * Create new customer (no record reuse).
+     * Only stores customer identification and address info.
+     * Payment method details are stored separately in PaymentMethodEntity.
      */
     private Customer createOrLoadCustomer(CustomerDetailsRequest customerDetails) {
         log.info("Creating new customer with email: {}", customerDetails.getCustomerEmail());
+
+        // Validate and load ClientMaster
+        if (customerDetails.getClientMasterId() == null || customerDetails.getClientMasterId() <= 0) {
+            throw new IllegalArgumentException("Client Master ID is required for customer creation");
+        }
+
+        Optional<ClientMaster> clientMasterOpt = clientRepository.findById(customerDetails.getClientMasterId());
+        if (!clientMasterOpt.isPresent()) {
+            throw new IllegalArgumentException(
+                    "Client Master not found with ID: " + customerDetails.getClientMasterId());
+        }
+
+        ClientMaster clientMaster = clientMasterOpt.get();
+        log.info("Found ClientMaster: {} (ID: {})", clientMaster.getClientName(), clientMaster.getClientMasterId());
+
         Customer customer = new Customer();
+        customer.setSourceSystem(clientMaster);
         customer.setCustomerName(customerDetails.getCustomerName());
         customer.setCustomerEmail(customerDetails.getCustomerEmail());
         customer.setCustomerPhone(customerDetails.getCustomerPhone());
-        customer.setBankAccountNumber(customerDetails.getBankAccountNumber());
-        customer.setBankAccountName(customerDetails.getBankAccountName());
-        customer.setBankName(customerDetails.getBankName());
-        customer.setBankIfscCode(customerDetails.getIfscCode());
-        customer.setBankAccountType(customerDetails.getBankAccountType());
-        customer.setUpiId(customerDetails.getUpiId());
         customer.setAddressLine1(customerDetails.getAddressLine1());
         customer.setAddressLine2(customerDetails.getAddressLine2());
         customer.setCity(customerDetails.getCity());
         customer.setState(customerDetails.getState());
         customer.setPinCode(customerDetails.getPinCode());
         customer.setCountry(customerDetails.getCountry());
-        return customerRepository.save(customer);
+
+        Customer savedCustomer = customerRepository.save(customer);
+        log.info("Saved customer with ID: {} linked to ClientMaster: {}", savedCustomer.getCustomerId(),
+                clientMaster.getClientName());
+        return savedCustomer;
     }
 
     /**
      * Determine if payment type requires a customer.
+     * 
+     * SALARY: Customer = Organization/Employer (source of salary money)
+     * REFUND: Customer = Person receiving the refund
+     * INVOICE: Customer = Person paying the invoice
      */
     private boolean requiresCustomer(PaymentType paymentType) {
-        return paymentType.name().equalsIgnoreCase("REFUND") ||
+        return paymentType.name().equalsIgnoreCase("SALARY") ||
+                paymentType.name().equalsIgnoreCase("REFUND") ||
                 paymentType.name().equalsIgnoreCase("INVOICE");
     }
 
@@ -713,7 +937,8 @@ public class PaymentServiceImpl implements PaymentService {
         }
 
         switch (request.getPaymentMethod().getPaymentMethod().name()) {
-            case "CARD":
+            case "CREDIT_CARD":
+            case "DEBIT_CARD":
                 if (request.getPaymentMethod().getCardBrand() == null ||
                         request.getPaymentMethod().getCardBrand().trim().isEmpty()) {
                     throw new IllegalArgumentException("Card brand is required for card payments");
@@ -743,12 +968,41 @@ public class PaymentServiceImpl implements PaymentService {
                     throw new IllegalArgumentException("UPI ID is required for UPI payments");
                 }
                 break;
+            case "NET_BANKING":
+                // NET_BANKING via Razorpay doesn't require explicit bank details
+                // Razorpay will handle the banking interface
+                log.info("NET_BANKING payment will be processed via Razorpay gateway");
+                break;
+            case "WALLET":
+            case "EMI":
+            case "OTHER":
+                // These payment methods are supported via Razorpay
+                log.info("Payment method {} will be processed via Razorpay gateway",
+                        request.getPaymentMethod().getPaymentMethod().name());
+                break;
         }
 
         if (request.getPaymentType().name().equalsIgnoreCase("SALARY")) {
             if (request.getMerchantMemberId() == null || request.getMerchantMemberId() <= 0) {
                 throw new IllegalArgumentException("Merchant member ID is required for salary payments");
             }
+            // For SALARY payments, CUSTOMER is REQUIRED - it represents the
+            // organization/employer
+            // Salary transfer flow: Organization (Customer) → Employee (MerchantMember)
+            // Payment method contains the source account details (organization's bank
+            // account for BANK_TRANSFER)
+            // MerchantMember provides destination account (employee's bank account)
+            if (request.getCustomer() == null) {
+                throw new IllegalArgumentException(
+                        "Customer details are required for SALARY payments. Customer represents the organization/employer");
+            }
+            if (request.getCustomer().getCustomerEmail() == null ||
+                    request.getCustomer().getCustomerEmail().trim().isEmpty()) {
+                throw new IllegalArgumentException(
+                        "Customer email (organization email) is required for salary payments");
+            }
+            log.info(
+                    "SALARY payment validated. Source account details are in PaymentMethod, destination in MerchantMember.");
         }
 
         if (request.getPaymentType().name().equalsIgnoreCase("REFUND") ||

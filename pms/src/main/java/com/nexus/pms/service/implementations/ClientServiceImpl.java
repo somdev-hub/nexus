@@ -2,11 +2,16 @@ package com.nexus.pms.service.implementations;
 
 import com.nexus.pms.exception.ResourceNotFoundException;
 import com.nexus.pms.model.entities.ClientMaster;
+import com.nexus.pms.model.entities.ClientPaymentTypes;
 import com.nexus.pms.payload.ClientMasterRequest;
 import com.nexus.pms.repository.ClientRepository;
+import com.nexus.pms.repository.ClientPaymentTypesRepository;
 import com.nexus.pms.service.interfaces.ClientService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+
+import org.apache.commons.lang3.ObjectUtils;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,71 +32,54 @@ import java.util.List;
 public class ClientServiceImpl implements ClientService {
 
     private final ClientRepository clientRepository;
+    private final ClientPaymentTypesRepository clientPaymentTypesRepository;
 
     @Override
-    public ClientMaster createClient(ClientMasterRequest request) {
-        log.info("Creating new client: {}", request.getClientName());
+    public ResponseEntity<?> createClient(ClientMaster request) {
+        if (ObjectUtils.isEmpty(request)) {
+            return ResponseEntity.badRequest().body("Invalid input: Client data is required");
 
-        ClientMaster client = new ClientMaster();
-        client.setClientName(request.getClientName());
-        client.setIsActive(true);
-
-        ClientMaster savedClient = clientRepository.save(client);
-        log.info("Client created with ID: {}", savedClient.getClientMasterId());
-
-        return savedClient;
-    }
-
-    @Override
-    public ClientMaster getClientById(Long clientMasterId) {
-        log.debug("Fetching client with ID: {}", clientMasterId);
-
-        return clientRepository.findById(clientMasterId)
-                .orElseThrow(() -> new ResourceNotFoundException("Client not found with ID: " + clientMasterId));
-    }
-
-    @Override
-    public List<ClientMaster> getAllClients() {
-        log.debug("Fetching all clients");
-        return clientRepository.findAll();
-    }
-
-    @Override
-    public List<ClientMaster> getActiveClients() {
-        log.debug("Fetching active clients");
-        return clientRepository.findAllActive();
-    }
-
-    @Override
-    public ClientMaster updateClient(Long clientMasterId, ClientMasterRequest request) {
-        log.info("Updating client with ID: {}", clientMasterId);
-
-        ClientMaster client = getClientById(clientMasterId);
-
-        if (request.getClientName() != null) {
-            client.setClientName(request.getClientName());
         }
-
-        if (request.getIsActive() != null) {
-            client.setIsActive(request.getIsActive());
+        try {
+            ClientMaster saveclient = clientRepository.save(request);
+            if (!ObjectUtils.isEmpty(request.getClientPaymentTypes())) {
+                List<ClientPaymentTypes> paymentTypes = request.getClientPaymentTypes().stream()
+                        .map(pt -> {
+                            pt.setClientMaster(saveclient);
+                            return pt;
+                        })
+                        .toList();
+                clientPaymentTypesRepository.saveAll(paymentTypes);
+            }
+            return ResponseEntity.status(201).body(saveclient);
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError()
+                    .body("An error occurred while creating client: " + e.getMessage());
         }
-
-        ClientMaster updatedClient = clientRepository.save(client);
-        log.info("Client updated: {}", clientMasterId);
-
-        return updatedClient;
     }
 
     @Override
-    public ClientMaster deactivateClient(Long clientMasterId) {
-        log.info("Deactivating client: {}", clientMasterId);
-
-        ClientMaster client = getClientById(clientMasterId);
-        client.setIsActive(false);
-
-        ClientMaster deactivatedClient = clientRepository.save(client);
-        log.info("Client deactivated: {}", clientMasterId);
-
-        return deactivatedClient;
+    public ResponseEntity<?> getClientById(Long clientMasterId) {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'getClientById'");
     }
+
+    @Override
+    public ResponseEntity<?> getAllClients() {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'getAllClients'");
+    }
+
+    @Override
+    public ResponseEntity<?> getActiveClients() {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'getActiveClients'");
+    }
+
+    @Override
+    public ResponseEntity<?> updateClient(Long clientMasterId, ClientMasterRequest request) {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'updateClient'");
+    }
+
 }

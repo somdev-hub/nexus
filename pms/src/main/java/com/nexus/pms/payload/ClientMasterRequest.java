@@ -4,6 +4,11 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+
+import java.util.List;
+
+import com.nexus.pms.model.entities.ClientPaymentTypes;
+
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
@@ -33,4 +38,8 @@ public class ClientMasterRequest {
      */
     @NotNull(message = "Active status is required")
     private Boolean isActive;
+
+    private String clientCode; // Optional unique code for the client (e.g. "HR", "CORE")
+
+    private List<ClientPaymentTypes> paymentTypes; // Optional list of payment types this client uses (e.g. ["SALARY", "PRODUCT"])
 }

@@ -1,5 +1,6 @@
 package com.nexus.pms.model.entities;
 
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import lombok.Data;
 
@@ -15,9 +16,12 @@ public class ClientMaster {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long clientMasterId;
 
+    private String clientCode;
+
     private String clientName;
 
     @OneToMany(mappedBy = "clientMaster", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonManagedReference
     private List<ClientPaymentTypes> clientPaymentTypes;
 
     private Timestamp createdAt;

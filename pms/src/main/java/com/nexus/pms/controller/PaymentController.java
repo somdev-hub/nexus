@@ -1,5 +1,6 @@
 package com.nexus.pms.controller;
 
+import com.nexus.pms.annotation.LogActivity;
 import com.nexus.pms.payload.PaymentRequest;
 import com.nexus.pms.payload.PaymentResponse;
 import com.nexus.pms.service.interfaces.IdempotencyService;
@@ -157,7 +158,7 @@ import jakarta.validation.Valid;
  * success anyway
  */
 @RestController
-@RequestMapping("/api/payments")
+@RequestMapping("/pms/payments")
 @RequiredArgsConstructor
 @Slf4j
 public class PaymentController {
@@ -181,6 +182,7 @@ public class PaymentController {
      *                       if missing)
      * @return PaymentResponse with payment details
      */
+    @LogActivity("Process Payment")
     @PostMapping
     public ResponseEntity<PaymentResponse> processPayment(
             @Valid @RequestBody PaymentRequest paymentRequest,
@@ -248,6 +250,7 @@ public class PaymentController {
      * @param paymentId The payment ID
      * @return PaymentResponse with payment details
      */
+    @LogActivity("Get Payment Details")
     @GetMapping("/{paymentId}")
     public ResponseEntity<PaymentResponse> getPayment(@PathVariable Long paymentId) {
         log.info("Fetching payment details - Payment ID: {}", paymentId);
@@ -269,6 +272,7 @@ public class PaymentController {
      * @param idempotencyKey The idempotency key to validate
      * @return true if valid, false otherwise
      */
+    @LogActivity("Validate Idempotency Key")
     @GetMapping("/validate/idempotency-key")
     public ResponseEntity<Boolean> validateIdempotencyKey(
             @RequestParam String idempotencyKey) {
@@ -284,6 +288,7 @@ public class PaymentController {
      *
      * @return A new idempotency key (UUID format)
      */
+    @LogActivity("Generate Idempotency Key")
     @PostMapping("/generate/idempotency-key")
     public ResponseEntity<String> generateIdempotencyKey() {
         String key = idempotencyService.generateIdempotencyKey();

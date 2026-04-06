@@ -6,9 +6,12 @@ import com.nexus.pms.model.entities.Payment;
 import com.nexus.pms.model.entities.ProcessingStatus;
 
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
@@ -44,6 +47,10 @@ public class PaymentWebhooks {
 
     private Boolean isActive;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "payment_id")
+    private Payment payment;
+
     @PrePersist
     protected void onCreate() {
         createdAt = new Timestamp(System.currentTimeMillis());
@@ -55,7 +62,5 @@ public class PaymentWebhooks {
     protected void onUpdate() {
         updatedAt = new Timestamp(System.currentTimeMillis());
     }
-
-    private Payment payment;
 
 }

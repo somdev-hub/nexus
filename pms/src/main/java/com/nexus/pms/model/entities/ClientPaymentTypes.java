@@ -1,5 +1,6 @@
 package com.nexus.pms.model.entities;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.nexus.pms.model.enums.ClientPaymentTypeRecipient;
 import jakarta.persistence.*;
 import lombok.Data;
@@ -16,7 +17,8 @@ public class ClientPaymentTypes {
     private Long clientPaymentTypeId;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "client_master_id", nullable = false)
+    @JoinColumn(name = "client_master_id")
+    @JsonBackReference
     private ClientMaster clientMaster;
 
     private String clientPaymentTypeName;
