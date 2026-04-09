@@ -4,12 +4,14 @@ import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.nexus.pms.model.enums.ClientPaymentTypeRecipient;
 import jakarta.persistence.*;
 import lombok.Data;
+import lombok.ToString;
 
 import java.sql.Timestamp;
 
 @Data
 @Entity
 @Table(name = "t_client_payment_types", schema = "pms")
+@ToString(exclude = "clientMaster")
 public class ClientPaymentTypes {
 
     @Id

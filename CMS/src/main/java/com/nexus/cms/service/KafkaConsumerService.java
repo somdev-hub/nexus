@@ -167,6 +167,55 @@ public class KafkaConsumerService {
     }
 
     /**
+     * Consume salary payment email messages from PMS
+     * Triggers email notifications when salary payments are successfully processed
+     */
+    @KafkaListener(topics = "salary-payment-mail-topic", groupId = "cms-group", containerFactory = "singleRecordKafkaListenerContainerFactory")
+    public void consumeSalaryPaymentMail(
+            @Payload String message,
+            @Header(KafkaHeaders.RECEIVED_KEY) String key,
+            @Header(KafkaHeaders.OFFSET) long offset,
+            Acknowledgment acknowledgment) {
+        try {
+            String trimmedMessage = message.trim();
+
+            if (trimmedMessage.isEmpty()) {
+                log.warn("Received empty message from topic salary-payment-mail");
+                acknowledgment.acknowledge();
+                return;
+            }
+
+            log.debug("Raw Kafka message for salary payment (first 500 chars): {}",
+                    trimmedMessage.length() > 500 ? trimmedMessage.substring(0, 500) : trimmedMessage);
+
+            @SuppressWarnings("unchecked")
+            Map<String, Object> payload = objectMapper.readValue(trimmedMessage, Map.class);
+
+            if (payload.containsKey("commsType") && payload.containsKey("uuid") && payload.containsKey("topic")
+                    && payload.get("commsType").equals("email")) {
+                log.info("Processing salary payment email with key: {}, offset: {}", key, offset);
+                kafkaBacklogService.logReceived(
+                        payload.get("topic").toString(),
+                        payload.get("uuid").toString());
+                emailCommunicationService.handleEmailCommunication(trimmedMessage);
+                acknowledgment.acknowledge();
+            } else {
+                log.warn("Received message with unsupported commsType: {}", payload.get("commsType"));
+                acknowledgment.acknowledge();
+            }
+        } catch (JsonParseException e) {
+            log.error(
+                    "JSON parsing error for salary payment email. Message content (first 1000 chars): {}. Error: {}",
+                    message.length() > 1000 ? message.substring(0, 1000) : message,
+                    e.getMessage(), e);
+            acknowledgment.acknowledge();
+        } catch (Exception e) {
+            log.error("Error processing salary payment email with key: {}, offset: {}", key, offset, e);
+            acknowledgment.acknowledge();
+        }
+    }
+
+    /**
      * Alternative: Single record consumer (uncomment if needed)
      * Use this instead of batch for high-latency requirements
      */

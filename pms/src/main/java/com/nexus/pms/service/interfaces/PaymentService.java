@@ -3,6 +3,7 @@ package com.nexus.pms.service.interfaces;
 import com.nexus.pms.model.entities.Payment;
 import com.nexus.pms.payload.PaymentRequest;
 import com.nexus.pms.payload.PaymentResponse;
+import org.springframework.http.ResponseEntity;
 
 /**
  * Service interface for payment processing.
@@ -14,11 +15,17 @@ public interface PaymentService {
      * Process a payment with idempotency.
      * If the idempotency key already exists, returns the cached response.
      * Otherwise, processes the payment and stores the idempotency key.
+     * 
+     * Returns ResponseEntity to allow service layer to control:
+     * - HTTP status codes
+     * - Response data structure (ErrorResponseDto, PaymentResponse, etc.)
+     * - Response headers
      *
      * @param paymentRequest The payment request details
-     * @return PaymentResponse with the result
+     * @return ResponseEntity with PaymentResponse on success or ErrorResponseDto on
+     *         error
      */
-    PaymentResponse processPaymentWithIdempotency(PaymentRequest paymentRequest);
+    ResponseEntity<?> processPaymentWithIdempotency(PaymentRequest paymentRequest);
 
     /**
      * Get a payment by ID.

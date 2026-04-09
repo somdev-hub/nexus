@@ -23,4 +23,20 @@ public class OrganizationDto {
     private Double trustScore;
 
     private Timestamp createdAt;
+
+    private String orgEmail;
+
+    private String orgPhone;
+
+    private String addressLine1;
+
+    private String addressLine2;
+
+    private String city;
+
+    private String state;
+
+    private String pinCode;
+
+    private String country;
 }

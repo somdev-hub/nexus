@@ -2,6 +2,7 @@ package com.nexus.pms.model.entities;
 
 import jakarta.persistence.*;
 import lombok.Data;
+import lombok.ToString;
 
 import java.sql.Timestamp;
 import java.util.List;
@@ -9,6 +10,7 @@ import java.util.List;
 @Entity
 @Table(name = "t_merchants", schema = "pms")
 @Data
+@ToString(exclude = "merchantMembers")
 public class Merchant {
 
     @Id
@@ -20,6 +22,8 @@ public class Merchant {
     private ClientMaster sourceSystem;
 
     private Long sourceSystemId;
+
+    private String paymentReferenceId;
 
     private String merchantOfficialEmail;
 

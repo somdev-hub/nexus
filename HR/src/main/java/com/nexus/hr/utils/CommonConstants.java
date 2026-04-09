@@ -9,7 +9,8 @@ public class CommonConstants {
     public static final String X_WWW_URL_ENCODED = "application/x-www-form-urlencoded";
     public static final String POST = "POST";
     public static final String CANDIDATE_SELECTION_MAIL_TOPIC = "candidate-selection-mail-topic";
-
+    public static final Long CLIENT_MASTER_ID = 10L;
+    public static final String PAYMENT_TYPE_NET_BANKING = "NET_BANKING";
 
     public static final String HR_INIT_EMAIL_TEMPLATE = """
                 <html>

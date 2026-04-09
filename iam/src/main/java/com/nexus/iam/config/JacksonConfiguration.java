@@ -1,9 +1,8 @@
 package com.nexus.iam.config;
 
-import tools.jackson.databind.ObjectMapper;
-import tools.jackson.databind.SerializationFeature;
-import tools.jackson.databind.json.JsonMapper;
-import tools.jackson.databind.module.SimpleModule;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.nexus.iam.dto.response.LocalDateTimeSerializer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -19,22 +18,15 @@ public class JacksonConfiguration {
 
     @Bean
     public ObjectMapper customObjectMapper() {
+        // Create ObjectMapper for Jackson 2.x
+        ObjectMapper objectMapper = new ObjectMapper();
+        objectMapper.enable(SerializationFeature.INDENT_OUTPUT);
+
         // Register custom serializer module
         SimpleModule module = new SimpleModule();
         module.addSerializer(LocalDateTime.class, new LocalDateTimeSerializer());
+        objectMapper.registerModule(module);
 
-        // Use JsonMapper.builder() for Jackson 3.x and add module during build
-        return JsonMapper.builder()
-                .enable(SerializationFeature.INDENT_OUTPUT)
-                .addModule(module)
-                .build();
+        return objectMapper;
     }
 }
-
-
-
-
-
-
-
-

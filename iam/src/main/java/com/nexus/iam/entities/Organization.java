@@ -1,7 +1,7 @@
 package com.nexus.iam.entities;
 
-import jakarta.persistence.*;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
+import jakarta.persistence.*;
 import lombok.Data;
 
 import java.sql.Timestamp;
@@ -24,6 +24,22 @@ public class Organization {
     private OrgType orgType;
 
     private Double trustScore;
+
+    private String orgEmail;
+
+    private String orgPhone;
+
+    private String addressLine1;
+
+    private String addressLine2;
+
+    private String city;
+
+    private String state;
+
+    private String pinCode;
+
+    private String country;
 
     @OneToMany(mappedBy = "organization")
     @JsonManagedReference(value = "organization-users")

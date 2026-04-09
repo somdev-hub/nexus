@@ -3,12 +3,14 @@ package com.nexus.pms.payload;
 import java.sql.Timestamp;
 
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
+@Builder
 public class ErrorResponseDto {
     private String message;
     private int statusCode;
@@ -26,7 +28,8 @@ public class ErrorResponseDto {
         this.description = description;
     }
 
-    public ErrorResponseDto(String exceptionType, int statusCode, Timestamp timestamp, String message, String description) {
+    public ErrorResponseDto(String exceptionType, int statusCode, Timestamp timestamp, String message,
+            String description) {
         this.exceptionType = exceptionType;
         this.message = message;
         this.statusCode = statusCode;

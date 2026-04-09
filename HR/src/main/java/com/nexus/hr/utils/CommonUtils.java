@@ -143,9 +143,9 @@ public class CommonUtils {
         Map<String, String> headers = new HashMap<>();
         if (!ObjectUtils.isEmpty(headerType)) {
             headers.put(CommonConstants.AUTHORIZATION, getToken());
-            if (headerType.equalsIgnoreCase("json")) {
+            if (headerType.equalsIgnoreCase(CommonConstants.APPLICATION_JSON)) {
                 headers.put(CommonConstants.CONTENT_TYPE, CommonConstants.APPLICATION_JSON);
-            } else if (headerType.equalsIgnoreCase("multipart")) {
+            } else if (headerType.equalsIgnoreCase(CommonConstants.MULTIPART_FORM_DATA)) {
                 headers.put(CommonConstants.CONTENT_TYPE, CommonConstants.MULTIPART_FORM_DATA);
             }
             // Add other header types if needed

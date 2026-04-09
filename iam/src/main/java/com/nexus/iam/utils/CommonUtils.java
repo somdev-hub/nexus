@@ -10,9 +10,9 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.util.ObjectUtils;
-import tools.jackson.core.JacksonException;
-import tools.jackson.databind.JsonNode;
-import tools.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -34,26 +34,30 @@ public class CommonUtils {
         ObjectMapper objectMapper = new ObjectMapper();
         try {
             jsonNode = objectMapper.readTree(jsonString);
-        } catch (JacksonException _) {
+        } catch (JsonProcessingException ex) {
             jsonNode = objectMapper.createObjectNode().put("message", jsonString);
         }
-        return objectMapper.writeValueAsString(jsonNode);
+        try {
+            return objectMapper.writeValueAsString(jsonNode);
+        } catch (JsonProcessingException e) {
+            return "{}";
+        }
     }
 
-    public Map<String,String> buildJsonHeaders(String authToken){
-        Map<String,String> headers=new ConcurrentHashMap<>();
+    public Map<String, String> buildJsonHeaders(String authToken) {
+        Map<String, String> headers = new ConcurrentHashMap<>();
         headers.put(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
-        if(!ObjectUtils.isEmpty(authToken)){
+        if (!ObjectUtils.isEmpty(authToken)) {
             headers.put(HttpHeaders.AUTHORIZATION, authToken);
-        }else{
+        } else {
             AuthenticationService authenticationService = authenticationServiceProvider.getIfAvailable();
-            if(authenticationService != null) {
-                LoginResponse loginResponse = authenticationService.authenticate(new LoginRequest(webConstants.getGenericUserId(),
-                        webConstants.getGenericPassword()));
+            if (authenticationService != null) {
+                LoginResponse loginResponse = authenticationService
+                        .authenticate(new LoginRequest(webConstants.getGenericUserId(),
+                                webConstants.getGenericPassword()));
                 headers.put(HttpHeaders.AUTHORIZATION, "Bearer " + loginResponse.getAccessToken());
             }
         }
-
 
         return headers;
     }

@@ -2,18 +2,26 @@ package com.nexus.pms.service.implementations;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 
+import org.apache.commons.lang3.ObjectUtils;
 import org.json.JSONObject;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nexus.pms.config.RazorpayProperties;
+import com.nexus.pms.kafka.KafkaProducer;
 import com.nexus.pms.model.entities.ClientMaster;
 import com.nexus.pms.model.entities.Customer;
 import com.nexus.pms.model.entities.Merchant;
@@ -22,12 +30,16 @@ import com.nexus.pms.model.entities.Payment;
 import com.nexus.pms.model.entities.PaymentMethodEntity;
 import com.nexus.pms.model.enums.PaymentStatus;
 import com.nexus.pms.model.enums.PaymentType;
+import com.nexus.pms.payload.ErrorResponseDto;
 import com.nexus.pms.payload.PaymentRequest;
 import com.nexus.pms.payload.PaymentRequest.CustomerDetailsRequest;
 import com.nexus.pms.payload.PaymentRequest.MerchantDetailsRequest;
 import com.nexus.pms.payload.PaymentRequest.MerchantMemberRequest;
 import com.nexus.pms.payload.PaymentRequest.PaymentMethodRequest;
 import com.nexus.pms.payload.PaymentResponse;
+import com.nexus.pms.payload.EmailAttachmentDto;
+import com.nexus.pms.payload.EmailCommunicationDto;
+import com.nexus.pms.payload.KafkaMessageDto;
 import com.nexus.pms.repository.ClientRepository;
 import com.nexus.pms.repository.CustomerRepository;
 import com.nexus.pms.repository.MerchantMemberRepository;
@@ -37,6 +49,7 @@ import com.nexus.pms.repository.PaymentRepository;
 import com.nexus.pms.service.interfaces.IdempotencyService;
 import com.nexus.pms.service.interfaces.PaymentService;
 import com.nexus.pms.service.interfaces.BankTransferService;
+import com.nexus.pms.util.CommonConstants;
 import com.razorpay.RazorpayClient;
 
 import lombok.RequiredArgsConstructor;
@@ -62,9 +75,12 @@ public class PaymentServiceImpl implements PaymentService {
     private final IdempotencyService idempotencyService;
     private final RazorpayProperties configProperties;
     private final BankTransferService bankTransferService;
+    private final KafkaProducer kafkaProducer;
+    private final ObjectMapper objectMapper;
 
     /**
      * Process a payment with idempotency guarantee.
+     * Returns PaymentResponse on success or ErrorResponseDto on error.
      * Flow:
      * 1. Check if idempotency key provided, if not generate one
      * 2. Check if payment already processed (cached via idempotency key)
@@ -80,7 +96,7 @@ public class PaymentServiceImpl implements PaymentService {
      * h. Return response
      */
     @Override
-    public PaymentResponse processPaymentWithIdempotency(PaymentRequest paymentRequest) {
+    public ResponseEntity<?> processPaymentWithIdempotency(PaymentRequest paymentRequest) {
         log.info("Processing payment with idempotency");
 
         // Step 1: Ensure idempotency key exists
@@ -94,7 +110,8 @@ public class PaymentServiceImpl implements PaymentService {
         // Validate idempotency key format
         if (!idempotencyService.isValidIdempotencyKey(idempotencyKey)) {
             log.warn("Invalid idempotency key format: {}", idempotencyKey);
-            return buildErrorResponse("Invalid idempotency key format", null);
+            return ResponseEntity.badRequest().body(
+                    buildErrorDTO("Invalid idempotency key format", "INVALID_KEY"));
         }
 
         // Step 2: Check if payment already exists (idempotency check)
@@ -102,7 +119,7 @@ public class PaymentServiceImpl implements PaymentService {
         if (cachedResponse != null) {
             log.info("Found existing payment with idempotency key: {}, returning cached response", idempotencyKey);
             cachedResponse.setIsIdempotentRetry(true);
-            return cachedResponse;
+            return ResponseEntity.ok(cachedResponse);
         }
 
         // Step 3: Validate the payment request
@@ -110,7 +127,8 @@ public class PaymentServiceImpl implements PaymentService {
             validatePaymentRequest(paymentRequest);
         } catch (IllegalArgumentException e) {
             log.error("Payment validation failed: {}", e.getMessage());
-            return buildErrorResponse(e.getMessage(), idempotencyKey);
+            return ResponseEntity.badRequest().body(
+                    buildErrorDTO(e.getMessage(), "VALIDATION_ERROR"));
         }
 
         // Step 4: Check for duplicate payment by other identifiers
@@ -120,7 +138,10 @@ public class PaymentServiceImpl implements PaymentService {
             if (existingPayment.isPresent()) {
                 log.warn("Payment already exists with transaction reference: {}",
                         paymentRequest.getTransactionReference());
-                return mapPaymentToResponse(existingPayment.get());
+
+                return ResponseEntity.status(HttpStatus.CONFLICT).body(
+                        buildErrorDTO("Duplicate payment with transaction reference: " +
+                                paymentRequest.getTransactionReference(), "DUPLICATE_PAYMENT"));
             }
         }
 
@@ -145,10 +166,11 @@ public class PaymentServiceImpl implements PaymentService {
         // gateway)
         PaymentResponse response = processPaymentGateway(payment, paymentRequest);
 
+        // Handle different response types
         if (response.getSuccess()) {
+            // Payment completed immediately (synchronous success)
             // Step 9: Update payment status to COMPLETED
             payment.setPaymentStatus(PaymentStatus.COMPLETED);
-            payment.setRazorpayPaymentId(response.getRazorpayPaymentId());
             payment = paymentRepository.save(payment);
             log.info("Payment processed successfully: {}", payment.getPaymentId());
 
@@ -160,6 +182,22 @@ public class PaymentServiceImpl implements PaymentService {
 
             response = mapPaymentToResponse(payment);
             response.setSuccess(true);
+        } else if ("PENDING".equalsIgnoreCase(response.getPaymentStatus())) {
+            // Payment initiated but pending (asynchronous - waiting for webhook)
+            // This includes bank transfers and Razorpay orders
+            payment.setPaymentStatus(PaymentStatus.PENDING);
+            payment = paymentRepository.save(payment);
+            log.info("Payment initiated and pending webhook confirmation: {}", payment.getPaymentId());
+
+            // Store idempotency record for pending payments too
+            boolean stored = idempotencyService.storeIdempotencyRecord(idempotencyKey, payment.getPaymentId());
+            if (!stored) {
+                log.warn("Failed to store idempotency record for pending payment");
+            }
+
+            // Return response as PENDING - status will update on webhook
+            response = mapPaymentToResponse(payment);
+            response.setSuccess(true); // Initiation was successful
         } else {
             // Payment failed
             payment.setPaymentStatus(PaymentStatus.FAILED);
@@ -169,7 +207,18 @@ public class PaymentServiceImpl implements PaymentService {
             log.error("Payment processing failed: {}", response.getLastErrorMessage());
         }
 
-        return response;
+        // Return PaymentResponse on success or ErrorResponseDto on failure
+        if (response.getSuccess()) {
+            return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        } else {
+            // Payment failed - return ErrorResponseDto
+            ErrorResponseDto errorResponse = buildErrorResponse(
+                    response.getLastErrorMessage() != null
+                            ? response.getLastErrorMessage()
+                            : "Payment processing failed",
+                    response.getIdempotencyKey());
+            return ResponseEntity.badRequest().body(errorResponse);
+        }
     }
 
     /**
@@ -199,11 +248,10 @@ public class PaymentServiceImpl implements PaymentService {
             PaymentMethodRequest paymentMethod = request.getPaymentMethod();
 
             // Route based on payment method type
-            if (isPaymentMethodBankTransfer(paymentMethod)) {
+            if (isPaymentMethodBankTransfer(paymentMethod) || isPaymentMethodNetBanking(paymentMethod)) {
                 log.info("Routing to direct bank transfer (no Razorpay)");
                 return processBankTransfer(payment, request);
-            } else if (isPaymentMethodCard(paymentMethod) || isPaymentMethodUPI(paymentMethod)
-                    || isPaymentMethodNetBanking(paymentMethod)) {
+            } else if (isPaymentMethodCard(paymentMethod) || isPaymentMethodUPI(paymentMethod)) {
                 log.info("Routing to Razorpay for {}", paymentMethod.getPaymentMethod());
                 return processRazorpayPayment(payment, request);
             } else {
@@ -213,8 +261,7 @@ public class PaymentServiceImpl implements PaymentService {
 
         } catch (Exception e) {
             log.error("Error in payment processing for ID: {}", payment.getPaymentId(), e);
-            return buildErrorResponse("Payment processing failed: " + e.getMessage(),
-                    payment.getIdempotencyKey());
+            return buildPaymentErrorResponse(payment, "Payment processing failed: " + e.getMessage());
         }
     }
 
@@ -239,8 +286,7 @@ public class PaymentServiceImpl implements PaymentService {
             }
         } catch (Exception e) {
             log.error("Bank transfer error for payment ID: {}", payment.getPaymentId(), e);
-            return buildErrorResponse("Bank transfer initiation failed: " + e.getMessage(),
-                    payment.getIdempotencyKey());
+            return buildPaymentErrorResponse(payment, "Bank transfer initiation failed: " + e.getMessage());
         }
     }
 
@@ -256,9 +302,6 @@ public class PaymentServiceImpl implements PaymentService {
      * account.
      */
     private PaymentResponse processSalaryBankTransfer(Payment payment, PaymentRequest request) {
-        log.info("Processing salary bank transfer for payment ID: {}, Employee Member ID: {}",
-                payment.getPaymentId(), payment.getMerchantMemberId());
-
         try {
             // Validate payment method has source bank details
             if (payment.getPaymentMethodEntity() == null) {
@@ -274,69 +317,119 @@ public class PaymentServiceImpl implements PaymentService {
                 throw new IllegalArgumentException("Organization bank name (source) is required for salary payment");
             }
 
-            // Get employee (merchant member) details
-            Optional<MerchantMember> memberOpt = merchantMemberRepository.findById(payment.getMerchantMemberId());
-            if (!memberOpt.isPresent()) {
-                throw new IllegalArgumentException(
-                        "Employee (merchant member) not found with ID: " + payment.getMerchantMemberId());
+            List<String> paymentIds=new ArrayList<>();
+
+            for(MerchantMember employee:payment.getMerchant().getMerchantMembers()) {
+
+                // Set employee status to IN_PROGRESS
+                employee.setStatus(PaymentStatus.IN_PROGRESS);
+                merchantMemberRepository.save(employee);
+                log.info("Updated employee status to IN_PROGRESS for member ID: {}", employee.getMerchantMemberId());
+
+                // Validate employee has bank details (required for salary transfer)
+                if (employee.getBankAccountNumber() == null || employee.getBankAccountNumber().trim().isEmpty()) {
+                    throw new IllegalArgumentException(
+                            "Employee bank account number is required for salary payment. Member ID: "
+                                    + employee.getMerchantMemberId());
+                }
+                if (employee.getBankName() == null || employee.getBankName().trim().isEmpty()) {
+                    throw new IllegalArgumentException(
+                            "Employee bank name is required for salary payment. Member ID: "
+                                    + employee.getMerchantMemberId());
+                }
+                if (employee.getIfscCode() == null || employee.getIfscCode().trim().isEmpty()) {
+                    throw new IllegalArgumentException(
+                            "Employee IFSC code is required for salary payment. Member ID: "
+                                    + employee.getMerchantMemberId());
+                }
+
+                log.info("Salary payment validated - Organization: {}, Employee: {}, Amount: {}",
+                        payment.getCustomer().getCustomerEmail(), employee.getName(), payment.getGrossAmount());
+
+                // Initiate bank transfer from organization to employee
+                BankTransferService.BankTransferResult result = bankTransferService.initiateTransfer(
+                        payment.getPaymentMethodEntity().getBankAccountNumber(), // Organization source account
+                        payment.getPaymentMethodEntity().getBankName(), // Organization source bank
+                        payment.getPaymentMethodEntity().getBankIfscCode(), // Organization source IFSC
+                        payment.getPaymentMethodEntity().getBankAccountHolderName(), // Organization account name
+                        employee.getBankAccountNumber(), // Employee destination account
+                        employee.getBankName(), // Employee destination bank
+                        employee.getIfscCode(), // Employee destination IFSC
+                        employee.getBankAccountName(), // Employee name
+                        payment.getGrossAmount(),
+                        payment.getCurrency(),
+                        "SALARY_" + payment.getPaymentId() + "_EMP_" + employee.getMerchantMemberId());
+
+                if (result.getStatus().equals("FAILED")) {
+                    log.error("Salary bank transfer failed: {}", result.getErrorMessage());
+                    // Set employee status to FAILED on transfer error
+                    employee.setStatus(PaymentStatus.FAILED);
+                    merchantMemberRepository.save(employee);
+                    log.warn("Updated employee status to FAILED for member ID: {}", employee.getMerchantMemberId());
+                    return buildPaymentErrorResponse(payment, "Salary transfer failed: " + result.getErrorMessage());
+                }
+
+                // Set payment reference ID on the individual employee member for salary payment
+                employee.setPaymentReferenceId(result.getTransactionId());
+                merchantMemberRepository.save(employee);
+                log.info("Set payment reference ID on member ID: {} with value: {}",
+                         employee.getMerchantMemberId(), result.getTransactionId());
+
+                paymentIds.add(result.getTransactionId());
+
+                log.info("Salary bank transfer initiated: {}, From: {}, To: {}", result.getTransactionId(),
+                        payment.getCustomer().getCustomerEmail(), employee.getName());
+
+                // Trigger email notification for initiated salary bank transfer
+                PaymentRequest paymentRequest = new PaymentRequest();
+                paymentRequest.setAmount(payment.getAmount());
+                paymentRequest.setCurrency(payment.getCurrency());
+                paymentRequest.setDescription(payment.getDescription());
+                paymentRequest.setPaymentType(payment.getPaymentType());
+                triggerSalaryPaymentEmailNotification(payment, paymentRequest);
+
+                // Set employee status to COMPLETED after successful transfer initiation
+                employee.setStatus(PaymentStatus.COMPLETED);
+                merchantMemberRepository.save(employee);
+                log.info("Updated employee status to COMPLETED for member ID: {}", employee.getMerchantMemberId());
             }
-
-            MerchantMember employee = memberOpt.get();
-
-            // Validate employee has bank details (required for salary transfer)
-            if (employee.getBankAccountNumber() == null || employee.getBankAccountNumber().trim().isEmpty()) {
-                throw new IllegalArgumentException(
-                        "Employee bank account number is required for salary payment. Member ID: "
-                                + payment.getMerchantMemberId());
-            }
-            if (employee.getBankName() == null || employee.getBankName().trim().isEmpty()) {
-                throw new IllegalArgumentException(
-                        "Employee bank name is required for salary payment. Member ID: "
-                                + payment.getMerchantMemberId());
-            }
-            if (employee.getIfscCode() == null || employee.getIfscCode().trim().isEmpty()) {
-                throw new IllegalArgumentException(
-                        "Employee IFSC code is required for salary payment. Member ID: "
-                                + payment.getMerchantMemberId());
-            }
-
-            log.info("Salary payment validated - Organization: {}, Employee: {}, Amount: {}",
-                    payment.getCustomer().getCustomerEmail(), employee.getName(), payment.getGrossAmount());
-
-            // Initiate bank transfer from organization to employee
-            BankTransferService.BankTransferResult result = bankTransferService.initiateTransfer(
-                    payment.getPaymentMethodEntity().getBankAccountNumber(), // Organization source account
-                    payment.getPaymentMethodEntity().getBankName(), // Organization source bank
-                    payment.getPaymentMethodEntity().getBankIfscCode(), // Organization source IFSC
-                    payment.getPaymentMethodEntity().getBankAccountHolderName(), // Organization account name
-                    employee.getBankAccountNumber(), // Employee destination account
-                    employee.getBankName(), // Employee destination bank
-                    employee.getIfscCode(), // Employee destination IFSC
-                    employee.getBankAccountName(), // Employee name
-                    payment.getGrossAmount(),
-                    payment.getCurrency(),
-                    "SALARY_" + payment.getPaymentId() + "_EMP_" + payment.getMerchantMemberId());
-
-            if (result.getStatus().equals("FAILED")) {
-                log.error("Salary bank transfer failed: {}", result.getErrorMessage());
-                return buildErrorResponse("Salary transfer failed: " + result.getErrorMessage(),
-                        payment.getIdempotencyKey());
-            }
-
-            log.info("Salary bank transfer initiated: {}, From: {}, To: {}", result.getTransactionId(),
-                    payment.getCustomer().getCustomerEmail(), employee.getName());
-
             // Return PENDING - bank will send webhook when transfer completes
+            // success=true because transfer initiation was successful
+            // Payment status will be updated to COMPLETED when bank webhook arrives
             return PaymentResponse.builder()
-                    .razorpayPaymentId(result.getTransactionId()) // Bank transaction ID
+                    .paymentId(payment.getPaymentId())
+                    .idempotencyKey(payment.getIdempotencyKey())
+                    .razorpayPaymentId(paymentIds) // Bank transaction ID
                     .paymentStatus("PENDING")
-                    .success(false) // Will be confirmed by bank webhook
+                    .amount(payment.getAmount())
+                    .currency(payment.getCurrency())
+                    .description(payment.getDescription())
+                    .paymentType(payment.getPaymentType().name())
+                    .merchantId(payment.getMerchant().getMerchantId())
+                    .customerId(payment.getCustomer().getCustomerId())
+                    .paymentMethodId(payment.getPaymentMethodEntity().getPaymentMethodId())
+                    .transactionReference(payment.getTransactionReference())
+                    .grossAmount(payment.getGrossAmount())
+                    .feeAmount(payment.getFeeAmount())
+                    .netAmount(payment.getNetAmount())
+                    .taxAmount(payment.getTaxAmount())
+                    .success(true) // Transfer initiation was successful
                     .build();
 
         } catch (Exception e) {
             log.error("Salary bank transfer error for payment ID: {}", payment.getPaymentId(), e);
-            return buildErrorResponse("Salary transfer initiation failed: " + e.getMessage(),
-                    payment.getIdempotencyKey());
+            // Set employee status to FAILED on exception
+            try {
+                for(MerchantMember emp : payment.getMerchant().getMerchantMembers()) {
+                    emp.setStatus(PaymentStatus.FAILED);
+                    merchantMemberRepository.save(emp);
+                    log.warn("Updated employee status to FAILED for member ID: {} due to exception",
+                            emp.getMerchantMemberId());
+                }
+            } catch (Exception statusUpdateError) {
+                log.error("Failed to update employee status on exception", statusUpdateError);
+            }
+            return buildPaymentErrorResponse(payment, "Salary transfer initiation failed: " + e.getMessage());
         }
     }
 
@@ -392,23 +485,43 @@ public class PaymentServiceImpl implements PaymentService {
 
             if (result.getStatus().equals("FAILED")) {
                 log.error("Customer bank transfer failed: {}", result.getErrorMessage());
-                return buildErrorResponse("Bank transfer failed: " + result.getErrorMessage(),
-                        payment.getIdempotencyKey());
+                return buildPaymentErrorResponse(payment, "Bank transfer failed: " + result.getErrorMessage());
             }
+
+            // Set payment reference ID on the merchant for non-salary payments
+            payment.getMerchant().setPaymentReferenceId(result.getTransactionId());
+            merchantRepository.save(payment.getMerchant());
+            log.info("Set payment reference ID on merchant ID: {} with value: {}",
+                     payment.getMerchant().getMerchantId(), result.getTransactionId());
 
             log.info("Customer bank transfer initiated: {}", result.getTransactionId());
 
             // Return PENDING - bank will send webhook when transfer completes
+            // success=true because transfer initiation was successful
+            // Payment status will be updated to COMPLETED when bank webhook arrives
             return PaymentResponse.builder()
-                    .razorpayPaymentId(result.getTransactionId()) // Bank transaction ID
+                    .paymentId(payment.getPaymentId())
+                    .idempotencyKey(payment.getIdempotencyKey())
+                    .razorpayPaymentId(List.of(result.getTransactionId())) // Bank transaction ID
                     .paymentStatus("PENDING")
-                    .success(false) // Will be confirmed by bank webhook
+                    .amount(payment.getAmount())
+                    .currency(payment.getCurrency())
+                    .description(payment.getDescription())
+                    .paymentType(payment.getPaymentType().name())
+                    .merchantId(payment.getMerchant().getMerchantId())
+                    .customerId(payment.getCustomer() != null ? payment.getCustomer().getCustomerId() : null)
+                    .paymentMethodId(payment.getPaymentMethodEntity().getPaymentMethodId())
+                    .transactionReference(payment.getTransactionReference())
+                    .grossAmount(payment.getGrossAmount())
+                    .feeAmount(payment.getFeeAmount())
+                    .netAmount(payment.getNetAmount())
+                    .taxAmount(payment.getTaxAmount())
+                    .success(true) // Transfer initiation was successful
                     .build();
 
         } catch (Exception e) {
             log.error("Customer bank transfer error for payment ID: {}", payment.getPaymentId(), e);
-            return buildErrorResponse("Bank transfer initiation failed: " + e.getMessage(),
-                    payment.getIdempotencyKey());
+            return buildPaymentErrorResponse(payment, "Bank transfer initiation failed: " + e.getMessage());
         }
     }
 
@@ -448,17 +561,31 @@ public class PaymentServiceImpl implements PaymentService {
             // Step 3: Return order ID to frontend
             // Frontend will use Razorpay SDK to show payment UI to customer
             // Customer enters card/UPI details and completes payment
+            // Razorpay will send webhook when payment is complete
 
             return PaymentResponse.builder()
-                    .razorpayPaymentId(null) // Will be populated by webhook when customer pays
+                    .paymentId(payment.getPaymentId())
+                    .idempotencyKey(payment.getIdempotencyKey())
+                    .razorpayPaymentId(List.of(orderId)) // Razorpay order ID to be used by frontend
                     .paymentStatus("PENDING")
-                    .success(false) // Waiting for customer action
+                    .amount(payment.getAmount())
+                    .currency(payment.getCurrency())
+                    .description(payment.getDescription())
+                    .paymentType(payment.getPaymentType().name())
+                    .merchantId(payment.getMerchant().getMerchantId())
+                    .customerId(payment.getCustomer() != null ? payment.getCustomer().getCustomerId() : null)
+                    .paymentMethodId(payment.getPaymentMethodEntity().getPaymentMethodId())
+                    .transactionReference(payment.getTransactionReference())
+                    .grossAmount(payment.getGrossAmount())
+                    .feeAmount(payment.getFeeAmount())
+                    .netAmount(payment.getNetAmount())
+                    .taxAmount(payment.getTaxAmount())
+                    .success(true) // Order creation was successful
                     .build();
 
         } catch (Exception e) {
             log.error("Razorpay payment processing failed for payment ID: {}", payment.getPaymentId(), e);
-            return buildErrorResponse("Razorpay payment failed: " + e.getMessage(),
-                    payment.getIdempotencyKey());
+            return buildPaymentErrorResponse(payment, "Razorpay payment failed: " + e.getMessage());
         }
     }
 
@@ -552,7 +679,6 @@ public class PaymentServiceImpl implements PaymentService {
 
                 // Update payment as successful
                 payment.setPaymentStatus(PaymentStatus.COMPLETED);
-                payment.setRazorpayPaymentId(razorpayPaymentId);
                 paymentRepository.save(payment);
 
                 // Store idempotency record
@@ -563,13 +689,22 @@ public class PaymentServiceImpl implements PaymentService {
                 log.info("Payment completed successfully. Payment ID: {}, Razorpay ID: {}",
                         paymentId, razorpayPaymentId);
 
+                // Trigger email notification for completed salary payments
+                if (payment.getPaymentType().name().equalsIgnoreCase("SALARY")) {
+                    PaymentRequest paymentRequest = new PaymentRequest();
+                    paymentRequest.setAmount(payment.getAmount());
+                    paymentRequest.setCurrency(payment.getCurrency());
+                    paymentRequest.setDescription(payment.getDescription());
+                    paymentRequest.setPaymentType(payment.getPaymentType());
+                    triggerSalaryPaymentEmailNotification(payment, paymentRequest);
+                }
+
             } else if (event.contains("failed")) {
                 log.warn("Payment failed via webhook: razorpayPaymentId={}, status={}",
                         razorpayPaymentId, status);
 
                 // Update payment as failed
                 payment.setPaymentStatus(PaymentStatus.FAILED);
-                payment.setRazorpayPaymentId(razorpayPaymentId);
                 payment.setLastErrorCode("RAZORPAY_DECLINED");
                 payment.setLastErrorMessage("Payment declined by customer");
                 paymentRepository.save(payment);
@@ -623,8 +758,25 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
     /**
+     * Extract employee (merchant member) data from the payment request.
+     * Extracts the specific employee to be paid from the request's merchant members
+     * list.
+     * 
+     * Employee data is transient - it comes from the payment request and is NOT
+     * stored in the database.
+     * This aligns with PMS principle: merchant members are request data, not
+     * persisted master data.
+     * 
+     * @param paymentRequest   The payment request containing merchant members list
+     * @param merchantMemberId The ID of the employee to find in the request
+     * @return MerchantMemberRequest for the specified employee, or null if not
+     *         found
+     */
+    /**
      * Create a Payment entity from PaymentRequest.
      * Handles on-demand creation/loading of merchant, customer, and payment method.
+     * Note: merchantMemberId will be resolved from sourceMemberId during payment
+     * processing.
      */
     private Payment createPaymentEntity(PaymentRequest request) {
         Payment payment = new Payment();
@@ -632,8 +784,9 @@ public class PaymentServiceImpl implements PaymentService {
         payment.setCurrency(request.getCurrency());
         payment.setDescription(request.getDescription());
         payment.setPaymentType(request.getPaymentType());
-        payment.setMerchantMemberId(request.getMerchantMemberId());
-        payment.setTransactionReference(request.getTransactionReference());
+        // Note: Don't set merchantMemberId here - it will be resolved from
+        // sourceMemberId during processing
+//        payment.setTransactionReference(request.getTransactionReference());
 
         // Step 1: Create or load merchant by email (on-demand)
         if (request.getMerchant() != null) {
@@ -687,7 +840,7 @@ public class PaymentServiceImpl implements PaymentService {
         }
 
         Optional<ClientMaster> clientMasterOpt = clientRepository.findById(merchantDetails.getClientMasterId());
-        if (!clientMasterOpt.isPresent()) {
+        if (clientMasterOpt.isEmpty()) {
             throw new IllegalArgumentException(
                     "Client Master not found with ID: " + merchantDetails.getClientMasterId());
         }
@@ -711,19 +864,15 @@ public class PaymentServiceImpl implements PaymentService {
         merchant.setBankName(merchantDetails.getBankName());
         merchant.setIfscCode(merchantDetails.getIfscCode());
         merchant.setBankAccountType(merchantDetails.getBankAccountType());
-
         merchant = merchantRepository.save(merchant);
-        log.info("Saved merchant with ID: {} linked to ClientMaster: {}", merchant.getMerchantId(),
-                clientMaster.getClientName());
 
-        // Create merchant members if provided
         if (merchantDetails.getMerchantMembers() != null && !merchantDetails.getMerchantMembers().isEmpty()) {
-            List<MerchantMember> membersList = new ArrayList<>();
-            for (MerchantMemberRequest memberRequest : merchantDetails.getMerchantMembers()) {
+            log.info("Adding {} merchant members (employees) to merchant", merchantDetails.getMerchantMembers().size());
+            final Merchant savedMerchant = merchant;
+            List<MerchantMember> members = merchantDetails.getMerchantMembers().stream().map(memberRequest -> {
                 MerchantMember member = new MerchantMember();
-                member.setMerchant(merchant);
-                member.setSourceMemberId(memberRequest.getSourceMemberId());
                 member.setName(memberRequest.getName());
+                member.setSourceMemberId(memberRequest.getSourceMemberId());
                 member.setEmail(memberRequest.getEmail());
                 member.setBankAccountNumber(memberRequest.getBankAccountNumber());
                 member.setBankAccountName(memberRequest.getBankAccountName());
@@ -731,21 +880,17 @@ public class PaymentServiceImpl implements PaymentService {
                 member.setIfscCode(memberRequest.getIfscCode());
                 member.setBankAccountType(memberRequest.getBankAccountType());
                 member.setTotalAmountReceivable(memberRequest.getTotalAmountReceivable());
-
-                // Status is set programmatically by the service during payment processing
-                // (PENDING -> SUCCESS/FAILED)
                 member.setStatus(PaymentStatus.PENDING);
-
-                member.setIsEligibleForPayment(
-                        memberRequest.getIsEligibleForPayment() != null ? memberRequest.getIsEligibleForPayment()
-                                : true);
-                membersList.add(member);
-            }
-
-            membersList = merchantMemberRepository.saveAll(membersList);
-            merchant.setMerchantMembers(membersList);
-            log.info("Created {} merchant members for merchant ID: {}", membersList.size(), merchant.getMerchantId());
+                member.setMerchant(savedMerchant);
+                return member;
+            }).toList();
+            members = merchantMemberRepository.saveAll(members);
+            merchant.setMerchantMembers(members);
+            log.info("Persisted {} merchant members for merchant ID: {}", members.size(), merchant.getMerchantId());
         }
+
+        log.info("Saved merchant with ID: {} linked to ClientMaster: {}", merchant.getMerchantId(),
+                clientMaster.getClientName());
 
         return merchant;
     }
@@ -877,12 +1022,10 @@ public class PaymentServiceImpl implements PaymentService {
                 .paymentType(payment.getPaymentType() != null ? payment.getPaymentType().name() : null)
                 .merchantId(payment.getMerchant() != null ? payment.getMerchant().getMerchantId() : null)
                 .customerId(payment.getCustomer() != null ? payment.getCustomer().getCustomerId() : null)
-                .merchantMemberId(payment.getMerchantMemberId())
                 .paymentMethodId(
                         payment.getPaymentMethodEntity() != null ? payment.getPaymentMethodEntity().getPaymentMethodId()
                                 : null)
                 .transactionReference(payment.getTransactionReference())
-                .razorpayPaymentId(payment.getRazorpayPaymentId())
                 .grossAmount(payment.getGrossAmount())
                 .feeAmount(payment.getFeeAmount())
                 .netAmount(payment.getNetAmount())
@@ -983,9 +1126,6 @@ public class PaymentServiceImpl implements PaymentService {
         }
 
         if (request.getPaymentType().name().equalsIgnoreCase("SALARY")) {
-            if (request.getMerchantMemberId() == null || request.getMerchantMemberId() <= 0) {
-                throw new IllegalArgumentException("Merchant member ID is required for salary payments");
-            }
             // For SALARY payments, CUSTOMER is REQUIRED - it represents the
             // organization/employer
             // Salary transfer flow: Organization (Customer) → Employee (MerchantMember)
@@ -1019,13 +1159,134 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
     /**
+     * Build PaymentResponse with error information.
+     */
+    private PaymentResponse buildPaymentErrorResponse(Payment payment, String errorMessage) {
+        // Map payment to response to include all payment details
+        PaymentResponse response = mapPaymentToResponse(payment);
+        // Override status and error fields
+        response.setPaymentStatus("FAILED");
+        response.setLastErrorMessage(errorMessage);
+        response.setSuccess(false);
+        return response;
+    }
+
+    /**
      * Build error response.
      */
-    private PaymentResponse buildErrorResponse(String errorMessage, String idempotencyKey) {
-        return PaymentResponse.builder()
-                .idempotencyKey(idempotencyKey)
-                .errorMessage(errorMessage)
-                .success(false)
+    private ErrorResponseDto buildErrorResponse(String errorMessage, String idempotencyKey) {
+        return new ErrorResponseDto(
+                "PaymentProcessingException",
+                400,
+                new java.sql.Timestamp(System.currentTimeMillis()),
+                errorMessage,
+                idempotencyKey);
+    }
+
+    /**
+     * Trigger salary payment email notification via Kafka.
+     * Called after successful salary payment completion or bank transfer
+     * initiation.
+     * Sends email to the merchant member (employee) with payment details.
+     *
+     * @param payment        The payment entity
+     * @param paymentRequest The original payment request
+     */
+    private void triggerSalaryPaymentEmailNotification(Payment payment, PaymentRequest paymentRequest) {
+        try {
+            // Send email to all merchant members (employees) associated with this merchant
+            for (MerchantMember employee : payment.getMerchant().getMerchantMembers()) {
+                // Build EmailCommunicationDto with all required fields for CMS
+                EmailCommunicationDto emailCommunicationDto = new EmailCommunicationDto();
+
+                // Required: Recipient information
+                emailCommunicationDto.setSenderEmail("noreply@nexushr.com");
+                emailCommunicationDto.setRecipientEmails(List.of(employee.getEmail()));
+                emailCommunicationDto.setSubject("Salary Payment Processed - " + payment.getPaymentId());
+
+                // Optional: CC/BCC emails (empty lists if not needed)
+                emailCommunicationDto.setCcEmails(new ArrayList<>());
+                emailCommunicationDto.setBccEmails(new ArrayList<>());
+
+                // Build placeholders for the email template
+                Map<String, Object> placeholders = new HashMap<>();
+                placeholders.put("employeeName", employee.getName());
+                placeholders.put("amount", String.format("%.2f", payment.getGrossAmount()));
+                placeholders.put("currency", payment.getCurrency());
+                placeholders.put("paymentDate", new java.sql.Timestamp(System.currentTimeMillis()).toString());
+                placeholders.put("transactionReference", payment.getTransactionReference() != null
+                        ? payment.getTransactionReference()
+                        : payment.getPaymentId().toString());
+                placeholders.put("organizationName", payment.getCustomer() != null
+                        ? payment.getCustomer().getCustomerName()
+                        : "Organization");
+                placeholders.put("bankName", employee.getBankName() != null ? employee.getBankName() : "N/A");
+                placeholders.put("accountHolderName", employee.getBankAccountName() != null
+                        ? employee.getBankAccountName()
+                        : employee.getName());
+
+                // Mask account number to show only last 4 digits
+                String accountLast4 = "****";
+                if (employee.getBankAccountNumber() != null && employee.getBankAccountNumber().length() >= 4) {
+                    accountLast4 = employee.getBankAccountNumber().substring(
+                            employee.getBankAccountNumber().length() - 4);
+                }
+                placeholders.put("accountLast4", accountLast4);
+
+                // Add fee and net amount if calculated
+                if (payment.getGrossAmount() != null) {
+                    placeholders.put("grossAmount", String.format("%.2f", payment.getGrossAmount()));
+                    if (payment.getFeeAmount() != null) {
+                        placeholders.put("feeAmount", String.format("%.2f", payment.getFeeAmount()));
+                    }
+                    if (payment.getNetAmount() != null) {
+                        placeholders.put("netAmount", String.format("%.2f", payment.getNetAmount()));
+                    }
+                }
+
+                emailCommunicationDto.setPlaceholders(placeholders);
+
+                // Wrap in KafkaMessageDto for CMS consumption
+                KafkaMessageDto kafkaMessageDto = new KafkaMessageDto();
+                kafkaMessageDto.setTopic(CommonConstants.SALARY_PAYMENT_MAIL_TOPIC);
+                kafkaMessageDto.setCommsType("email");
+                kafkaMessageDto.setUuid(UUID.randomUUID().toString());
+                kafkaMessageDto.setMessage(objectMapper.writeValueAsString(emailCommunicationDto));
+
+                String kafkaMessage = objectMapper.writeValueAsString(kafkaMessageDto);
+                log.debug("Publishing salary payment email message to Kafka: {}", kafkaMessage);
+
+                kafkaProducer.publishMessage(
+                        CommonConstants.SALARY_PAYMENT_MAIL_TOPIC,
+                        "salary-payment-" + payment.getPaymentId() + "-" + employee.getMerchantMemberId(),
+                        kafkaMessage);
+
+                log.info("Salary payment email notification published to Kafka for payment ID: {}, Employee: {}, Topic: {}",
+                        payment.getPaymentId(), employee.getName(), CommonConstants.SALARY_PAYMENT_MAIL_TOPIC);
+            }
+
+        } catch (Exception e) {
+            log.error("Error triggering salary payment email notification for payment ID: {}",
+                    payment.getPaymentId(), e);
+            // Don't throw exception - payment processing should not fail due to email
+            // notification
+        }
+    }
+
+    /**
+     * Build error response DTO for API error responses.
+     * Used when returning error-only responses without payment details.
+     * 
+     * @param message   The error message
+     * @param errorCode The error code (stored in exceptionType field)
+     * @return ErrorResponseDto with minimal error information
+     */
+    private ErrorResponseDto buildErrorDTO(String message, String errorCode) {
+        return ErrorResponseDto.builder()
+                .message(message)
+                .exceptionType(errorCode)
+                .statusCode(400)
+                .timestamp(new java.sql.Timestamp(System.currentTimeMillis()))
                 .build();
     }
 }

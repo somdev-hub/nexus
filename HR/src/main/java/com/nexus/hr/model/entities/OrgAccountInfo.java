@@ -1,22 +1,11 @@
 package com.nexus.hr.model.entities;
 
-import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.UpdateTimestamp;
-
 import com.nexus.hr.config.StringEncryptionConverter;
 import com.nexus.hr.model.enums.BankAccountType;
-
-import jakarta.persistence.Column;
-import jakarta.persistence.Convert;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.PrePersist;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import lombok.Data;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 
 @Entity
 @Table(name = "t_org_account_info", schema = "hr")

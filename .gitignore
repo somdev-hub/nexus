@@ -10,3 +10,4 @@ dms/src/main/resources/application-local.properties
 CMS/dependencies.txt
 *.mvn/
 pms/src/main/resources/application-local.properties
+/.idea/

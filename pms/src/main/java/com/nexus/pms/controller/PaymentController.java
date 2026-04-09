@@ -1,6 +1,7 @@
 package com.nexus.pms.controller;
 
 import com.nexus.pms.annotation.LogActivity;
+import com.nexus.pms.payload.ErrorResponseDto;
 import com.nexus.pms.payload.PaymentRequest;
 import com.nexus.pms.payload.PaymentResponse;
 import com.nexus.pms.service.interfaces.IdempotencyService;
@@ -183,8 +184,8 @@ public class PaymentController {
      * @return PaymentResponse with payment details
      */
     @LogActivity("Process Payment")
-    @PostMapping
-    public ResponseEntity<PaymentResponse> processPayment(
+    @PostMapping("/initiate")
+    public ResponseEntity<?> processPayment(
             @Valid @RequestBody PaymentRequest paymentRequest,
             @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey) {
 
@@ -194,10 +195,9 @@ public class PaymentController {
 
         // Log payment request
         if (isSalaryPayment) {
-            log.info("Received salary payment request - Merchant: {}, Employee: {}, Amount: {}",
+            log.info("Received salary payment request - Merchant: {}, Amount: {}",
                     paymentRequest.getMerchant() != null ? paymentRequest.getMerchant().getMerchantOfficialEmail()
                             : "N/A",
-                    paymentRequest.getMerchantMemberId(),
                     paymentRequest.getAmount());
         } else {
             log.info("Received payment request - Type: {}, Amount: {}",
@@ -212,36 +212,35 @@ public class PaymentController {
         }
 
         // Process payment with idempotency
-        PaymentResponse response = paymentService.processPaymentWithIdempotency(paymentRequest);
+        // Service now returns ResponseEntity<?> with appropriate status codes and
+        // response bodies
+        // No casting needed - just return directly from service
+        ResponseEntity<?> response = paymentService.processPaymentWithIdempotency(paymentRequest);
 
-        if (!response.getSuccess()) {
-            log.error("Payment failed: {}", response.getErrorMessage());
-            return ResponseEntity.badRequest().body(response);
-        }
-
-        // Return 200 OK if this was an idempotent retry (cached response)
-        if (response.getIsIdempotentRetry() != null && response.getIsIdempotentRetry()) {
-            if (isSalaryPayment) {
-                log.info("Salary payment - Idempotent retry, returning cached response for payment ID: {}",
-                        response.getPaymentId());
-            } else {
-                log.info("Payment - Idempotent retry, returning cached response for payment ID: {}",
-                        response.getPaymentId());
+        // Log response details
+        if (response.getStatusCode().is2xxSuccessful()) {
+            Object body = response.getBody();
+            if (body instanceof PaymentResponse) {
+                PaymentResponse paymentResponse = (PaymentResponse) body;
+                if (isSalaryPayment) {
+                    log.info("Salary payment processed successfully - Payment ID: {}",
+                            paymentResponse.getPaymentId());
+                } else {
+                    log.info("Payment processed successfully - Payment ID: {}, Type: {}",
+                            paymentResponse.getPaymentId(),
+                            paymentRequest.getPaymentType());
+                }
             }
-            return ResponseEntity.ok(response);
+        } else if (response.getStatusCode().is4xxClientError()) {
+            Object body = response.getBody();
+            String errorMsg = body instanceof ErrorResponseDto
+                    ? ((ErrorResponseDto) body).getMessage()
+                    : "Unknown error";
+            log.error("Payment processing failed: {}", errorMsg);
         }
 
-        // Return 201 Created if this was a new payment
-        if (isSalaryPayment) {
-            log.info("Salary payment processed successfully - Payment ID: {}, Employee: {}",
-                    response.getPaymentId(),
-                    paymentRequest.getMerchantMemberId());
-        } else {
-            log.info("Payment processed successfully - Payment ID: {}, Type: {}",
-                    response.getPaymentId(),
-                    paymentRequest.getPaymentType());
-        }
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        // Return response as-is from service
+        return response;
     }
 
     /**

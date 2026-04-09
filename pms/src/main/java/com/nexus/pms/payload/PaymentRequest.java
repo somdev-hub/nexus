@@ -88,11 +88,6 @@ public class PaymentRequest {
     private PaymentType paymentType;
 
     /**
-     * Merchant member ID (employee to be paid, for salary payments).
-     */
-    private Long merchantMemberId;
-
-    /**
      * Transaction reference from the client.
      */
     private String transactionReference;

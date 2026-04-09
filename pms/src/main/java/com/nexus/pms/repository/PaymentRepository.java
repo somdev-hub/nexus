@@ -29,12 +29,4 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
      * @return Payment if found, empty otherwise
      */
     Optional<Payment> findByTransactionReference(String transactionReference);
-
-    /**
-     * Find a payment by Razorpay payment ID.
-     *
-     * @param razorpayPaymentId The Razorpay payment ID
-     * @return Payment if found, empty otherwise
-     */
-    Optional<Payment> findByRazorpayPaymentId(String razorpayPaymentId);
 }

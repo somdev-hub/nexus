@@ -73,7 +73,7 @@ public class Logger {
         // Otherwise, serialize to JSON
         try {
             return objectMapper.writeValueAsString(obj);
-        } catch (JsonProcessingException _) {
+        } catch (JsonProcessingException ex) {
             // Fallback to toString if JSON serialization fails
             return obj.toString();
         }

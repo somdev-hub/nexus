@@ -67,6 +67,9 @@ public class EmailCommunicationService {
                 if (kafkaContent.containsKey("topic")
                         && kafkaContent.get("topic").equals(CommonConstants.CANDIDATE_SELECTION_MAIL_TOPIC)) {
                     emailFilename = CommonConstants.HR_INIT_EMAIL_FILE_NAME;
+                } else if (kafkaContent.containsKey("topic")
+                        && kafkaContent.get("topic").equals(CommonConstants.SALARY_PAYMENT_MAIL_TOPIC)) {
+                    emailFilename = CommonConstants.SALARY_PAYMENT_EMAIL_FILE_NAME;
                 }
                 String processedBody = renderThymeleafTemplate(emailFilename, emailCommunicationDto.getPlaceholders());
                 helper.setText(processedBody, true);

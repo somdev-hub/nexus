@@ -3,6 +3,7 @@ package com.nexus.pms.model.entities;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import lombok.Data;
+import lombok.ToString;
 
 import java.sql.Timestamp;
 import java.util.List;
@@ -10,6 +11,7 @@ import java.util.List;
 @Entity
 @Table(name = "t_client_master", schema = "pms")
 @Data
+@ToString(exclude = "clientPaymentTypes")
 public class ClientMaster {
 
     @Id

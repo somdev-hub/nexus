@@ -36,5 +36,11 @@ public class WebConstants {
     private Integer maxRecipients;
 
     @Value("${get.user.details.url}")
-    private String getUserDetailsUrl;
+    private String userDetailsUrl;
+
+    @Value("${org.detaills.url}")
+    private String orgDetailsUrl;
+
+    @Value("${initiate.payment.url}")
+    private String initiatePaymentUrl;
 }

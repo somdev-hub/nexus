@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.sql.Timestamp;
+import java.util.List;
 
 /**
  * DTO for payment response payload.
@@ -80,7 +81,7 @@ public class PaymentResponse {
     /**
      * Razorpay payment ID.
      */
-    private String razorpayPaymentId;
+    private List<String> razorpayPaymentId;
 
     /**
      * Gross amount (before fees/taxes).

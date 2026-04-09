@@ -2,12 +2,14 @@ package com.nexus.pms.model.entities;
 
 import jakarta.persistence.*;
 import lombok.Data;
+import lombok.ToString;
 
 import java.sql.Timestamp;
 
 @Entity
 @Table(name = "t_customers", schema = "pms")
 @Data
+@ToString(exclude = "sourceSystem")
 public class Customer {
 
     @Id

@@ -3,14 +3,17 @@ package com.nexus.pms.model.entities;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import lombok.ToString;
 import com.nexus.pms.model.enums.PaymentStatus;
 
 import java.sql.Timestamp;
+import java.util.List;
 
 @Getter
 @Setter
 @Entity
 @Table(name = "t_merchant_members", schema = "pms")
+@ToString(exclude = "merchant")
 public class MerchantMember {
 
     @Id
@@ -22,6 +25,8 @@ public class MerchantMember {
     private Merchant merchant;
 
     private Long sourceMemberId;
+
+    private String paymentReferenceId;
 
     private String name;
     private String email;

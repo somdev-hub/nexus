@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
+import com.nexus.hr.utils.*;
 import org.jspecify.annotations.NonNull;
 import org.modelmapper.ModelMapper;
 import org.springframework.data.domain.Page;
@@ -50,10 +51,6 @@ import com.nexus.hr.repository.HrRequestRepo;
 import com.nexus.hr.repository.PositionRepository;
 import com.nexus.hr.service.interfaces.CommunicationService;
 import com.nexus.hr.service.interfaces.HrService;
-import com.nexus.hr.utils.CommonUtils;
-import com.nexus.hr.utils.LeaveAllocationUtils;
-import com.nexus.hr.utils.RestServices;
-import com.nexus.hr.utils.WebConstants;
 import com.nexus.hr.views.CommunicationTemplateBuilder;
 
 import jakarta.transaction.Transactional;
@@ -423,8 +420,8 @@ public class HrServiceImpl implements HrService {
             Page<HrRequest> hrRequestsPage = hrRequestsRepo.findAll(pageable);
             Page<HrRequestDto> hrRequestDtoPage = hrRequestsPage.map(request -> {
                 HrRequestDto hrRequestDto = modelMapper.map(request, HrRequestDto.class);
-                RestPayload restPayload = commonUtils.buildRestPayload(webConstants.getGetUserDetailsUrl(),
-                        Map.of("userId", request.getAppliedBy().getEmployeeId().toString()), null, "json");
+                RestPayload restPayload = commonUtils.buildRestPayload(webConstants.getUserDetailsUrl(),
+                        Map.of("userId", request.getAppliedBy().getEmployeeId().toString()), null, CommonConstants.APPLICATION_JSON);
                 ResponseEntity<?> response = restServices.hrRestCall(restPayload.getBuilder().toUriString(), null,
                         restPayload.getHeaders(), HttpMethod.GET, request.getAppliedBy().getHrId());
                 if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
@@ -582,8 +579,8 @@ public class HrServiceImpl implements HrService {
             log.info("=== Sending promotion notification email to employee {} ===", hrEntity.getEmployeeId());
             try {
                 // Fetch employee details from user service to get email
-                RestPayload restPayload = commonUtils.buildRestPayload(webConstants.getGetUserDetailsUrl(),
-                        Map.of("userId", hrEntity.getEmployeeId().toString()), null, "json");
+                RestPayload restPayload = commonUtils.buildRestPayload(webConstants.getUserDetailsUrl(),
+                        Map.of("userId", hrEntity.getEmployeeId().toString()), null, CommonConstants.APPLICATION_JSON);
                 ResponseEntity<?> userResponse = restServices.hrRestCall(restPayload.getBuilder().toUriString(), null,
                         restPayload.getHeaders(), HttpMethod.GET, hrEntity.getHrId());
 
@@ -785,8 +782,8 @@ public class HrServiceImpl implements HrService {
             log.info("=== Sending reward appraisal notification email to employee {} ===", hrEntity.getEmployeeId());
             try {
                 // Fetch employee details from user service to get email
-                RestPayload restPayload = commonUtils.buildRestPayload(webConstants.getGetUserDetailsUrl(),
-                        Map.of("userId", hrEntity.getEmployeeId().toString()), null, "json");
+                RestPayload restPayload = commonUtils.buildRestPayload(webConstants.getUserDetailsUrl(),
+                        Map.of("userId", hrEntity.getEmployeeId().toString()), null, CommonConstants.APPLICATION_JSON);
                 ResponseEntity<?> userResponse = restServices.hrRestCall(restPayload.getBuilder().toUriString(), null,
                         restPayload.getHeaders(), HttpMethod.GET, hrEntity.getHrId());
 

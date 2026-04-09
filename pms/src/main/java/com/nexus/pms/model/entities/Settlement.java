@@ -13,10 +13,12 @@ import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import lombok.Data;
+import lombok.ToString;
 
 @Entity
 @Table(name = "t_settlements", schema = "pms")
 @Data
+@ToString(exclude = "merchant")
 public class Settlement {
 
     @Id
