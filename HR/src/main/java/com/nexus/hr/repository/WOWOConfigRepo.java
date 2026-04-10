@@ -9,4 +9,5 @@ import java.util.Optional;
 @Repository
 public interface WOWOConfigRepo extends JpaRepository<WOWOConfig, Long> {
 
+    Optional<WOWOConfig> findByWowoName(String wowoName);
 }

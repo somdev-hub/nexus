@@ -38,4 +38,6 @@ public interface OrganizationService {
     ResponseEntity<?> getEmployeesAttendance(Long orgId, Long deptId, String date, Integer pageNo, Integer pageOffset, String authHeader);
 
     ResponseEntity<?> toggleAttendance(Long userId, String authHeader);
+
+    ResponseEntity<?> getOrganizationDetailsById(Long id);
 }

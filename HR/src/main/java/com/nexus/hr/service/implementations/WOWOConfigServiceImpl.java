@@ -5,7 +5,6 @@ import com.nexus.hr.exception.ServiceLevelException;
 import com.nexus.hr.model.entities.WOWOConfig;
 import com.nexus.hr.repository.WOWOConfigRepo;
 import com.nexus.hr.service.interfaces.WOWOConfigService;
-import com.nexus.hr.utils.WOWOProperties;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -16,7 +15,6 @@ import org.springframework.util.ObjectUtils;
 public class WOWOConfigServiceImpl implements WOWOConfigService {
 
     private final WOWOConfigRepo wowoConfigRepo;
-    private final WOWOProperties wowoProperties;
 
     @Override
     public ResponseEntity<?> addWOWOConfig(WOWOConfig wOWOConfig) {
@@ -85,3 +83,29 @@ public class WOWOConfigServiceImpl implements WOWOConfigService {
             );
         }
     }
+
+    @Override
+    public ResponseEntity<WOWOConfig> getWOWOConfigByName(String wowoName) {
+        if (ObjectUtils.isEmpty(wowoName)) {
+            throw new ServiceLevelException(
+                    "WOWOConfigService",
+                    "WOWO name cannot be null or empty",
+                    "getWOWOConfigByName",
+                    "InvalidInputException",
+                    "WOWO name is required"
+            );
+        }
+        try {
+            WOWOConfig wowoConfig = wowoConfigRepo.findByWowoName(wowoName).orElseThrow(() -> new ResourceNotFoundException("WOWOConfig", "wowoName", wowoName));
+            return ResponseEntity.ok().body(wowoConfig);
+        } catch (RuntimeException e) {
+            throw new ServiceLevelException(
+                    "WOWOConfigService",
+                    "Failed to get wowo config by name",
+                    "getWOWOConfigByName",
+                    e.getClass().getSimpleName(),
+                    e.getMessage()
+            );
+        }
+    }
+}

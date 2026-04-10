@@ -4,6 +4,8 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 @Data
 public class InitiatePaymentDto {
 
@@ -68,7 +70,6 @@ public class InitiatePaymentDto {
     private Customer customer;
     private PaymentMethod paymentMethod;
     private Merchant merchant;
-    private PayComponentDto payComponents;
 
     @Data
     @NoArgsConstructor
@@ -110,7 +111,7 @@ public class InitiatePaymentDto {
         private String state;
         private String pinCode;
         private String country;
-        private java.util.List<MerchantMember> merchantMembers;
+        private List<MerchantMember> merchantMembers;
 
         @Data
         @NoArgsConstructor
@@ -125,6 +126,7 @@ public class InitiatePaymentDto {
             private String ifscCode;
             private String bankAccountType;
             private Double totalAmountReceivable;
+            private PayComponentDto payComponents;
         }
     }
 }

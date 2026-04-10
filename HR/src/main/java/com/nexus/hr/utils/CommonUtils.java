@@ -1,30 +1,32 @@
 package com.nexus.hr.utils;
 
-import java.util.HashMap;
-import java.util.Map;
-
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.nexus.hr.model.entities.WOWOConfig;
+import com.nexus.hr.payload.RestPayload;
+import com.nexus.hr.payload.TokenPayloadDto;
+import com.nexus.hr.service.interfaces.WOWOConfigService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.core.env.Environment;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.util.ObjectUtils;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.util.UriComponentsBuilder;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.nexus.hr.payload.RestPayload;
-import com.nexus.hr.payload.TokenPayloadDto;
+import java.util.HashMap;
+import java.util.Map;
 
 @Service
+@RequiredArgsConstructor
 public class CommonUtils {
 
     private final WebConstants webConstants;
-    private String token;
     private final Object tokenLock = new Object(); // Lock for thread-safe token management
-
-    public CommonUtils(WebConstants webConstants) {
-        this.webConstants = webConstants;
-    }
+    private final Environment environment;
+    private final WOWOConfigService wowoConfigService;
+    private String token;
 
     public boolean validateToken(String token) {
         String authUrl = webConstants.getVerifyTokenUrl();
@@ -123,7 +125,7 @@ public class CommonUtils {
     }
 
     public RestPayload buildRestPayload(String url, Map<String, String> queriesParams,
-            Map<Integer, String> pathVariables, String headerType) {
+                                        Map<Integer, String> pathVariables, String headerType) {
         RestPayload restPayload = new RestPayload();
         UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(url);
 
@@ -156,5 +158,25 @@ public class CommonUtils {
 
         return restPayload;
 
+    }
+
+    public boolean isWiredOn(String wowoName) {
+        if (ObjectUtils.isEmpty(wowoName)) {
+            return false;
+        }
+        try {
+            String property = environment.getProperty("wowo." + wowoName + ".active");
+            if (!ObjectUtils.isEmpty(property)) {
+                return Boolean.parseBoolean(property);
+            }
+            WOWOConfig wowoConfig = wowoConfigService.getWOWOConfigByName(wowoName).getBody();
+            if (wowoConfig != null) {
+                return wowoConfig.getIsActive();
+            } else {
+                return false;
+            }
+        } catch (Exception e) {
+            return false;
+        }
     }
 }

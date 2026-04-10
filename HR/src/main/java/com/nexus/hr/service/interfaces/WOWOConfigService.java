@@ -10,4 +10,6 @@ public interface WOWOConfigService {
     ResponseEntity<?> toggleWOWOConfig(Long configId);
 
     ResponseEntity<?> getWOWOConfig(Long configId);
+
+    ResponseEntity<WOWOConfig> getWOWOConfigByName(String wowoName);
 }

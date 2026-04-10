@@ -39,7 +39,7 @@ public class KeycloakTokenUtil {
      */
     public boolean validateToken(String token) {
         try {
-            Jwt jwt = jwtDecoder.decode(token);
+            Jwt jwt = jwtDecoder.decode(token.startsWith("Bearer ") ? token.substring(7) : token);
             log.debug("Token validation successful for user: {}", jwt.getClaimAsString("sub"));
             return true;
         } catch (Exception e) {

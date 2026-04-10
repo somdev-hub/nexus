@@ -1,25 +1,19 @@
 package com.nexus.hr.service.implementations;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nexus.hr.exception.ResourceNotFoundException;
 import com.nexus.hr.exception.ServiceLevelException;
 import com.nexus.hr.model.entities.*;
 import com.nexus.hr.payload.InitiatePaymentDto;
 import com.nexus.hr.payload.InitiatePayrollDto;
 import com.nexus.hr.payload.PayComponentDto;
-import com.nexus.hr.payload.RestPayload;
 import com.nexus.hr.repository.HrEntityRepo;
 import com.nexus.hr.repository.OrgAccountInfoRepo;
 import com.nexus.hr.repository.PayrollRepo;
 import com.nexus.hr.service.interfaces.PayrollService;
 import com.nexus.hr.utils.CommonConstants;
 import com.nexus.hr.utils.CommonUtils;
-import com.nexus.hr.utils.RestServices;
-import com.nexus.hr.utils.WebConstants;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -34,48 +28,36 @@ public class PayrollServiceImpl implements PayrollService {
 
     private final PayrollRepo payrollRepo;
     private final HrEntityRepo hrEntityRepo;
-    private final RestServices restServices;
-    private final WebConstants webConstants;
     private final CommonUtils commonUtils;
-    private final ObjectMapper objectMapper;
     private final OrgAccountInfoRepo orgAccountInfoRepo;
 
     @Override
     public ResponseEntity<?> initiatePayrollForThisMonth(InitiatePayrollDto initiatePayrollDto) {
-        if (ObjectUtils.isEmpty(initiatePayrollDto) || ObjectUtils.isEmpty(initiatePayrollDto.getEmpId()) || ObjectUtils.isEmpty(initiatePayrollDto.getOrgId())) {
+        if (ObjectUtils.isEmpty(initiatePayrollDto) || ObjectUtils.isEmpty(initiatePayrollDto.getOrg()) || ObjectUtils.isEmpty(initiatePayrollDto.getEmployees())) {
             return new ResponseEntity<>("initiatePayrollDto is empty", HttpStatus.BAD_REQUEST);
         }
         ResponseEntity<?> response;
         try {
-            HrEntity hrEntity = hrEntityRepo.findByEmployeeId(initiatePayrollDto.getEmpId()).orElseThrow(() -> new ResourceNotFoundException("HrEntity", "empId", initiatePayrollDto.getEmpId()
-            ));
             InitiatePaymentDto initiatePaymentDto = new InitiatePaymentDto();
             initiatePaymentDto.setDescription("Salary payment for this month");
             initiatePaymentDto.setPaymentType("SALARY");
+            initiatePaymentDto.setCurrency("INR");
             initiatePaymentDto.setTransactionReference("SALARY_PAYMENT_" + generateTransactionReference());
 
-            RestPayload restPayload = commonUtils.buildRestPayload(webConstants.getOrgDetailsUrl(), null, Map.of(1, initiatePayrollDto.getOrgId().toString()), CommonConstants.APPLICATION_JSON);
+            enrichCustomerDetails(initiatePaymentDto, initiatePayrollDto);
+            enrichPaymentMethodDetails(initiatePaymentDto, initiatePayrollDto);
+            enrichMerchantDetails(initiatePaymentDto, initiatePayrollDto);
+            enrichPaymentComponent(initiatePaymentDto, initiatePayrollDto);
 
-            ResponseEntity<?> orgDetailsresponse = restServices.hrRestCall(restPayload.getBuilder().toUriString(), null, restPayload.getHeaders(), HttpMethod.GET, hrEntity.getHrId());
+//            RestPayload restPayloadForPayment = commonUtils.buildRestPayload(webConstants.getInitiatePaymentUrl(), null, null, CommonConstants.APPLICATION_JSON);
+//            ResponseEntity<?> responseForPayment = restServices.hrRestCall(restPayloadForPayment.getBuilder().toUriString(), initiatePaymentDto, restPayloadForPayment.getHeaders(), HttpMethod.POST, hrEntity.getHrId());
+//            if (responseForPayment.getStatusCode().is2xxSuccessful()) {
+//                response = new ResponseEntity<>("Payroll initiated successfully for this month", HttpStatus.OK);
+//            } else {
+//                response = new ResponseEntity<>("Failed to initiate payroll for this month", HttpStatus.INTERNAL_SERVER_ERROR);
+//            }
 
-            Map<String, String> orgDetails = null;
-            if (orgDetailsresponse.getStatusCode().is2xxSuccessful()) {
-                orgDetails = objectMapper.readValue(Objects.requireNonNull(orgDetailsresponse.getBody()).toString(), new TypeReference<>() {
-                });
-            }
-
-            enrichCustomerDetails(initiatePaymentDto, hrEntity, initiatePayrollDto, orgDetails);
-            enrichPaymentMethodDetails(initiatePaymentDto, hrEntity, initiatePayrollDto);
-            enrichMerchantDetails(initiatePaymentDto, hrEntity, initiatePayrollDto, orgDetails);
-            enrichPaymentComponent(initiatePaymentDto, hrEntity, initiatePayrollDto);
-
-            RestPayload restPayloadForPayment = commonUtils.buildRestPayload(webConstants.getInitiatePaymentUrl(), null, null, CommonConstants.APPLICATION_JSON);
-            ResponseEntity<?> responseForPayment = restServices.hrRestCall(restPayloadForPayment.getBuilder().toUriString(), initiatePaymentDto, restPayloadForPayment.getHeaders(), HttpMethod.POST, hrEntity.getHrId());
-            if (responseForPayment.getStatusCode().is2xxSuccessful()) {
-                response = new ResponseEntity<>("Payroll initiated successfully for this month", HttpStatus.OK);
-            } else {
-                response = new ResponseEntity<>("Failed to initiate payroll for this month", HttpStatus.INTERNAL_SERVER_ERROR);
-            }
+            response = new ResponseEntity<>(initiatePaymentDto, HttpStatus.OK);
         } catch (RuntimeException | JsonProcessingException e) {
             throw new ServiceLevelException(
                     "PayrollService",
@@ -96,11 +78,11 @@ public class PayrollServiceImpl implements PayrollService {
     }
 
 
-    private void enrichPaymentMethodDetails(InitiatePaymentDto initiatePaymentDto, HrEntity hrEntity, InitiatePayrollDto initiatePayrollDto) {
+    private void enrichPaymentMethodDetails(InitiatePaymentDto initiatePaymentDto, InitiatePayrollDto initiatePayrollDto) {
         try {
             InitiatePaymentDto.PaymentMethod paymentMethod = new InitiatePaymentDto.PaymentMethod();
 
-            OrgAccountInfo orgAccountInfo = orgAccountInfoRepo.findByOrgId(initiatePayrollDto.getOrgId()).orElseThrow(() -> new ResourceNotFoundException("Org", "orgId", initiatePayrollDto.getOrgId()));
+            OrgAccountInfo orgAccountInfo = orgAccountInfoRepo.findByOrgId(Long.valueOf(initiatePayrollDto.getOrg().get("orgId"))).orElseThrow(() -> new ResourceNotFoundException("Org", "orgId", initiatePayrollDto.getOrg().get("orgId")));
             paymentMethod.setBankName(orgAccountInfo.getBankName());
             paymentMethod.setBankAccountHolderName(orgAccountInfo.getBankAccountName());
             paymentMethod.setBankAccountNumber(orgAccountInfo.getBankAccountNumber());
@@ -165,20 +147,6 @@ public class PayrollServiceImpl implements PayrollService {
         }
     }
 
-    private void normalizePayWithBonusAndDeductions(PayComponentDto payComponentsDto, InitiatePaymentDto initiatePayrollDto) {
-        double calculatedAmount = 0.0D;
-        calculatedAmount += payComponentsDto.getBasePay() != null ? payComponentsDto.getBasePay() : 0.0D;
-        calculatedAmount += payComponentsDto.getHra() != null ? payComponentsDto.getHra() : 0.0D;
-        if (!ObjectUtils.isEmpty(payComponentsDto.getBonuses())) {
-            calculatedAmount += payComponentsDto.getBonuses().values().stream().mapToDouble(Double::doubleValue).sum();
-        }
-        if (!ObjectUtils.isEmpty(payComponentsDto.getDeductions())) {
-            calculatedAmount -= payComponentsDto.getDeductions().values().stream().mapToDouble(Double::doubleValue).sum();
-        }
-
-        initiatePayrollDto.setAmount(calculatedAmount);
-    }
-
     private void enrichPaycomponentsForBonusesAndDeductions(PayComponentDto payComponents, Compensation compensation) {
         List<Bonus> bonuses = compensation.getBonuses();
         List<Deduction> deductions = compensation.getDeductions();
@@ -208,91 +176,66 @@ public class PayrollServiceImpl implements PayrollService {
         payComponents.setDeductions(deductionsCalculated);
     }
 
-    private void enrichCustomerDetails(InitiatePaymentDto initiatePaymentDto, HrEntity hrEntity, InitiatePayrollDto initiatePayrollDto, Map<String, String> orgDetails) throws JsonProcessingException {
-        if (ObjectUtils.isEmpty(orgDetails)) {
-            throw new ServiceLevelException(
-                    "PayrollService",
-                    "Organization details are empty for payroll initiation",
-                    "enrichCustomerDetails",
-                    "ResourceNotFoundException",
-                    "No organization details found for orgId: " + initiatePayrollDto.getOrgId()
-            );
-        }
+    private void enrichCustomerDetails(InitiatePaymentDto initiatePaymentDto, InitiatePayrollDto initiatePayrollDto) throws JsonProcessingException {
 
         InitiatePaymentDto.Customer customer = new InitiatePaymentDto.Customer();
-        customer.setCustomerName(orgDetails.getOrDefault("orgName", ""));
-        customer.setCustomerEmail(orgDetails.getOrDefault("orgEmail", ""));
-        customer.setCustomerPhone(orgDetails.getOrDefault("orgPhone", ""));
-        customer.setAddressLine1(orgDetails.getOrDefault("addressLine1", ""));
-        customer.setAddressLine2(orgDetails.getOrDefault("addressLine2", ""));
-        customer.setCity(orgDetails.getOrDefault("city", ""));
-        customer.setState(orgDetails.getOrDefault("state", ""));
-        customer.setPinCode(orgDetails.getOrDefault("pinCode", ""));
-        customer.setCountry(orgDetails.getOrDefault("country", ""));
+        customer.setCustomerName(initiatePayrollDto.getOrg().getOrDefault("orgName", ""));
+        customer.setCustomerEmail(initiatePayrollDto.getOrg().getOrDefault("orgEmail", ""));
+        customer.setCustomerPhone(initiatePayrollDto.getOrg().getOrDefault("orgPhone", ""));
+        customer.setAddressLine1(initiatePayrollDto.getOrg().getOrDefault("addressLine1", ""));
+        customer.setAddressLine2(initiatePayrollDto.getOrg().getOrDefault("addressLine2", ""));
+        customer.setCity(initiatePayrollDto.getOrg().getOrDefault("city", ""));
+        customer.setState(initiatePayrollDto.getOrg().getOrDefault("state", ""));
+        customer.setPinCode(initiatePayrollDto.getOrg().getOrDefault("pinCode", ""));
+        customer.setCountry(initiatePayrollDto.getOrg().getOrDefault("country", ""));
         customer.setClientMasterId(CommonConstants.CLIENT_MASTER_ID);
-        customer.setSourceSystemId(initiatePayrollDto.getOrgId());
+        customer.setSourceSystemId(Long.valueOf(initiatePayrollDto.getOrg().get("orgId")));
 
         initiatePaymentDto.setCustomer(customer);
     }
 
-    private void enrichMerchantDetails(InitiatePaymentDto initiatePaymentDto, HrEntity hrEntity, InitiatePayrollDto initiatePayrollDto, Map<String, String> orgDetails) throws JsonProcessingException {
+    private void enrichMerchantDetails(InitiatePaymentDto initiatePaymentDto, InitiatePayrollDto initiatePayrollDto) throws JsonProcessingException {
         try {
-            if (ObjectUtils.isEmpty(orgDetails)) {
-                throw new ServiceLevelException(
-                        "PayrollService",
-                        "Organization details are empty for payroll initiation",
-                        "enrichMerchantDetails",
-                        "ResourceNotFoundException",
-                        "No organization details found for orgId: " + initiatePayrollDto.getOrgId()
-                );
-            }
 
             InitiatePaymentDto.Merchant merchant = new InitiatePaymentDto.Merchant();
             merchant.setClientMasterId(CommonConstants.CLIENT_MASTER_ID);
-            merchant.setSourceSystemId(initiatePayrollDto.getOrgId());
-            merchant.setMerchantOfficialEmail(orgDetails.getOrDefault("orgEmail", ""));
-            merchant.setAddressLine1(orgDetails.getOrDefault("addressLine1", ""));
-            merchant.setCity(orgDetails.getOrDefault("city", ""));
-            merchant.setState(orgDetails.getOrDefault("state", ""));
-            merchant.setPinCode(orgDetails.getOrDefault("pinCode", ""));
-            merchant.setCountry(orgDetails.getOrDefault("country", ""));
+            merchant.setSourceSystemId(Long.valueOf(initiatePayrollDto.getOrg().get("orgId")));
+            merchant.setMerchantOfficialEmail(initiatePayrollDto.getOrg().getOrDefault("orgEmail", ""));
+            merchant.setAddressLine1(initiatePayrollDto.getOrg().getOrDefault("addressLine1", ""));
+            merchant.setCity(initiatePayrollDto.getOrg().getOrDefault("city", ""));
+            merchant.setState(initiatePayrollDto.getOrg().getOrDefault("state", ""));
+            merchant.setPinCode(initiatePayrollDto.getOrg().getOrDefault("pinCode", ""));
+            merchant.setCountry(initiatePayrollDto.getOrg().getOrDefault("country", ""));
 
-            InitiatePaymentDto.Merchant.MerchantMember merchantMember = new InitiatePaymentDto.Merchant.MerchantMember();
-            merchantMember.setSourceMemberId(hrEntity.getEmployeeId());
+            List<InitiatePaymentDto.Merchant.MerchantMember> merchantMembers = new ArrayList<>();
+            for (Map<String, String> employee : initiatePayrollDto.getEmployees()) {
 
-            RestPayload restPayload = commonUtils.buildRestPayload(webConstants.getUserDetailsUrl(), Map.of("userId", initiatePayrollDto.getEmpId().toString()), null, CommonConstants.APPLICATION_JSON);
-            ResponseEntity<?> response = restServices.hrRestCall(restPayload.getBuilder().toUriString(), null, restPayload.getHeaders(), HttpMethod.GET, hrEntity.getHrId());
-            if (response.getStatusCode().is2xxSuccessful()) {
-                Map<String, String> userDetails = objectMapper.readValue(Objects.requireNonNull(response.getBody()).toString(), new TypeReference<>() {
-                });
-                merchantMember.setName(userDetails.getOrDefault("name", ""));
-                merchantMember.setEmail(userDetails.getOrDefault("email", ""));
-            } else {
-                throw new ServiceLevelException(
-                        "PayrollService",
-                        "Failed to fetch user details for merchant member enrichment",
-                        "enrichMerchantDetails",
-                        "ResourceNotFoundException",
-                        "No user details found for userId: " + initiatePayrollDto.getEmpId()
-                );
+                InitiatePaymentDto.Merchant.MerchantMember merchantMember = new InitiatePaymentDto.Merchant.MerchantMember();
+                merchantMember.setSourceMemberId(Long.valueOf(employee.getOrDefault("id", "0L")));
+                merchantMember.setName(employee.getOrDefault("name", ""));
+                merchantMember.setEmail(employee.getOrDefault("email", ""));
+                List<BankRecord> bankRecords =
+                        hrEntityRepo.findByEmployeeId(Long.valueOf(employee.get("id"))).orElseThrow(() -> new ResourceNotFoundException("HrEntity", "empId", Long.valueOf(employee.get("id"))
+                        )).getCompensation().getBankRecords();
+                if (ObjectUtils.isEmpty(bankRecords) || bankRecords.isEmpty()) {
+                    throw new ServiceLevelException(
+                            "PayrollService",
+                            "Bank details are empty for merchant member enrichment",
+                            "enrichMerchantDetails",
+                            "ResourceNotFoundException",
+                            "No bank records found for employeeId: " + Long.valueOf(employee.get("id"))
+                    );
+                }
+                merchantMember.setBankName(bankRecords.getFirst().getBankName());
+                merchantMember.setBankAccountNumber(bankRecords.getFirst().getAccountNumber());
+                merchantMember.setBankAccountName(bankRecords.getFirst().getAccountHolderName());
+                merchantMember.setIfscCode(bankRecords.getFirst().getIfscCode());
+                merchantMember.setBankAccountType(bankRecords.getFirst().getAccountType().name());
+
+                merchantMembers.add(merchantMember);
             }
-            List<BankRecord> bankRecords = hrEntity.getCompensation().getBankRecords();
-            if (ObjectUtils.isEmpty(bankRecords) || bankRecords.isEmpty()) {
-                throw new ServiceLevelException(
-                        "PayrollService",
-                        "Bank details are empty for merchant member enrichment",
-                        "enrichMerchantDetails",
-                        "ResourceNotFoundException",
-                        "No bank records found for employeeId: " + initiatePayrollDto.getEmpId()
-                );
-            }
-            merchantMember.setBankName(bankRecords.getFirst().getBankName());
-            merchantMember.setBankAccountNumber(bankRecords.getFirst().getAccountNumber());
-            merchantMember.setBankAccountName(bankRecords.getFirst().getAccountHolderName());
-            merchantMember.setIfscCode(bankRecords.getFirst().getIfscCode());
-            merchantMember.setBankAccountType(bankRecords.getFirst().getAccountType().name());
 
-            merchant.setMerchantMembers(List.of(merchantMember));
+            merchant.setMerchantMembers(merchantMembers);
             initiatePaymentDto.setMerchant(merchant);
 
         } catch (RuntimeException e) {
@@ -306,32 +249,54 @@ public class PayrollServiceImpl implements PayrollService {
         }
     }
 
-    private void enrichPaymentComponent(InitiatePaymentDto initiatePaymentDto, HrEntity hrEntity, InitiatePayrollDto initiatePayrollDto) {
+    private void enrichPaymentComponent(InitiatePaymentDto initiatePaymentDto, InitiatePayrollDto initiatePayrollDto) {
         try {
-//            Map<String, Double> payComponents = new HashMap<>();
-            PayComponentDto payComponentsDto = new PayComponentDto();
-            Compensation compensation = hrEntity.getCompensation();
-            if (ObjectUtils.isEmpty(compensation)) {
-                throw new ServiceLevelException(
-                        "PayrollService",
-                        "Compensation details are empty for payment component enrichment",
-                        "enrichPaymentComponent",
-                        "ResourceNotFoundException",
-                        "No compensation details found for employeeId: " + initiatePayrollDto.getEmpId()
-                );
+            List<InitiatePaymentDto.Merchant.MerchantMember> merchantMembers = initiatePaymentDto.getMerchant().getMerchantMembers();
+            double totalAmount = 0.0D;
+
+            // Iterate through each employee and create pay components
+            for (int i = 0; i < initiatePayrollDto.getEmployees().size(); i++) {
+                Map<String, String> employee = initiatePayrollDto.getEmployees().get(i);
+                Long empId = Long.valueOf(employee.getOrDefault("id", "0"));
+
+                // Fetch HrEntity for the current employee
+                HrEntity currentHrEntity = hrEntityRepo.findByEmployeeId(empId).orElseThrow(() ->
+                        new ResourceNotFoundException("HrEntity", "empId", empId));
+
+                // Create pay component for this employee
+                PayComponentDto payComponentsDto = new PayComponentDto();
+                Compensation compensation = currentHrEntity.getCompensation();
+
+                if (ObjectUtils.isEmpty(compensation)) {
+                    throw new ServiceLevelException(
+                            "PayrollService",
+                            "Compensation details are empty for payment component enrichment",
+                            "enrichPaymentComponent",
+                            "ResourceNotFoundException",
+                            "No compensation details found for employeeId: " + empId
+                    );
+                }
+
+                payComponentsDto.setBasePay(calculateMonthlyPayForComponent(compensation.getBasePay()));
+                payComponentsDto.setHra(calculateMonthlyPayForComponent(compensation.getHra()));
+
+                enrichPaycomponentsForBonusesAndDeductions(payComponentsDto, compensation);
+
+                if (commonUtils.isWiredOn("NORMALIZE-PAY-WITH-ATTENDANCE")) {
+                    normalizePayWithAttendance(payComponentsDto, currentHrEntity);
+                }
+
+                // Calculate normalized amount for this employee
+                double employeeAmount = calculateNormalizedAmount(payComponentsDto);
+                totalAmount += employeeAmount;
+
+                // Set pay components and total amount for this merchant member
+                merchantMembers.get(i).setPayComponents(payComponentsDto);
+                merchantMembers.get(i).setTotalAmountReceivable(employeeAmount);
             }
 
-//            payComponents.put("basePay", calculateMonthlyPayForComponent(compensation.getBasePay()));
-//            payComponents.put("hra", calculateMonthlyPayForComponent(compensation.getHra()));
-            payComponentsDto.setBasePay(calculateMonthlyPayForComponent(compensation.getBasePay()));
-            payComponentsDto.setHra(calculateMonthlyPayForComponent(compensation.getHra()));
-
-            enrichPaycomponentsForBonusesAndDeductions(payComponentsDto, compensation);
-
-            normalizePayWithAttendance(payComponentsDto, hrEntity);
-            normalizePayWithBonusAndDeductions(payComponentsDto, initiatePaymentDto);
-
-            initiatePaymentDto.setPayComponents(payComponentsDto);
+            // Set the total amount as the sum of all employee amounts
+            initiatePaymentDto.setAmount(totalAmount);
 
         } catch (RuntimeException e) {
             throw new ServiceLevelException(
@@ -342,6 +307,19 @@ public class PayrollServiceImpl implements PayrollService {
                     e.getMessage()
             );
         }
+    }
+
+    private Double calculateNormalizedAmount(PayComponentDto payComponentsDto) {
+        double calculatedAmount = 0.0D;
+        calculatedAmount += payComponentsDto.getBasePay() != null ? payComponentsDto.getBasePay() : 0.0D;
+        calculatedAmount += payComponentsDto.getHra() != null ? payComponentsDto.getHra() : 0.0D;
+        if (!ObjectUtils.isEmpty(payComponentsDto.getBonuses())) {
+            calculatedAmount += payComponentsDto.getBonuses().values().stream().mapToDouble(Double::doubleValue).sum();
+        }
+        if (!ObjectUtils.isEmpty(payComponentsDto.getDeductions())) {
+            calculatedAmount -= payComponentsDto.getDeductions().values().stream().mapToDouble(Double::doubleValue).sum();
+        }
+        return calculatedAmount;
     }
 
     private Double calculateMonthlyPayForComponent(Double component) {

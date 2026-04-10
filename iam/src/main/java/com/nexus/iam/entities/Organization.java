@@ -3,6 +3,8 @@ package com.nexus.iam.entities;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import lombok.Data;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 
 import java.sql.Timestamp;
 import java.util.ArrayList;
@@ -53,5 +55,18 @@ public class Organization {
     @JsonManagedReference(value = "organization-departments")
     private List<Department> departments = new ArrayList<>();
 
+    @CreationTimestamp
     private Timestamp createdAt;
+
+    @UpdateTimestamp
+    private Timestamp updatedAt;
+
+    private Boolean isActive;
+
+    @PrePersist
+    private void onCreate() {
+        isActive = true;
+    }
+
+
 }

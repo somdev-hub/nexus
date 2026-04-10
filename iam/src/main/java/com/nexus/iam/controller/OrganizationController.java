@@ -79,6 +79,14 @@ public class OrganizationController {
         return ResponseEntity.ok(organizationService.getOrganizationById(id));
     }
 
+    @GetMapping("/details/{id}")
+    public ResponseEntity<?> getOrganizationDetails(@PathVariable Long id) {
+        if (ObjectUtils.isEmpty(id)) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Organization ID is required");
+        }
+        return organizationService.getOrganizationDetailsById(id);
+    }
+
     @LogActivity("Get All Organizations")
     @GetMapping("/")
     public ResponseEntity<?> getAllOrganizations() {

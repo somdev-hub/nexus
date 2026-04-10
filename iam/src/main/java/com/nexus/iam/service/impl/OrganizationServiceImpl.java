@@ -1,36 +1,10 @@
 package com.nexus.iam.service.impl;
 
-import java.sql.Timestamp;
-import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.function.Function;
-import java.util.stream.Collectors;
-
-import org.modelmapper.ModelMapper;
-import org.springframework.cache.annotation.Cacheable;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.ResponseEntity;
-import org.springframework.stereotype.Service;
-import org.springframework.util.ObjectUtils;
-import org.springframework.web.util.UriComponentsBuilder;
-
 import com.nexus.iam.config.CacheConfig;
 import com.nexus.iam.dto.LoginResponse;
 import com.nexus.iam.dto.OrganizationDto;
 import com.nexus.iam.dto.OrganizationFetchDto;
-import com.nexus.iam.dto.response.EmployeeDirectoryResponse;
-import com.nexus.iam.dto.response.EmployeePageInsights;
-import com.nexus.iam.dto.response.EmployeeProfileResponse;
-import com.nexus.iam.dto.response.EmployeesAttendanceDto;
-import com.nexus.iam.dto.response.PaginatedResponse;
+import com.nexus.iam.dto.response.*;
 import com.nexus.iam.entities.Organization;
 import com.nexus.iam.entities.Role;
 import com.nexus.iam.entities.User;
@@ -46,8 +20,28 @@ import com.nexus.iam.utils.CommonUtils;
 import com.nexus.iam.utils.DataMapper;
 import com.nexus.iam.utils.RestService;
 import com.nexus.iam.utils.WebConstants;
-
 import lombok.RequiredArgsConstructor;
+import org.modelmapper.ModelMapper;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Service;
+import org.springframework.util.ObjectUtils;
+import org.springframework.web.util.UriComponentsBuilder;
+
+import java.sql.Timestamp;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -134,8 +128,9 @@ public class OrganizationServiceImpl implements OrganizationService {
             throw new IllegalArgumentException(
                     "Organization with name already exists: " + organizationDto.getOrgName());
         }
-
+        Timestamp createdAt = organization.getCreatedAt();
         modelMapper.map(organizationDto, organization);
+        organization.setCreatedAt(createdAt);
         Organization updatedOrganization = organizationRepository.save(organization);
         return modelMapper.map(updatedOrganization, OrganizationDto.class);
     }
@@ -546,7 +541,7 @@ public class OrganizationServiceImpl implements OrganizationService {
 
     @Override
     public ResponseEntity<?> getEmployeesAttendance(Long orgId, Long deptId, String date, Integer pageNo, Integer pageOffset,
-            String authHeader) {
+                                                    String authHeader) {
         if (ObjectUtils.isEmpty(orgId)) {
             throw new IllegalArgumentException("Organization ID is required");
         }
@@ -687,6 +682,28 @@ public class OrganizationServiceImpl implements OrganizationService {
                     "OrganizationServiceImpl",
                     "Failed to toggle attendance: " + e.getMessage(),
                     "toggleAttendance",
+                    e.getClass().getSimpleName(),
+                    e.getLocalizedMessage());
+        }
+    }
+
+    @Override
+    public ResponseEntity<?> getOrganizationDetailsById(Long id) {
+        if (ObjectUtils.isEmpty(id)) {
+            throw new IllegalArgumentException("Organization ID cannot be null");
+        }
+        try {
+            Organization organization = organizationRepository.findById(id)
+                    .orElseThrow(() -> new ResourceNotFoundException("Organization", "id", id));
+            OrganizationDto organizationDto = modelMapper.map(organization, OrganizationDto.class);
+            return ResponseEntity.ok(organizationDto);
+        } catch (ResourceNotFoundException e) {
+            throw e;
+        } catch (RuntimeException e) {
+            throw new ServiceLevelException(
+                    "OrganizationServiceImpl",
+                    "Failed to get organization details: " + e.getMessage(),
+                    "getOrganizationDetailsById",
                     e.getClass().getSimpleName(),
                     e.getLocalizedMessage());
         }

@@ -92,6 +92,9 @@ public class WebConstants {
     @Value("${hr.employee.attendance.toggle.url}")
     private String toggleAttendanceUrl;
 
+    @Value("${hr.initiate.payroll.url}")
+    private String initiatePayrollUrl;
+
     // Keycloak URLs
     public String getKeycloakAdminUrl() {
         return keycloakServerUrl + "/admin/realms/" + keycloakRealm;
