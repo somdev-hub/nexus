@@ -3,26 +3,25 @@ package com.nexus.hr.views;
 import com.itextpdf.html2pdf.HtmlConverter;
 import com.nexus.hr.exception.ServiceLevelException;
 import com.nexus.hr.payload.PdfTemplateDto;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.mock.web.MockMultipartFile;
 
 import java.io.ByteArrayOutputStream;
-import java.io.IOException;
 
 /**
- * Service for generating PDF documents from HTML templates
+ * Service for generating PDF documents from Thymeleaf HTML templates
+ * Uses DocumentTemplateService to render templates and converts to PDF using
+ * iText
  */
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class PdfGeneratorService {
 
-    private final CommunicationTemplateBuilder communicationTemplateBuilder;
-
-    public PdfGeneratorService(CommunicationTemplateBuilder communicationTemplateBuilder) {
-        this.communicationTemplateBuilder = communicationTemplateBuilder;
-    }
+    private final DocumentTemplateService documentTemplateService;
 
     /**
      * Generate a joining letter PDF
@@ -34,7 +33,7 @@ public class PdfGeneratorService {
         try {
             log.info("Generating joining letter PDF for employee ID: {}", templateData.getEmployeeId());
 
-            String htmlContent = communicationTemplateBuilder.buildJoiningLetterTemplate(templateData);
+            String htmlContent = documentTemplateService.renderJoiningLetter(templateData);
             ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
 
             HtmlConverter.convertToPdf(htmlContent, outputStream);
@@ -66,7 +65,7 @@ public class PdfGeneratorService {
         try {
             log.info("Generating letter of intent PDF for employee ID: {}", templateData.getEmployeeId());
 
-            String htmlContent = communicationTemplateBuilder.buildLetterOfIntentTemplate(templateData);
+            String htmlContent = documentTemplateService.renderLetterOfIntent(templateData);
             ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
 
             HtmlConverter.convertToPdf(htmlContent, outputStream);
@@ -98,7 +97,7 @@ public class PdfGeneratorService {
         try {
             log.info("Generating compensation card PDF for employee ID: {}", templateData.getEmployeeId());
 
-            String htmlContent = communicationTemplateBuilder.buildCompensationCardTemplate(templateData);
+            String htmlContent = documentTemplateService.renderCompensationCard(templateData);
             ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
 
             HtmlConverter.convertToPdf(htmlContent, outputStream);
@@ -130,7 +129,7 @@ public class PdfGeneratorService {
         try {
             log.info("Generating promotion letter PDF for employee ID: {}", templateData.getEmployeeId());
 
-            String htmlContent = communicationTemplateBuilder.buildPromotionLetterTemplate(templateData);
+            String htmlContent = documentTemplateService.renderPromotionLetter(templateData);
             ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
 
             HtmlConverter.convertToPdf(htmlContent, outputStream);
@@ -147,6 +146,38 @@ public class PdfGeneratorService {
                     "PDF Generator Service",
                     "Error generating promotion letter PDF",
                     "generatePromotionLetterPdf",
+                    e.getClass().getName(),
+                    e.getMessage());
+        }
+    }
+
+    /**
+     * Generate a salary slip / payslip PDF
+     *
+     * @param templateData Data to populate the template
+     * @return PDF as MultipartFile
+     */
+    public MultipartFile generatePayslipPdf(PdfTemplateDto templateData) {
+        try {
+            log.info("Generating salary slip PDF for employee ID: {}", templateData.getEmployeeId());
+
+            String htmlContent = documentTemplateService.renderSalarySlip(templateData);
+            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+
+            HtmlConverter.convertToPdf(htmlContent, outputStream);
+
+            log.info("Salary slip PDF generated successfully for employee ID: {}", templateData.getEmployeeId());
+            byte[] byteArray = outputStream.toByteArray();
+
+            String fileName = "Payslip_" + templateData.getEmployeeId() + ".pdf";
+            return convertToMultipartFile(byteArray, fileName);
+
+        } catch (Exception e) {
+            log.error("Error generating salary slip PDF for employee ID: {}", templateData.getEmployeeId(), e);
+            throw new ServiceLevelException(
+                    "PDF Generator Service",
+                    "Error generating salary slip PDF",
+                    "generatePayslipPdf",
                     e.getClass().getName(),
                     e.getMessage());
         }

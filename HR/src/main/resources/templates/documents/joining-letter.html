@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body {
+            font-family: 'Calibri', 'Arial', sans-serif;
+            line-height: 1.6;
+            margin: 40px;
+            color: #333;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #0066cc;
+            padding-bottom: 20px;
+        }
+
+        .organization-name {
+            font-size: 24px;
+            font-weight: bold;
+            color: #0066cc;
+            margin-bottom: 5px;
+        }
+
+        .organization-address {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 10px;
+        }
+
+        .letter-content {
+            margin-top: 30px;
+        }
+
+        .date-section {
+            text-align: right;
+            margin-bottom: 30px;
+            font-size: 12px;
+        }
+
+        .recipient-address {
+            margin-bottom: 30px;
+            font-size: 12px;
+        }
+
+        .salutation {
+            margin-bottom: 20px;
+        }
+
+        .body-text {
+            text-align: justify;
+            margin-bottom: 15px;
+            font-size: 12px;
+        }
+
+        .details-table {
+            width: 100%;
+            margin: 20px 0;
+            border-collapse: collapse;
+        }
+
+        .details-table td {
+            padding: 8px;
+            border: 1px solid #ddd;
+            font-size: 12px;
+        }
+
+        .details-table .label {
+            font-weight: bold;
+            background-color: #f5f5f5;
+            width: 30%;
+        }
+
+        .closing {
+            margin-top: 30px;
+            font-size: 12px;
+        }
+
+        .signature-section {
+            margin-top: 40px;
+            font-size: 12px;
+        }
+
+        .signature-line {
+            margin-top: 50px;
+            border-top: 1px solid #000;
+            width: 200px;
+        }
+
+        .contact-info {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #ddd;
+            font-size: 11px;
+            color: #666;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="header">
+        <div class="organization-name" th:text="${organizationName}">Organization Name</div>
+        <div class="organization-address" th:text="${organizationAddress}">Organization Address</div>
+    </div>
+
+    <div class="letter-content">
+        <div class="date-section">
+            Date: <span th:text="${effectiveDate}">dd-MM-yyyy</span>
+        </div>
+
+        <div class="recipient-address">
+            Employee ID: <span th:text="${employeeId}">123</span><br />
+            Name: <span th:text="${employeeName}">Employee Name</span>
+        </div>
+
+        <div class="salutation">
+            Dear <span th:text="${employeeName}">Employee Name</span>,
+        </div>
+
+        <p class="body-text">
+            <strong>Subject: Joining Letter - Employment Offer</strong>
+        </p>
+
+        <p class="body-text">
+            We are pleased to inform you that your application has been accepted, and we would like to offer you
+            a position with our organization. We are confident that your skills and experience will make a valuable
+            contribution to our team.
+        </p>
+
+        <p class="body-text">
+            Please find below the details of your employment:
+        </p>
+
+        <table class="details-table">
+            <tr>
+                <td class="label">Position:</td>
+                <td th:text="${position}">Position</td>
+            </tr>
+            <tr>
+                <td class="label">Department:</td>
+                <td th:text="${department}">Department</td>
+            </tr>
+            <tr>
+                <td class="label">Date of Joining:</td>
+                <td th:text="${effectiveDate}">dd-MM-yyyy</td>
+            </tr>
+            <tr>
+                <td class="label">Remarks:</td>
+                <td th:text="${remarks}">N/A</td>
+            </tr>
+        </table>
+
+        <p class="body-text">
+            We look forward to seeing you join our organization and contributing to our continued success.
+            If you have any questions or require any further information, please do not hesitate to contact us.
+        </p>
+
+        <p class="body-text">
+            Please acknowledge receipt of this letter and confirm your acceptance of the employment offer.
+        </p>
+
+        <div class="closing">
+            Yours sincerely,
+        </div>
+
+        <div class="signature-section">
+            <div class="signature-line"></div>
+            <div style="margin-top: 5px">
+                <strong>Human Resources Department</strong><br />
+                <span th:text="${organizationName}">Organization Name</span>
+            </div>
+        </div>
+
+        <div class="contact-info">
+            <strong>Contact Information:</strong><br />
+            Email: <span th:text="${hrContactEmail}">hr@organization.com</span><br />
+            Phone: <span th:text="${hrContactPhone}">+91-XXXXXXXXXX</span>
+        </div>
+    </div>
+</body>
+
+</html>

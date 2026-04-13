@@ -1286,6 +1286,211 @@ public class CommunicationTemplateBuilder {
                 currentDateStr);
     }
 
+    /**
+     * PDF template for salary slip / payslip
+     * Includes comprehensive breakdown of earnings, deductions, and payment details
+     */
+    public String buildSalarySlipTemplate(PdfTemplateDto templateData) {
+        String currentDate = LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern(DATE_FORMAT));
+        String organizationName = templateData.getOrganizationName() != null ? templateData.getOrganizationName()
+                : "Organization";
+        String organizationAddress= templateData.getOrganizationAddress() != null ?
+                templateData.getOrganizationAddress(): "Organization Address";
+        String employeeName = templateData.getEmployeeName() != null ? templateData.getEmployeeName() : "Employee";
+        String position = templateData.getPosition() != null ? templateData.getPosition() : "N/A";
+        String department = templateData.getDepartment() != null ? templateData.getDepartment() : "N/A";
+        Long employeeId = templateData.getEmployeeId() != null ? templateData.getEmployeeId() : 0L;
+
+        // Extract month and year from effective date
+        String monthStr = "Monthly";
+        String yearStr = String.valueOf(LocalDate.now().getYear());
+        if (templateData.getEffectiveFrom() != null) {
+            java.time.LocalDate effectiveDate = new java.sql.Timestamp(templateData.getEffectiveFrom().getTime())
+                    .toLocalDateTime().toLocalDate();
+            monthStr = effectiveDate.getMonth().toString();
+            yearStr = String.valueOf(effectiveDate.getYear());
+        }
+
+        // Build bonuses breakdown
+        StringBuilder bonusesHtml = new StringBuilder();
+        if (templateData.getBonuses() != null && !templateData.getBonuses().isEmpty()) {
+            for (Bonus bonus : templateData.getBonuses()) {
+                bonusesHtml.append("<tr>");
+                bonusesHtml.append("<td>").append(bonus.getBonusType() != null ? bonus.getBonusType() : "Bonus")
+                        .append("</td>");
+                if (bonus.getAmount() != null) {
+                    bonusesHtml.append("<td class='amount'>").append(formatCurrency(bonus.getAmount())).append("</td>");
+                } else {
+                    bonusesHtml.append("<td class='amount'>-</td>");
+                }
+                bonusesHtml.append("</tr>");
+            }
+        }
+
+        // Build deductions breakdown
+        StringBuilder deductionsHtml = new StringBuilder();
+        if (templateData.getDeductions() != null && !templateData.getDeductions().isEmpty()) {
+            for (Deduction deduction : templateData.getDeductions()) {
+                deductionsHtml.append("<tr>");
+                deductionsHtml.append("<td>")
+                        .append(deduction.getDeductionType() != null ? deduction.getDeductionType() : "Deduction")
+                        .append("</td>");
+                if (deduction.getAmount() != null) {
+                    deductionsHtml.append("<td class='amount'>").append(formatCurrency(deduction.getAmount()))
+                            .append("</td>");
+                } else {
+                    deductionsHtml.append("<td class='amount'>-</td>");
+                }
+                deductionsHtml.append("</tr>");
+            }
+        }
+
+        Double totalDeductions = templateData.getGrossPay() != null && templateData.getNetPay() != null
+                ? (templateData.getGrossPay() - templateData.getNetPay())
+                : 0.0;
+
+        StringBuilder html = new StringBuilder();
+        html.append("<!DOCTYPE html>");
+        html.append("<html>");
+        html.append("<head>");
+        html.append("<meta charset='UTF-8'>");
+        html.append("<style>");
+        html.append("@page { size: A4; margin: 15mm; }");
+        html.append(
+                "body { font-family: 'Segoe UI', 'Calibri', 'Arial', sans-serif; line-height: 1.4; margin: 0; padding: 15px; color: #333; background-color: #f5f7fa; }");
+        html.append(
+                ".salary-slip { background: white; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.08); padding: 25px; max-width: 900px; margin: 0 auto; }");
+        html.append(
+                ".header { text-align: center; margin-bottom: 25px; padding-bottom: 15px; border-bottom: 3px solid #0066cc; }");
+        html.append(
+                ".organization-name { font-size: 24px; font-weight: bold; color: #0066cc; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px; }");
+        html.append(
+                ".document-title { font-size: 18px; font-weight: 600; color: #333; margin-top: 10px; text-transform: uppercase; letter-spacing: 0.5px; }");
+        html.append(".period-info { font-size: 13px; color: #666; margin-top: 5px; }");
+        html.append(
+                ".content-wrapper { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 25px; }");
+        html.append(
+                ".employee-info, .payment-info { background: #f8f9fa; padding: 15px; border-radius: 5px; border-left: 4px solid #0066cc; }");
+        html.append(".info-group { margin-bottom: 12px; }");
+        html.append(
+                ".info-label { font-size: 12px; font-weight: bold; color: #666; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px; }");
+        html.append(".info-value { font-size: 13px; color: #333; font-weight: 500; }");
+        html.append(
+                ".section-title { font-size: 14px; font-weight: bold; color: white; background-color: #0066cc; padding: 10px 12px; margin-bottom: 12px; border-radius: 3px; text-transform: uppercase; letter-spacing: 0.5px; }");
+        html.append(".slip-table { width: 100%; border-collapse: collapse; margin-bottom: 15px; font-size: 12px; }");
+        html.append(
+                ".slip-table th { background-color: #f0f0f0; padding: 10px; text-align: left; font-weight: 600; color: #555; border-bottom: 2px solid #ddd; }");
+        html.append(".slip-table td { padding: 8px 10px; border-bottom: 1px solid #eee; }");
+        html.append(".slip-table .amount { text-align: right; font-weight: 600; color: #0066cc; }");
+        html.append(
+                ".slip-table .total-row { background-color: #e8f4f8; font-weight: bold; border-top: 2px solid #0066cc; }");
+        html.append(".slip-table .total-row td { padding: 12px 10px; color: #0066cc; font-size: 13px; }");
+        html.append(
+                ".summary-boxes { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 25px; }");
+        html.append(
+                ".summary-box { padding: 15px; border-radius: 5px; text-align: center; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }");
+        html.append(".summary-box.deductions { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }");
+        html.append(".summary-box.net { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }");
+        html.append(
+                ".summary-label { font-size: 12px; font-weight: 600; opacity: 0.9; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }");
+        html.append(".summary-value { font-size: 24px; font-weight: bold; text-shadow: 1px 1px 2px rgba(0,0,0,0.1); }");
+        html.append(
+                ".bank-details { background: #f8f9fa; padding: 15px; border-radius: 5px; border-left: 4px solid #28a745; margin-bottom: 20px; }");
+        html.append(".bank-details .section-title { background-color: #28a745; margin-bottom: 12px; }");
+        html.append(".bank-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }");
+        html.append(
+                ".footer { margin-top: 30px; padding-top: 15px; border-top: 1px solid #ddd; text-align: center; font-size: 11px; color: #666; }");
+        html.append(".footer-text { margin: 8px 0; }");
+        html.append(".generated-info { font-size: 10px; color: #999; margin-top: 10px; }");
+        html.append("</style>");
+        html.append("</head>");
+        html.append("<body>");
+        html.append("<div class='salary-slip'>");
+        html.append("<div class='header'>");
+        html.append("<div class='organization-name'>").append(organizationName).append("</div>");
+        html.append("<div class='document-title'>Salary Slip / Payslip</div>");
+        html.append("<div class='period-info'>For the month of <strong>").append(monthStr).append(" ").append(yearStr)
+                .append("</strong></div>");
+        html.append("</div>");
+        html.append("<div class='content-wrapper'>");
+        html.append("<div class='employee-info'>");
+        html.append("<div class='info-group'><div class='info-label'>Employee ID</div><div class='info-value'>")
+                .append(employeeId).append("</div></div>");
+        html.append("<div class='info-group'><div class='info-label'>Employee Name</div><div class='info-value'>")
+                .append(employeeName).append("</div></div>");
+        html.append("<div class='info-group'><div class='info-label'>Position</div><div class='info-value'>")
+                .append(position).append("</div></div>");
+        html.append("<div class='info-group'><div class='info-label'>Department</div><div class='info-value'>")
+                .append(department).append("</div></div>");
+        html.append("</div>");
+        html.append("<div class='payment-info'>");
+        html.append(
+                "<div class='info-group'><div class='info-label'>Payment Reference ID</div><div class='info-value'>PAYROLL-")
+                .append(System.currentTimeMillis()).append("</div></div>");
+        html.append("<div class='info-group'><div class='info-label'>Organization</div><div class='info-value'>")
+                .append(organizationName).append("</div></div>");
+        // add organizationAddress
+        html.append("<div class='info-group'><div class='info-label'>Organization Address</div><div class='info-value'>")
+                .append(organizationAddress).append("</div></div>");
+
+        html.append("<div class='info-group'><div class='info-label'>Salary Period</div><div class='info-value'>")
+                .append(monthStr).append(" ").append(yearStr).append("</div></div>");
+        html.append("<div class='info-group'><div class='info-label'>Generated Date</div><div class='info-value'>")
+                .append(currentDate).append("</div></div>");
+        html.append("</div></div>");
+        html.append("<div class='section-title'>Earnings & Allowances</div>");
+        html.append(
+                "<table class='slip-table'><thead><tr><th>Particulars</th><th class='amount'>Amount (₹)</th></tr></thead><tbody>");
+        html.append("<tr><td>Basic Salary</td><td class='amount'>").append(formatCurrency(templateData.getBasePay()))
+                .append("</td></tr>");
+        html.append("<tr><td>House Rent Allowance (HRA)</td><td class='amount'>")
+                .append(formatCurrency(templateData.getHra())).append("</td></tr>");
+        html.append(bonusesHtml.toString());
+        html.append("<tr class='total-row'><td>Gross Earnings</td><td class='amount'>")
+                .append(formatCurrency(templateData.getGrossPay())).append("</td></tr>");
+        html.append("</tbody></table>");
+        html.append("<div class='section-title'>Deductions</div>");
+        html.append(
+                "<table class='slip-table'><thead><tr><th>Particulars</th><th class='amount'>Amount (₹)</th></tr></thead><tbody>");
+        html.append(deductionsHtml.toString());
+        html.append("<tr class='total-row'><td>Total Deductions</td><td class='amount'>")
+                .append(formatCurrency(totalDeductions)).append("</td></tr>");
+        html.append("</tbody></table>");
+        html.append("<div class='summary-boxes'>");
+        html.append(
+                "<div class='summary-box'><div class='summary-label'>Gross Earnings</div><div class='summary-value'>")
+                .append(formatCurrency(templateData.getGrossPay())).append("</div></div>");
+        html.append(
+                "<div class='summary-box deductions'><div class='summary-label'>Total Deductions</div><div class='summary-value'>")
+                .append(formatCurrency(totalDeductions)).append("</div></div>");
+        html.append(
+                "<div class='summary-box net'><div class='summary-label'>Net Pay (Take Home)</div><div class='summary-value'>")
+                .append(formatCurrency(templateData.getNetPay())).append("</div></div>");
+        html.append("</div>");
+        html.append("<div class='bank-details'>");
+        html.append("<div class='section-title'>Bank & Payment Information</div>");
+        html.append("<div class='bank-grid'>");
+        html.append(
+                "<div class='info-group'><div class='info-label'>Bank Name</div><div class='info-value'>N/A</div></div>");
+        html.append(
+                "<div class='info-group'><div class='info-label'>Account Holder Name</div><div class='info-value'>N/A</div></div>");
+        html.append(
+                "<div class='info-group'><div class='info-label'>Account Number</div><div class='info-value'>N/A</div></div>");
+        html.append(
+                "<div class='info-group'><div class='info-label'>IFSC Code</div><div class='info-value'>N/A</div></div>");
+        html.append("</div></div>");
+        html.append("<div class='footer'>");
+        html.append("<div class='footer-text'>This is a computer-generated document. No signature is required.</div>");
+        html.append(
+                "<div class='footer-text'>Please retain this salary slip for your records and verify the details.</div>");
+        html.append("<div class='generated-info'>Generated on: ").append(currentDate)
+                .append(" | Payroll System v1.0</div>");
+        html.append("</div></div>");
+        html.append("</body></html>");
+
+        return html.toString();
+    }
+
     // ==================== HELPER METHODS ====================
 
     /**

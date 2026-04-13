@@ -40,6 +40,7 @@ public class CMSLogs {
     @Enumerated(EnumType.STRING)
     private CommsType commsType;
 
+    @Column(columnDefinition = "TEXT")
     private String message;
 
     @Column(nullable = false, unique = true)

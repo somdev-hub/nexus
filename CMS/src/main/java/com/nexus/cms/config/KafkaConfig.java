@@ -251,4 +251,16 @@ public class KafkaConfig {
                 .config("compression.type", "snappy")
                 .build();
     }
+
+    @Bean
+    @ConditionalOnProperty(name = "kafka.topic.auto-create", havingValue = "true", matchIfMissing = false)
+    public Object salaryPaymentMailTopic() {
+        log.info("Creating topic: {}", CommonConstants.SALARY_PAYMENT_MAIL_TOPIC);
+        return TopicBuilder.name(CommonConstants.SALARY_PAYMENT_MAIL_TOPIC)
+                .partitions(3)
+                .replicas(1)
+                .config("retention.ms", "1209600000")
+                .config("compression.type", "snappy")
+                .build();
+    }
 }

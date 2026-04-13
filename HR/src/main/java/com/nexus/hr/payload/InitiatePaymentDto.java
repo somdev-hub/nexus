@@ -70,6 +70,17 @@ public class InitiatePaymentDto {
     private Customer customer;
     private PaymentMethod paymentMethod;
     private Merchant merchant;
+    private Callback callback;
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class Callback{
+        private String callbackUrl;
+        private String callbackMethod;
+        private String accepts;
+        private List<Long> sourceSystemIds;
+    }
 
     @Data
     @NoArgsConstructor

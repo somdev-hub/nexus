@@ -10,4 +10,5 @@ public class CommonConstants {
 
     // Kafka Topics
     public static final String SALARY_PAYMENT_MAIL_TOPIC = "salary-payment-mail-topic";
+    public static final String PAYMENT_CALLBACK_TOPIC = "payment-callback-topic";
 }

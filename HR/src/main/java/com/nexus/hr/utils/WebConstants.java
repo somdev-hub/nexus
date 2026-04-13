@@ -43,4 +43,7 @@ public class WebConstants {
 
     @Value("${initiate.payment.url}")
     private String initiatePaymentUrl;
+
+    @Value("${hr.payroll.callback.url}")
+    private String hrPayrollCallbackUrl;
 }

@@ -50,7 +50,7 @@ public class MockBankTransferService implements BankTransferService {
         }
 
         // Simulate success/failure (90% success rate for demo)
-        boolean success = Math.random() > 0.1;
+        boolean success = true;
 
         if (success) {
             // Generate mock bank transaction ID (real banks return something like:

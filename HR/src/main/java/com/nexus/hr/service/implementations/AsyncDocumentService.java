@@ -1,6 +1,8 @@
 package com.nexus.hr.service.implementations;
 
+import com.nexus.hr.model.entities.Bonus;
 import com.nexus.hr.model.entities.Compensation;
+import com.nexus.hr.model.entities.Deduction;
 import com.nexus.hr.model.entities.HrDocument;
 import com.nexus.hr.model.entities.Position;
 import com.nexus.hr.payload.PdfTemplateDto;
@@ -289,6 +291,108 @@ public class AsyncDocumentService {
                 "Exception: " + e.getMessage()
             ));
         }
+    }
+
+    /**
+     * Asynchronously generates payslip PDF and uploads to DMS
+     * Called when payment callback is received from PMS
+     */
+    @Async("hrDocumentTaskExecutor")
+    public CompletableFuture<DocumentResult> generateAndUploadPayslip(
+            com.nexus.hr.payload.PayslipDto payslipData, Long employeeId, Long hrId) {
+
+        log.info("Starting async generation of Payslip for employee: {}, payroll: {}",
+                employeeId, payslipData.getPayrollId());
+
+        try {
+            // Generate PDF - Note: You need to add this method to PdfGeneratorService
+            // MultipartFile payslipPdf = pdfGeneratorService.generatePayslipPdf(payslipData);
+
+            // Convert payslipData to PdfTemplateDto for proper salary slip PDF generation
+            PdfTemplateDto pdfTemplateData = convertPayslipToPdfTemplate(payslipData);
+            MultipartFile payslipPdf = pdfGeneratorService.generatePayslipPdf(pdfTemplateData);
+
+            // Upload to DMS
+            String fileName = "Payslip_" + payslipData.getMonth() + "_" + payslipData.getYear()
+                    + "_" + employeeId + ".pdf";
+            ResponseEntity<?> dmsResponse = callDmsToUpload(
+                    payslipPdf, employeeId, fileName, "SALARY_SLIP", hrId);
+
+            // Process response
+            if (dmsResponse.getStatusCode().is2xxSuccessful()) {
+                @SuppressWarnings("unchecked")
+                Map<String, String> responseBody = (Map<String, String>) dmsResponse.getBody();
+                if (responseBody != null && responseBody.containsKey("documentUrl")) {
+                    log.info("Successfully generated and uploaded Payslip for employee: {}, payroll: {}",
+                            employeeId, payslipData.getPayrollId());
+                    return CompletableFuture.completedFuture(new DocumentResult(
+                            responseBody.get("documentUrl"),
+                            responseBody.get("documentName"),
+                            responseBody.get("documentType"),
+                            true,
+                            null
+                    ));
+                }
+            }
+
+            log.error("Failed to upload Payslip to DMS for employee: {}", employeeId);
+            return CompletableFuture.completedFuture(new DocumentResult(
+                    null, null, "PAYSLIP", false,
+                    "DMS upload failed with status: " + dmsResponse.getStatusCode()
+            ));
+
+        } catch (Exception e) {
+            log.error("Error generating/uploading Payslip for employee: {}", employeeId, e);
+            return CompletableFuture.completedFuture(new DocumentResult(
+                    null, null, "PAYSLIP", false,
+                    "Exception: " + e.getMessage()
+            ));
+        }
+    }
+
+    /**
+     * Convert PayslipDto to PdfTemplateDto for compatibility with existing PDF generator
+     */
+    private PdfTemplateDto convertPayslipToPdfTemplate(com.nexus.hr.payload.PayslipDto payslipData) {
+        PdfTemplateDto pdfTemplate = new PdfTemplateDto();
+        
+        // Employee Information
+        pdfTemplate.setEmployeeId(payslipData.getEmployeeId());
+        pdfTemplate.setEmployeeName(payslipData.getEmployeeName());
+        pdfTemplate.setPosition(payslipData.getPosition());
+        pdfTemplate.setDepartment(payslipData.getDepartment());
+        pdfTemplate.setOrganizationName(payslipData.getOrganizationName());
+        pdfTemplate.setOrganizationAddress(payslipData.getOrganizationAddress());
+        // Compensation Details
+        pdfTemplate.setBasePay(payslipData.getBasePay());
+        pdfTemplate.setHra(payslipData.getHra());
+        pdfTemplate.setGrossPay(payslipData.getGrossPay());
+        pdfTemplate.setNetPay(payslipData.getNetPay());
+        
+        // Bonuses and Deductions - convert from Map to List format if needed
+        if (payslipData.getBonuses() != null && !payslipData.getBonuses().isEmpty()) {
+            java.util.List<Bonus> bonusList = new java.util.ArrayList<>();
+            payslipData.getBonuses().forEach((bonusType, amount) -> {
+                Bonus bonus = new Bonus();
+                bonus.setBonusType(bonusType);
+                bonus.setAmount(amount);
+                bonusList.add(bonus);
+            });
+            pdfTemplate.setBonuses(bonusList);
+        }
+        
+        if (payslipData.getDeductions() != null && !payslipData.getDeductions().isEmpty()) {
+            java.util.List<Deduction> deductionsList = new java.util.ArrayList<>();
+            payslipData.getDeductions().forEach((deductionType, amount) -> {
+                Deduction deduction = new Deduction();
+                deduction.setDeductionType(deductionType);
+                deduction.setAmount(amount);
+                deductionsList.add(deduction);
+            });
+            pdfTemplate.setDeductions(deductionsList);
+        }
+        
+        return pdfTemplate;
     }
 
     /**

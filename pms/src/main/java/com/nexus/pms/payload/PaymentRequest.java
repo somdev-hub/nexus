@@ -97,6 +97,19 @@ public class PaymentRequest {
      */
     private String metadata;
 
+    private Callback callback;
+
+    @Data
+    @AllArgsConstructor
+    @NoArgsConstructor
+    @Builder
+    public static class Callback {
+        private String callbackUrl;
+        private String callbackMethod;
+        private String accepts;
+        private List<Long> sourceSystemIds;
+    }
+
     /**
      * Nested DTO: Merchant details (maps to t_merchants table with members).
      */

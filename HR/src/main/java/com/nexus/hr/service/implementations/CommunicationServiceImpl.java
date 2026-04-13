@@ -121,7 +121,8 @@ public class CommunicationServiceImpl implements CommunicationService {
     }
 
     @Override
-    public void sendCommunicationOverKafka(EmailCommunicationDto emailCommunicationDto) throws JsonProcessingException {
+    public void sendCommunicationOverKafkaForCandidateSelection(EmailCommunicationDto emailCommunicationDto)
+            throws JsonProcessingException {
         try {
             validateEmailCommunication(emailCommunicationDto);
             KafkaMessageDto kafkaMessageDto = new KafkaMessageDto();
@@ -154,6 +155,34 @@ public class CommunicationServiceImpl implements CommunicationService {
         }
     }
 
+    @Override
+    public void sendCommunicationOverKafkaForPayroll(EmailCommunicationDto emailCommunicationDto) {
+        try {
+            validateEmailCommunication(emailCommunicationDto);
+            KafkaMessageDto kafkaMessageDto = new KafkaMessageDto();
+            kafkaMessageDto.setCommsType("email");
+            kafkaMessageDto.setTopic(CommonConstants.SALARY_PAYMENT_MAIL_TOPIC);
+            String uuid = UUID.randomUUID().toString();
+            kafkaMessageDto.setUuid(uuid);
+            // emailcommunicationdto as json
+            kafkaMessageDto.setMessage(objectMapper.writeValueAsString(emailCommunicationDto));
+            kafkaProducer.publishMessage(CommonConstants.SALARY_PAYMENT_MAIL_TOPIC, "email-payroll-key",
+                    objectMapper.writeValueAsString(kafkaMessageDto));
+            logger.saveLogs(
+                    "/communication/send-payroll-email-kafka",
+                    HttpMethod.POST,
+                    HttpStatus.OK,
+                    emailCommunicationDto,
+                    "Payroll email communication sent over Kafka successfully",
+                    null
+            );
+            log.info("Payroll email communication sent over Kafka successfully with UUID: {}", uuid);
+        } catch (Exception e) {
+            log.error("Error sending payroll communication over Kafka: {}", e.getMessage(), e);
+            // Don't rethrow - payment processing should not fail if email fails
+        }
+    }
+
     /**
      * Validates email communication data
      */
@@ -168,10 +197,6 @@ public class CommunicationServiceImpl implements CommunicationService {
 
         if (ObjectUtils.isEmpty(dto.getSubject()) || dto.getSubject().trim().isEmpty()) {
             throw new IllegalArgumentException("Email subject cannot be empty");
-        }
-
-        if (ObjectUtils.isEmpty(dto.getBody()) || dto.getBody().trim().isEmpty()) {
-            throw new IllegalArgumentException("Email body cannot be empty");
         }
 
         if (dto.getRecipientEmails().size() > webConstants.getMaxRecipients()) {

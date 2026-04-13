@@ -1,75 +1,188 @@
 package com.nexus.hr.service.implementations;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nexus.hr.exception.ResourceNotFoundException;
 import com.nexus.hr.exception.ServiceLevelException;
 import com.nexus.hr.model.entities.*;
-import com.nexus.hr.payload.InitiatePaymentDto;
-import com.nexus.hr.payload.InitiatePayrollDto;
-import com.nexus.hr.payload.PayComponentDto;
+import com.nexus.hr.model.enums.PaymentStatus;
+import com.nexus.hr.payload.*;
 import com.nexus.hr.repository.HrEntityRepo;
 import com.nexus.hr.repository.OrgAccountInfoRepo;
 import com.nexus.hr.repository.PayrollRepo;
+import com.nexus.hr.service.interfaces.CommunicationService;
 import com.nexus.hr.service.interfaces.PayrollService;
 import com.nexus.hr.utils.CommonConstants;
 import com.nexus.hr.utils.CommonUtils;
+import com.nexus.hr.utils.RestServices;
+import com.nexus.hr.utils.WebConstants;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.ObjectUtils;
 
+import java.sql.Timestamp;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class PayrollServiceImpl implements PayrollService {
 
     private final PayrollRepo payrollRepo;
     private final HrEntityRepo hrEntityRepo;
     private final CommonUtils commonUtils;
     private final OrgAccountInfoRepo orgAccountInfoRepo;
+    private final WebConstants webConstants;
+    private final AsyncDocumentService asyncDocumentService;
+    private final CommunicationService communicationService;
+    private final ObjectMapper objectMapper;
+    private final RestServices restServices;
+    private final PaymentCompletionHelper paymentCompletionHelper;
 
     @Override
+    @Transactional
     public ResponseEntity<?> initiatePayrollForThisMonth(InitiatePayrollDto initiatePayrollDto) {
-        if (ObjectUtils.isEmpty(initiatePayrollDto) || ObjectUtils.isEmpty(initiatePayrollDto.getOrg()) || ObjectUtils.isEmpty(initiatePayrollDto.getEmployees())) {
+        if (ObjectUtils.isEmpty(initiatePayrollDto) || ObjectUtils.isEmpty(initiatePayrollDto.getOrg())
+                || ObjectUtils.isEmpty(initiatePayrollDto.getEmployees())) {
+            log.warn("Invalid payroll initiation request: empty data");
             return new ResponseEntity<>("initiatePayrollDto is empty", HttpStatus.BAD_REQUEST);
         }
-        ResponseEntity<?> response;
+
         try {
+            log.info("Starting payroll initiation for {} employees from org: {}",
+                    initiatePayrollDto.getEmployees().size(),
+                    initiatePayrollDto.getOrg().get("orgId"));
+
             InitiatePaymentDto initiatePaymentDto = new InitiatePaymentDto();
             initiatePaymentDto.setDescription("Salary payment for this month");
             initiatePaymentDto.setPaymentType("SALARY");
             initiatePaymentDto.setCurrency("INR");
             initiatePaymentDto.setTransactionReference("SALARY_PAYMENT_" + generateTransactionReference());
 
+            // Enrich payment details AND persist payrolls to get IDs
             enrichCustomerDetails(initiatePaymentDto, initiatePayrollDto);
             enrichPaymentMethodDetails(initiatePaymentDto, initiatePayrollDto);
             enrichMerchantDetails(initiatePaymentDto, initiatePayrollDto);
-            enrichPaymentComponent(initiatePaymentDto, initiatePayrollDto);
+            List<Long> payrollIds = enrichPaymentComponent(initiatePaymentDto, initiatePayrollDto);
 
-//            RestPayload restPayloadForPayment = commonUtils.buildRestPayload(webConstants.getInitiatePaymentUrl(), null, null, CommonConstants.APPLICATION_JSON);
-//            ResponseEntity<?> responseForPayment = restServices.hrRestCall(restPayloadForPayment.getBuilder().toUriString(), initiatePaymentDto, restPayloadForPayment.getHeaders(), HttpMethod.POST, hrEntity.getHrId());
-//            if (responseForPayment.getStatusCode().is2xxSuccessful()) {
-//                response = new ResponseEntity<>("Payroll initiated successfully for this month", HttpStatus.OK);
-//            } else {
-//                response = new ResponseEntity<>("Failed to initiate payroll for this month", HttpStatus.INTERNAL_SERVER_ERROR);
-//            }
+            log.info("Payment DTO enriched with {} payrolls, total amount: {}",
+                    initiatePaymentDto.getMerchant().getMerchantMembers().size(),
+                    initiatePaymentDto.getAmount());
 
-            response = new ResponseEntity<>(initiatePaymentDto, HttpStatus.OK);
-        } catch (RuntimeException | JsonProcessingException e) {
+            // Set callback with payroll IDs for Kafka publishing to HR
+            InitiatePaymentDto.Callback callback = new InitiatePaymentDto.Callback();
+            callback.setSourceSystemIds(payrollIds);
+            // Kafka topic is hardcoded in PMS: payment-callback-topic
+            // No HTTP callback URL needed (we're using Kafka now)
+            initiatePaymentDto.setCallback(callback);
+
+            log.info("Set callback with {} payroll IDs for Kafka publishing", payrollIds.size());
+
+            // Build REST call to PMS endpoint
+            RestPayload restPayloadForPayment = commonUtils.buildRestPayload(webConstants.getInitiatePaymentUrl(), null,
+                    null, CommonConstants.APPLICATION_JSON);
+
+            log.info("Initiating payment call to PMS endpoint: {}", restPayloadForPayment.getBuilder().toUriString());
+
+            // Call PMS endpoint with callback containing payroll IDs
+            ResponseEntity<?> responseForPayment = restServices.hrRestCall(
+                    restPayloadForPayment.getBuilder().toUriString(),
+                    initiatePaymentDto,
+                    restPayloadForPayment.getHeaders(),
+                    HttpMethod.POST,
+                    null);
+
+            // Check if PMS accepted the request
+            if (!responseForPayment.getStatusCode().is2xxSuccessful()) {
+                log.error("PMS rejected payment initiation with status: {}", responseForPayment.getStatusCode());
+                log.error("PMS response body: {}", responseForPayment.getBody());
+
+                // Return error details to client
+                String errorMessage = "Failed to initiate payroll: PMS returned " + responseForPayment.getStatusCode();
+                if (responseForPayment.getBody() != null) {
+                    errorMessage = responseForPayment.getBody().toString();
+                }
+
+                return new ResponseEntity<>(errorMessage, responseForPayment.getStatusCode());
+            }
+
+            log.info("PMS accepted payment initiation with status: {}", responseForPayment.getStatusCode());
+
+            if (payrollIds.isEmpty()) {
+                log.error("No payroll IDs created during enrichment");
+                return new ResponseEntity<>("Failed to save payroll records", HttpStatus.INTERNAL_SERVER_ERROR);
+            }
+
+            log.info("Payroll initiation successful for {} payrolls: {}", payrollIds.size(), payrollIds);
+
+            return new ResponseEntity<>(Map.of(
+                    "message", "Payroll initiated successfully for this month",
+                    "status", "PENDING",
+                    "payrollIds", payrollIds,
+                    "transactionReference", initiatePaymentDto.getTransactionReference()), HttpStatus.CREATED);
+
+        } catch (Exception e) {
+            log.error("Exception during payroll initiation", e);
             throw new ServiceLevelException(
                     "PayrollService",
                     "Failed to initiate payroll for this month",
                     "initiatePayrollForThisMonth",
                     e.getClass().getSimpleName(),
-                    e.getMessage()
-
-            );
+                    e.getMessage());
         }
+    }
 
-        return response;
+    @Override
+    public ResponseEntity<?> handlePayrollCallback(List<PayrollCallbackDto> body) {
+        if (ObjectUtils.isEmpty(body)) {
+            return new ResponseEntity<>("Request body is empty", HttpStatus.BAD_REQUEST);
+        }
+        try {
+            for (PayrollCallbackDto callbackDto : body) {
+                Payroll payroll = payrollRepo.findById(callbackDto.getPayrollId())
+                        .orElseThrow(() -> new ResourceNotFoundException("Payroll", "payrollId",
+                                callbackDto.getPayrollId()));
+
+                payroll.setPaymentReferenceId(callbackDto.getPaymentReferenceId());
+                payroll.setPaidOn(new Timestamp(System.currentTimeMillis()));
+
+                if (callbackDto.getSuccess()) {
+                    payroll.setPaymentStatus(PaymentStatus.COMPLETED);
+                    log.info("Payment completed for payroll ID: {}, reference: {}",
+                            payroll.getPayrollId(), callbackDto.getPaymentReferenceId());
+                } else {
+                    payroll.setPaymentStatus(PaymentStatus.FAILED);
+                    log.warn("Payment failed for payroll ID: {}", payroll.getPayrollId());
+                }
+
+                payrollRepo.save(payroll);
+
+                // After payment is completed, generate payslip and send notification
+                if (callbackDto.getSuccess()) {
+                    // Fire async operations in background to avoid blocking callback response
+                    // Spring's @Async handles thread pooling and transaction context properly
+                    Long payrollId = payroll.getPayrollId();
+                    processPaymentCompletionAsync(payrollId);
+                }
+            }
+        } catch (RuntimeException e) {
+            throw new ServiceLevelException(
+                    "PayrollService",
+                    "Failed to handle payroll callback",
+                    "handlePayrollCallback",
+                    e.getClass().getSimpleName(),
+                    e.getMessage());
+        }
+        return new ResponseEntity<>(HttpStatus.OK);
     }
 
     private String generateTransactionReference() {
@@ -77,12 +190,15 @@ public class PayrollServiceImpl implements PayrollService {
         return LocalDate.now().getMonth().name() + "_" + LocalDate.now().getYear() + "_" + UUID.randomUUID();
     }
 
-
-    private void enrichPaymentMethodDetails(InitiatePaymentDto initiatePaymentDto, InitiatePayrollDto initiatePayrollDto) {
+    private void enrichPaymentMethodDetails(InitiatePaymentDto initiatePaymentDto,
+            InitiatePayrollDto initiatePayrollDto) {
         try {
             InitiatePaymentDto.PaymentMethod paymentMethod = new InitiatePaymentDto.PaymentMethod();
 
-            OrgAccountInfo orgAccountInfo = orgAccountInfoRepo.findByOrgId(Long.valueOf(initiatePayrollDto.getOrg().get("orgId"))).orElseThrow(() -> new ResourceNotFoundException("Org", "orgId", initiatePayrollDto.getOrg().get("orgId")));
+            OrgAccountInfo orgAccountInfo = orgAccountInfoRepo
+                    .findByOrgId(Long.valueOf(initiatePayrollDto.getOrg().get("orgId")))
+                    .orElseThrow(() -> new ResourceNotFoundException("Org", "orgId",
+                            initiatePayrollDto.getOrg().get("orgId")));
             paymentMethod.setBankName(orgAccountInfo.getBankName());
             paymentMethod.setBankAccountHolderName(orgAccountInfo.getBankAccountName());
             paymentMethod.setBankAccountNumber(orgAccountInfo.getBankAccountNumber());
@@ -97,14 +213,14 @@ public class PayrollServiceImpl implements PayrollService {
                     "Failed to enrich payment components for payroll initiation",
                     "enrichPaymentComponent",
                     e.getClass().getSimpleName(),
-                    e.getMessage()
-            );
+                    e.getMessage());
         }
     }
 
     private void normalizePayWithAttendance(PayComponentDto payComponentsDto, HrEntity hrEntity) {
         List<TimeManagement> timeManagements = hrEntity.getTimeManagements();
-        // calculate for last month all the absences and halfDays and deduct from the base pay
+        // calculate for last month all the absences and halfDays and deduct from the
+        // base pay
 
         if (ObjectUtils.isEmpty(timeManagements)) {
             return;
@@ -154,7 +270,8 @@ public class PayrollServiceImpl implements PayrollService {
         // iterate and set all bonuses and deductions
         Map<String, Double> bonusesCalculated = new HashMap<>();
         bonuses.forEach(bonus -> {
-            if (bonus.getExpiresOn() != null && bonus.getExpiresOn().toLocalDateTime().toLocalDate().isBefore(LocalDate.now())) {
+            if (bonus.getExpiresOn() != null
+                    && bonus.getExpiresOn().toLocalDateTime().toLocalDate().isBefore(LocalDate.now())) {
                 // skip expired bonuses
                 return;
             }
@@ -164,19 +281,23 @@ public class PayrollServiceImpl implements PayrollService {
 
         Map<String, Double> deductionsCalculated = new HashMap<>();
         deductions.forEach(deduction -> {
-            if (deduction.getExpiresOn() != null && deduction.getExpiresOn().toLocalDateTime().toLocalDate().isBefore(LocalDate.now())) {
+            if (deduction.getExpiresOn() != null
+                    && deduction.getExpiresOn().toLocalDateTime().toLocalDate().isBefore(LocalDate.now())) {
                 // skip expired deductions
                 return;
             }
-            deductionsCalculated.put(deduction.getDeductionType(), calculateMonthlyPayForComponent(deduction.getAmount()));
+            deductionsCalculated.put(deduction.getDeductionType(),
+                    calculateMonthlyPayForComponent(deduction.getAmount()));
         });
         deductionsCalculated.put("pf", calculateMonthlyPayForComponent(compensation.getPf()));
-        deductionsCalculated.put("insurancePremium", calculateMonthlyPayForComponent(compensation.getInsurancePremium()));
+        deductionsCalculated.put("insurancePremium",
+                calculateMonthlyPayForComponent(compensation.getInsurancePremium()));
         deductionsCalculated.put("gratuity", calculateMonthlyPayForComponent(compensation.getGratuity()));
         payComponents.setDeductions(deductionsCalculated);
     }
 
-    private void enrichCustomerDetails(InitiatePaymentDto initiatePaymentDto, InitiatePayrollDto initiatePayrollDto) throws JsonProcessingException {
+    private void enrichCustomerDetails(InitiatePaymentDto initiatePaymentDto, InitiatePayrollDto initiatePayrollDto)
+            throws JsonProcessingException {
 
         InitiatePaymentDto.Customer customer = new InitiatePaymentDto.Customer();
         customer.setCustomerName(initiatePayrollDto.getOrg().getOrDefault("orgName", ""));
@@ -194,7 +315,8 @@ public class PayrollServiceImpl implements PayrollService {
         initiatePaymentDto.setCustomer(customer);
     }
 
-    private void enrichMerchantDetails(InitiatePaymentDto initiatePaymentDto, InitiatePayrollDto initiatePayrollDto) throws JsonProcessingException {
+    private void enrichMerchantDetails(InitiatePaymentDto initiatePaymentDto, InitiatePayrollDto initiatePayrollDto)
+            throws JsonProcessingException {
         try {
 
             InitiatePaymentDto.Merchant merchant = new InitiatePaymentDto.Merchant();
@@ -214,17 +336,17 @@ public class PayrollServiceImpl implements PayrollService {
                 merchantMember.setSourceMemberId(Long.valueOf(employee.getOrDefault("id", "0L")));
                 merchantMember.setName(employee.getOrDefault("name", ""));
                 merchantMember.setEmail(employee.getOrDefault("email", ""));
-                List<BankRecord> bankRecords =
-                        hrEntityRepo.findByEmployeeId(Long.valueOf(employee.get("id"))).orElseThrow(() -> new ResourceNotFoundException("HrEntity", "empId", Long.valueOf(employee.get("id"))
-                        )).getCompensation().getBankRecords();
+                List<BankRecord> bankRecords = hrEntityRepo.findByEmployeeId(Long.valueOf(employee.get("id")))
+                        .orElseThrow(() -> new ResourceNotFoundException("HrEntity", "empId",
+                                Long.valueOf(employee.get("id"))))
+                        .getCompensation().getBankRecords();
                 if (ObjectUtils.isEmpty(bankRecords) || bankRecords.isEmpty()) {
                     throw new ServiceLevelException(
                             "PayrollService",
                             "Bank details are empty for merchant member enrichment",
                             "enrichMerchantDetails",
                             "ResourceNotFoundException",
-                            "No bank records found for employeeId: " + Long.valueOf(employee.get("id"))
-                    );
+                            "No bank records found for employeeId: " + Long.valueOf(employee.get("id")));
                 }
                 merchantMember.setBankName(bankRecords.getFirst().getBankName());
                 merchantMember.setBankAccountNumber(bankRecords.getFirst().getAccountNumber());
@@ -244,15 +366,19 @@ public class PayrollServiceImpl implements PayrollService {
                     "Failed to enrich merchant details for payroll initiation",
                     "enrichMerchantDetails",
                     e.getClass().getSimpleName(),
-                    e.getMessage()
-            );
+                    e.getMessage());
         }
     }
 
-    private void enrichPaymentComponent(InitiatePaymentDto initiatePaymentDto, InitiatePayrollDto initiatePayrollDto) {
+    private List<Long> enrichPaymentComponent(InitiatePaymentDto initiatePaymentDto,
+            InitiatePayrollDto initiatePayrollDto) {
         try {
-            List<InitiatePaymentDto.Merchant.MerchantMember> merchantMembers = initiatePaymentDto.getMerchant().getMerchantMembers();
+            List<InitiatePaymentDto.Merchant.MerchantMember> merchantMembers = initiatePaymentDto.getMerchant()
+                    .getMerchantMembers();
+            List<PayComponentDto> payComponentsList = new ArrayList<>();
             double totalAmount = 0.0D;
+
+            log.info("Enriching payment components for {} employees", initiatePayrollDto.getEmployees().size());
 
             // Iterate through each employee and create pay components
             for (int i = 0; i < initiatePayrollDto.getEmployees().size(); i++) {
@@ -260,8 +386,8 @@ public class PayrollServiceImpl implements PayrollService {
                 Long empId = Long.valueOf(employee.getOrDefault("id", "0"));
 
                 // Fetch HrEntity for the current employee
-                HrEntity currentHrEntity = hrEntityRepo.findByEmployeeId(empId).orElseThrow(() ->
-                        new ResourceNotFoundException("HrEntity", "empId", empId));
+                HrEntity currentHrEntity = hrEntityRepo.findByEmployeeId(empId)
+                        .orElseThrow(() -> new ResourceNotFoundException("HrEntity", "empId", empId));
 
                 // Create pay component for this employee
                 PayComponentDto payComponentsDto = new PayComponentDto();
@@ -273,8 +399,7 @@ public class PayrollServiceImpl implements PayrollService {
                             "Compensation details are empty for payment component enrichment",
                             "enrichPaymentComponent",
                             "ResourceNotFoundException",
-                            "No compensation details found for employeeId: " + empId
-                    );
+                            "No compensation details found for employeeId: " + empId);
                 }
 
                 payComponentsDto.setBasePay(calculateMonthlyPayForComponent(compensation.getBasePay()));
@@ -293,19 +418,39 @@ public class PayrollServiceImpl implements PayrollService {
                 // Set pay components and total amount for this merchant member
                 merchantMembers.get(i).setPayComponents(payComponentsDto);
                 merchantMembers.get(i).setTotalAmountReceivable(employeeAmount);
+
+                // Add to list for persistence
+                payComponentsList.add(payComponentsDto);
             }
+
+            log.info("Payment components enriched. Total amount: {}", totalAmount);
+
+            // Persist payroll details with PENDING status AND collect payroll IDs
+            List<Long> savedPayrollIds = persistPayrollDetails(initiatePayrollDto.getEmployees(), initiatePaymentDto,
+                    payComponentsList);
+
+            log.info("Payroll records persisted with IDs: {}", savedPayrollIds);
 
             // Set the total amount as the sum of all employee amounts
             initiatePaymentDto.setAmount(totalAmount);
 
+            // NOTE: We are NOT setting callback URL here anymore - we're using Kafka
+            // callbacks now
+            // PMS will publish callbacks to Kafka topic "payment-callback-topic"
+            // HR will consume messages from that topic via PaymentCallbackListener
+            log.info("Callback will be handled via Kafka topic: payment-callback-topic");
+
+            // Return the payroll IDs for the main method to use
+            return savedPayrollIds;
+
         } catch (RuntimeException e) {
+            log.error("Error enriching payment components", e);
             throw new ServiceLevelException(
                     "PayrollService",
                     "Failed to enrich payment components for payroll initiation",
                     "enrichPaymentComponent",
                     e.getClass().getSimpleName(),
-                    e.getMessage()
-            );
+                    e.getMessage());
         }
     }
 
@@ -317,12 +462,310 @@ public class PayrollServiceImpl implements PayrollService {
             calculatedAmount += payComponentsDto.getBonuses().values().stream().mapToDouble(Double::doubleValue).sum();
         }
         if (!ObjectUtils.isEmpty(payComponentsDto.getDeductions())) {
-            calculatedAmount -= payComponentsDto.getDeductions().values().stream().mapToDouble(Double::doubleValue).sum();
+            calculatedAmount -= payComponentsDto.getDeductions().values().stream().mapToDouble(Double::doubleValue)
+                    .sum();
         }
         return calculatedAmount;
     }
 
     private Double calculateMonthlyPayForComponent(Double component) {
         return component != null ? component / 12 : 0.0D;
+    }
+
+    private List<Long> persistPayrollDetails(List<Map<String, String>> employees, InitiatePaymentDto initiatePaymentDto,
+            List<PayComponentDto> payComponentsList) {
+        try {
+            List<Payroll> payrollsToSave = new ArrayList<>();
+
+            log.info("Starting payroll persistence for {} employees", employees.size());
+
+            for (int i = 0; i < employees.size(); i++) {
+                Map<String, String> employee = employees.get(i);
+                Long empId = Long.valueOf(employee.getOrDefault("id", "0"));
+
+                HrEntity hrEntity = hrEntityRepo.findByEmployeeId(empId)
+                        .orElseThrow(() -> new ResourceNotFoundException("HrEntity", "empId", empId));
+
+                PayComponentDto payComponentDto = payComponentsList.get(i);
+                Compensation compensation = hrEntity.getCompensation();
+
+                // Create Payroll entity
+                Payroll payroll = new Payroll();
+                payroll.setMonth(LocalDate.now().getMonth().name());
+                payroll.setYear(LocalDate.now().getYear());
+                payroll.setBasePay(payComponentDto.getBasePay());
+                payroll.setHra(payComponentDto.getHra());
+                payroll.setPaymentStatus(PaymentStatus.PENDING);
+                payroll.setCompensation(compensation);
+
+                // Calculate totals
+                double totalBonuses = 0.0D;
+                if (!ObjectUtils.isEmpty(payComponentDto.getBonuses())) {
+                    totalBonuses = payComponentDto.getBonuses().values().stream().mapToDouble(Double::doubleValue)
+                            .sum();
+                }
+                payroll.setTotalBonuses(totalBonuses);
+
+                double totalDeductions = 0.0D;
+                if (!ObjectUtils.isEmpty(payComponentDto.getDeductions())) {
+                    totalDeductions = payComponentDto.getDeductions().values().stream().mapToDouble(Double::doubleValue)
+                            .sum();
+                }
+                payroll.setTotalDeductions(totalDeductions);
+
+                // Calculate net pay and gross pay
+                double grossPay = payroll.getBasePay() + payroll.getHra() + totalBonuses;
+                double netPay = grossPay - totalDeductions;
+
+                payroll.setGrossPay(grossPay);
+                payroll.setNetPay(netPay);
+
+                // Create and associate PayrollBonuses
+                List<PayrollBonuses> payrollBonusesList = new ArrayList<>();
+                if (!ObjectUtils.isEmpty(payComponentDto.getBonuses())) {
+                    payComponentDto.getBonuses().forEach((bonusType, amount) -> {
+                        PayrollBonuses payrollBonus = new PayrollBonuses();
+                        payrollBonus.setBonusType(bonusType);
+                        payrollBonus.setAmount(amount);
+                        payrollBonus.setIsActive(true);
+                        payrollBonus.setPayroll(payroll);
+                        payrollBonusesList.add(payrollBonus);
+                    });
+                }
+                payroll.setPayrollBonuses(payrollBonusesList);
+
+                // Create and associate PayrollDeductions
+                List<PayrollDeductions> payrollDeductionsList = new ArrayList<>();
+                if (!ObjectUtils.isEmpty(payComponentDto.getDeductions())) {
+                    payComponentDto.getDeductions().forEach((deductionType, amount) -> {
+                        PayrollDeductions payrollDeduction = new PayrollDeductions();
+                        payrollDeduction.setDeductionType(deductionType);
+                        payrollDeduction.setAmount(amount);
+                        payrollDeduction.setDescription("Deduction for " + deductionType + " in " + payroll.getMonth()
+                                + " " + payroll.getYear());
+                        payrollDeduction.setIsActive(true);
+                        payrollDeduction.setPayroll(payroll);
+                        payrollDeductionsList.add(payrollDeduction);
+                    });
+                }
+                payroll.setPayrollDeductions(payrollDeductionsList);
+
+                payrollsToSave.add(payroll);
+            }
+
+            // Persist all payrolls
+            List<Payroll> savedPayrolls = payrollRepo.saveAll(payrollsToSave);
+            List<Long> payrollIds = savedPayrolls.stream().map(Payroll::getPayrollId).toList();
+
+            log.info("Successfully persisted {} payroll records with IDs: {}", savedPayrolls.size(), payrollIds);
+
+            // Extract source system IDs (payroll IDs) for Kafka callback
+            List<Long> sourceSystemIds = savedPayrolls.stream().map(Payroll::getPayrollId).toList();
+
+            // Note: Callback configuration removed - we're using Kafka now
+            // PMS will publish to "payment-callback-topic" with sourceSystemIds in the
+            // message
+            log.info("Payroll records ready for Kafka callback via topic: payment-callback-topic");
+
+            // Return the payroll IDs for reference
+            return payrollIds;
+
+        } catch (RuntimeException e) {
+            log.error("Error persisting payroll details", e);
+            throw new ServiceLevelException(
+                    "PayrollService",
+                    "Failed to persist payroll details",
+                    "persistPayrollDetails",
+                    e.getClass().getSimpleName(),
+                    e.getMessage());
+        }
+    }
+
+    /**
+     * Build PayslipDto from completion data (not entities)
+     * This avoids lazy-loading issues since we're working with POJOs
+     */
+    private PayslipDto buildPayslipDtoFromData(PaymentCompletionHelper.PaymentCompletionData data) {
+        PayslipDto payslipDto = PayslipDto.builder()
+                .employeeId(data.employeeId())
+                .employeeName(data.employeeId().toString())
+                .position(data.position())
+                .department(data.department())
+                .organizationName(data.organization())
+                .organizationAddress(data.orgAddress())
+                .payrollId(data.payrollId())
+                .month(data.month())
+                .year(data.year())
+                .generatedDate(LocalDateTime.now())
+                .basePay(data.basePay())
+                .hra(data.hra())
+                .totalBonuses(data.totalBonuses())
+                .totalDeductions(data.totalDeductions())
+                .grossPay(data.grossPay())
+                .netPay(data.netPay())
+                .paymentReferenceId(data.paymentReferenceId())
+                .transactionReference(data.paymentReferenceId())
+                .build();
+
+        payslipDto.setBonuses(data.bonuses());
+        payslipDto.setDeductions(data.deductions());
+        payslipDto.setBankName(data.bankName());
+        payslipDto.setAccountHolderName(data.accountHolderName());
+        payslipDto.setIfscCode(data.ifscCode());
+        payslipDto.setMaskedAccountNumber(data.maskedAccountNumber());
+
+        return payslipDto;
+    }
+
+    /**
+     * Process payment completion asynchronously
+     * Generates payslip and sends email notification to employee
+     * This runs in a background thread via Spring's thread pool
+     * 
+     * NOTE: This method is NOT @Transactional
+     * Instead, it calls separate @Transactional helper methods
+     * This follows the proven pattern from HrServiceImpl (async + separate
+     * transactional helpers)
+     */
+    @Async
+    public void processPaymentCompletionAsync(Long payrollId) {
+        try {
+            log.info("Starting async payment completion processing for payroll ID: {}", payrollId);
+
+            // Fetch payroll data in a transactional context via helper service
+            PaymentCompletionHelper.PaymentCompletionData completionData = paymentCompletionHelper
+                    .fetchPaymentCompletionData(payrollId);
+
+            if (ObjectUtils.isEmpty(completionData)) {
+                log.warn("Could not fetch payment completion data for payroll ID: {}", payrollId);
+                return;
+            }
+
+            // Generate payslip using the completion data
+            log.info("Generating payslip for employee: {}, payroll: {}",
+                    completionData.employeeId(), payrollId);
+            PayslipDto payslipDto = buildPayslipDtoFromData(completionData);
+
+            // Generate and upload payslip to DMS
+            CompletableFuture<AsyncDocumentService.DocumentResult> payslipFuture = asyncDocumentService
+                    .generateAndUploadPayslip(payslipDto, completionData.employeeId(), completionData.hrId());
+
+            // Wait for payslip generation
+            AsyncDocumentService.DocumentResult payslipResult = payslipFuture.join();
+
+            if (payslipResult.isSuccess()) {
+                log.info("Payslip generated and uploaded successfully for employee: {}",
+                        completionData.employeeId());
+
+                // Save payslip link in a transactional context via helper service
+                paymentCompletionHelper.linkPayslipToPayroll(payrollId, payslipResult);
+
+                // Send email notification with payslip
+                sendPayslipEmailNotificationAsync(completionData, payslipDto, payslipResult.getDocumentUrl());
+            } else {
+                log.error("Failed to generate payslip for employee: {}, error: {}",
+                        completionData.employeeId(), payslipResult.getErrorMessage());
+            }
+
+        } catch (Exception e) {
+            log.error("Error processing payment completion for payroll ID: {}", payrollId, e);
+            // Exception is logged; async method handles its own errors
+        }
+    }
+
+    /**
+     * Send payslip email notification via Kafka to CMS microservice
+     * Works with PaymentCompletionData (POJOs, not entities)
+     * This triggers email delivery to employee with payslip attachment
+     */
+    private void sendPayslipEmailNotificationAsync(PaymentCompletionHelper.PaymentCompletionData data,
+            PayslipDto payslipDto, String payslipUrl) {
+        try {
+            log.info("Sending payslip email notification for employee: {}", data.employeeId());
+
+            // Build email communication DTO
+            EmailCommunicationDto emailCommunicationDto = new EmailCommunicationDto();
+            emailCommunicationDto.setSenderEmail("noreply@nexushr.com");
+            // Note: Get employee email from user service - for now using placeholder
+            emailCommunicationDto.setRecipientEmails(List.of("operatorgold69@gmail.com"));
+            emailCommunicationDto.setSubject("Your Salary Payslip -" + data.month() + " " + data.year());
+
+            // Build placeholders for email template
+            Map<String, Object> placeholders = new HashMap<>();
+            placeholders.put("employeeName", data.employeeId().toString());
+            placeholders.put("month", data.month());
+            placeholders.put("year", data.year());
+
+            // Salary Breakdown Details
+            placeholders.put("basePay",
+                    "₹" + String.format("%.2f", data.basePay() != null ? data.basePay() : 0.0));
+            placeholders.put("hra", "₹" + String.format("%.2f", data.hra() != null ? data.hra() : 0.0));
+
+            // Pass both numeric and formatted versions for totalBonuses
+            Double totalBonusesValue = data.totalBonuses() != null ? data.totalBonuses() : 0.0;
+            placeholders.put("totalBonuses", totalBonusesValue); // Numeric for comparison
+            placeholders.put("totalBonusesFormatted",
+                    "₹" + String.format("%.2f", totalBonusesValue));
+
+            // Pass both numeric and formatted versions for totalDeductions
+            Double totalDeductionsValue = data.totalDeductions() != null ? data.totalDeductions() : 0.0;
+            placeholders.put("totalDeductions", totalDeductionsValue); // Numeric for comparison
+            placeholders.put("totalDeductionsFormatted",
+                    "₹" + String.format("%.2f", totalDeductionsValue));
+
+            placeholders.put("grossAmount",
+                    "₹" + String.format("%.2f", data.grossPay() != null ? data.grossPay() : 0.0));
+            placeholders.put("netAmount",
+                    "₹" + String.format("%.2f", data.netPay() != null ? data.netPay() : 0.0));
+
+            // Payment Details
+            placeholders.put("paymentReferenceId",
+                    data.paymentReferenceId() != null ? data.paymentReferenceId() : "N/A");
+            placeholders.put("paymentDate",
+                    data.paymentDate() != null ? data.paymentDate() : "N/A");
+            placeholders.put("organizationName", "Nexus Corporation");
+
+            // Bank Details (masked)
+            if (!ObjectUtils.isEmpty(data.bankName())) {
+                placeholders.put("bankName", data.bankName());
+                placeholders.put("accountHolderName",
+                        data.accountHolderName() != null ? data.accountHolderName() : "N/A");
+                placeholders.put("maskedAccountNumber",
+                        data.maskedAccountNumber() != null ? data.maskedAccountNumber() : "****");
+                placeholders.put("ifscCode", data.ifscCode() != null ? data.ifscCode() : "N/A");
+            }
+
+            emailCommunicationDto.setPlaceholders(placeholders);
+
+            emailCommunicationDto.setBody("");
+
+            // Add payslip as attachment
+            emailCommunicationDto.setAttachments(List.of(
+                    new EmailAttachmentDto(
+                            "Payslip_" + data.month() + "_" + data.year() + ".pdf",
+                            "application/pdf",
+                            payslipUrl)));
+
+            // Wrap in KafkaMessageDto for CMS consumption
+            KafkaMessageDto kafkaMessageDto = new KafkaMessageDto();
+            kafkaMessageDto.setTopic(CommonConstants.SALARY_PAYMENT_MAIL_TOPIC);
+            kafkaMessageDto.setCommsType("email");
+            kafkaMessageDto.setUuid(UUID.randomUUID().toString());
+            kafkaMessageDto.setMessage(objectMapper.writeValueAsString(emailCommunicationDto));
+
+            String kafkaMessage = objectMapper.writeValueAsString(kafkaMessageDto);
+            log.debug("Publishing payslip email notification to Kafka: {}", kafkaMessage);
+
+            // Publish to Kafka via CommunicationService
+            communicationService.sendCommunicationOverKafkaForPayroll(emailCommunicationDto);
+
+            log.info("Payslip email notification published successfully for employee: {}, payroll: {}",
+                    data.employeeId(), data.payrollId());
+
+        } catch (Exception e) {
+            log.error("Error sending payslip email notification for employee ID: {}", data.employeeId(), e);
+            // Don't throw exception - payment processing should not fail due to email
+            // notification
+        }
     }
 }

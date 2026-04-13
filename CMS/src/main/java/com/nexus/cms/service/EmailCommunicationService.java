@@ -179,8 +179,15 @@ public class EmailCommunicationService {
                     continue;
                 }
 
+                // Validate URL format before attempting download
+                String fileUrl = attachment.getFileUrl().trim();
+                if (!isValidUrl(fileUrl)) {
+                    log.warn("Skipping attachment with invalid URL: {}", fileUrl);
+                    continue;
+                }
+
                 // Download file from URL and attach
-                byte[] fileData = downloadFile(attachment.getFileUrl());
+                byte[] fileData = downloadFile(fileUrl);
 
                 // Normalize content type to proper MIME format
                 String contentType = normalizeContentType(attachment.getContentType(), attachment.getFileName());
@@ -194,6 +201,21 @@ public class EmailCommunicationService {
                 // Continue with other attachments even if one fails
             }
         }
+    }
+
+    /**
+     * Validates URL format to prevent invalid IPFS paths
+     */
+    private boolean isValidUrl(String url) {
+        if (ObjectUtils.isEmpty(url)) {
+            return false;
+        }
+        // Check for null/invalid patterns
+        if (url.contains("/null") || url.endsWith("null") || url.equalsIgnoreCase("null")) {
+            return false;
+        }
+        // Must start with http:// or https:// or file://
+        return url.startsWith("http://") || url.startsWith("https://") || url.startsWith("file://");
     }
 
     /**

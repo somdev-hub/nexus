@@ -194,10 +194,28 @@ public class KafkaConsumerService {
             if (payload.containsKey("commsType") && payload.containsKey("uuid") && payload.containsKey("topic")
                     && payload.get("commsType").equals("email")) {
                 log.info("Processing salary payment email with key: {}, offset: {}", key, offset);
-                kafkaBacklogService.logReceived(
-                        payload.get("topic").toString(),
-                        payload.get("uuid").toString());
-                emailCommunicationService.handleEmailCommunication(trimmedMessage);
+                String topic = payload.get("topic").toString();
+                String uuid = payload.get("uuid").toString();
+
+                // Log backlog in separate transaction to avoid aborting main transaction if it
+                // fails
+                try {
+                    kafkaBacklogService.logReceived(topic, uuid);
+                } catch (Exception e) {
+                    log.error(
+                            "Failed to log kafka backlog for topic: {} and uuid: {}. Continuing with email processing.",
+                            topic, uuid, e);
+                    // Continue - don't let backlog failure prevent email processing
+                }
+
+                // Process email in try-catch to handle attachment failures gracefully
+                try {
+                    emailCommunicationService.handleEmailCommunication(trimmedMessage);
+                } catch (Exception e) {
+                    log.error("Failed to handle email communication for uuid: {}. Error: {}", uuid, e.getMessage(), e);
+                    // Log the error but acknowledge the message to avoid messages stuck in Kafka
+                }
+
                 acknowledgment.acknowledge();
             } else {
                 log.warn("Received message with unsupported commsType: {}", payload.get("commsType"));

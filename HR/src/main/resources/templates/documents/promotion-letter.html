@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body {
+            font-family: 'Calibri', 'Arial', sans-serif;
+            line-height: 1.8;
+            margin: 40px;
+            color: #333;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            border-bottom: 3px solid #2c3e50;
+            padding-bottom: 20px;
+        }
+
+        .organization-name {
+            font-size: 26px;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 5px;
+        }
+
+        .organization-details {
+            font-size: 12px;
+            color: #666;
+            margin-top: 10px;
+        }
+
+        .content {
+            margin-top: 30px;
+            line-height: 1.8;
+        }
+
+        .date-section {
+            text-align: right;
+            margin-bottom: 30px;
+            font-size: 13px;
+        }
+
+        .employee-details {
+            margin-bottom: 30px;
+            font-size: 13px;
+        }
+
+        .greeting {
+            margin-bottom: 25px;
+            font-size: 13px;
+        }
+
+        .promotion-highlight {
+            background-color: #ecf0f1;
+            border-left: 4px solid #27ae60;
+            padding: 15px;
+            margin: 20px 0;
+            font-weight: 500;
+        }
+
+        .compensation-section {
+            margin-top: 30px;
+            padding: 15px;
+            border: 1px solid #bdc3c7;
+            background-color: #f9f9f9;
+        }
+
+        .compensation-title {
+            font-weight: bold;
+            margin-bottom: 15px;
+            color: #2c3e50;
+            font-size: 14px;
+        }
+
+        .compensation-item {
+            margin: 8px 0;
+            font-size: 13px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .signature-section {
+            margin-top: 50px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .signature-box {
+            width: 40%;
+            border-top: 1px solid #333;
+            padding-top: 40px;
+            text-align: center;
+            font-size: 13px;
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            font-size: 12px;
+            color: #666;
+            border-top: 1px solid #bdc3c7;
+            padding-top: 15px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="header">
+        <div class="organization-name" th:text="${organizationName}">Organization Name</div>
+        <div class="organization-details">
+            <span th:text="${organizationAddress}">Organization Address</span><br />
+            Email: <span th:text="${hrContactEmail}">hr@organization.com</span> | Phone: <span
+                th:text="${hrContactPhone}">+91-XXXXXXXXXX</span>
+        </div>
+    </div>
+
+    <div class="date-section">
+        <strong>Date:</strong> <span th:text="${currentDate}">dd-MM-yyyy</span>
+    </div>
+
+    <div class="employee-details">
+        <strong>Employee ID:</strong> <span th:text="${employeeId}">123</span><br />
+        <strong>Department:</strong> <span th:text="${department}">Department</span>
+    </div>
+
+    <div class="greeting">
+        Dear Employee,
+    </div>
+
+    <div class="content">
+        <p>
+            We are delighted to inform you of your promotion, which is a testament to your
+            outstanding performance, dedication, and valuable contributions to our organization.
+        </p>
+
+        <div class="promotion-highlight">
+            <strong>Promotion Details:</strong><br />
+            Previous Position: <strong th:text="${previousPosition}">Senior Position</strong><br />
+            New Position: <strong th:text="${newPosition}">New Position</strong><br />
+            Effective Date: <strong th:text="${effectiveDate}">dd-MM-yyyy</strong>
+        </div>
+
+        <p>
+            This promotion recognizes your exceptional abilities, leadership qualities, and
+            commitment to excellence. We are confident that you will continue to demonstrate the
+            same level of professional excellence and dedication in your new role.
+        </p>
+
+        <p>
+            Your revised compensation details are outlined below:
+        </p>
+
+        <div class="compensation-section">
+            <div class="compensation-title">Revised Compensation Package</div>
+            <div class="compensation-item">
+                <span>Basic Salary:</span>
+                <span th:text="${basePay}">₹ 0.00</span>
+            </div>
+            <div class="compensation-item">
+                <span>House Rent Allowance (HRA):</span>
+                <span th:text="${hra}">₹ 0.00</span>
+            </div>
+            <div class="compensation-item">
+                <span>Provident Fund (PF):</span>
+                <span th:text="${pf}">₹ 0.00</span>
+            </div>
+            <div class="compensation-item">
+                <span>Net Monthly Pay:</span>
+                <span th:text="${netMonthlyPay}">₹ 0.00</span>
+            </div>
+            <div class="compensation-item">
+                <span>Annual Package:</span>
+                <span th:text="${annualPackage}">₹ 0.00</span>
+            </div>
+        </div>
+
+        <p>
+            Please refer to the attached revised compensation card for complete details on your
+            benefits, bonuses, deductions, and other compensation components.
+        </p>
+
+        <p>
+            We wish you great success in your new position and look forward to your continued
+            contributions to our organization's growth and success.
+        </p>
+
+        <p>
+            Should you have any questions or require clarification regarding this promotion or
+            your new compensation package, please do not hesitate to contact the Human Resources
+            Department.
+        </p>
+
+        <p>
+            Once again, congratulations on this well-deserved promotion!
+        </p>
+    </div>
+
+    <div class="signature-section">
+        <div class="signature-box">
+            <strong>Employee Acknowledgment</strong><br />
+            Signature: ________________<br />
+            Date: ________________
+        </div>
+        <div class="signature-box">
+            <strong>HR Department</strong><br />
+            Signature: ________________<br />
+            Date: ________________
+        </div>
+    </div>
+
+    <div class="footer">
+        <p>
+            This is an official document from <span th:text="${organizationName}">Organization Name</span>.<br />
+            Generated on: <span th:text="${currentDate}">dd-MM-yyyy</span>
+        </p>
+    </div>
+</body>
+
+</html>

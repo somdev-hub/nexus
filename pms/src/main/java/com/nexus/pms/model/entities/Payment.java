@@ -12,7 +12,7 @@ import lombok.ToString;
 @Entity
 @Table(name = "t_payments", schema = "pms")
 @Data
-@ToString(exclude = {"merchant", "customer", "paymentMethodEntity"})
+@ToString(exclude = { "merchant", "customer", "paymentMethodEntity" })
 public class Payment {
 
     @Id
@@ -27,11 +27,11 @@ public class Payment {
     @JoinColumn(name = "customer_id")
     private Customer customer;
 
-//    private Long merchantMemberId;
+    // private Long merchantMemberId;
 
     private String idempotencyKey;
     private String transactionReference;
-//    private String razorpayPaymentId;
+    // private String razorpayPaymentId;
 
     private Double amount;
     private String currency;
@@ -56,6 +56,9 @@ public class Payment {
     private String lastErrorCode;
     private String lastErrorMessage;
     private Boolean isIdempotentRetry;
+
+    @Column(columnDefinition = "TEXT")
+    private String sourceSystemIdsJson;
 
     private Timestamp createdAt;
     private Timestamp updatedAt;

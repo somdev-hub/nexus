@@ -205,7 +205,7 @@ public class HrServiceImpl implements HrService {
      * Does NOT block on async operations - fixes HikariCP connection leak
      */
     @Transactional
-    private HrEntity saveHrEntityTransaction(HrInitRequestDto hrInitRequestDto) {
+    protected HrEntity saveHrEntityTransaction(HrInitRequestDto hrInitRequestDto) {
         HrEntity hrEntity = new HrEntity();
         hrEntity.setEmployeeId(hrInitRequestDto.getEmployeeId());
         hrEntity.setOrg(hrInitRequestDto.getOrgId());
@@ -257,7 +257,7 @@ public class HrServiceImpl implements HrService {
      * This ensures proper handling of collections and prevents duplicate inserts
      */
     @Transactional
-    private void saveHrEntityWithRelationships(HrEntity hrEntity) {
+    protected void saveHrEntityWithRelationships(HrEntity hrEntity) {
         try {
             hrEntityRepo.save(hrEntity);
             log.info("✓✓✓ Successfully saved HrEntity with all relationships. HrId: {}", hrEntity.getHrId());
@@ -362,7 +362,7 @@ public class HrServiceImpl implements HrService {
                                 "application/pdf", compensationCardUrl)));
 
                 // CRITICAL: Publish to Kafka (now outside transaction)
-                communicationService.sendCommunicationOverKafka(emailCommunicationDto);
+                communicationService.sendCommunicationOverKafkaForCandidateSelection(emailCommunicationDto);
                 log.info("Welcome email published to Kafka successfully for employee ID: {}",
                         savedHrEntity.getEmployeeId());
             } catch (Exception emailException) {

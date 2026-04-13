@@ -12,8 +12,11 @@ import java.util.UUID;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 
+import com.nexus.pms.util.CommonUtils;
 import org.apache.commons.lang3.ObjectUtils;
 import org.json.JSONObject;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -34,10 +37,8 @@ import com.nexus.pms.payload.ErrorResponseDto;
 import com.nexus.pms.payload.PaymentRequest;
 import com.nexus.pms.payload.PaymentRequest.CustomerDetailsRequest;
 import com.nexus.pms.payload.PaymentRequest.MerchantDetailsRequest;
-import com.nexus.pms.payload.PaymentRequest.MerchantMemberRequest;
 import com.nexus.pms.payload.PaymentRequest.PaymentMethodRequest;
 import com.nexus.pms.payload.PaymentResponse;
-import com.nexus.pms.payload.EmailAttachmentDto;
 import com.nexus.pms.payload.EmailCommunicationDto;
 import com.nexus.pms.payload.KafkaMessageDto;
 import com.nexus.pms.repository.ClientRepository;
@@ -50,6 +51,7 @@ import com.nexus.pms.service.interfaces.IdempotencyService;
 import com.nexus.pms.service.interfaces.PaymentService;
 import com.nexus.pms.service.interfaces.BankTransferService;
 import com.nexus.pms.util.CommonConstants;
+import com.nexus.pms.util.RestService;
 import com.razorpay.RazorpayClient;
 
 import lombok.RequiredArgsConstructor;
@@ -77,6 +79,8 @@ public class PaymentServiceImpl implements PaymentService {
     private final BankTransferService bankTransferService;
     private final KafkaProducer kafkaProducer;
     private final ObjectMapper objectMapper;
+    private final RestService restService;
+    private final CommonUtils commonUtils;
 
     /**
      * Process a payment with idempotency guarantee.
@@ -162,6 +166,22 @@ public class PaymentServiceImpl implements PaymentService {
         payment = paymentRepository.save(payment);
         log.info("Saved payment with ID: {}, idempotency key: {}", payment.getPaymentId(), idempotencyKey);
 
+        // Store callback sourceSystemIds (payroll IDs) for later use in webhooks
+        if (paymentRequest.getCallback() != null
+                && !ObjectUtils.isEmpty(paymentRequest.getCallback().getSourceSystemIds())) {
+            try {
+                List<Long> sourceSystemIds = paymentRequest.getCallback().getSourceSystemIds();
+                String idsJson = objectMapper.writeValueAsString(sourceSystemIds);
+                payment.setSourceSystemIdsJson(idsJson);
+                payment = paymentRepository.save(payment);
+                log.info("Stored {} source system IDs for payment ID: {}", sourceSystemIds.size(),
+                        payment.getPaymentId());
+            } catch (Exception e) {
+                log.warn("Failed to store source system IDs for payment {}: {}", payment.getPaymentId(),
+                        e.getMessage());
+            }
+        }
+
         // Step 8: Simulate payment processing (in real scenario, call Razorpay/payment
         // gateway)
         PaymentResponse response = processPaymentGateway(payment, paymentRequest);
@@ -182,6 +202,12 @@ public class PaymentServiceImpl implements PaymentService {
 
             response = mapPaymentToResponse(payment);
             response.setSuccess(true);
+
+            // FOR SYNCHRONOUS PAYMENTS: Send callback immediately with success=true
+            if (paymentRequest.getCallback() != null
+                    && !ObjectUtils.isEmpty(paymentRequest.getCallback().getCallbackUrl())) {
+                invokeHrCallback(payment, paymentRequest.getCallback(), null);
+            }
         } else if ("PENDING".equalsIgnoreCase(response.getPaymentStatus())) {
             // Payment initiated but pending (asynchronous - waiting for webhook)
             // This includes bank transfers and Razorpay orders
@@ -198,6 +224,12 @@ public class PaymentServiceImpl implements PaymentService {
             // Return response as PENDING - status will update on webhook
             response = mapPaymentToResponse(payment);
             response.setSuccess(true); // Initiation was successful
+
+            // NOTE: For asynchronous payments, callback will be sent ONLY when webhook
+            // confirms payment completion
+            // This ensures success=true in callback, not false
+            log.info("Callback will be sent via Kafka when webhook confirms payment completion for payment ID: {}",
+                    payment.getPaymentId());
         } else {
             // Payment failed
             payment.setPaymentStatus(PaymentStatus.FAILED);
@@ -317,9 +349,9 @@ public class PaymentServiceImpl implements PaymentService {
                 throw new IllegalArgumentException("Organization bank name (source) is required for salary payment");
             }
 
-            List<String> paymentIds=new ArrayList<>();
+            List<String> paymentIds = new ArrayList<>();
 
-            for(MerchantMember employee:payment.getMerchant().getMerchantMembers()) {
+            for (MerchantMember employee : payment.getMerchant().getMerchantMembers()) {
 
                 // Set employee status to IN_PROGRESS
                 employee.setStatus(PaymentStatus.IN_PROGRESS);
@@ -373,26 +405,32 @@ public class PaymentServiceImpl implements PaymentService {
                 employee.setPaymentReferenceId(result.getTransactionId());
                 merchantMemberRepository.save(employee);
                 log.info("Set payment reference ID on member ID: {} with value: {}",
-                         employee.getMerchantMemberId(), result.getTransactionId());
+                        employee.getMerchantMemberId(), result.getTransactionId());
 
                 paymentIds.add(result.getTransactionId());
 
                 log.info("Salary bank transfer initiated: {}, From: {}, To: {}", result.getTransactionId(),
                         payment.getCustomer().getCustomerEmail(), employee.getName());
 
-                // Trigger email notification for initiated salary bank transfer
-                PaymentRequest paymentRequest = new PaymentRequest();
-                paymentRequest.setAmount(payment.getAmount());
-                paymentRequest.setCurrency(payment.getCurrency());
-                paymentRequest.setDescription(payment.getDescription());
-                paymentRequest.setPaymentType(payment.getPaymentType());
-                triggerSalaryPaymentEmailNotification(payment, paymentRequest);
+                // DEPRECATED: Email notification now handled by HR service on payment callback
+                // triggerSalaryPaymentEmailNotification(payment, paymentRequest);
+
+                // Email notification will be sent by HR service after callback processing
+                log.info("Payment callback will trigger payslip generation and email notification in HR service");
 
                 // Set employee status to COMPLETED after successful transfer initiation
                 employee.setStatus(PaymentStatus.COMPLETED);
                 merchantMemberRepository.save(employee);
                 log.info("Updated employee status to COMPLETED for member ID: {}", employee.getMerchantMemberId());
             }
+
+            // Trigger HR callback to initiate payslip generation
+            if (request.getCallback() != null && !ObjectUtils.isEmpty(request.getCallback().getSourceSystemIds())) {
+                // For bank transfers, invoke callback immediately to publish to Kafka
+                // paymentIds contains the bank transaction IDs from each transfer
+                invokeHrCallback(payment, request.getCallback(), paymentIds);
+            }
+
             // Return PENDING - bank will send webhook when transfer completes
             // success=true because transfer initiation was successful
             // Payment status will be updated to COMPLETED when bank webhook arrives
@@ -420,7 +458,7 @@ public class PaymentServiceImpl implements PaymentService {
             log.error("Salary bank transfer error for payment ID: {}", payment.getPaymentId(), e);
             // Set employee status to FAILED on exception
             try {
-                for(MerchantMember emp : payment.getMerchant().getMerchantMembers()) {
+                for (MerchantMember emp : payment.getMerchant().getMerchantMembers()) {
                     emp.setStatus(PaymentStatus.FAILED);
                     merchantMemberRepository.save(emp);
                     log.warn("Updated employee status to FAILED for member ID: {} due to exception",
@@ -492,7 +530,7 @@ public class PaymentServiceImpl implements PaymentService {
             payment.getMerchant().setPaymentReferenceId(result.getTransactionId());
             merchantRepository.save(payment.getMerchant());
             log.info("Set payment reference ID on merchant ID: {} with value: {}",
-                     payment.getMerchant().getMerchantId(), result.getTransactionId());
+                    payment.getMerchant().getMerchantId(), result.getTransactionId());
 
             log.info("Customer bank transfer initiated: {}", result.getTransactionId());
 
@@ -689,14 +727,51 @@ public class PaymentServiceImpl implements PaymentService {
                 log.info("Payment completed successfully. Payment ID: {}, Razorpay ID: {}",
                         paymentId, razorpayPaymentId);
 
+                // DEPRECATED: Email notification now handled by HR service on payment callback
                 // Trigger email notification for completed salary payments
                 if (payment.getPaymentType().name().equalsIgnoreCase("SALARY")) {
-                    PaymentRequest paymentRequest = new PaymentRequest();
-                    paymentRequest.setAmount(payment.getAmount());
-                    paymentRequest.setCurrency(payment.getCurrency());
-                    paymentRequest.setDescription(payment.getDescription());
-                    paymentRequest.setPaymentType(payment.getPaymentType());
-                    triggerSalaryPaymentEmailNotification(payment, paymentRequest);
+                    // Email notification will be sent by HR service after callback processing
+                    log.info("Payment callback will be sent after webhook confirmation");
+
+                    // Send payment completion callback to HR with stored payroll IDs
+                    try {
+                        if (payment.getSourceSystemIdsJson() != null) {
+                            @SuppressWarnings("unchecked")
+                            List<Long> payrollIds = objectMapper.readValue(payment.getSourceSystemIdsJson(),
+                                    List.class);
+
+                            // Build callback with stored payroll IDs
+                            List<Map<String, Object>> callbackDtos = new ArrayList<>();
+                            for (Long payrollId : payrollIds) {
+                                Map<String, Object> callbackDto = new HashMap<>();
+                                callbackDto.put("payrollId", payrollId);
+                                callbackDto.put("paymentReferenceId", payment.getTransactionReference());
+                                callbackDto.put("success", true);
+                                callbackDtos.add(callbackDto);
+                            }
+
+                            String callbackJson = objectMapper.writeValueAsString(callbackDtos);
+                            String messageKey = "payment-" + payment.getPaymentId();
+
+                            kafkaProducer.publishMessage(
+                                    CommonConstants.PAYMENT_CALLBACK_TOPIC,
+                                    messageKey,
+                                    callbackJson).thenAccept(result -> {
+                                        log.info(
+                                                "Payment completion callback published to Kafka for {} payroll(s) from payment ID: {}",
+                                                payrollIds.size(), payment.getPaymentId());
+                                    }).exceptionally(ex -> {
+                                        log.error("Error publishing payment completion callback to Kafka", ex);
+                                        return null;
+                                    });
+                        } else {
+                            log.warn("No source system IDs stored for payment {}, callback not sent",
+                                    payment.getPaymentId());
+                        }
+                    } catch (Exception e) {
+                        log.error("Error preparing payment completion callback for payment {}", payment.getPaymentId(),
+                                e);
+                    }
                 }
 
             } else if (event.contains("failed")) {
@@ -784,9 +859,9 @@ public class PaymentServiceImpl implements PaymentService {
         payment.setCurrency(request.getCurrency());
         payment.setDescription(request.getDescription());
         payment.setPaymentType(request.getPaymentType());
-        // Note: Don't set merchantMemberId here - it will be resolved from
-        // sourceMemberId during processing
-//        payment.setTransactionReference(request.getTransactionReference());
+        // Set the transaction reference from the request (sent by HR during payroll
+        // initiation)
+        payment.setTransactionReference(request.getTransactionReference());
 
         // Step 1: Create or load merchant by email (on-demand)
         if (request.getMerchant() != null) {
@@ -1261,7 +1336,8 @@ public class PaymentServiceImpl implements PaymentService {
                         "salary-payment-" + payment.getPaymentId() + "-" + employee.getMerchantMemberId(),
                         kafkaMessage);
 
-                log.info("Salary payment email notification published to Kafka for payment ID: {}, Employee: {}, Topic: {}",
+                log.info(
+                        "Salary payment email notification published to Kafka for payment ID: {}, Employee: {}, Topic: {}",
                         payment.getPaymentId(), employee.getName(), CommonConstants.SALARY_PAYMENT_MAIL_TOPIC);
             }
 
@@ -1288,5 +1364,83 @@ public class PaymentServiceImpl implements PaymentService {
                 .statusCode(400)
                 .timestamp(new java.sql.Timestamp(System.currentTimeMillis()))
                 .build();
+    }
+
+    /**
+     * Publish payment callback to Kafka topic to notify HR service.
+     * Replaces HTTP callback mechanism with asynchronous Kafka messaging.
+     * This is called after successful payment (bank transfer or Razorpay).
+     * 
+     * Flow:
+     * 1. Extract payroll IDs from callback configuration (sourceSystemIds)
+     * 2. Build callback DTO for each payroll
+     * 3. Serialize to JSON
+     * 4. Publish to Kafka payment-callback-topic
+     * 5. HR service consumes the message and processes payment completion
+     *
+     * @param payment    The completed payment entity
+     * @param callback   The callback configuration from PaymentRequest
+     * @param paymentIds List of bank transaction IDs from bank transfers
+     */
+    private void invokeHrCallback(Payment payment,
+            com.nexus.pms.payload.PaymentRequest.Callback callback,
+            List<String> paymentIds) {
+        try {
+            // For Razorpay webhooks, callback is null, so return
+            if (callback == null) {
+                log.debug("No callback configured for Razorpay webhook - callback will be handled separately");
+                return;
+            }
+
+            // Get callback payload IDs from request (stored in sourceSystemIds)
+            if (ObjectUtils.isEmpty(callback.getSourceSystemIds())) {
+                log.warn("No source system IDs in callback for payment ID: {}", payment.getPaymentId());
+                return;
+            }
+
+            log.info("Publishing payment callback to Kafka for payment ID: {}, Payrolls: {}",
+                    payment.getPaymentId(), callback.getSourceSystemIds().size());
+
+            // Build callback request body with list of PayrollCallbackDto
+            List<Map<String, Object>> callbackDtos = new ArrayList<>();
+
+            for (Long payrollId : callback.getSourceSystemIds()) {
+                Map<String, Object> callbackDto = new HashMap<>();
+                callbackDto.put("payrollId", payrollId);
+                callbackDto.put("paymentReferenceId", payment.getTransactionReference());
+                // Success flag:
+                // - SALARY payments: true (transfer initiated successfully)
+                // - Other payments: check if status is COMPLETED
+                boolean isSuccess = payment.getPaymentType().name().equalsIgnoreCase("SALARY") ||
+                        payment.getPaymentStatus() == PaymentStatus.COMPLETED;
+                callbackDto.put("success", isSuccess);
+                callbackDtos.add(callbackDto);
+            }
+
+            log.info("Callback payload: {} payrolls with status={}",
+                    callbackDtos.size(), payment.getPaymentStatus());
+
+            // Convert callback list to JSON
+            String callbackJson = objectMapper.writeValueAsString(callbackDtos);
+
+            // Publish to Kafka topic with payment ID as key for ordering
+            String messageKey = "payment-" + payment.getPaymentId();
+            kafkaProducer.publishMessage(
+                    CommonConstants.PAYMENT_CALLBACK_TOPIC,
+                    messageKey,
+                    callbackJson).thenAccept(result -> {
+                        log.info("Payment callback published successfully to Kafka for payment ID: {}, Topic: {}",
+                                payment.getPaymentId(), CommonConstants.PAYMENT_CALLBACK_TOPIC);
+                    }).exceptionally(ex -> {
+                        log.error("Error publishing payment callback to Kafka for payment ID: {}",
+                                payment.getPaymentId(), ex);
+                        // Don't throw - callback failure shouldn't block payment processing
+                        return null;
+                    });
+
+        } catch (Exception e) {
+            log.error("Error preparing payment callback for Kafka for payment ID: {}", payment.getPaymentId(), e);
+            // Don't throw - callback failure shouldn't block payment processing
+        }
     }
 }
