@@ -73,6 +73,11 @@ public class TimeManagementController {
         }
         return timeManagementService.getEmployeesAttendance(requestBody);
     }
+
+    @GetMapping("/get-this-month-attendance/{empId}")
+    public ResponseEntity<?> getThisMonthAttendance(@PathVariable Long empId) {
+        return timeManagementService.getThisMonthAttendance(empId);
+    }
     
 
 }

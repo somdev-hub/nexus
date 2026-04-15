@@ -2,6 +2,7 @@ package com.nexus.hr.service.implementations;
 
 import com.nexus.hr.exception.ResourceNotFoundException;
 import com.nexus.hr.exception.ServiceLevelException;
+import com.nexus.hr.model.entities.Compensation;
 import com.nexus.hr.model.entities.HrEntity;
 import com.nexus.hr.model.entities.HrRequest;
 import com.nexus.hr.model.entities.TimeManagement;
@@ -26,6 +27,7 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 @RequiredArgsConstructor
@@ -536,5 +538,85 @@ public class TimeManagementServiceImpl implements TimeManagementService {
                     e.getClass().getName(),
                     e.getMessage());
         }
+    }
+
+    @Override
+    public ResponseEntity<?> getThisMonthAttendance(Long empId) {
+        if (ObjectUtils.isEmpty(empId)) {
+            throw new ServiceLevelException(
+                    "TimeManagementService",
+                    "Employee ID is required to fetch this month's attendance",
+                    "getThisMonthAttendance",
+                    "InvalidInput",
+                    "The provided employee ID is null or empty");
+        }
+
+        try {
+            // Find HrEntity by employee ID
+            HrEntity hrEntity = hrEntityRepo.findByEmployeeId(empId)
+                    .orElseThrow(() -> new ResourceNotFoundException("HrEntity", "employeeId", empId));
+
+            LocalDate today = LocalDate.now();
+            List<TimeManagement> attendanceRecords = timeManagementRepo.findAllByMonthYearAndHrEntity(
+                    today.getMonthValue(),
+                    today.getYear(),
+                    hrEntity.getHrId());
+
+            Map<String, Object> response = new ConcurrentHashMap<>();
+            // no of days present, no of days absent, no of half days, total overtime hours
+            long daysPresent = attendanceRecords.stream().filter(tm -> Boolean.TRUE.equals(tm.getIsPresent())).count();
+            long daysAbsent = attendanceRecords.stream().filter(tm -> Boolean.FALSE.equals(tm.getIsPresent()) && Boolean.FALSE.equals(tm.getIsOnLeave())).count();
+            long halfDays = attendanceRecords.stream().filter(tm -> Boolean.TRUE.equals(tm.getIsHalfDay())).count();
+            double totalOvertimeHours = attendanceRecords.stream().mapToDouble(TimeManagement::getOvertimeHours).sum();
+
+            calculateDeductionsAndAdditionsToPayroll(
+                    response, daysPresent, daysAbsent, halfDays, totalOvertimeHours, hrEntity
+            );
+
+            return ResponseEntity.ok(response);
+        } catch (ResourceNotFoundException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new ServiceLevelException(
+                    "TimeManagementService",
+                    "Error while fetching this month's attendance",
+                    "getThisMonthAttendance",
+                    e.getClass().getName(),
+                    e.getMessage());
+        }
+
+    }
+
+    private void calculateDeductionsAndAdditionsToPayroll(Map<String, Object> response, long daysPresent, long daysAbsent, long halfDays, double totalOvertimeHours, HrEntity hrEntity) {
+        try {
+            Compensation compensation = hrEntity.getCompensation();
+            response.put("daysPresent", daysPresent);
+            response.put("daysAbsent", daysAbsent);
+            response.put("halfDays", halfDays);
+            response.put("totalOvertimeHours", totalOvertimeHours);
+
+            calculateDeductionsAndAdditionMonthly(response, daysPresent, daysAbsent, halfDays, totalOvertimeHours, compensation);
+
+        } catch (RuntimeException e) {
+            throw new ServiceLevelException(
+                    "TimeManagementService",
+                    "Error while calculating deductions and additions to payroll",
+                    "calculateDeductionsAndAdditionsToPayroll",
+                    e.getClass().getName(),
+                    e.getMessage());
+        }
+    }
+
+    private void calculateDeductionsAndAdditionMonthly(Map<String, Object> response, long daysPresent, long daysAbsent, long halfDays, double totalOvertimeHours, Compensation compensation) {
+        Double basePay = compensation.getBasePay();
+        // calculate on basePay
+        double dailyRate = basePay / 30; // Assuming 30 days in a month for simplicity
+        double halfDayDeduction = (dailyRate / 2) * halfDays;
+        double absenceDeduction = dailyRate * daysAbsent;
+        double overtimeAddition = (dailyRate / 8) * totalOvertimeHours; // Assuming 8 working hours in a day
+
+        double totalDeductions = halfDayDeduction + absenceDeduction;
+        response.put("totalDeductions", totalDeductions);
+        response.put("totalAdditions", overtimeAddition);
     }
 }

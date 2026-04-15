@@ -20,4 +20,6 @@ public interface TimeManagementService {
     ResponseEntity<?> getEmployeesAttendance(Map<String, Object> requestBody);
 
     ResponseEntity<?> toggleAttandenceByEmpId(Long empId);
+
+    ResponseEntity<?> getThisMonthAttendance(Long empId);
 }

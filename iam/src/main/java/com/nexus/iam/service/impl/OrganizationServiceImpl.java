@@ -5,11 +5,13 @@ import com.nexus.iam.dto.LoginResponse;
 import com.nexus.iam.dto.OrganizationDto;
 import com.nexus.iam.dto.OrganizationFetchDto;
 import com.nexus.iam.dto.response.*;
+import com.nexus.iam.entities.Department;
 import com.nexus.iam.entities.Organization;
 import com.nexus.iam.entities.Role;
 import com.nexus.iam.entities.User;
 import com.nexus.iam.exception.ResourceNotFoundException;
 import com.nexus.iam.exception.ServiceLevelException;
+import com.nexus.iam.repository.DepartmentRepository;
 import com.nexus.iam.repository.OrganizationRepository;
 import com.nexus.iam.repository.RoleRepository;
 import com.nexus.iam.repository.UserRepository;
@@ -21,6 +23,8 @@ import com.nexus.iam.utils.DataMapper;
 import com.nexus.iam.utils.RestService;
 import com.nexus.iam.utils.WebConstants;
 import lombok.RequiredArgsConstructor;
+import org.json.JSONArray;
+import org.jspecify.annotations.NonNull;
 import org.modelmapper.ModelMapper;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
@@ -56,6 +60,28 @@ public class OrganizationServiceImpl implements OrganizationService {
     private final AuthenticationService authenticationService;
     private final RestService restService;
     private final KeycloakAuthenticationService keycloakAuthenticationService;
+    private final DepartmentRepository departmentRepository;
+
+    private static @NonNull JSONArray getJsonArray(ResponseEntity<?> response) {
+        JSONArray responseData;
+        Object responseBody = response.getBody();
+
+        if (responseBody instanceof String json) {
+            responseData = new JSONArray(json);
+        } else if (responseBody instanceof java.util.Collection<?> collection) {
+            responseData = new JSONArray(collection);
+        } else if (responseBody != null && responseBody.getClass().isArray()) {
+            responseData = new JSONArray(responseBody);
+        } else {
+            throw new ServiceLevelException(
+                    "OrganizationServiceImpl",
+                    "Unsupported payroll response body type",
+                    "getPayrollEmployees",
+                    "INVALID_RESPONSE",
+                    responseBody == null ? "Response body is null" : responseBody.getClass().getName());
+        }
+        return responseData;
+    }
 
     @Override
     public OrganizationDto createOrganization(OrganizationDto organizationDto, Long userId) {
@@ -548,12 +574,24 @@ public class OrganizationServiceImpl implements OrganizationService {
 
         Pageable pageable = PageRequest.of(pageNo, pageOffset);
         try {
+            // Validate organization exists first
+            Organization organization = organizationRepository.findById(orgId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Organization", "id", orgId));
+
             // 1. Fetch users from database
             Page<User> users;
             if (ObjectUtils.isEmpty(deptId)) {
-                // Fetch attendance for all departments in the organization
-                users = userRepository.findAll(pageable);
+                // Fetch attendance for all employees in the organization
+                users = userRepository.findByOrganization(organization, pageable);
             } else {
+                // Validate department exists and belongs to this organization
+                Department department = departmentRepository.findById(deptId)
+                        .orElseThrow(() -> new ResourceNotFoundException("Department", "id", deptId));
+                
+                if (!department.getOrganization().getId().equals(orgId)) {
+                    throw new IllegalArgumentException("Department does not belong to this organization");
+                }
+                
                 // Fetch attendance for a specific department
                 users = userRepository.findByDepartmentId(deptId, pageable);
             }
@@ -706,6 +744,126 @@ public class OrganizationServiceImpl implements OrganizationService {
                     "getOrganizationDetailsById",
                     e.getClass().getSimpleName(),
                     e.getLocalizedMessage());
+        }
+    }
+
+    @Override
+    public ResponseEntity<?> getPayrollEmployees(Long orgId, Long deptId, String role, Integer pageNo, Integer pageOffset, String token) {
+        if (ObjectUtils.isEmpty(orgId)) {
+            throw new IllegalArgumentException("Organization ID cannot be null");
+        }
+        try {
+            // Validate organization exists
+            Organization organization = organizationRepository.findById(orgId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Organization", "id", orgId));
+
+            Page<User> employees;
+            Pageable pageable = PageRequest.of(pageNo, pageOffset);
+            // Fetch employees based on provided filters
+            if (!ObjectUtils.isEmpty(role) && !ObjectUtils.isEmpty(deptId)) {
+                // Fetch employees by organization, department and role
+                Department department = departmentRepository.findById(deptId)
+                        .orElseThrow(() -> new ResourceNotFoundException("Department", "id", deptId));
+                
+                if (!department.getOrganization().getId().equals(orgId)) {
+                    throw new IllegalArgumentException("Department does not belong to this organization");
+                }
+                
+                Role roleEntity = roleRepository.findByName(role)
+                        .orElseThrow(() -> new ResourceNotFoundException("Role", "name", role));
+                employees = userRepository.findByDepartmentAndRole(department, roleEntity, pageable);
+            }
+             else if (!ObjectUtils.isEmpty(deptId)) {
+                // Fetch employees by organization and department
+                Department department = departmentRepository.findById(deptId)
+                        .orElseThrow(() -> new ResourceNotFoundException("Department", "id", deptId));
+                
+                if (!department.getOrganization().getId().equals(orgId)) {
+                    throw new IllegalArgumentException("Department does not belong to this organization");
+                }
+                
+                employees = userRepository.findByDepartmentId(deptId, pageable);
+            } 
+             else {
+                // Fetch all employees in the organization
+                employees = userRepository.findByOrganizationIdWithPagination(orgId, pageable);
+            }
+
+            UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getPayrollEmployeesUrl());
+            Map<String, String> headers = commonUtils.buildJsonHeaders(token);
+            List<Long> employeeIds = employees.stream().map(User::getId).toList();
+
+            ResponseEntity<?> response = restService.iamRestCall(builder.toUriString(), employeeIds, headers, HttpMethod.POST, null);
+            if (!response.getStatusCode().is2xxSuccessful() || ObjectUtils.isEmpty(response.getBody())) {
+                throw new ServiceLevelException(
+                        "OrganizationServiceImpl",
+                        "Failed to fetch payroll employees from HR service",
+                        "getPayrollEmployees",
+                        "API_ERROR",
+                        "External API returned status: " + response.getStatusCode());
+            }
+            JSONArray responseData = getJsonArray(response);
+            List<Map<String, Object>> map = new ArrayList<>();
+            for (int i = 0; i < responseData.length(); i++) {
+                map.add(responseData.getJSONObject(i).toMap());
+            }
+            map.forEach(data -> {
+                Long employeeId = ((Number) data.get("employeeId")).longValue();
+                User user = userRepository.findById(employeeId).orElseThrow(() -> new ResourceNotFoundException("User", "id", employeeId));
+                data.put("name", user.getName());
+            });
+
+
+            // return paginated response of list
+            return ResponseEntity.ok(new PaginatedResponse<>(
+                    map,
+                    pageNo,
+                    pageOffset,
+                    employees.getTotalElements(),
+                    employees.getTotalPages(),
+                    employees.isFirst(),
+                    employees.isLast(),
+                    employees.hasNext(),
+                    employees.hasPrevious()));
+
+        } catch (ResourceNotFoundException e) {
+            throw e;
+        } catch (RuntimeException e) {
+            throw new ServiceLevelException(
+                    "OrganizationServiceImpl",
+                    "Failed to get payroll employees: " + e.getMessage(),
+                    "getPayrollEmployees",
+                    e.getClass().getSimpleName(),
+                    e.getLocalizedMessage());
+        }
+    }
+
+    @Override
+    public ResponseEntity<?> getEmployeeThisMonthAttendance(Long id, String token) {
+        if (ObjectUtils.isEmpty(id)) {
+            throw new IllegalArgumentException("User ID cannot be null");
+        }
+        try {
+            // Validate user exists
+            boolean exists = userRepository.existsById(id);
+            if (!exists) {
+                throw new ResourceNotFoundException("User", "id", id);
+            }
+
+            UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getEmployeeThisMonthAttendanceUrl());
+            Map<String, String> headers = commonUtils.buildJsonHeaders(token);
+            return restService.iamRestCall(builder.toUriString() + "/" + id, null, headers, HttpMethod.GET, id);
+
+        } catch (ResourceNotFoundException e) {
+            throw e;
+        } catch (RuntimeException e) {
+            throw new ServiceLevelException(
+                    "OrganizationServiceImpl",
+                    "Failed to get employee this month attendance: " + e.getMessage(),
+                    "getEmployeeThisMonthAttendance",
+                    e.getClass().getSimpleName(),
+                    e.getLocalizedMessage());
+
         }
     }
 

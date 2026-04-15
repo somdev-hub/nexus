@@ -40,4 +40,8 @@ public interface OrganizationService {
     ResponseEntity<?> toggleAttendance(Long userId, String authHeader);
 
     ResponseEntity<?> getOrganizationDetailsById(Long id);
+
+    ResponseEntity<?> getPayrollEmployees(Long orgId, Long deptId, String role, Integer pageNo, Integer pageOffset, String token);
+
+    ResponseEntity<?> getEmployeeThisMonthAttendance(Long id, String token);
 }

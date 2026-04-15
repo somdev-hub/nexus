@@ -10,6 +10,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
+import com.nexus.hr.model.entities.*;
+import com.nexus.hr.model.enums.PaymentStatus;
 import com.nexus.hr.utils.*;
 import org.jspecify.annotations.NonNull;
 import org.modelmapper.ModelMapper;
@@ -23,15 +25,6 @@ import org.springframework.util.ObjectUtils;
 
 import com.nexus.hr.exception.ResourceNotFoundException;
 import com.nexus.hr.exception.ServiceLevelException;
-import com.nexus.hr.model.entities.BankRecord;
-import com.nexus.hr.model.entities.Bonus;
-import com.nexus.hr.model.entities.Compensation;
-import com.nexus.hr.model.entities.Deduction;
-import com.nexus.hr.model.entities.HrDocument;
-import com.nexus.hr.model.entities.HrEntity;
-import com.nexus.hr.model.entities.HrRequest;
-import com.nexus.hr.model.entities.Position;
-import com.nexus.hr.model.entities.TimeManagement;
 import com.nexus.hr.model.enums.AttendanceStatus;
 import com.nexus.hr.model.enums.HrRequestStatus;
 import com.nexus.hr.payload.CompensationDto;
@@ -46,8 +39,10 @@ import com.nexus.hr.payload.PdfTemplateDto;
 import com.nexus.hr.payload.RestPayload;
 import com.nexus.hr.payload.response.EmployeeDetailsResponse;
 import com.nexus.hr.payload.response.EmployeeDirectoryResponse;
+import com.nexus.hr.payload.response.PayrollEmployeeResponse;
 import com.nexus.hr.repository.HrEntityRepo;
 import com.nexus.hr.repository.HrRequestRepo;
+import com.nexus.hr.repository.PayrollRepo;
 import com.nexus.hr.repository.PositionRepository;
 import com.nexus.hr.service.interfaces.CommunicationService;
 import com.nexus.hr.service.interfaces.HrService;
@@ -73,6 +68,7 @@ public class HrServiceImpl implements HrService {
     private final CommunicationTemplateBuilder communicationTemplateBuilder;
     private final LeaveAllocationUtils leaveAllocationUtils;
     private final PositionRepository positionRepository;
+    private final PayrollRepo payrollRepo;
 
     private static @NonNull AttendanceStatus getAttendanceStatus(TimeManagement attendance) {
         AttendanceStatus status;
@@ -977,6 +973,79 @@ public class HrServiceImpl implements HrService {
                     "getEmployeeDetails", e.getClass().getName(), e.getMessage());
         }
         return response;
+    }
+
+    @Override
+    public ResponseEntity<?> getPayrollEmployees(List<Long> empIds) {
+        if (ObjectUtils.isEmpty(empIds) || empIds.isEmpty()){
+            throw new ServiceLevelException("HR Service", "Employee IDs list cannot be null or empty",
+                    "getPayrollEmployees", "InvalidInput", "Employee IDs list is null or empty");
+        }
+        try{
+            log.info("=== Fetching payroll employees for {} employees ===", empIds.size());
+
+            // Get current month and year
+            java.time.YearMonth currentMonth = java.time.YearMonth.now();
+            String monthName = currentMonth.getMonth().name();
+            Integer year = currentMonth.getYear();
+
+            log.debug("Looking for payroll records for month: {}, year: {}", monthName, year);
+
+            // Build payroll employee response list
+            List<PayrollEmployeeResponse> payrollEmployees = empIds.stream().map(empId -> {
+                HrEntity hrEntity = hrEntityRepo.findByEmployeeId(empId)
+                        .orElseThrow(() -> new ResourceNotFoundException("HrEntity", "employeeId", empId));
+
+                // Get current position (title)
+                Position currentPosition = hrEntity.getPositions().getLast();
+                String positionTitle = currentPosition.getTitle();
+
+                // Get department
+                String department = hrEntity.getDepartment();
+
+                // Get compensation details
+                Compensation compensation = hrEntity.getCompensation();
+                Double monthlySalaryGross = compensation.getGrossPay();
+                Double monthlySalaryNet = compensation.getNetPay();
+
+                // Check for payroll record in current month
+                List<Payroll> payrollOptional = payrollRepo.findByCompensationIdAndMonthAndYear(
+                        compensation.getCompensationId(), monthName, year);
+
+                PayrollEmployeeResponse.PayrollEmployeeResponseBuilder responseBuilder = PayrollEmployeeResponse.builder()
+                        .employeeId(empId)
+                        .positionTitle(positionTitle)
+                        .department(department)
+                        .monthlySalaryGross(monthlySalaryGross)
+                        .monthlySalaryNet(monthlySalaryNet);
+
+                // If payroll exists for current month, include payment details
+                if (!payrollOptional.isEmpty()) {
+                    Payroll payroll = payrollOptional.getFirst();
+                    responseBuilder.paymentStatus(payroll.getPaymentStatus())
+                            .month(payroll.getMonth())
+                            .year(payroll.getYear())
+                            .paidOn(payroll.getPaidOn())
+                            .paymentReferenceId(payroll.getPaymentReferenceId());
+                    log.debug("Found payroll record for employee {} with status: {}", empId, payroll.getPaymentStatus());
+                } else {
+                    // No payroll record for current month
+                    responseBuilder.paymentStatus(PaymentStatus.NOT_PROCESSED)
+                            .month(monthName)
+                            .year(year);
+                    log.debug("No payroll record found for employee {} in current month", empId);
+                }
+
+                return responseBuilder.build();
+            }).toList();
+
+            return ResponseEntity.ok(payrollEmployees);
+        } catch (ResourceNotFoundException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new ServiceLevelException("HR Service", "Exception occurred while fetching payroll employees",
+                    "getPayrollEmployees", e.getClass().getName(), e.getMessage());
+        }
     }
 
     /**

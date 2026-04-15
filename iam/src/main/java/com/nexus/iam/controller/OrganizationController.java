@@ -163,4 +163,20 @@ public class OrganizationController {
 
     }
 
+    @GetMapping("/get-payroll-employees")
+    public ResponseEntity<?> getPayrollEmployees(@RequestParam Long orgId, @RequestParam(required = false) Long deptId, @RequestParam(required = false) String role, @RequestParam(required = false, defaultValue = "0") Integer pageNo, @RequestParam(required = false, defaultValue = "10") Integer pageOffset, @RequestHeader("Authorization") String token) {
+        if (ObjectUtils.isEmpty(token) || !jwtUtil.isValidToken(token)) {
+            return ResponseEntity.status(401).body("Unauthorized: Invalid or missing token");
+        }
+        return organizationService.getPayrollEmployees(orgId, deptId, role, pageNo, pageOffset, token);
+    }
+
+    @GetMapping("/get-employee-this-month-attendance/{id}")
+    public ResponseEntity<?> getEmployeeThisMonthAttendance(@PathVariable Long id, @RequestHeader("Authorization") String token) {
+        if (ObjectUtils.isEmpty(token) || !jwtUtil.isValidToken(token)) {
+            return ResponseEntity.status(401).body("Unauthorized: Invalid or missing token");
+        }
+        return organizationService.getEmployeeThisMonthAttendance(id, token);
+    }
+
 }

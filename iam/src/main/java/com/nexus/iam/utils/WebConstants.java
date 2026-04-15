@@ -94,6 +94,11 @@ public class WebConstants {
 
     @Value("${hr.initiate.payroll.url}")
     private String initiatePayrollUrl;
+    @Value("${payroll.employees.url}")
+    private String payrollEmployeesUrl;
+
+    @Value("${hr.employee.this.month.attendance.url}")
+    private String employeeThisMonthAttendanceUrl;
 
     // Keycloak URLs
     public String getKeycloakAdminUrl() {
@@ -136,4 +141,6 @@ public class WebConstants {
     public boolean isKeycloakOAuth2Enabled() {
         return keycloakOAuth2Enabled;
     }
+
+
 }

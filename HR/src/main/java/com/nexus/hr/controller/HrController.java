@@ -1,5 +1,6 @@
 package com.nexus.hr.controller;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nexus.hr.annotation.LogActivity;
 import com.nexus.hr.exception.UnauthorizedException;
 import com.nexus.hr.model.entities.Position;
@@ -16,7 +17,6 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.ObjectUtils;
 import org.springframework.web.bind.annotation.*;
-import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.util.List;
 import java.util.Map;
@@ -58,7 +58,7 @@ public class HrController {
     @LogActivity("Take Action on HR Requests")
     @PostMapping("/requests/action")
     public ResponseEntity<?> takeActionForHrRequests(@RequestParam Long requestId, @RequestParam HrRequestStatus action,
-            @RequestParam String resolutionRemarks, @RequestHeader("Authorization") String token) {
+                                                     @RequestParam String resolutionRemarks, @RequestHeader("Authorization") String token) {
         if (ObjectUtils.isEmpty(token) || !commonUtils.validateToken(token)) {
             throw new UnauthorizedException("Unauthorized", "Invalid or missing authorization token");
         }
@@ -80,7 +80,7 @@ public class HrController {
     @LogActivity("Promote Employee")
     @PostMapping("/employee/promote")
     public ResponseEntity<?> promoteEmployee(@RequestParam Long empId, @RequestBody Map<String, Object> payload,
-            @RequestHeader("Authorization") String token) {
+                                             @RequestHeader("Authorization") String token) {
         if (ObjectUtils.isEmpty(token) || !commonUtils.validateToken(token)) {
             throw new UnauthorizedException("Unauthorized", "Invalid or missing authorization token");
         }
@@ -97,7 +97,7 @@ public class HrController {
     @LogActivity("Reward Appraisal")
     @PostMapping("/employee/reward-appraisal")
     public ResponseEntity<?> rewardAppraisal(@RequestParam Long hrId, @RequestBody CompensationDto compensation,
-            @RequestHeader("Authorization") String token) {
+                                             @RequestHeader("Authorization") String token) {
         if (ObjectUtils.isEmpty(token) || !commonUtils.validateToken(token)) {
             throw new UnauthorizedException("Unauthorized", "Invalid or missing authorization token");
         }
@@ -106,7 +106,7 @@ public class HrController {
 
     @GetMapping("/employee/onNoticePeriod")
     public ResponseEntity<?> getEmployeesOnNoticePeriod(@RequestParam Long orgId,
-            @RequestHeader("Authorization") String token) {
+                                                        @RequestHeader("Authorization") String token) {
         if (ObjectUtils.isEmpty(token) || !commonUtils.validateToken(token)) {
             throw new UnauthorizedException("Unauthorized", "Invalid or missing authorization token");
         }
@@ -115,7 +115,7 @@ public class HrController {
 
     @PostMapping(value = "/employee/directory", consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<?> getEmployeesDirectory(@RequestBody List<Long> empIds,
-            @RequestHeader("Authorization") String token) {
+                                                   @RequestHeader("Authorization") String token) {
         if (ObjectUtils.isEmpty(token) || !commonUtils.validateToken(token)) {
             throw new UnauthorizedException("Unauthorized", "Invalid or missing authorization token");
         }
@@ -124,10 +124,18 @@ public class HrController {
 
     @GetMapping("/employee/details")
     public ResponseEntity<?> getEmployeeDetails(@RequestParam Long empId,
-            @RequestHeader("Authorization") String token) {
+                                                @RequestHeader("Authorization") String token) {
         if (ObjectUtils.isEmpty(token) || !commonUtils.validateToken(token)) {
             throw new UnauthorizedException("Unauthorized", "Invalid or missing authorization token");
         }
         return hrService.getEmployeeDetails(empId);
+    }
+
+    @PostMapping("/get-payroll-employees")
+    public ResponseEntity<?> getPayrollEmployees(@RequestBody List<Long> empIds, @RequestHeader("Authorization") String token) {
+        if (ObjectUtils.isEmpty(token) || !commonUtils.validateToken(token)) {
+            throw new UnauthorizedException("Unauthorized", "Invalid or missing authorization token");
+        }
+        return hrService.getPayrollEmployees(empIds);
     }
 }

@@ -40,4 +40,6 @@ public interface HrService {
     ResponseEntity<?> getEmployeesDirectory(List<Long> empIds);
 
     ResponseEntity<?> getEmployeeDetails(Long empId);
+
+    ResponseEntity<?> getPayrollEmployees(List<Long> empIds);
 }
