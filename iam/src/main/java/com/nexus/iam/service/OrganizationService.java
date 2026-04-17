@@ -44,4 +44,8 @@ public interface OrganizationService {
     ResponseEntity<?> getPayrollEmployees(Long orgId, Long deptId, String role, Integer pageNo, Integer pageOffset, String token);
 
     ResponseEntity<?> getEmployeeThisMonthAttendance(Long id, String token);
+
+    ResponseEntity<?> getProcessedPayrolls(Long orgId, Integer month, Integer year, Integer pageNo, Integer pageOffset, String token);
+
+    ResponseEntity<?> getPayrollGraphs(Long orgId, String month, Integer year);
 }

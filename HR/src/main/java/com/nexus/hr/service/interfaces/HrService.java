@@ -42,4 +42,6 @@ public interface HrService {
     ResponseEntity<?> getEmployeeDetails(Long empId);
 
     ResponseEntity<?> getPayrollEmployees(List<Long> empIds);
+
+    ResponseEntity<?> getPayrollProcessed(Long orgId, Integer month, Integer year, Integer pageNo, Integer pageSize);
 }

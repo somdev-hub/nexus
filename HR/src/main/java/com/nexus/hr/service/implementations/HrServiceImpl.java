@@ -1,42 +1,12 @@
 package com.nexus.hr.service.implementations;
 
-import java.sql.Date;
-import java.sql.Timestamp;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.CompletableFuture;
-
-import com.nexus.hr.model.entities.*;
-import com.nexus.hr.model.enums.PaymentStatus;
-import com.nexus.hr.utils.*;
-import org.jspecify.annotations.NonNull;
-import org.modelmapper.ModelMapper;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.stereotype.Service;
-import org.springframework.util.ObjectUtils;
-
 import com.nexus.hr.exception.ResourceNotFoundException;
 import com.nexus.hr.exception.ServiceLevelException;
+import com.nexus.hr.model.entities.*;
 import com.nexus.hr.model.enums.AttendanceStatus;
 import com.nexus.hr.model.enums.HrRequestStatus;
-import com.nexus.hr.payload.CompensationDto;
-import com.nexus.hr.payload.EmailAttachmentDto;
-import com.nexus.hr.payload.EmailCommunicationDto;
-import com.nexus.hr.payload.ErrorResponseDto;
-import com.nexus.hr.payload.GeneratedPdfDto;
-import com.nexus.hr.payload.HrInitRequestDto;
-import com.nexus.hr.payload.HrInitResponse;
-import com.nexus.hr.payload.HrRequestDto;
-import com.nexus.hr.payload.PdfTemplateDto;
-import com.nexus.hr.payload.RestPayload;
+import com.nexus.hr.model.enums.PaymentStatus;
+import com.nexus.hr.payload.*;
 import com.nexus.hr.payload.response.EmployeeDetailsResponse;
 import com.nexus.hr.payload.response.EmployeeDirectoryResponse;
 import com.nexus.hr.payload.response.PayrollEmployeeResponse;
@@ -46,11 +16,33 @@ import com.nexus.hr.repository.PayrollRepo;
 import com.nexus.hr.repository.PositionRepository;
 import com.nexus.hr.service.interfaces.CommunicationService;
 import com.nexus.hr.service.interfaces.HrService;
+import com.nexus.hr.utils.*;
 import com.nexus.hr.views.CommunicationTemplateBuilder;
-
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.NonNull;
+import org.modelmapper.ModelMapper;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Service;
+import org.springframework.util.ObjectUtils;
+
+import java.sql.Date;
+import java.sql.Timestamp;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 @RequiredArgsConstructor
@@ -106,9 +98,9 @@ public class HrServiceImpl implements HrService {
             // Return successful response with document URLs
             response = ResponseEntity.ok(HrInitResponse.builder()
                     .hrId(savedHrEntity.getHrId())
-                    .joiningLetterUrl(documentUrls.getJoiningLetterUrl())
-                    .letterOfIntentUrl(documentUrls.getLetterOfIntentUrl())
-                    .compensationCardUrl(documentUrls.getCompensationCardUrl())
+                    .joiningLetterUrl(documentUrls.joiningLetterUrl())
+                    .letterOfIntentUrl(documentUrls.letterOfIntentUrl())
+                    .compensationCardUrl(documentUrls.compensationCardUrl())
                     .build());
 
         } catch (Exception e) {
@@ -167,33 +159,6 @@ public class HrServiceImpl implements HrService {
         String compensationCardUrl = compensationCardResult.isSuccess() ? compensationCardResult.getDocumentUrl() : "";
 
         return new DocumentUrls(joiningLetterUrl, letterOfIntentUrl, compensationCardUrl);
-    }
-
-    /**
-     * Helper class to hold document URLs
-     */
-    private static class DocumentUrls {
-        private final String joiningLetterUrl;
-        private final String letterOfIntentUrl;
-        private final String compensationCardUrl;
-
-        DocumentUrls(String joiningLetterUrl, String letterOfIntentUrl, String compensationCardUrl) {
-            this.joiningLetterUrl = joiningLetterUrl;
-            this.letterOfIntentUrl = letterOfIntentUrl;
-            this.compensationCardUrl = compensationCardUrl;
-        }
-
-        String getJoiningLetterUrl() {
-            return joiningLetterUrl;
-        }
-
-        String getLetterOfIntentUrl() {
-            return letterOfIntentUrl;
-        }
-
-        String getCompensationCardUrl() {
-            return compensationCardUrl;
-        }
     }
 
     /**
@@ -274,11 +239,11 @@ public class HrServiceImpl implements HrService {
      * Prevents connection leaks and allows Kafka publishing to complete
      */
     private void processAsyncHrOperations(HrInitRequestDto hrInitRequestDto, HrEntity savedHrEntity,
-            DocumentUrls documentUrls) {
+                                          DocumentUrls documentUrls) {
         // Get extracted URLs
-        String joiningLetterUrl = documentUrls.getJoiningLetterUrl();
-        String letterOfIntentUrl = documentUrls.getLetterOfIntentUrl();
-        String compensationCardUrl = documentUrls.getCompensationCardUrl();
+        String joiningLetterUrl = documentUrls.joiningLetterUrl();
+        String letterOfIntentUrl = documentUrls.letterOfIntentUrl();
+        String compensationCardUrl = documentUrls.compensationCardUrl();
 
         try {
             // Build compensation with bonuses, deductions, and bank records
@@ -725,11 +690,11 @@ public class HrServiceImpl implements HrService {
             log.info("Building PDF template data for revised compensation card");
             Position currentPosition = hrEntity.getPositions().getLast();
             PdfTemplateDto pdfTemplateData = buildPdfTemplateData(HrInitRequestDto.builder()
-                    .employeeId(hrEntity.getEmployeeId())
-                    .department(hrEntity.getDepartment())
-                    .title(currentPosition.getTitle())
-                    .remarks("Reward Appraisal - Compensation Revision")
-                    .compensation(modelMapper.map(compensation, CompensationDto.class)).build(),
+                            .employeeId(hrEntity.getEmployeeId())
+                            .department(hrEntity.getDepartment())
+                            .title(currentPosition.getTitle())
+                            .remarks("Reward Appraisal - Compensation Revision")
+                            .compensation(modelMapper.map(compensation, CompensationDto.class)).build(),
                     new Timestamp(System.currentTimeMillis()));
 
             // Generate revised compensation card asynchronously
@@ -925,14 +890,14 @@ public class HrServiceImpl implements HrService {
             employeeDetailsResponse
                     .setJoiningDate(LocalDateTime.of(hrEntity.getDateOfJoining().toLocalDate(), LocalTime.MIDNIGHT));
             employeeDetailsResponse.setAnnualSalary(hrEntity.getCompensation().getNetPay()); // later to be changed to
-                                                                                             // gross pay
+            // gross pay
             List<EmployeeDetailsResponse.PositionsHeld> positionsHeld = hrEntity.getPositions().stream()
                     .map(position -> {
                         Double duration = position.getLastEffectiveDate() != null
                                 ? (position.getLastEffectiveDate().getTime() - position.getEffectiveFrom().getTime())
-                                        / (1000.0 * 60 * 60 * 24 * 30)
+                                / (1000.0 * 60 * 60 * 24 * 30)
                                 : (System.currentTimeMillis() - position.getEffectiveFrom().getTime())
-                                        / (1000.0 * 60 * 60 * 24 * 30);
+                                / (1000.0 * 60 * 60 * 24 * 30);
                         return new EmployeeDetailsResponse.PositionsHeld(position.getTitle(), position.getDepartment(),
                                 position.getEffectiveFrom(), position.getLastEffectiveDate(), duration);
                     }).toList();
@@ -954,9 +919,9 @@ public class HrServiceImpl implements HrService {
                         AttendanceStatus status = getAttendanceStatus(attendance);
                         Double totalBreakHours = attendance.getBreakEndTime() != null
                                 && attendance.getBreakStartTime() != null
-                                        ? (attendance.getBreakEndTime().getTime()
-                                                - attendance.getBreakStartTime().getTime()) / (1000.0 * 60 * 60)
-                                        : 0.0;
+                                ? (attendance.getBreakEndTime().getTime()
+                                - attendance.getBreakStartTime().getTime()) / (1000.0 * 60 * 60)
+                                : 0.0;
                         return new EmployeeDetailsResponse.AttendanceRecord(datetime, status,
                                 attendance.getCheckInTime(), attendance.getCheckOutTime(),
                                 attendance.getTotalHoursWorked(), totalBreakHours, attendance.getOvertimeHours());
@@ -977,11 +942,11 @@ public class HrServiceImpl implements HrService {
 
     @Override
     public ResponseEntity<?> getPayrollEmployees(List<Long> empIds) {
-        if (ObjectUtils.isEmpty(empIds) || empIds.isEmpty()){
+        if (ObjectUtils.isEmpty(empIds) || empIds.isEmpty()) {
             throw new ServiceLevelException("HR Service", "Employee IDs list cannot be null or empty",
                     "getPayrollEmployees", "InvalidInput", "Employee IDs list is null or empty");
         }
-        try{
+        try {
             log.info("=== Fetching payroll employees for {} employees ===", empIds.size());
 
             // Get current month and year
@@ -1048,6 +1013,100 @@ public class HrServiceImpl implements HrService {
         }
     }
 
+    @Override
+    public ResponseEntity<?> getPayrollProcessed(Long orgId, Integer month, Integer year, Integer pageNo, Integer pageSize) {
+        if (ObjectUtils.isEmpty(orgId) || ObjectUtils.isEmpty(month) || ObjectUtils.isEmpty(year) ||
+                ObjectUtils.isEmpty(pageNo) || ObjectUtils.isEmpty(pageSize)) {
+            throw new ServiceLevelException("HR Service",
+                    "Organization ID, month, year, page number, and page size cannot be null or empty",
+                    "getPayrollProcessed", "InvalidInput", "One or more inputs are null or empty");
+        }
+
+        try {
+            log.info("=== Fetching processed payroll records for orgId: {}, month: {}, year: {}, page: {}, size: {} ===",
+                    orgId, month, year, pageNo, pageSize);
+
+            // Convert month number to month name
+            String monthName = java.time.Month.of(month).name();
+
+            // Create pageable with pagination and sort by paidOn descending
+            Pageable pageable = PageRequest.of(pageNo, pageSize,
+                    Sort.by(
+                            Sort.Order.desc("paidOn")));
+
+            // Fetch paginated processed payroll records
+            Page<Payroll> payrollPage = payrollRepo.findPayrollsByOrgIdAndMonthAndYearAndProcessedStatus(
+                    orgId, monthName, year, pageable);
+
+            log.info("Successfully retrieved processed payroll records - Total elements: {}, Total pages: {}, Current page: {}",
+                    payrollPage.getTotalElements(), payrollPage.getTotalPages(), payrollPage.getNumber());
+
+            List<Map<String,Object>> payrollList = payrollPage.stream().map(payroll -> {
+                Compensation compensation = payroll.getCompensation();
+                Map<String, Object> compensationMap = new ConcurrentHashMap<>();
+                compensationMap.put("basePay", calculateMonthly(compensation.getBasePay()));
+                compensationMap.put("hra", calculateMonthly(compensation.getHra()));
+                compensationMap.put("grossPay", calculateMonthly(compensation.getGrossPay()));
+                compensationMap.put("totalBonuses", calculateMonthlyTotalBonuses(compensation.getBonuses()));
+                compensationMap.put("totalDeductions", calculateMonthlyTotalDeductions(compensation.getDeductions()));
+                compensationMap.put("totalOvertimeFee", calculateMonthlyOvertimeFee(compensation));
+                compensationMap.put("empId", compensation.getHrEntity().getEmployeeId());
+                compensationMap.put("netPay",  calculateMonthlyNetPay(compensation));
+                return compensationMap;
+            }).toList();
+
+            return ResponseEntity.ok(payrollList);
+        } catch (Exception e) {
+            log.error("Error fetching processed payroll records for orgId: {}", orgId, e);
+            throw new ServiceLevelException("HR Service",
+                    "Exception occurred while fetching processed payroll records", "getPayrollProcessed",
+                    e.getClass().getName(), e.getMessage());
+        }
+    }
+
+    private Double calculateMonthlyNetPay(Compensation compensation) {
+        Double netPay = compensation.getNetPay();
+        return netPay != null ? (netPay / 12) + calculateMonthlyOvertimeFee(compensation) : null;
+    }
+
+    private Double calculateMonthlyOvertimeFee(Compensation compensation) {
+        return compensation.getHrEntity().getTimeManagements().stream()
+                .filter(attendance -> attendance.getOvertimeHours() != null && attendance.getOvertimeHours() > 0)
+                .mapToDouble(attendance -> {
+                    Double overtimeRate = compensation.getGrossPay() / (30 * 8); // Assuming 30 days and 8 hours/day
+                    return attendance.getOvertimeHours() * overtimeRate;
+                }).sum();
+    }
+
+    private Double calculateMonthlyTotalDeductions(List<Deduction> deductions) {
+        if (deductions == null || deductions.isEmpty()) {
+            return null;
+        }
+        Double totalDeductions = deductions.stream()
+                .filter(deduction -> deduction.getAmount() != null)
+                .mapToDouble(Deduction::getAmount)
+                .sum();
+        return totalDeductions / 12;
+    }
+
+    private Double calculateMonthlyTotalBonuses(List<Bonus> bonuses) {
+        if (bonuses == null || bonuses.isEmpty()) {
+            return null;
+        }
+        Double totalBonuses = bonuses.stream()
+                .filter(bonus -> bonus.getAmount() != null)
+                .mapToDouble(Bonus::getAmount)
+                .sum();
+        return totalBonuses / 12;
+    }
+
+    private Double calculateMonthly(Double basePay) {
+        if (basePay == null) {
+            return null;
+        }
+        return basePay / 12;
+    }
+
     /**
      * Build PDF template data from HR initialization request
      */
@@ -1082,5 +1141,11 @@ public class HrServiceImpl implements HrService {
         }
 
         return builder.build();
+    }
+
+    /**
+     * Helper class to hold document URLs
+     */
+    private record DocumentUrls(String joiningLetterUrl, String letterOfIntentUrl, String compensationCardUrl) {
     }
 }

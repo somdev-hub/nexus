@@ -10,6 +10,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @Repository
@@ -60,4 +62,17 @@ public interface UserRepository extends JpaRepository<User, Long> {
                                                 WHERE (d = :department OR h=:department) AND r = :role
             """)
     Page<User> findByDepartmentAndRole(Department department, Role role, Pageable pageable);
+
+    /**
+     * Fetch all roles with list of user IDs associated with each role
+     * Returns: Map where key is role name and value is list of user IDs
+     * Only returns roles that have at least one user assigned
+     */
+    @Query(value = "SELECT r.name as roleName, u.id as userId " +
+            "FROM iam.t_roles r " +
+            "INNER JOIN iam.t_user_roles ur ON r.id = ur.role_id " +
+            "INNER JOIN iam.t_users u ON ur.user_id = u.id " +
+            "ORDER BY r.name, u.id",
+            nativeQuery = true)
+    List<Map<String, Object>> getRolesWithUserIds();
 }

@@ -7,6 +7,7 @@ import com.nexus.hr.exception.ServiceLevelException;
 import com.nexus.hr.model.entities.*;
 import com.nexus.hr.model.enums.PaymentStatus;
 import com.nexus.hr.payload.*;
+import com.nexus.hr.payload.response.PayrollGraphDto;
 import com.nexus.hr.repository.HrEntityRepo;
 import com.nexus.hr.repository.OrgAccountInfoRepo;
 import com.nexus.hr.repository.PayrollRepo;
@@ -18,6 +19,7 @@ import com.nexus.hr.utils.RestServices;
 import com.nexus.hr.utils.WebConstants;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.json.JSONObject;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -183,6 +185,203 @@ public class PayrollServiceImpl implements PayrollService {
                     e.getMessage());
         }
         return new ResponseEntity<>(HttpStatus.OK);
+    }
+
+    @Override
+    public ResponseEntity<?> getPayrollGraphs(PayrollGraphRequestDto requestBody) {
+        if (ObjectUtils.isEmpty(requestBody)){
+            return new ResponseEntity<>("Request body is empty", HttpStatus.BAD_REQUEST);
+        }
+
+        if (ObjectUtils.isEmpty(requestBody.getRoleEmpIdMap()) || requestBody.getRoleEmpIdMap().isEmpty()){
+            return new ResponseEntity<>("roleEmpIdMap is empty", HttpStatus.BAD_REQUEST);
+        }
+
+        if (ObjectUtils.isEmpty(requestBody.getMonth())){
+            return new ResponseEntity<>("Month is required", HttpStatus.BAD_REQUEST);
+        }
+
+        if (ObjectUtils.isEmpty(requestBody.getOrgId())){
+            return new ResponseEntity<>("Organization ID is required", HttpStatus.BAD_REQUEST);
+        }
+
+        try{
+            log.info("Starting payroll graphs generation for {} roles with month: {}",
+                    requestBody.getRoleEmpIdMap().size(), requestBody.getMonth());
+
+            PayrollGraphDto payrollGraphDto = new PayrollGraphDto();
+            List<PayrollGraphDto.SalaryVsRoleAggregationDto> salaryVsRoleList = new ArrayList<>();
+
+            String monthName = requestBody.getMonth();
+            int year = requestBody.getYear() != null ? requestBody.getYear() : LocalDate.now().getYear();
+
+            // Iterate through each role and aggregate payroll data
+            for (PayrollGraphRequestDto.rolesWithEmpIds roleEmpIdMapping : requestBody.getRoleEmpIdMap()) {
+                String role = roleEmpIdMapping.getRole();
+                List<Long> empIds = roleEmpIdMapping.getEmpIds();
+
+                if (ObjectUtils.isEmpty(empIds) || empIds.isEmpty()) {
+                    log.warn("No employee IDs found for role: {}", role);
+                    continue;
+                }
+
+                log.debug("Processing role: {} with {} employees", role, empIds.size());
+
+                // Call repository to get aggregated payroll data for this role
+                Map<String, Object> rawAggregation =
+                    payrollRepo.aggregatePayrollByEmpIdsAndMonthAndOrgId(empIds, monthName, year, requestBody.getOrgId());
+
+                if (rawAggregation != null) {
+                    // Convert map to DTO
+                    Double baseSalary = rawAggregation.get("baseSalary") != null
+                        ? ((Number) rawAggregation.get("baseSalary")).doubleValue()
+                        : 0.0;
+                    Double bonus = rawAggregation.get("bonus") != null
+                        ? ((Number) rawAggregation.get("bonus")).doubleValue()
+                        : 0.0;
+                    Long employeeCount = rawAggregation.get("employeeCount") != null
+                        ? ((Number) rawAggregation.get("employeeCount")).longValue()
+                        : 0L;
+
+                    PayrollGraphDto.SalaryVsRoleAggregationDto aggregation =
+                        new PayrollGraphDto.SalaryVsRoleAggregationDto(role, baseSalary, bonus, employeeCount);
+
+                    log.info("Role: {}, BaseSalary: {}, Bonus: {}, EmployeeCount: {}",
+                            role, baseSalary, bonus, employeeCount);
+
+                    salaryVsRoleList.add(aggregation);
+                } else {
+                    log.warn("No payroll data found for role: {} in month: {} year: {}", role, monthName, year);
+                    // Add empty aggregation for consistency
+                    PayrollGraphDto.SalaryVsRoleAggregationDto emptyAggregation =
+                        new PayrollGraphDto.SalaryVsRoleAggregationDto(role, 0.0, 0.0, 0L);
+                    salaryVsRoleList.add(emptyAggregation);
+                }
+            }
+
+            payrollGraphDto.setSalaryVsRole(salaryVsRoleList);
+
+            // Fetch last 6 months salary vs overtime data
+            log.info("Fetching last 6 months salary vs overtime data for orgId: {}", requestBody.getOrgId());
+            int currentYear = LocalDate.now().getYear();
+            String currentMonth = LocalDate.now().getMonth().name();
+
+            List<Map<String, Object>> rawOvertimeResults = payrollRepo.getLast6MonthsSalaryVsOvertimeRaw(
+                    requestBody.getOrgId(),
+                    currentYear,
+                    currentMonth
+            );
+
+            if (!ObjectUtils.isEmpty(rawOvertimeResults)) {
+                // Convert raw results to DTOs
+                List<PayrollGraphDto.SalaryVsOvertimeDto> overtimeResults = rawOvertimeResults.stream()
+                        .map(row -> new PayrollGraphDto.SalaryVsOvertimeDto(
+                                (String) row.get("month"),
+                                ((Number) row.get("year")).intValue(),
+                                ((Number) row.get("totalSalary")).doubleValue(),
+                                ((Number) row.get("overtimePay")).doubleValue(),
+                                ((Number) row.get("employeeCount")).longValue()
+                        ))
+                        .toList();
+
+                payrollGraphDto.setSalaryVsOvertime(overtimeResults);
+                log.info("Added {} months of salary vs overtime data", overtimeResults.size());
+            }
+
+            // Fetch department-wise payroll data
+            log.info("Fetching department-wise payroll data for orgId: {}, month: {}, year: {}",
+                    requestBody.getOrgId(), monthName, year);
+
+            List<Map<String, Object>> rawDeptResults = payrollRepo.getDeptWisePayrollRaw(
+                    requestBody.getOrgId(),
+                    monthName,
+                    year
+            );
+
+            if (!ObjectUtils.isEmpty(rawDeptResults)) {
+                // Convert raw results to DTOs
+                List<PayrollGraphDto.SalaryVsDeptDto> deptResults = rawDeptResults.stream()
+                        .map(row -> new PayrollGraphDto.SalaryVsDeptDto(
+                                (String) row.get("dept"),
+                                ((Number) row.get("baseSalary")).doubleValue(),
+                                ((Number) row.get("bonus")).doubleValue()
+                        ))
+                        .toList();
+
+                payrollGraphDto.setSalaryVsDept(deptResults);
+                log.info("Added {} departments payroll data", deptResults.size());
+            }
+
+            // Fetch status-wise payroll count
+            log.info("Fetching status-wise payroll count for orgId: {}, month: {}, year: {}",
+                    requestBody.getOrgId(), monthName, year);
+
+            List<Map<String, Object>> rawStatusResults = payrollRepo.getStatusWisePayrollCountRaw(
+                    requestBody.getOrgId(),
+                    monthName,
+                    year
+            );
+
+            if (!ObjectUtils.isEmpty(rawStatusResults)) {
+                // Convert raw results to DTOs
+                List<PayrollGraphDto.SalaryVsStatusDto> statusResults = rawStatusResults.stream()
+                        .map(row -> new PayrollGraphDto.SalaryVsStatusDto(
+                                (String) row.get("status"),
+                                ((Number) row.get("noOfPayrolls")).longValue()
+                        ))
+                        .toList();
+
+                payrollGraphDto.setSalaryVsStatus(statusResults);
+                log.info("Added {} status-wise payroll data", statusResults.size());
+            }
+
+            // Fetch salary component breakdown
+            log.info("Fetching salary component breakdown for orgId: {}, month: {}, year: {}",
+                    requestBody.getOrgId(), monthName, year);
+
+            Map<String, Object> rawComponentResult = payrollRepo.getSalaryComponentBreakdownRaw(
+                    requestBody.getOrgId(),
+                    monthName,
+                    year
+            );
+
+            if (!ObjectUtils.isEmpty(rawComponentResult)) {
+                // Convert raw result to DTO
+                PayrollGraphDto.SalaryVsComponentDto componentResult = new PayrollGraphDto.SalaryVsComponentDto(
+                        ((Number) rawComponentResult.get("baseSalary")).doubleValue(),
+                        ((Number) rawComponentResult.get("bonus")).doubleValue(),
+                        ((Number) rawComponentResult.get("deduction")).doubleValue()
+                );
+
+                payrollGraphDto.setSalaryVsComponent(componentResult);
+                log.info("Added salary component breakdown - BaseSalary: {}, Bonus: {}, Deduction: {}",
+                        componentResult.getBaseSalary(),
+                        componentResult.getBonus(),
+                        componentResult.getDeduction());
+            }
+
+            log.info("Payroll graphs generated successfully for {} roles", salaryVsRoleList.size());
+
+            return new ResponseEntity<>(payrollGraphDto, HttpStatus.OK);
+
+        } catch (IllegalArgumentException e) {
+            log.error("Invalid month format in request: {}", requestBody.getMonth());
+            throw new ServiceLevelException(
+                    "PayrollService",
+                    "Failed to get payroll graphs",
+                    "getPayrollGraphs",
+                    "InvalidMonthFormat",
+                    "Invalid month: " + requestBody.getMonth() + ". Expected format: JANUARY, FEBRUARY, etc.");
+        } catch (RuntimeException e) {
+            log.error("Error while processing payroll graphs", e);
+            throw new ServiceLevelException(
+                    "PayrollService",
+                    "Failed to get payroll graphs",
+                    "getPayrollGraphs",
+                    e.getClass().getSimpleName(),
+                    e.getMessage());
+        }
+
     }
 
     private String generateTransactionReference() {

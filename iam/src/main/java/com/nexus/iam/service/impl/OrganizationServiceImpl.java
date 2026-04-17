@@ -40,10 +40,8 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -68,7 +66,7 @@ public class OrganizationServiceImpl implements OrganizationService {
 
         if (responseBody instanceof String json) {
             responseData = new JSONArray(json);
-        } else if (responseBody instanceof java.util.Collection<?> collection) {
+        } else if (responseBody instanceof Collection<?> collection) {
             responseData = new JSONArray(collection);
         } else if (responseBody != null && responseBody.getClass().isArray()) {
             responseData = new JSONArray(responseBody);
@@ -587,11 +585,11 @@ public class OrganizationServiceImpl implements OrganizationService {
                 // Validate department exists and belongs to this organization
                 Department department = departmentRepository.findById(deptId)
                         .orElseThrow(() -> new ResourceNotFoundException("Department", "id", deptId));
-                
+
                 if (!department.getOrganization().getId().equals(orgId)) {
                     throw new IllegalArgumentException("Department does not belong to this organization");
                 }
-                
+
                 // Fetch attendance for a specific department
                 users = userRepository.findByDepartmentId(deptId, pageable);
             }
@@ -764,27 +762,25 @@ public class OrganizationServiceImpl implements OrganizationService {
                 // Fetch employees by organization, department and role
                 Department department = departmentRepository.findById(deptId)
                         .orElseThrow(() -> new ResourceNotFoundException("Department", "id", deptId));
-                
+
                 if (!department.getOrganization().getId().equals(orgId)) {
                     throw new IllegalArgumentException("Department does not belong to this organization");
                 }
-                
+
                 Role roleEntity = roleRepository.findByName(role)
                         .orElseThrow(() -> new ResourceNotFoundException("Role", "name", role));
                 employees = userRepository.findByDepartmentAndRole(department, roleEntity, pageable);
-            }
-             else if (!ObjectUtils.isEmpty(deptId)) {
+            } else if (!ObjectUtils.isEmpty(deptId)) {
                 // Fetch employees by organization and department
                 Department department = departmentRepository.findById(deptId)
                         .orElseThrow(() -> new ResourceNotFoundException("Department", "id", deptId));
-                
+
                 if (!department.getOrganization().getId().equals(orgId)) {
                     throw new IllegalArgumentException("Department does not belong to this organization");
                 }
-                
+
                 employees = userRepository.findByDepartmentId(deptId, pageable);
-            } 
-             else {
+            } else {
                 // Fetch all employees in the organization
                 employees = userRepository.findByOrganizationIdWithPagination(orgId, pageable);
             }
@@ -864,6 +860,142 @@ public class OrganizationServiceImpl implements OrganizationService {
                     e.getClass().getSimpleName(),
                     e.getLocalizedMessage());
 
+        }
+    }
+
+    @Override
+    public ResponseEntity<?> getProcessedPayrolls(Long orgId, Integer month, Integer year, Integer pageNo, Integer pageOffset, String token) {
+        if (ObjectUtils.isEmpty(orgId)) {
+            throw new IllegalArgumentException("Organization ID cannot be null");
+        }
+        try {
+            // Validate organization exists
+            if (!organizationRepository.existsById(orgId)) {
+                throw new ResourceNotFoundException("Organization", "id", orgId);
+            }
+
+
+            UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getProcessedPayrollsUrl())
+                    .queryParam("orgId", orgId)
+                    .queryParam("month", month)
+                    .queryParam("year", year)
+                    .queryParam("pageNo", pageNo)
+                    .queryParam("pageSize", pageOffset);
+            Map<String, String> headers = commonUtils.buildJsonHeaders(token);
+            ResponseEntity<?> response = restService.iamRestCall(builder.toUriString(), null, headers, HttpMethod.GET, null);
+            if (!response.getStatusCode().is2xxSuccessful()) {
+                throw new ServiceLevelException(
+                        "OrganizationServiceImpl",
+                        "Failed to fetch processed payrolls from HR service",
+                        "getProcessedPayrolls",
+                        "API_ERROR",
+                        response.getBody() != null ? response.getBody().toString() : "External API returned status: " + response.getStatusCode());
+            }
+            JSONArray responseData = getJsonArray(response);
+            List<Map<String, Object>> map = new ArrayList<>();
+            for (int i = 0; i < responseData.length(); i++) {
+                map.add(responseData.getJSONObject(i).toMap());
+            }
+            map.forEach(data -> {
+                Long employeeId = ((Number) data.get("empId")).longValue();
+                User user = userRepository.findById(employeeId).orElseThrow(() -> new ResourceNotFoundException("User", "id", employeeId));
+                data.put("name", user.getName());
+                data.put("department", user.getHeadedDepartments().stream().findFirst().map(Department::getDepartmentName).orElse(user.getMemberOfDepartments().stream().findFirst().map(Department::getDepartmentName).orElse("")));
+            });
+
+            return ResponseEntity.ok(new PaginatedResponse<Map<String, Object>>(
+                    map,
+                    pageNo,
+                    pageOffset,
+                    (long) responseData.length(),
+                    (int) Math.ceil((double) responseData.length() / pageOffset),
+                    pageNo == 0,
+                    (pageNo + 1) * pageOffset >= responseData.length(),
+                    (pageNo + 1) * pageOffset < responseData.length(),
+                    pageNo > 0
+            ));
+
+        } catch (RuntimeException e) {
+            throw new ServiceLevelException(
+                    "OrganizationServiceImpl",
+                    "Failed to get processed payrolls: " + e.getMessage(),
+                    "getProcessedPayrolls",
+                    e.getClass().getSimpleName(),
+                    e.getLocalizedMessage());
+        }
+
+    }
+
+    @Override
+    public ResponseEntity<?> getPayrollGraphs(Long orgId, String month, Integer year) {
+        if (ObjectUtils.isEmpty(orgId)) {
+            throw new IllegalArgumentException("Organization ID cannot be null");
+        }
+        if (ObjectUtils.isEmpty(month) || ObjectUtils.isEmpty(year)) {
+            throw new IllegalArgumentException("Month and Year are required");
+        }
+        try {
+            List<Map<String, Object>> userIdsWithRoles = userRepository.getRolesWithUserIds();
+
+            // Transform flat list into grouped structure: role -> list of user IDs
+            Map<String, List<Long>> roleEmpIdMap = new HashMap<>();
+            for (Map<String, Object> record : userIdsWithRoles) {
+                String roleName = (String) record.get("roleName");
+                Object userIdObj = record.get("userId");
+
+                // Only add users that have a userId (skip roles without users)
+                if (userIdObj != null) {
+                    Long userId = ((Number) userIdObj).longValue();
+                    roleEmpIdMap.computeIfAbsent(roleName, k -> new ArrayList<>()).add(userId);
+                }
+            }
+
+            // Convert to desired format
+            List<Map<String, Object>> transformedData = roleEmpIdMap.entrySet().stream()
+                    .map(entry -> {
+                        Map<String, Object> map = new HashMap<>();
+                        map.put("role", entry.getKey());
+                        map.put("empIds", entry.getValue());
+                        return map;
+                    })
+                    .toList();
+
+            Map<String, Object> payload = new ConcurrentHashMap<>();
+            payload.put("orgId", orgId);
+            payload.put("month", month);
+            payload.put("year", year);
+            payload.put("roleEmpIdMap", transformedData);
+            UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getPayrollGraphsUrl());
+
+            ResponseEntity<?> response = restService.iamRestCall(
+                    builder.toUriString(),
+                    payload,
+                    null,
+                    HttpMethod.POST,
+                    null
+            );
+
+            // Check if the response is successful
+            if (!response.getStatusCode().is2xxSuccessful() || ObjectUtils.isEmpty(response.getBody())) {
+                throw new ServiceLevelException(
+                        "OrganizationServiceImpl",
+                        "External API returned status: " + response.getStatusCode(),
+                        "getPayrollGraphs",
+                        "API_ERROR",
+                       response.getBody() != null ? response.getBody().toString() : "External API returned status: " + response.getStatusCode());
+            }
+
+            return response;
+
+        } catch (ServiceLevelException e) {
+            throw e;
+        } catch (RuntimeException e) {
+            throw new ServiceLevelException(
+                    "OrganizationServiceImpl",
+                    "Failed to get payroll graphs: " + e.getMessage(),
+                    "getPayrollGraphs",
+                    e.getClass().getSimpleName(),
+                    e.getLocalizedMessage());
         }
     }
 

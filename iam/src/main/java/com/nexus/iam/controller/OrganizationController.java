@@ -7,9 +7,7 @@ import com.nexus.iam.entities.User;
 import com.nexus.iam.repository.UserRepository;
 import com.nexus.iam.security.JwtUtil;
 import com.nexus.iam.service.OrganizationService;
-
 import lombok.RequiredArgsConstructor;
-
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.ObjectUtils;
@@ -34,7 +32,7 @@ public class OrganizationController {
     @LogActivity("Create Organization")
     @PostMapping("/add")
     public ResponseEntity<?> createOrganization(@RequestBody OrganizationDto organizationDto,
-            @RequestParam Long member) {
+                                                @RequestParam Long member) {
 
         if (ObjectUtils.isEmpty(member)) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Member ID is required");
@@ -130,8 +128,8 @@ public class OrganizationController {
 
     @GetMapping("/employee/directory")
     public ResponseEntity<?> getEmployeeDirectory(@RequestParam Long orgId,
-            @RequestParam(value = "pageNo", required = false, defaultValue = "0") Integer pageNo,
-            @RequestParam(value = "pageOffset", required = false, defaultValue = "10") Integer pageOffset) {
+                                                  @RequestParam(value = "pageNo", required = false, defaultValue = "0") Integer pageNo,
+                                                  @RequestParam(value = "pageOffset", required = false, defaultValue = "10") Integer pageOffset) {
         return organizationService.getEmployeeDirectory(orgId, pageNo, pageOffset);
     }
 
@@ -142,11 +140,11 @@ public class OrganizationController {
 
     @GetMapping("/employees/attendance")
     public ResponseEntity<?> getEmployeesAttendance(@RequestParam Long orgId,
-            @RequestParam(required = false) Long deptId,
-            @RequestParam String date,
-            @RequestParam(required = false, defaultValue = "0") Integer pageNo,
-            @RequestParam(required = false, defaultValue = "10") Integer pageOffset,
-            @RequestHeader("Authorization") String authHeader) {
+                                                    @RequestParam(required = false) Long deptId,
+                                                    @RequestParam String date,
+                                                    @RequestParam(required = false, defaultValue = "0") Integer pageNo,
+                                                    @RequestParam(required = false, defaultValue = "10") Integer pageOffset,
+                                                    @RequestHeader("Authorization") String authHeader) {
         if (ObjectUtils.isEmpty(authHeader) || !jwtUtil.isValidToken(authHeader)) {
             return ResponseEntity.status(401).body("Unauthorized: Invalid or missing token");
         }
@@ -155,7 +153,7 @@ public class OrganizationController {
 
     @GetMapping("/employee/toggle-attendance")
     public ResponseEntity<?> toggleAttendance(@RequestParam Long userId,
-            @RequestHeader("Authorization") String authHeader) {
+                                              @RequestHeader("Authorization") String authHeader) {
         if (ObjectUtils.isEmpty(authHeader) || !jwtUtil.isValidToken(authHeader)) {
             return ResponseEntity.status(401).body("Unauthorized: Invalid or missing token");
         }
@@ -177,6 +175,22 @@ public class OrganizationController {
             return ResponseEntity.status(401).body("Unauthorized: Invalid or missing token");
         }
         return organizationService.getEmployeeThisMonthAttendance(id, token);
+    }
+
+    @GetMapping("/get-processed-payrolls")
+    public ResponseEntity<?> getProcessedPayrolls(@RequestParam Long orgId, @RequestParam Integer month, @RequestParam Integer year, @RequestParam(required = false, defaultValue = "0") Integer pageNo, @RequestParam(required = false, defaultValue = "10") Integer pageSize, @RequestHeader("Authorization") String token) {
+        if (ObjectUtils.isEmpty(token) || !jwtUtil.isValidToken(token)) {
+            return ResponseEntity.status(401).body("Unauthorized: Invalid or missing token");
+        }
+        return organizationService.getProcessedPayrolls(orgId, month, year, pageNo, pageSize, token);
+    }
+
+    @GetMapping("/get-payroll-graphs")
+    public ResponseEntity<?> getPayrollGraphs(@RequestParam Long orgId, @RequestParam String month, @RequestParam Integer year, @RequestHeader("Authorization") String token) {
+        if (ObjectUtils.isEmpty(token) || !jwtUtil.isValidToken(token)) {
+            return ResponseEntity.status(401).body("Unauthorized: Invalid or missing token");
+        }
+        return organizationService.getPayrollGraphs(orgId, month, year);
     }
 
 }

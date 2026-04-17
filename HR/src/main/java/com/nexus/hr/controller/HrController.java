@@ -138,4 +138,10 @@ public class HrController {
         }
         return hrService.getPayrollEmployees(empIds);
     }
+
+    @GetMapping("/payroll/processed")
+    public ResponseEntity<?> getPayrollProcessed(@RequestParam Long orgId,@RequestParam Integer month, @RequestParam Integer year, @RequestParam(required = false, defaultValue = "0") Integer pageNo, @RequestParam(required = false, defaultValue = "10") Integer pageSize) {
+        return hrService.getPayrollProcessed(orgId, month, year, pageNo, pageSize);
+    }
+
 }
