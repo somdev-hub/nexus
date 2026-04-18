@@ -106,6 +106,9 @@ public class WebConstants {
     @Value("${payroll.graphs.url}")
     private String payrollGraphsUrl;
 
+    @Value("${payroll.insights.url}")
+    private String payrollInsightsUrl;
+
     // Keycloak URLs
     public String getKeycloakAdminUrl() {
         return keycloakServerUrl + "/admin/realms/" + keycloakRealm;

@@ -193,4 +193,12 @@ public class OrganizationController {
         return organizationService.getPayrollGraphs(orgId, month, year);
     }
 
+    @GetMapping("/get-payroll-insights")
+    public ResponseEntity<?> getPayrollInsights(@RequestParam Long orgId, @RequestParam String month, @RequestParam Integer year, @RequestHeader("Authorization") String token) {
+        if (ObjectUtils.isEmpty(token) || !jwtUtil.isValidToken(token)) {
+            return ResponseEntity.status(401).body("Unauthorized: Invalid or missing token");
+        }
+        return organizationService.getPayrollInsights(orgId, month, year);
+    }
+
 }

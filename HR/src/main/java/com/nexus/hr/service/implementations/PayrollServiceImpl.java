@@ -8,6 +8,7 @@ import com.nexus.hr.model.entities.*;
 import com.nexus.hr.model.enums.PaymentStatus;
 import com.nexus.hr.payload.*;
 import com.nexus.hr.payload.response.PayrollGraphDto;
+import com.nexus.hr.payload.response.PayrollInsightsDto;
 import com.nexus.hr.repository.HrEntityRepo;
 import com.nexus.hr.repository.OrgAccountInfoRepo;
 import com.nexus.hr.repository.PayrollRepo;
@@ -382,6 +383,116 @@ public class PayrollServiceImpl implements PayrollService {
                     e.getMessage());
         }
 
+    }
+
+    @Override
+    public ResponseEntity<?> getPayrollInsights(Long orgId, String month, Integer year) {
+        if (ObjectUtils.isEmpty(orgId) || ObjectUtils.isEmpty(month) || ObjectUtils.isEmpty(year)) {
+            throw new ServiceLevelException(
+                    "PayrollService",
+                    "Failed to get payroll insights due to missing parameters",
+                    "getPayrollInsights",
+                    "MissingParameters",
+                    "Organization ID, month, and year are required parameters for fetching payroll insights."
+            );
+        }
+
+        try {
+            log.info("Fetching payroll insights for orgId: {}, month: {}, year: {}", orgId, month, year);
+
+            PayrollInsightsDto payrollInsightsDto = new PayrollInsightsDto();
+
+            // Fetch main insights data: totalNetSalaries, totalProcessedSalaries, totalPendingSalaries, etc.
+            log.debug("Querying payroll insights data from repository");
+            Map<String, Object> rawInsightsData = payrollRepo.getPayrollInsightsRaw(orgId, month, year);
+
+            if (!ObjectUtils.isEmpty(rawInsightsData)) {
+                // Extract and set all fields from raw data
+                payrollInsightsDto.setTotalNetSalaries(
+                    rawInsightsData.get("totalNetSalaries") != null
+                        ? ((Number) rawInsightsData.get("totalNetSalaries")).doubleValue()
+                        : 0.0
+                );
+
+                payrollInsightsDto.setTotalProcessedSalaries(
+                    rawInsightsData.get("totalProcessedSalaries") != null
+                        ? ((Number) rawInsightsData.get("totalProcessedSalaries")).doubleValue()
+                        : 0.0
+                );
+
+                payrollInsightsDto.setTotalPendingSalaries(
+                    rawInsightsData.get("totalPendingSalaries") != null
+                        ? ((Number) rawInsightsData.get("totalPendingSalaries")).doubleValue()
+                        : 0.0
+                );
+
+                payrollInsightsDto.setTotalPayrollCost(
+                    rawInsightsData.get("totalPayrollCost") != null
+                        ? ((Number) rawInsightsData.get("totalPayrollCost")).doubleValue()
+                        : 0.0
+                );
+
+                payrollInsightsDto.setAverageNetSalaryPerEmployee(
+                    rawInsightsData.get("averageNetSalaryPerEmployee") != null
+                        ? ((Number) rawInsightsData.get("averageNetSalaryPerEmployee")).doubleValue()
+                        : 0.0
+                );
+
+                payrollInsightsDto.setTotalDeductions(
+                    rawInsightsData.get("totalDeductions") != null
+                        ? ((Number) rawInsightsData.get("totalDeductions")).doubleValue()
+                        : 0.0
+                );
+
+                payrollInsightsDto.setTotalOvertimeCost(
+                    rawInsightsData.get("totalOvertimeCost") != null
+                        ? ((Number) rawInsightsData.get("totalOvertimeCost")).doubleValue()
+                        : 0.0
+                );
+
+                log.debug("Main insights data fetched - TotalNetSalaries: {}, TotalPayrollCost: {}",
+                        payrollInsightsDto.getTotalNetSalaries(),
+                        payrollInsightsDto.getTotalPayrollCost());
+            }
+
+            // Fetch total not processed salaries (for employees without payroll in this month)
+            log.debug("Querying not processed salaries for org: {}, month: {}, year: {}", orgId, month, year);
+            Map<String, Object> rawNotProcessedData = payrollRepo.getTotalNotProcessedSalariesRaw(orgId, month, year);
+
+            if (!ObjectUtils.isEmpty(rawNotProcessedData)) {
+                payrollInsightsDto.setTotalNotProcessedSalaries(
+                    rawNotProcessedData.get("totalNotProcessedSalaries") != null
+                        ? ((Number) rawNotProcessedData.get("totalNotProcessedSalaries")).doubleValue()
+                        : 0.0
+                );
+
+                log.debug("Not processed salaries fetched: {}", payrollInsightsDto.getTotalNotProcessedSalaries());
+            }
+
+            log.info("Payroll insights generated successfully for orgId: {}, month: {}, year: {}",
+                    orgId, month, year);
+
+            return new ResponseEntity<>(payrollInsightsDto, HttpStatus.OK);
+
+        } catch (IllegalArgumentException e) {
+            log.error("Invalid parameters for payroll insights - month: {}, year: {}", month, year);
+            throw new ServiceLevelException(
+                    "PayrollService",
+                    "Failed to get payroll insights",
+                    "getPayrollInsights",
+                    "InvalidParameters",
+                    "Invalid month or year format: " + e.getMessage()
+            );
+        } catch (RuntimeException e) {
+            log.error("Error while fetching payroll insights for orgId: {}, month: {}, year: {}", orgId, month, year, e);
+            throw new ServiceLevelException(
+                    "PayrollService",
+                    "Failed to get payroll insights",
+                    "getPayrollInsights",
+                    e.getClass().getSimpleName(),
+                    e.getMessage()
+            );
+        }
     }
 
     private String generateTransactionReference() {

@@ -54,6 +54,11 @@ public class PayrollController {
         return payrollService.getPayrollGraphs(requestBody);
     }
 
+    @GetMapping("/insights")
+    public ResponseEntity<?> getPayrollInsights(@RequestParam Long orgId, @RequestParam String month, @RequestParam Integer year){
+        return payrollService.getPayrollInsights(orgId, month, year);
+    }
+
 
 
 }

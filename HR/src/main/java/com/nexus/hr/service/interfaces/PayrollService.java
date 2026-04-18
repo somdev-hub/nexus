@@ -15,4 +15,6 @@ public interface PayrollService {
     ResponseEntity<?> handlePayrollCallback(List<PayrollCallbackDto> body);
 
     ResponseEntity<?> getPayrollGraphs(PayrollGraphRequestDto requestBody);
+
+    ResponseEntity<?> getPayrollInsights(Long orgId, String month, Integer year);
 }

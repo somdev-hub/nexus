@@ -982,7 +982,7 @@ public class OrganizationServiceImpl implements OrganizationService {
                         "External API returned status: " + response.getStatusCode(),
                         "getPayrollGraphs",
                         "API_ERROR",
-                       response.getBody() != null ? response.getBody().toString() : "External API returned status: " + response.getStatusCode());
+                        response.getBody() != null ? response.getBody().toString() : "External API returned status: " + response.getStatusCode());
             }
 
             return response;
@@ -996,6 +996,46 @@ public class OrganizationServiceImpl implements OrganizationService {
                     "getPayrollGraphs",
                     e.getClass().getSimpleName(),
                     e.getLocalizedMessage());
+        }
+    }
+
+    @Override
+    public ResponseEntity<?> getPayrollInsights(Long orgId, String month, Integer year) {
+        if (ObjectUtils.isEmpty(orgId) || ObjectUtils.isEmpty(month) || ObjectUtils.isEmpty(year)) {
+            throw new ServiceLevelException(
+                    "OrganizationServiceImpl",
+                    "Organization ID, Month and Year are required",
+                    "getPayrollInsights",
+                    "VALIDATION_ERROR",
+                    "Please provide valid Organization ID, Month and Year"
+            );
+        }
+
+        try {
+            UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getPayrollInsightsUrl())
+                    .queryParam("orgId", orgId)
+                    .queryParam("month", month)
+                    .queryParam("year", year);
+            ResponseEntity<?> response = restService.iamRestCall(builder.toUriString(), null, null, HttpMethod.GET, null);
+            if (!response.getStatusCode().is2xxSuccessful() || ObjectUtils.isEmpty(response.getBody())) {
+                throw new ServiceLevelException(
+                        "OrganizationServiceImpl",
+                        "External API returned status: " + response.getStatusCode(),
+                        "getPayrollInsights",
+                        "API_ERROR",
+                        response.getBody() != null ? response.getBody().toString() : "External API returned status: " + response.getStatusCode());
+            }
+            return response;
+        } catch (ServiceLevelException e) {
+            throw e;
+        } catch (RuntimeException e) {
+            throw new ServiceLevelException(
+                    "OrganizationServiceImpl",
+                    "Failed to get payroll insights: " + e.getMessage(),
+                    "getPayrollInsights",
+                    e.getClass().getSimpleName(),
+                    e.getLocalizedMessage());
+
         }
     }
 

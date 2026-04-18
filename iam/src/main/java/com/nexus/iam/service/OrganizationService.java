@@ -48,4 +48,6 @@ public interface OrganizationService {
     ResponseEntity<?> getProcessedPayrolls(Long orgId, Integer month, Integer year, Integer pageNo, Integer pageOffset, String token);
 
     ResponseEntity<?> getPayrollGraphs(Long orgId, String month, Integer year);
+
+    ResponseEntity<?> getPayrollInsights(Long orgId, String month, Integer year);
 }

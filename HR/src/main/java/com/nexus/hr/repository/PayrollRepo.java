@@ -93,17 +93,18 @@ public interface PayrollRepo extends JpaRepository<Payroll, Long> {
     /**
      * Get department-wise payroll aggregation for current month
      * Returns: department, sum of basePay, sum of totalBonuses
+     * Even if no payrolls exist for the month, all departments are returned with 0 values
      */
     @Query(value = "SELECT " +
             "he.department as dept, " +
             "CAST(COALESCE(SUM(p.base_pay), 0.0) AS DECIMAL(20,2)) as baseSalary, " +
             "CAST(COALESCE(SUM(p.total_bonuses), 0.0) AS DECIMAL(20,2)) as bonus " +
-            "FROM hr.t_payrolls p " +
-            "JOIN hr.t_compensations c ON p.compensation_id = c.compensation_id " +
-            "JOIN hr.t_hr_entity he ON c.compensation_id = he.hr_compensation_id " +
+            "FROM hr.t_hr_entity he " +
+            "JOIN hr.t_compensations c ON he.hr_compensation_id = c.compensation_id " +
+            "LEFT JOIN hr.t_payrolls p ON c.compensation_id = p.compensation_id " +
+            "    AND p.month = :month " +
+            "    AND p.year = :year " +
             "WHERE he.org = :orgId " +
-            "AND p.month = :month " +
-            "AND p.year = :year " +
             "GROUP BY he.department " +
             "ORDER BY he.department ",
             nativeQuery = true)
@@ -152,6 +153,60 @@ public interface PayrollRepo extends JpaRepository<Payroll, Long> {
             "AND p.year = :year",
             nativeQuery = true)
     Map<String, Object> getSalaryComponentBreakdownRaw(
+            @Param("orgId") Long orgId,
+            @Param("month") String month,
+            @Param("year") Integer year
+    );
+
+    /**
+     * Get payroll insights aggregation data for provided org, month and year
+     * Returns:
+     *   - totalNetSalaries: Sum of net_pay for all payrolls
+     *   - totalProcessedSalaries: Sum of net_pay where payment_status = 'COMPLETED'
+     *   - totalPendingSalaries: Sum of net_pay where payment_status = 'PENDING'
+     *   - totalPayrollCost: Sum of gross_pay for all payrolls
+     *   - averageNetSalaryPerEmployee: AVG of net_pay for all payrolls
+     *   - totalDeductions: Sum of total_deductions for all payrolls
+     *   - totalOvertimeCost: Sum of pb.amount where pb.bonus_type = 'OVERTIME'
+     */
+    @Query(value = "SELECT " +
+            "CAST(COALESCE(SUM(p.net_pay), 0.0) AS DECIMAL(20,2)) as totalNetSalaries, " +
+            "CAST(COALESCE(SUM(CASE WHEN p.payment_status = 'COMPLETED' THEN p.net_pay ELSE 0.0 END), 0.0) AS DECIMAL(20,2)) as totalProcessedSalaries, " +
+            "CAST(COALESCE(SUM(CASE WHEN p.payment_status = 'PENDING' THEN p.net_pay ELSE 0.0 END), 0.0) AS DECIMAL(20,2)) as totalPendingSalaries, " +
+            "CAST(COALESCE(SUM(p.gross_pay), 0.0) AS DECIMAL(20,2)) as totalPayrollCost, " +
+            "CAST(COALESCE(AVG(p.net_pay), 0.0) AS DECIMAL(20,2)) as averageNetSalaryPerEmployee, " +
+            "CAST(COALESCE(SUM(p.total_deductions), 0.0) AS DECIMAL(20,2)) as totalDeductions, " +
+            "CAST(COALESCE(SUM(CASE WHEN pb.bonus_type = 'OVERTIME' THEN pb.amount ELSE 0.0 END), 0.0) AS DECIMAL(20,2)) as totalOvertimeCost " +
+            "FROM hr.t_payrolls p " +
+            "JOIN hr.t_compensations c ON p.compensation_id = c.compensation_id " +
+            "JOIN hr.t_hr_entity he ON c.compensation_id = he.hr_compensation_id " +
+            "LEFT JOIN hr.t_payroll_bonuses pb ON p.payroll_id = pb.payroll_id " +
+            "WHERE he.org = :orgId " +
+            "AND p.month = :month " +
+            "AND p.year = :year",
+            nativeQuery = true)
+    Map<String, Object> getPayrollInsightsRaw(
+            @Param("orgId") Long orgId,
+            @Param("month") String month,
+            @Param("year") Integer year
+    );
+
+    /**
+     * Get total salary cost for hrEntities without any payroll in given month/year
+     * This calculates the cost of employees who haven't been processed yet
+     * Returns: Sum of compensation base_pay / 12 for employees with no payroll entry
+     */
+    @Query(value = "SELECT " +
+            "CAST(COALESCE(SUM(c.base_pay / 12.0), 0.0) AS DECIMAL(20,2)) as totalNotProcessedSalaries " +
+            "FROM hr.t_hr_entity he " +
+            "JOIN hr.t_compensations c ON he.hr_compensation_id = c.compensation_id " +
+            "LEFT JOIN hr.t_payrolls p ON c.compensation_id = p.compensation_id " +
+            "    AND p.month = :month " +
+            "    AND p.year = :year " +
+            "WHERE he.org = :orgId " +
+            "AND p.payroll_id IS NULL",
+            nativeQuery = true)
+    Map<String, Object> getTotalNotProcessedSalariesRaw(
             @Param("orgId") Long orgId,
             @Param("month") String month,
             @Param("year") Integer year
