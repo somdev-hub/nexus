@@ -94,7 +94,9 @@ public class KeycloakAuthenticationServiceImpl implements KeycloakAuthentication
             // Validate input
             if (email == null || email.isEmpty() || password == null || password.isEmpty()) {
                 log.warn("Login attempt with missing email or password");
-                throw new UnauthorizedException("Unauthorized", "Email and password are required");
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(LoginResponse.builder()
+                                .build());
             }
 
             log.info("Keycloak login attempt for user: {}", email);
@@ -104,7 +106,9 @@ public class KeycloakAuthenticationServiceImpl implements KeycloakAuthentication
 
             if (tokenResponse == null || !tokenResponse.containsKey("access_token")) {
                 log.warn("Keycloak authentication failed for user: {}", email);
-                throw new UnauthorizedException("Unauthorized", "Invalid credentials or user not found in Keycloak");
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(LoginResponse.builder()
+                                .build());
             }
 
             String accessToken = (String) tokenResponse.get("access_token");
@@ -116,9 +120,17 @@ public class KeycloakAuthenticationServiceImpl implements KeycloakAuthentication
             // Step 2: Validate token and sync user to database
             return validateAndSyncUser(accessToken, refreshToken, expiresIn);
 
+        } catch (UnauthorizedException e) {
+            // Business logic exception - return 401 without triggering circuit breaker
+            log.error("Unauthorized login attempt: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(LoginResponse.builder()
+                            .build());
         } catch (Exception e) {
+            // Service-level exception - let circuit breaker handle it
             log.error("Error during Keycloak login: {}", e.getMessage(), e);
-            throw new UnauthorizedException("Unauthorized", "Authentication failed: " + e.getMessage());
+            throw new ServiceLevelException("KeycloakAuthenticationService", e.getLocalizedMessage(), "login",
+                    new Timestamp(System.currentTimeMillis()), e.getCause().toString(), e.getMessage());
         }
     }
 
@@ -219,9 +231,9 @@ public class KeycloakAuthenticationServiceImpl implements KeycloakAuthentication
      * This allows Keycloak user to persist even if database operations fail
      */
     @Transactional
-    private ResponseEntity<LoginResponse> createUserInDatabase(UserRegisterDto userRegisterDto,
-            MultipartFile profilePhoto,
-            String keycloakUserId) {
+    protected ResponseEntity<LoginResponse> createUserInDatabase(UserRegisterDto userRegisterDto,
+                                                                 MultipartFile profilePhoto,
+                                                                 String keycloakUserId) {
         try {
             // Step 3: CREATE ORGANIZATION
             log.debug("Creating organization for user: {}", userRegisterDto.getEmail());
@@ -447,7 +459,9 @@ public class KeycloakAuthenticationServiceImpl implements KeycloakAuthentication
         try {
             if (refreshToken == null || refreshToken.isEmpty()) {
                 log.warn("Token refresh called without refresh token");
-                throw new UnauthorizedException("Unauthorized", "Refresh token is required");
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(LoginResponse.builder()
+                                .build());
             }
 
             log.debug("Refreshing access token with Keycloak");
@@ -481,10 +495,20 @@ public class KeycloakAuthenticationServiceImpl implements KeycloakAuthentication
             }
 
             log.error("Token refresh failed with status: {}", response.getStatusCode());
-            throw new UnauthorizedException("Unauthorized", "Failed to refresh token");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(LoginResponse.builder()
+                            .build());
+        } catch (UnauthorizedException e) {
+            // Business logic exception - return 401 without triggering circuit breaker
+            log.error("Unauthorized token refresh: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(LoginResponse.builder()
+                            .build());
         } catch (Exception e) {
+            // Service-level exception - let circuit breaker handle it
             log.error("Error refreshing token: {}", e.getMessage(), e);
-            throw new UnauthorizedException("Unauthorized", "Token refresh failed: " + e.getMessage());
+            throw new ServiceLevelException("KeycloakAuthenticationService", e.getLocalizedMessage(), "refreshToken",
+                    new Timestamp(System.currentTimeMillis()), e.getCause().toString(), e.getMessage());
         }
     }
 
@@ -579,9 +603,9 @@ public class KeycloakAuthenticationServiceImpl implements KeycloakAuthentication
             var userDto = keycloakUserSyncService.extractUserFromToken(accessToken);
             if (userDto == null) {
                 log.error("Failed to extract user data from Keycloak token");
-                // return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                // .body(Map.of("error", "Invalid token: missing user data"));
-                throw new UnauthorizedException("Unauthorized", "Invalid token: missing user data");
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(LoginResponse.builder()
+                                .build());
             }
 
             // Step 3: Extract roles from JWT
@@ -626,9 +650,17 @@ public class KeycloakAuthenticationServiceImpl implements KeycloakAuthentication
             log.info("Keycloak authentication completed successfully for user: {}", userDto.getEmail());
             return ResponseEntity.ok(response);
 
+        } catch (UnauthorizedException e) {
+            // Business logic exception - return 401 without triggering circuit breaker
+            log.error("Unauthorized token validation: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(LoginResponse.builder()
+                            .build());
         } catch (Exception e) {
+            // Service-level exception - let circuit breaker handle it
             log.error("Error validating and syncing user: {}", e.getMessage(), e);
-            throw new UnauthorizedException("Unauthorized", "Token validation failed: " + e.getMessage());
+            throw new ServiceLevelException("KeycloakAuthenticationService", e.getLocalizedMessage(), "validateAndSyncUser",
+                    new Timestamp(System.currentTimeMillis()), e.getCause().toString(), e.getMessage());
         }
     }
 

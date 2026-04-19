@@ -1,37 +1,34 @@
-package com.nexus.hr.model.entities;
+package com.nexus.hr.payload.response;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.nexus.hr.model.enums.HrRequestStatus;
 import com.nexus.hr.model.enums.HrRequestType;
 import com.nexus.hr.model.enums.LeaveType;
-import jakarta.persistence.*;
 import lombok.Data;
 
 import java.sql.Date;
 import java.sql.Timestamp;
 
-@Entity
 @Data
-@Table(name = "t_hr_requests", schema = "hr")
-public class HrRequest {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+@JsonInclude(JsonInclude.Include.NON_NULL)
+public class HrResponseDto {
     private Long requestId;
 
-    @Enumerated(EnumType.STRING)
     private HrRequestType requestType;
 
-    @Column(columnDefinition = "TEXT")
     private String remarks;
 
-    @Enumerated(EnumType.STRING)
     private HrRequestStatus status;
 
-    @ManyToOne
-    @JoinColumn(name = "hr_entity_hr_id")
-    @JsonIgnore
-    private HrEntity appliedBy;
+    private String employeeName;
+
+    private String employeeEmail;
+
+    private Long empId;
+
+    private String role;
+
+    private String department;
 
     private Timestamp appliedOn;
 
@@ -47,11 +44,9 @@ public class HrRequest {
 
     private Boolean halfDay;
 
-    @Enumerated(EnumType.STRING)
+    private String resolutionRemarks;
+
     private LeaveType leaveType;
 
     private Double leaveBalanceUsed;
-
-    @Column(columnDefinition = "TEXT")
-    private String resolutionRemarks;
 }

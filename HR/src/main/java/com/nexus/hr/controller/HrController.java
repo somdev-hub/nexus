@@ -55,27 +55,6 @@ public class HrController {
         }
     }
 
-    @LogActivity("Take Action on HR Requests")
-    @PostMapping("/requests/action")
-    public ResponseEntity<?> takeActionForHrRequests(@RequestParam Long requestId, @RequestParam HrRequestStatus action,
-                                                     @RequestParam String resolutionRemarks, @RequestHeader("Authorization") String token) {
-        if (ObjectUtils.isEmpty(token) || !commonUtils.validateToken(token)) {
-            throw new UnauthorizedException("Unauthorized", "Invalid or missing authorization token");
-        }
-        return hrService.takeActionForHrRequests(requestId, action, resolutionRemarks);
-    }
-
-    @LogActivity("Get All HR Requests")
-    @GetMapping("/all/hr-requests")
-    public ResponseEntity<?> getAllHrRequests(
-            @RequestParam(value = "page", required = false, defaultValue = "0") Integer page,
-            @RequestParam(value = "offset", required = false, defaultValue = "10") Integer offset,
-            @RequestHeader("Authorization") String token) {
-        if (ObjectUtils.isEmpty(token) || !commonUtils.validateToken(token)) {
-            throw new UnauthorizedException("Unauthorized", "Invalid or missing authorization token");
-        }
-        return hrService.getAllHrRequests(PageRequest.of(page, offset));
-    }
 
     @LogActivity("Promote Employee")
     @PostMapping("/employee/promote")

@@ -28,7 +28,7 @@ public class EmployeeLeaves {
 
     private Date endDate;
 
-    private Integer numberOfDays;
+    private Double numberOfDays;
 
     @Enumerated(EnumType.STRING)
     private LeaveStatus leaveStatus;

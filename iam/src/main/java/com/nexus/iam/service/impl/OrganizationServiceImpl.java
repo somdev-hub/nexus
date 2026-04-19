@@ -1,5 +1,7 @@
 package com.nexus.iam.service.impl;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nexus.iam.config.CacheConfig;
 import com.nexus.iam.dto.LoginResponse;
 import com.nexus.iam.dto.OrganizationDto;
@@ -33,6 +35,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.util.ObjectUtils;
@@ -59,6 +62,7 @@ public class OrganizationServiceImpl implements OrganizationService {
     private final RestService restService;
     private final KeycloakAuthenticationService keycloakAuthenticationService;
     private final DepartmentRepository departmentRepository;
+    private final ObjectMapper objectMapper;
 
     private static @NonNull JSONArray getJsonArray(ResponseEntity<?> response) {
         JSONArray responseData;
@@ -1038,5 +1042,145 @@ public class OrganizationServiceImpl implements OrganizationService {
 
         }
     }
+
+    @Override
+    public ResponseEntity<?> createHrRequest(String requestBody, String token) {
+        if (ObjectUtils.isEmpty(requestBody)) {
+            throw new IllegalArgumentException("Request body cannot be null or empty");
+        }
+        ResponseEntity<?> response;
+        try {
+            UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getCreateHrRequestUrl());
+//            Map<String, String> headers = commonUtils.buildJsonHeaders(token);
+            // use objectMapper to convert string to json object
+            Map<String, String> headers = new ConcurrentHashMap<>();
+            headers.put(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
+            Object jsonBody = objectMapper.readValue(requestBody, Object.class);
+            response = restService.iamRestCall(builder.toUriString(), jsonBody, headers, HttpMethod.POST, null);
+            if (!response.getStatusCode().is2xxSuccessful() || ObjectUtils.isEmpty(response.getBody())) {
+                throw new ServiceLevelException(
+                        "OrganizationServiceImpl",
+                        "Failed to create HR request: External API returned status: " + response.getStatusCode(),
+                        "createHrRequest",
+                        "API_ERROR",
+                        response.getBody() != null ? response.getBody().toString() : "External API returned status: " + response.getStatusCode());
+            }
+        } catch (RuntimeException | JsonProcessingException e) {
+            throw new ServiceLevelException(
+                    "OrganizationServiceImpl",
+                    "Failed to create HR request: " + e.getMessage(),
+                    "createHrRequest",
+                    e.getClass().getSimpleName(),
+                    e.getLocalizedMessage());
+        }
+
+        return response;
+    }
+
+    @Override
+    public ResponseEntity<?> getManyHrRequests(Long orgId, String requestType, String status, Integer page, Integer offset, String token) {
+        try {
+            UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getManyHrRequestsUrl())
+                    .queryParam("orgId", orgId)
+                    .queryParam("requestType", requestType)
+                    .queryParam("status", status)
+                    .queryParam("page", page)
+                    .queryParam("offset", offset);
+//            Map<String, String> headers = commonUtils.buildJsonHeaders(token);
+            return restService.iamRestCall(builder.toUriString(), null, Map.of(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE), HttpMethod.GET, null);
+        } catch (RuntimeException e) {
+            throw new ServiceLevelException(
+                    "OrganizationServiceImpl",
+                    "Failed to get HR requests: " + e.getMessage(),
+                    "getManyHrRequests",
+                    e.getClass().getSimpleName(),
+                    e.getLocalizedMessage());
+        }
+    }
+
+    @Override
+    public ResponseEntity<?> takeActionOnHrRequest(Long requestId, String action, String resolutionRemarks, String token) {
+        if (ObjectUtils.isEmpty(requestId) || ObjectUtils.isEmpty(action)) {
+            throw new IllegalArgumentException("Request ID and action are required");
+        }
+        try {
+            UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getTakeActionOnHrRequestUrl())
+                    .queryParam("requestId", requestId)
+                    .queryParam("action", action)
+                    .queryParam("resolutionRemarks", resolutionRemarks);
+//            Map<String, String> headers = commonUtils.buildJsonHeaders(token);
+            return restService.iamRestCall(builder.toUriString(), null, Map.of(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE), HttpMethod.POST, null);
+        } catch (RuntimeException e) {
+            throw new ServiceLevelException(
+                    "OrganizationServiceImpl",
+                    "Failed to take action on HR request: " + e.getMessage(),
+                    "takeActionOnHrRequest",
+                    e.getClass().getSimpleName(),
+                    e.getLocalizedMessage());
+        }
+    }
+
+    @Override
+    public ResponseEntity<?> getClosedHrRequests(Long orgId, Integer page, Integer offset, String token) {
+        if (ObjectUtils.isEmpty(orgId)) {
+            throw new IllegalArgumentException("Organization ID is required");
+        }
+        ResponseEntity<?> response;
+        try {
+            UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getClosedHrRequestsUrl())
+                    .queryParam("orgId", orgId)
+                    .queryParam("page", page)
+                    .queryParam("offset", offset);
+//            Map<String, String> headers = commonUtils.buildJsonHeaders(token);
+            response = restService.iamRestCall(builder.toUriString(), null, Map.of(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE), HttpMethod.GET, null);
+            if (!response.getStatusCode().is2xxSuccessful() || ObjectUtils.isEmpty(response.getBody())) {
+                throw new ServiceLevelException(
+                        "OrganizationServiceImpl",
+                        "Failed to get closed HR requests: External API returned status: " + response.getStatusCode(),
+                        "getClosedHrRequests",
+                        "API_ERROR",
+                        response.getBody() != null ? response.getBody().toString() : "External API returned status: " + response.getStatusCode());
+            }
+        } catch (RuntimeException e) {
+            throw new ServiceLevelException(
+                    "OrganizationServiceImpl",
+                    "Failed to get closed HR requests: " + e.getMessage(),
+                    "getClosedHrRequests",
+                    e.getClass().getSimpleName(),
+                    e.getLocalizedMessage());
+        }
+        return response;
+    }
+
+    @Override
+    public ResponseEntity<?> getHrRequestInsights(Long orgId) {
+        if (ObjectUtils.isEmpty(orgId)) {
+            throw new IllegalArgumentException("Organization ID is required");
+        }
+        ResponseEntity<?> response;
+        try {
+            UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getHrRequestInsightsUrl())
+                    .queryParam("orgId", orgId);
+//            Map<String, String> headers = commonUtils.buildJsonHeaders(token);
+            response = restService.iamRestCall(builder.toUriString(), null, Map.of(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE), HttpMethod.GET, null);
+            if (!response.getStatusCode().is2xxSuccessful() || ObjectUtils.isEmpty(response.getBody())) {
+                throw new ServiceLevelException(
+                        "OrganizationServiceImpl",
+                        "Failed to get HR request insights: External API returned status: " + response.getStatusCode(),
+                        "getHrRequestInsights",
+                        "API_ERROR",
+                        response.getBody() != null ? response.getBody().toString() : "External API returned status: " + response.getStatusCode());
+            }
+        } catch (RuntimeException e) {
+            throw new ServiceLevelException(
+                    "OrganizationServiceImpl",
+                    "Failed to get HR request insights: " + e.getMessage(),
+                    "getHrRequestInsights",
+                    e.getClass().getSimpleName(),
+                    e.getLocalizedMessage());
+        }
+        return response;
+    }
+
 
 }

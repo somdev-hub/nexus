@@ -352,56 +352,6 @@ public class HrServiceImpl implements HrService {
     }
 
     @Override
-    public ResponseEntity<?> takeActionForHrRequests(Long requestId, HrRequestStatus action, String resolutionRemarks) {
-        if (ObjectUtils.isEmpty(requestId)) {
-            throw new ServiceLevelException("HR Service", "Request ID cannot be null or empty",
-                    "takeActionForHrRequests", "InvalidInput", "Request ID is null or empty");
-        }
-        try {
-            HrRequest hrRequest = hrRequestsRepo.findById(requestId)
-                    .orElseThrow(() -> new ResourceNotFoundException("HrRequests", "requestId", requestId));
-            hrRequest.setStatus(action);
-            hrRequest.setResolutionRemarks(resolutionRemarks);
-            hrRequest.setResolvedOn(new Timestamp(System.currentTimeMillis()));
-
-            // kafka implementation
-
-            hrRequestsRepo.save(hrRequest);
-            return ResponseEntity
-                    .ok("HR request with ID " + requestId + " has been " + action.name().toLowerCase() + ".");
-        } catch (RuntimeException e) {
-            throw new ServiceLevelException("HR Service", "Exception occurred while taking action on HR request",
-                    "takeActionForHrRequests", e.getClass().getName(), e.getMessage());
-        }
-    }
-
-    @Override
-    public ResponseEntity<Page<HrRequestDto>> getAllHrRequests(Pageable pageable) {
-        try {
-            Page<HrRequest> hrRequestsPage = hrRequestsRepo.findAll(pageable);
-            Page<HrRequestDto> hrRequestDtoPage = hrRequestsPage.map(request -> {
-                HrRequestDto hrRequestDto = modelMapper.map(request, HrRequestDto.class);
-                RestPayload restPayload = commonUtils.buildRestPayload(webConstants.getUserDetailsUrl(),
-                        Map.of("userId", request.getAppliedBy().getEmployeeId().toString()), null, CommonConstants.APPLICATION_JSON);
-                ResponseEntity<?> response = restServices.hrRestCall(restPayload.getBuilder().toUriString(), null,
-                        restPayload.getHeaders(), HttpMethod.GET, request.getAppliedBy().getHrId());
-                if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
-                    @SuppressWarnings("unchecked")
-                    Map<String, String> details = (Map<String, String>) response.getBody();
-                    hrRequestDto.setEmployeeName(details.get("name"));
-                    hrRequestDto.setEmployeeEmail(details.get("email"));
-                }
-                return hrRequestDto;
-            });
-
-            return ResponseEntity.ok(hrRequestDtoPage);
-        } catch (RuntimeException e) {
-            throw new ServiceLevelException("HR Service", "Exception occurred while fetching HR requests",
-                    "getAllHrRequests", e.getClass().getName(), e.getMessage());
-        }
-    }
-
-    @Override
     public ResponseEntity<?> promoteEmployee(Long empId, Position position, CompensationDto compensation, String role) {
         if (ObjectUtils.isEmpty(empId) || ObjectUtils.isEmpty(position) || ObjectUtils.isEmpty(compensation)
                 || ObjectUtils.isEmpty(role)) {

@@ -201,4 +201,48 @@ public class OrganizationController {
         return organizationService.getPayrollInsights(orgId, month, year);
     }
 
+    @PostMapping("/hr-request")
+    public ResponseEntity<?> createHrRequest(@RequestBody String requestBody, @RequestHeader("Authorization") String token) {
+        if (ObjectUtils.isEmpty(token) || !jwtUtil.isValidToken(token)) {
+            return ResponseEntity.status(401).body("Unauthorized: Invalid or missing token");
+        }
+        return organizationService.createHrRequest(requestBody, token);
+    }
+
+    @GetMapping("/hr-requests")
+    public ResponseEntity<?> getManyHrRequests(@RequestParam Long orgId,
+                                               @RequestParam(required = false) String requestType,
+                                               @RequestParam(required = false) String status,
+                                               @RequestParam(value = "page", required = false, defaultValue = "0") Integer page,
+                                               @RequestParam(value = "offset", required = false, defaultValue = "10") Integer offset, @RequestHeader("Authorization") String token) {
+        if (ObjectUtils.isEmpty(token) || !jwtUtil.isValidToken(token)) {
+            return ResponseEntity.status(401).body("Unauthorized: Invalid or missing token");
+        }
+        return organizationService.getManyHrRequests(orgId, requestType, status, page, offset, token);
+    }
+
+    @PostMapping("/hr-request/action")
+    public ResponseEntity<?> takeActionOnHrRequest(@RequestParam Long requestId, @RequestParam String action,
+                                                   @RequestParam String resolutionRemarks, @RequestHeader("Authorization") String token) {
+        if (ObjectUtils.isEmpty(token) || !jwtUtil.isValidToken(token)) {
+            return ResponseEntity.status(401).body("Unauthorized: Invalid or missing token");
+        }
+        return organizationService.takeActionOnHrRequest(requestId, action, resolutionRemarks, token);
+    }
+
+    @GetMapping("/hr-requests/closed")
+    public ResponseEntity<?> getClosedHrRequests(@RequestParam Long orgId,
+                                               @RequestParam(value = "page", required = false, defaultValue = "0") Integer page,
+                                               @RequestParam(value = "offset", required = false, defaultValue = "10") Integer offset, @RequestHeader("Authorization") String token) {
+        if (ObjectUtils.isEmpty(token) || !jwtUtil.isValidToken(token)) {
+            return ResponseEntity.status(401).body("Unauthorized: Invalid or missing token");
+        }
+        return organizationService.getClosedHrRequests(orgId, page, offset, token);
+    }
+
+    @GetMapping("hr-requests/insights")
+    public ResponseEntity<?> getHrRequestsInsights(@RequestParam Long orgId){
+        return organizationService.getHrRequestInsights(orgId);
+    }
+
 }

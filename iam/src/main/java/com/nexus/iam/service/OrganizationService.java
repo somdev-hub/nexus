@@ -50,4 +50,14 @@ public interface OrganizationService {
     ResponseEntity<?> getPayrollGraphs(Long orgId, String month, Integer year);
 
     ResponseEntity<?> getPayrollInsights(Long orgId, String month, Integer year);
+
+    ResponseEntity<?> createHrRequest(String requestBody, String token);
+
+    ResponseEntity<?> getManyHrRequests(Long orgId, String requestType, String status, Integer page, Integer offset, String token);
+
+    ResponseEntity<?> takeActionOnHrRequest(Long requestId, String action, String resolutionRemarks, String token);
+
+    ResponseEntity<?> getClosedHrRequests(Long orgId, Integer page, Integer offset, String token);
+
+    ResponseEntity<?> getHrRequestInsights(Long orgId);
 }

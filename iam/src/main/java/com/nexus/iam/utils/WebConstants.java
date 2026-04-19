@@ -109,6 +109,20 @@ public class WebConstants {
     @Value("${payroll.insights.url}")
     private String payrollInsightsUrl;
 
+    @Value("${create.hr.request.url}")
+    private String createHrRequestUrl;
+
+    @Value("${many.hr.request.url}")
+    private String manyHrRequestsUrl;
+
+    @Value("${take.action.on.hr.request.url}")
+    private String takeActionOnHrRequestUrl;
+
+    @Value("${hr.request.insights.url}")
+    private String hrRequestInsightsUrl;
+
+    @Value("${hr.closed.requests.url}")
+    private String closedHrRequestsUrl;
     // Keycloak URLs
     public String getKeycloakAdminUrl() {
         return keycloakServerUrl + "/admin/realms/" + keycloakRealm;
@@ -150,5 +164,7 @@ public class WebConstants {
     public boolean isKeycloakOAuth2Enabled() {
         return keycloakOAuth2Enabled;
     }
+
+
 
 }
