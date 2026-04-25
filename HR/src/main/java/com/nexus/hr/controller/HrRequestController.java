@@ -25,8 +25,8 @@ public class HrRequestController {
     @LogActivity("Take Action on HR Requests")
     @PostMapping("/action")
     public ResponseEntity<?> takeActionForHrRequests(@RequestParam Long requestId, @RequestParam HrRequestStatus action,
-                                                     @RequestParam String resolutionRemarks) {
-        return hrRequestService.takeActionForHrRequests(requestId, action, resolutionRemarks);
+                                                     @RequestParam String resolutionRemarks, @RequestParam(required = false) Long userId) {
+        return hrRequestService.takeActionForHrRequests(requestId, action, resolutionRemarks, userId);
     }
 
     @LogActivity("Get All HR Requests")

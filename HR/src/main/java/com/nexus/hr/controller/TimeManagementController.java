@@ -78,6 +78,11 @@ public class TimeManagementController {
     public ResponseEntity<?> getThisMonthAttendance(@PathVariable Long empId) {
         return timeManagementService.getThisMonthAttendance(empId);
     }
+
+    @GetMapping("/attendance/quick-update")
+    public ResponseEntity<?> getAttendanceQuickUpdate(@RequestParam Long empId) {
+        return timeManagementService.attendanceQuickUpdate(empId);
+    }
     
 
 }

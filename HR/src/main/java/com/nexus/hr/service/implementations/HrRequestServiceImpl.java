@@ -51,7 +51,7 @@ public class HrRequestServiceImpl implements HrRequestService {
 
     @Override
     @Transactional
-    public ResponseEntity<?> takeActionForHrRequests(Long requestId, HrRequestStatus action, String resolutionRemarks) {
+    public ResponseEntity<?> takeActionForHrRequests(Long requestId, HrRequestStatus action, String resolutionRemarks, Long userId) {
         if (ObjectUtils.isEmpty(requestId)) {
             throw new ServiceLevelException("HR Service", "Request ID cannot be null or empty",
                     "takeActionForHrRequests", "InvalidInput", "Request ID is null or empty");
@@ -60,7 +60,7 @@ public class HrRequestServiceImpl implements HrRequestService {
             HrRequest hrRequest = hrRequestRepo.findById(requestId)
                     .orElseThrow(() -> new ResourceNotFoundException("HrRequests", "requestId", requestId));
 
-            if (HrRequestType.LEAVE_APPLICATION.equals(hrRequest.getRequestType()) && HrRequestStatus.APPROVED.equals(hrRequest.getStatus())) {
+            if (HrRequestType.LEAVE_APPLICATION.equals(hrRequest.getRequestType()) && HrRequestStatus.APPROVED.equals(action)) {
                 EmployeeLeaveAllocation employeeLeaveAllocation = employeeLeaveAllocationRepo.findByHrEntity_HrIdAndLeaveTypeAndYear(hrRequest.getAppliedBy().getHrId(), hrRequest.getLeaveType(), LocalDate.now().getYear()).orElseThrow(() -> new ResourceNotFoundException("HrRequests", "requestId", requestId));
                 Double calculatedLeaveDays = calculateLeaveDays(hrRequest);
                 if (employeeLeaveAllocation.getRemainingDays() < calculatedLeaveDays) {
@@ -80,9 +80,11 @@ public class HrRequestServiceImpl implements HrRequestService {
                 employeeLeave.setEndDate(hrRequest.getToDate());
                 employeeLeave.setNumberOfDays(calculatedLeaveDays);
                 employeeLeave.setReason(hrRequest.getRemarks());
+                employeeLeave.setApprovedOrRevokedDate(new Timestamp(System.currentTimeMillis()));
+                employeeLeave.setApprovedBy(userId);
                 employeeLeavesRepo.save(employeeLeave);
             }
-            if (HrRequestType.BULK_REGULARIZATION.equals(hrRequest.getRequestType()) && HrRequestStatus.APPROVED.equals(hrRequest.getStatus())) {
+            if (HrRequestType.BULK_REGULARIZATION.equals(hrRequest.getRequestType()) && HrRequestStatus.APPROVED.equals(action)) {
                 TimeManagement timeManagement = new TimeManagement();
                 timeManagement.setCreatedOn(new Timestamp(System.currentTimeMillis()));
                 timeManagement.setDay(hrRequest.getFromDate().toLocalDate().getDayOfMonth());
@@ -175,6 +177,11 @@ public class HrRequestServiceImpl implements HrRequestService {
             boolean isLeaveApplicationRequest = HrRequestType.LEAVE_APPLICATION.equals(hrRequestDto.getHrRequestType());
             boolean isBulkRegularizationRequest = HrRequestType.BULK_REGULARIZATION.equals(hrRequestDto.getHrRequestType());
             if (isLeaveApplicationRequest || isBulkRegularizationRequest) {
+                // check if todate is before fromdate
+                if (hrRequestDto.getToDate().before(hrRequestDto.getFromDate())) {
+                    throw new ServiceLevelException("HR Service", "To date cannot be before from date",
+                            "createHrRequest", "InvalidDateRange", "To date cannot be before from date");
+                }
                 hrRequest.setFromDate(hrRequestDto.getFromDate());
                 hrRequest.setToDate(hrRequestDto.getToDate());
                 if (isLeaveApplicationRequest) {

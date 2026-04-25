@@ -1,7 +1,6 @@
 package com.nexus.hr.repository;
 
 import com.nexus.hr.model.entities.Payroll;
-import com.nexus.hr.payload.response.PayrollGraphDto;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -211,4 +210,50 @@ public interface PayrollRepo extends JpaRepository<Payroll, Long> {
             @Param("month") String month,
             @Param("year") Integer year
     );
+
+    /**
+     * Get monthly average net payroll for last 12 months
+     */
+    @Query(value = """
+            SELECT
+                   ARRAY_POSITION(ARRAY['JANUARY','FEBRUARY','MARCH','APRIL','MAY','JUNE','JULY','AUGUST','SEPTEMBER','OCTOBER','NOVEMBER','DECEMBER'], UPPER(p.month)) AS month,
+                   p.year AS year,
+                   AVG(p.net_pay) AS avgNetPay
+            FROM hr.t_payrolls p
+            JOIN hr.t_compensations c ON c.compensation_id = p.compensation_id
+            JOIN hr.t_hr_entity he ON he.hr_compensation_id = c.compensation_id
+            WHERE he.org = :orgId
+            AND (p.year > :startYear OR (p.year = :startYear AND ARRAY_POSITION(ARRAY['JANUARY','FEBRUARY','MARCH','APRIL','MAY','JUNE','JULY','AUGUST','SEPTEMBER','OCTOBER','NOVEMBER','DECEMBER'], UPPER(p.month)) >= :startMonth))
+            AND (p.year < :endYear OR (p.year = :endYear AND ARRAY_POSITION(ARRAY['JANUARY','FEBRUARY','MARCH','APRIL','MAY','JUNE','JULY','AUGUST','SEPTEMBER','OCTOBER','NOVEMBER','DECEMBER'], UPPER(p.month)) <= :endMonth))
+            GROUP BY p.year, ARRAY_POSITION(ARRAY['JANUARY','FEBRUARY','MARCH','APRIL','MAY','JUNE','JULY','AUGUST','SEPTEMBER','OCTOBER','NOVEMBER','DECEMBER'], UPPER(p.month))
+            ORDER BY p.year ASC, ARRAY_POSITION(ARRAY['JANUARY','FEBRUARY','MARCH','APRIL','MAY','JUNE','JULY','AUGUST','SEPTEMBER','OCTOBER','NOVEMBER','DECEMBER'], UPPER(p.month)) ASC
+            """, nativeQuery = true)
+    List<Object[]> getMonthlyAverageNetPayroll(@Param("orgId") Long orgId,
+                                               @Param("startYear") Integer startYear,
+                                               @Param("startMonth") Integer startMonth,
+                                               @Param("endYear") Integer endYear,
+                                               @Param("endMonth") Integer endMonth);
+
+    /**
+     * Get quarterly average net payroll by employee
+     */
+    @Query(value = """
+            SELECT
+                CEIL(ARRAY_POSITION(ARRAY['JANUARY','FEBRUARY','MARCH','APRIL','MAY','JUNE','JULY','AUGUST','SEPTEMBER','OCTOBER','NOVEMBER','DECEMBER'], UPPER(p.month))::FLOAT / 3) AS quarter,
+                AVG(p.net_pay) AS avgNetPay
+            FROM hr.t_payrolls p
+            JOIN hr.t_compensations c ON c.compensation_id = p.compensation_id
+            JOIN hr.t_hr_entity he ON he.hr_compensation_id = c.compensation_id
+            WHERE he.employee_id IN :empIds
+            AND P.payment_status = 'COMPLETED'
+            AND (p.year > :startYear OR (p.year = :startYear AND ARRAY_POSITION(ARRAY['JANUARY','FEBRUARY','MARCH','APRIL','MAY','JUNE','JULY','AUGUST','SEPTEMBER','OCTOBER','NOVEMBER','DECEMBER'], UPPER(p.month)) >= :startMonth))
+            AND (p.year < :endYear OR (p.year = :endYear AND ARRAY_POSITION(ARRAY['JANUARY','FEBRUARY','MARCH','APRIL','MAY','JUNE','JULY','AUGUST','SEPTEMBER','OCTOBER','NOVEMBER','DECEMBER'], UPPER(p.month)) <= :endMonth))
+            GROUP BY CEIL(ARRAY_POSITION(ARRAY['JANUARY','FEBRUARY','MARCH','APRIL','MAY','JUNE','JULY','AUGUST','SEPTEMBER','OCTOBER','NOVEMBER','DECEMBER'], UPPER(p.month))::FLOAT / 3)
+            ORDER BY CEIL(ARRAY_POSITION(ARRAY['JANUARY','FEBRUARY','MARCH','APRIL','MAY','JUNE','JULY','AUGUST','SEPTEMBER','OCTOBER','NOVEMBER','DECEMBER'], UPPER(p.month))::FLOAT / 3)
+            """, nativeQuery = true)
+    List<Object[]> getQuarterlyAverageNetPayrollByEmployees(@Param("empIds") List<Long> empIds,
+                                                            @Param("startYear") Integer startYear,
+                                                            @Param("startMonth") Integer startMonth,
+                                                            @Param("endYear") Integer endYear,
+                                                            @Param("endMonth") Integer endMonth);
 }

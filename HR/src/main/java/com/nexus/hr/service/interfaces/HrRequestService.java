@@ -8,7 +8,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 
 public interface HrRequestService {
-    ResponseEntity<?> takeActionForHrRequests(Long requestId, HrRequestStatus action, String resolutionRemarks);
+    ResponseEntity<?> takeActionForHrRequests(Long requestId, HrRequestStatus action, String resolutionRemarks, Long userId);
 
     ResponseEntity<?> getAllHrRequests(Long orgId, HrRequestType requestType, HrRequestStatus status, Pageable pageable);
 

@@ -72,7 +72,18 @@ public interface UserRepository extends JpaRepository<User, Long> {
             "FROM iam.t_roles r " +
             "INNER JOIN iam.t_user_roles ur ON r.id = ur.role_id " +
             "INNER JOIN iam.t_users u ON ur.user_id = u.id " +
+            "WHERE u.organization_id = :orgId " +
             "ORDER BY r.name, u.id",
             nativeQuery = true)
-    List<Map<String, Object>> getRolesWithUserIds();
+    List<Map<String, Object>> getRolesWithUserIds(Long orgId);
+
+    @Query(value = """
+            SELECT r.name as roleName, u.id as userId
+            FROM iam.t_roles r
+            INNER JOIN iam.t_user_roles ur ON r.id = ur.role_id
+            INNER JOIN iam.t_users u ON ur.user_id = u.id
+            WHERE u.organization_id = :orgId
+            ORDER BY r.name, u.id
+""", nativeQuery = true)
+    List<Map<String, Object>> getRoleUserIdsMapping(Long orgId);
 }

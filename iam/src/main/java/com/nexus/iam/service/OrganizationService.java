@@ -60,4 +60,6 @@ public interface OrganizationService {
     ResponseEntity<?> getClosedHrRequests(Long orgId, Integer page, Integer offset, String token);
 
     ResponseEntity<?> getHrRequestInsights(Long orgId);
+
+    ResponseEntity<?> getTimeManagementQuickUpdate(Long empId);
 }

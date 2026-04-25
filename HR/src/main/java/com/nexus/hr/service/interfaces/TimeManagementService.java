@@ -22,4 +22,6 @@ public interface TimeManagementService {
     ResponseEntity<?> toggleAttandenceByEmpId(Long empId);
 
     ResponseEntity<?> getThisMonthAttendance(Long empId);
+
+    ResponseEntity<?> attendanceQuickUpdate(Long empId);
 }

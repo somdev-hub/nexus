@@ -1,6 +1,8 @@
 package com.nexus.iam.service.impl;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nexus.iam.config.CacheConfig;
 import com.nexus.iam.dto.LoginResponse;
@@ -20,12 +22,10 @@ import com.nexus.iam.repository.UserRepository;
 import com.nexus.iam.service.AuthenticationService;
 import com.nexus.iam.service.KeycloakAuthenticationService;
 import com.nexus.iam.service.OrganizationService;
-import com.nexus.iam.utils.CommonUtils;
-import com.nexus.iam.utils.DataMapper;
-import com.nexus.iam.utils.RestService;
-import com.nexus.iam.utils.WebConstants;
+import com.nexus.iam.utils.*;
 import lombok.RequiredArgsConstructor;
 import org.json.JSONArray;
+import org.json.JSONObject;
 import org.jspecify.annotations.NonNull;
 import org.modelmapper.ModelMapper;
 import org.springframework.cache.annotation.Cacheable;
@@ -63,6 +63,7 @@ public class OrganizationServiceImpl implements OrganizationService {
     private final KeycloakAuthenticationService keycloakAuthenticationService;
     private final DepartmentRepository departmentRepository;
     private final ObjectMapper objectMapper;
+    private final KeycloakTokenUtil keycloakTokenUtil;
 
     private static @NonNull JSONArray getJsonArray(ResponseEntity<?> response) {
         JSONArray responseData;
@@ -74,6 +75,8 @@ public class OrganizationServiceImpl implements OrganizationService {
             responseData = new JSONArray(collection);
         } else if (responseBody != null && responseBody.getClass().isArray()) {
             responseData = new JSONArray(responseBody);
+        } else if (responseBody instanceof JSONArray jsonArray) {
+            responseData = jsonArray;
         } else {
             throw new ServiceLevelException(
                     "OrganizationServiceImpl",
@@ -355,9 +358,30 @@ public class OrganizationServiceImpl implements OrganizationService {
                         "API_ERROR", "External API returned status: " + apiResponse.getStatusCode());
             }
 
-            @SuppressWarnings("unchecked")
-            List<Map<String, Object>> employeeDetails = (List<Map<String, Object>>) apiResponse.getBody();
-            if (employeeDetails == null) {
+            // Handle various response types (String, List, JSONArray, etc.)
+            List<Map<String, Object>> employeeDetails = new ArrayList<>();
+            Object responseBody = apiResponse.getBody();
+
+            if (responseBody != null) {
+                if (responseBody instanceof String stringBody) {
+                    // Parse string response - could be empty array "[]" or JSON array
+                    try {
+                        JSONArray jsonArray = new JSONArray(stringBody);
+                        for (int i = 0; i < jsonArray.length(); i++) {
+                            employeeDetails.add(jsonArray.getJSONObject(i).toMap());
+                        }
+                    } catch (Exception e) {
+                        // If parsing fails, treat as empty list
+                        employeeDetails = new ArrayList<>();
+                    }
+                } else if (responseBody instanceof Collection<?> collection) {
+                    @SuppressWarnings("unchecked")
+                    List<Map<String, Object>> listBody = (List<Map<String, Object>>) responseBody;
+                    employeeDetails = listBody;
+                }
+            }
+
+            if (employeeDetails.isEmpty()) {
                 return ResponseEntity.ok(new PaginatedResponse<>(
                         new ArrayList<>(),
                         pageNo,
@@ -444,11 +468,14 @@ public class OrganizationServiceImpl implements OrganizationService {
                     null);
             if (hrResponse.getStatusCode().is2xxSuccessful() && hrResponse.getBody() != null) {
                 // Get the response body as Map
-                @SuppressWarnings("unchecked")
-                Map<String, Object> responseData = (Map<String, Object>) hrResponse.getBody();
+//                @SuppressWarnings("unchecked")
+//                Map<String, Object> responseData = (Map<String, Object>) hrResponse.getBody();
+                Map<String, Object> combinedData = objectMapper.readValue(hrResponse.getBody().toString(), new TypeReference<>() {
+                });
+//                JSONObject combinedData= new JSONObject(hrResponse.getBody().toString());
 
                 // Create a new map with the HR data plus IAM service user details
-                Map<String, Object> combinedData = new HashMap<>(responseData);
+//                Map<String, Object> combinedData = new HashMap<>((Map) responseData);
 
                 // Add IAM service user details
                 combinedData.put("empId", user.getId());
@@ -559,7 +586,7 @@ public class OrganizationServiceImpl implements OrganizationService {
                 // }
                 // response = ResponseEntity.ok(jsonObject);
             }
-        } catch (RuntimeException e) {
+        } catch (RuntimeException | JsonProcessingException e) {
             throw new ServiceLevelException(
                     "OrganizationService", "Failed to get employee details", "getEmployeeDetails",
                     e.getClass().getSimpleName(), e.getLocalizedMessage());
@@ -632,8 +659,32 @@ public class OrganizationServiceImpl implements OrganizationService {
                         .body("Failed to fetch attendance from HR service");
             }
 
-            @SuppressWarnings("unchecked")
-            List<Map<String, Object>> attendanceDataList = (List<Map<String, Object>>) hrCallResponse.getBody();
+            // Handle various response types (String, List, JSONArray, etc.)
+            List<Map<String, Object>> attendanceDataList = new ArrayList<>();
+            Object responseBody = hrCallResponse.getBody();
+
+            if (responseBody != null) {
+                if (responseBody instanceof String stringBody) {
+                    // Parse string response - could be empty array "[]" or JSON array
+                    try {
+                        JSONArray jsonArray = new JSONArray(stringBody);
+                        for (int i = 0; i < jsonArray.length(); i++) {
+                            attendanceDataList.add(jsonArray.getJSONObject(i).toMap());
+                        }
+                    } catch (Exception e) {
+                        // If parsing fails, treat as empty list
+                        attendanceDataList = new ArrayList<>();
+                    }
+                } else if (responseBody instanceof Collection<?> collection) {
+                    @SuppressWarnings("unchecked")
+                    List<Map<String, Object>> listBody = (List<Map<String, Object>>) responseBody;
+                    attendanceDataList = listBody;
+                } else if (responseBody instanceof List<?>) {
+                    @SuppressWarnings("unchecked")
+                    List<Map<String, Object>> listBody = (List<Map<String, Object>>) responseBody;
+                    attendanceDataList = listBody;
+                }
+            }
 
             if (attendanceDataList == null || attendanceDataList.isEmpty()) {
                 return ResponseEntity.ok(new PageImpl<>(
@@ -711,9 +762,7 @@ public class OrganizationServiceImpl implements OrganizationService {
                         .body("Failed to toggle attendance in HR service");
             }
 
-            @SuppressWarnings("unchecked")
-            Map<String, Object> responseData = (Map<String, Object>) hrCallResponse.getBody();
-            return ResponseEntity.ok(responseData);
+            return hrCallResponse;
 
         } catch (ResourceNotFoundException e) {
             throw e;
@@ -939,7 +988,7 @@ public class OrganizationServiceImpl implements OrganizationService {
             throw new IllegalArgumentException("Month and Year are required");
         }
         try {
-            List<Map<String, Object>> userIdsWithRoles = userRepository.getRolesWithUserIds();
+            List<Map<String, Object>> userIdsWithRoles = userRepository.getRolesWithUserIds(orgId);
 
             // Transform flat list into grouped structure: role -> list of user IDs
             Map<String, List<Long>> roleEmpIdMap = new HashMap<>();
@@ -1104,10 +1153,12 @@ public class OrganizationServiceImpl implements OrganizationService {
             throw new IllegalArgumentException("Request ID and action are required");
         }
         try {
+            String userId = keycloakTokenUtil.extractUserId(token);
             UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getTakeActionOnHrRequestUrl())
                     .queryParam("requestId", requestId)
                     .queryParam("action", action)
-                    .queryParam("resolutionRemarks", resolutionRemarks);
+                    .queryParam("resolutionRemarks", resolutionRemarks)
+                    .queryParam("userId", Long.valueOf(userId));
 //            Map<String, String> headers = commonUtils.buildJsonHeaders(token);
             return restService.iamRestCall(builder.toUriString(), null, Map.of(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE), HttpMethod.POST, null);
         } catch (RuntimeException e) {
@@ -1182,5 +1233,33 @@ public class OrganizationServiceImpl implements OrganizationService {
         return response;
     }
 
+    @Override
+    public ResponseEntity<?> getTimeManagementQuickUpdate(Long empId) {
+        if (ObjectUtils.isEmpty(empId)) {
+            throw new IllegalArgumentException("Employee ID is required");
+        }
+        ResponseEntity<?> response;
+        try {
+            UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getTimeManagementQuickUpdateUrl())
+                    .queryParam("empId", empId);
+            response = restService.iamRestCall(builder.toUriString(), null, Map.of(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE), HttpMethod.GET, null);
+            if (!response.getStatusCode().is2xxSuccessful() || ObjectUtils.isEmpty(response.getBody())) {
+                throw new ServiceLevelException(
+                        "OrganizationServiceImpl",
+                        "Failed to get time management quick update: External API returned status: " + response.getStatusCode(),
+                        "getTimeManagementQuickUpdate",
+                        "API_ERROR",
+                        response.getBody() != null ? response.getBody().toString() : "External API returned status: " + response.getStatusCode());
+            }
+        } catch (RuntimeException e) {
+            throw new ServiceLevelException(
+                    "OrganizationServiceImpl",
+                    "Failed to get time management quick update: " + e.getMessage(),
+                    "getTimeManagementQuickUpdate",
+                    e.getClass().getSimpleName(),
+                    e.getLocalizedMessage());
+        }
 
+        return response;
+    }
 }

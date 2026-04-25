@@ -10,6 +10,7 @@ import com.nexus.hr.model.enums.HrRequestStatus;
 import com.nexus.hr.model.enums.HrRequestType;
 import com.nexus.hr.payload.BulkRegularizationRequestDto;
 import com.nexus.hr.payload.response.AttendanceResponse;
+import com.nexus.hr.payload.response.TimeManagementQuickResponseDto;
 import com.nexus.hr.repository.HrEntityRepo;
 import com.nexus.hr.repository.HrRequestRepo;
 import com.nexus.hr.repository.TimeManagementRepo;
@@ -22,6 +23,7 @@ import org.springframework.util.ObjectUtils;
 
 import java.sql.Date;
 import java.sql.Timestamp;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.HashMap;
@@ -112,31 +114,68 @@ public class TimeManagementServiceImpl implements TimeManagementService {
         LocalDateTime now = LocalDateTime.now();
         Timestamp currentTime = Timestamp.valueOf(now);
 
-        // Case 1: Check-in exists, break not started - start break
-        if (todayRecord.getCheckInTime() != null && todayRecord.getBreakStartTime() == null) {
+        if (Boolean.TRUE.equals(todayRecord.getIsOnLeave())) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("message", "Attendance cannot be toggled for a leave/holiday record.");
+            response.put("timeManagementId", todayRecord.getTimeManagementId());
+            response.put("isOnLeave", true);
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
+        }
+
+        if (todayRecord.getCheckInTime() == null) {
+            todayRecord.setCheckInTime(currentTime);
+            todayRecord.setIsPresent(true);
+            todayRecord.setIsOnLeave(false);
+            timeManagementRepo.save(todayRecord);
+            return buildAttendanceResponse(todayRecord, "Check-in recorded successfully");
+        }
+
+        // 2nd call: if today's record only has check-in, mark checkout and break start together.
+        if (todayRecord.getCheckOutTime() == null && todayRecord.getBreakStartTime() == null) {
+            todayRecord.setCheckOutTime(currentTime);
             todayRecord.setBreakStartTime(currentTime);
+            calculateWorkingHours(todayRecord);
             timeManagementRepo.save(todayRecord);
-            return buildAttendanceResponse(todayRecord, "Break started");
+            return buildAttendanceResponse(todayRecord, "Checkout and break start recorded");
         }
 
-        // Case 2: Break started, break not ended - end break
-        if (todayRecord.getBreakStartTime() != null && todayRecord.getBreakEndTime() == null) {
+        // 3rd call: break end is still missing.
+        if (todayRecord.getBreakEndTime() == null) {
             todayRecord.setBreakEndTime(currentTime);
+            calculateWorkingHours(todayRecord);
             timeManagementRepo.save(todayRecord);
-            return buildAttendanceResponse(todayRecord, "Break ended");
+            return buildAttendanceResponse(todayRecord, "Break end recorded");
         }
 
-        // Case 3: Break ended, checkout not recorded - record checkout and calculate
-        // hours
-        if (todayRecord.getBreakEndTime() != null && todayRecord.getCheckOutTime() == null) {
+        // 4th/5th/... calls: alternate between checkout and break end based on their
+        // current ordering.
+        if (todayRecord.getCheckOutTime() == null) {
             todayRecord.setCheckOutTime(currentTime);
             calculateWorkingHours(todayRecord);
             timeManagementRepo.save(todayRecord);
-            return buildAttendanceResponse(todayRecord, "Checkout recorded and hours calculated");
+            return buildAttendanceResponse(todayRecord, "Checkout recorded");
         }
 
-        // Case 4: All times recorded - already complete
-        return buildAttendanceResponse(todayRecord, "Attendance already recorded for today");
+        if (todayRecord.getBreakEndTime().after(todayRecord.getCheckOutTime())) {
+            todayRecord.setCheckOutTime(currentTime);
+            calculateWorkingHours(todayRecord);
+            timeManagementRepo.save(todayRecord);
+            return buildAttendanceResponse(todayRecord, "Checkout updated");
+        }
+
+        if (todayRecord.getBreakEndTime().before(todayRecord.getCheckOutTime())) {
+            todayRecord.setBreakEndTime(currentTime);
+            calculateWorkingHours(todayRecord);
+            timeManagementRepo.save(todayRecord);
+            return buildAttendanceResponse(todayRecord, "Break end updated");
+        }
+
+        // Equal timestamps are a rare edge case; default to updating checkout so the
+        // record continues to move forward deterministically.
+        todayRecord.setCheckOutTime(currentTime);
+        calculateWorkingHours(todayRecord);
+        timeManagementRepo.save(todayRecord);
+        return buildAttendanceResponse(todayRecord, "Checkout updated");
     }
 
     /**
@@ -585,6 +624,75 @@ public class TimeManagementServiceImpl implements TimeManagementService {
                     e.getMessage());
         }
 
+    }
+
+    @Override
+    public ResponseEntity<?> attendanceQuickUpdate(Long empId) {
+        if (ObjectUtils.isEmpty(empId)) {
+            throw new ServiceLevelException(
+                    "TimeManagementService",
+                    "Employee ID is required for attendance quick update",
+                    "attendanceQuickUpdate",
+                    "InvalidInput",
+                    "The provided employee ID is null or empty");
+        }
+
+        try {
+            // Find HrEntity by employee ID
+            HrEntity hrEntity = hrEntityRepo.findByEmployeeId(empId)
+                    .orElseThrow(() -> new ResourceNotFoundException("HrEntity", "employeeId", empId));
+
+            LocalDate today = LocalDate.now();
+            TimeManagement todayRecord = timeManagementRepo.findByDayMonthYearAndHrEntity(
+                    today.getDayOfMonth(),
+                    today.getMonthValue(),
+                    today.getYear(),
+                    hrEntity.getHrId());
+
+            if (todayRecord == null) {
+                throw new ResourceNotFoundException("TimeManagement", "employeeId", empId);
+            }
+
+            TimeManagementQuickResponseDto timeManagementQuickResponseDto=new TimeManagementQuickResponseDto();
+            if (todayRecord.getBreakEndTime()!=null){
+                timeManagementQuickResponseDto.setLastCheckedInTime(todayRecord.getBreakEndTime().toString());
+            }else{
+                timeManagementQuickResponseDto.setLastCheckedInTime(todayRecord.getCheckInTime().toString());
+            }
+
+            if (todayRecord.getCheckOutTime()!=null){
+                timeManagementQuickResponseDto.setLastCheckedOutTime(todayRecord.getCheckOutTime().toString());
+            }else{
+                timeManagementQuickResponseDto.setLastCheckedOutTime(todayRecord.getBreakStartTime().toString());
+            }
+
+            if (todayRecord.getBreakStartTime()!=null){
+                if (todayRecord.getBreakEndTime()!=null){
+                    timeManagementQuickResponseDto.setTotalBreakTime(Duration.between(todayRecord.getBreakStartTime().toLocalDateTime(), todayRecord.getBreakEndTime().toLocalDateTime()).toMinutes() + "");
+                }else{
+                    timeManagementQuickResponseDto.setTotalBreakTime(Duration.between(todayRecord.getBreakStartTime().toLocalDateTime(), LocalDateTime.now()).toMinutes() + "");
+                }
+            }
+
+            if (todayRecord.getCheckInTime()!=null){
+                if (todayRecord.getCheckOutTime()!=null){
+                    timeManagementQuickResponseDto.setTotalWorkHours(Duration.between(todayRecord.getCheckInTime().toLocalDateTime(), todayRecord.getCheckOutTime().toLocalDateTime()).toMinutes() + "");
+                }
+                else{
+                    timeManagementQuickResponseDto.setTotalWorkHours(Duration.between(todayRecord.getCheckInTime().toLocalDateTime(), LocalDateTime.now()).toMinutes() + "");
+                }
+            }
+            return ResponseEntity.ok(timeManagementQuickResponseDto);
+        } catch (ResourceNotFoundException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new ServiceLevelException(
+                    "TimeManagementService",
+                    "Error during attendance quick update",
+                    "attendanceQuickUpdate",
+                    e.getClass().getName(),
+                    e.getMessage());
+        }
     }
 
     private void calculateDeductionsAndAdditionsToPayroll(Map<String, Object> response, long daysPresent, long daysAbsent, long halfDays, double totalOvertimeHours, HrEntity hrEntity) {

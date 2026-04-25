@@ -43,4 +43,52 @@ public interface TimeManagementRepo extends JpaRepository<TimeManagement, Long> 
                                     ORDER BY tm.year DESC, tm.month DESC, tm.day DESC
             """)
     List<TimeManagement> findAllByMonthYearAndHrEntity(int monthValue, int year, Long hrId);
+
+    @Query("""
+            SELECT tm.month AS month, COUNT(DISTINCT tm.hrEntity.hrId) AS count 
+            FROM TimeManagement tm 
+            WHERE tm.hrEntity.org = :orgId AND tm.isPresent = true
+            AND (tm.year > :startYear OR (tm.year = :startYear AND tm.month >= :startMonth))
+            AND (tm.year < :endYear OR (tm.year = :endYear AND tm.month <= :endMonth))
+            GROUP BY tm.month, tm.year
+            ORDER BY tm.year ASC, tm.month ASC
+            """)
+    List<Object[]> findMonthWiseEmployeePresenceLastYear(@Param("orgId") Long orgId, 
+                                                          @Param("startYear") Integer startYear, 
+                                                          @Param("startMonth") Integer startMonth,
+                                                          @Param("endYear") Integer endYear,
+                                                          @Param("endMonth") Integer endMonth);
+
+    @Query("""
+            SELECT COUNT(DISTINCT he.hrId) 
+            FROM HrEntity he 
+            WHERE he.org = :orgId AND he.isActive = true
+            """)
+    Long countActiveEmployeesByOrg(@Param("orgId") Long orgId);
+
+    @Query(value = """
+            SELECT TRIM(TO_CHAR(MAKE_DATE(tm.year, tm.month, tm.day), 'Day')) AS dayName,
+                   AVG(EXTRACT(HOUR FROM tm.check_in_time)) * 60 + AVG(EXTRACT(MINUTE FROM tm.check_in_time)) AS avgCheckInMinutes,
+                   AVG(EXTRACT(HOUR FROM tm.check_out_time)) * 60 + AVG(EXTRACT(MINUTE FROM tm.check_out_time)) AS avgCheckOutMinutes
+            FROM hr.t_time_management tm
+            JOIN hr.t_hr_entity he ON he.hr_id = tm.hr_entity_hr_id
+            WHERE he.org = :orgId AND tm.month = :month AND tm.year = :year
+            GROUP BY EXTRACT(DOW FROM MAKE_DATE(tm.year, tm.month, tm.day)), 
+                     TO_CHAR(MAKE_DATE(tm.year, tm.month, tm.day), 'Day')
+            ORDER BY EXTRACT(DOW FROM MAKE_DATE(tm.year, tm.month, tm.day))
+            """, nativeQuery = true)
+    List<Object[]> getCheckInCheckOutByDayForMonth(@Param("orgId") Long orgId, @Param("month") Integer month, @Param("year") Integer year);
+
+    @Query(value = """
+            SELECT TRIM(TO_CHAR(MAKE_DATE(tm.year, tm.month, tm.day), 'Day')) AS dayName,
+                   AVG(EXTRACT(HOUR FROM tm.break_start_time)) * 60 + AVG(EXTRACT(MINUTE FROM tm.break_start_time)) AS avgBreakStartMinutes,
+                   AVG(EXTRACT(HOUR FROM tm.break_end_time)) * 60 + AVG(EXTRACT(MINUTE FROM tm.break_end_time)) AS avgBreakEndMinutes
+            FROM hr.t_time_management tm
+            JOIN hr.t_hr_entity he ON he.hr_id = tm.hr_entity_hr_id
+            WHERE he.org = :orgId AND tm.month = :month AND tm.year = :year
+            GROUP BY EXTRACT(DOW FROM MAKE_DATE(tm.year, tm.month, tm.day)), 
+                     TO_CHAR(MAKE_DATE(tm.year, tm.month, tm.day), 'Day')
+            ORDER BY EXTRACT(DOW FROM MAKE_DATE(tm.year, tm.month, tm.day))
+            """, nativeQuery = true)
+    List<Object[]> getBreakStartEndByDayForMonth(@Param("orgId") Long orgId, @Param("month") Integer month, @Param("year") Integer year);
 }

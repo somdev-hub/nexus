@@ -123,6 +123,37 @@ public class WebConstants {
 
     @Value("${hr.closed.requests.url}")
     private String closedHrRequestsUrl;
+
+    @Value("${employee.avg.strength.url}")
+    private String employeeAveStrengthUrl;
+
+    @Value("${leave.type.distribution.url}")
+    private String leaveTypeDistributionUrl;
+
+    @Value("${employee.checkin.checkout.url}")
+    private String employeeCheckInCheckOutUrl;
+
+    @Value("${employee.break.start.end.url}")
+    private String employeeBreakStartEndUrl;
+
+    @Value("${payroll.yearly.url}")
+    private String payrollYearlyUrl;
+
+    @Value("${payroll.role.wise.url}")
+    private String payrollRoleWiseUrl;
+
+    @Value("${overtime.anomaly.url}}")
+    private String overtimeAnomalyUrl;
+
+    @Value("${leaves.role.wise.url}")
+    private String leavesRoleWiseUrl;
+
+    @Value("${leaves.department.wise.url}")
+    private String leavesDepartmentWiseUrl;
+
+    @Value("${time.management.quick.update.url}")
+    private String timeManagementQuickUpdateUrl;
+
     // Keycloak URLs
     public String getKeycloakAdminUrl() {
         return keycloakServerUrl + "/admin/realms/" + keycloakRealm;
@@ -164,7 +195,4 @@ public class WebConstants {
     public boolean isKeycloakOAuth2Enabled() {
         return keycloakOAuth2Enabled;
     }
-
-
-
 }

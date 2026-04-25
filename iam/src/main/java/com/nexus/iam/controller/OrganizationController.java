@@ -245,4 +245,9 @@ public class OrganizationController {
         return organizationService.getHrRequestInsights(orgId);
     }
 
+    @GetMapping("/time-management/quick-update")
+    public ResponseEntity<?> getTimeManagementQuickUpdate(@RequestParam Long empId) {
+        return organizationService.getTimeManagementQuickUpdate(empId);
+    }
+
 }
