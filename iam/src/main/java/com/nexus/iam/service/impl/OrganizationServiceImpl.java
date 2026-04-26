@@ -1262,4 +1262,33 @@ public class OrganizationServiceImpl implements OrganizationService {
 
         return response;
     }
+
+    @Override
+    public ResponseEntity<?> getHeroAnalytics(Long orgId) {
+        if (ObjectUtils.isEmpty(orgId)) {
+            throw new IllegalArgumentException("Organization ID is required");
+        }
+        ResponseEntity<?> response;
+        try {
+            UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getHeroAnalyticsUrl())
+                    .queryParam("orgId", orgId);
+            response = restService.iamRestCall(builder.toUriString(), null, Map.of(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE), HttpMethod.GET, null);
+            if (!response.getStatusCode().is2xxSuccessful() || ObjectUtils.isEmpty(response.getBody())) {
+                throw new ServiceLevelException(
+                        "OrganizationServiceImpl",
+                        "Failed to get hero analytics: External API returned status: " + response.getStatusCode(),
+                        "getHeroAnalytics",
+                        "API_ERROR",
+                        response.getBody() != null ? response.getBody().toString() : "External API returned status: " + response.getStatusCode());
+            }
+        } catch (RuntimeException e) {
+            throw new ServiceLevelException(
+                    "OrganizationServiceImpl",
+                    "Failed to get hero analytics: " + e.getMessage(),
+                    "getHeroAnalytics",
+                    e.getClass().getSimpleName(),
+                    e.getLocalizedMessage());
+        }
+        return response;
+    }
 }

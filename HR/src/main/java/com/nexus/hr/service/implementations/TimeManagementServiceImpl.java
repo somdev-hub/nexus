@@ -650,7 +650,7 @@ public class TimeManagementServiceImpl implements TimeManagementService {
                     hrEntity.getHrId());
 
             if (todayRecord == null) {
-                throw new ResourceNotFoundException("TimeManagement", "employeeId", empId);
+                return ResponseEntity.ok(new TimeManagementQuickResponseDto());
             }
 
             TimeManagementQuickResponseDto timeManagementQuickResponseDto=new TimeManagementQuickResponseDto();
@@ -662,7 +662,7 @@ public class TimeManagementServiceImpl implements TimeManagementService {
 
             if (todayRecord.getCheckOutTime()!=null){
                 timeManagementQuickResponseDto.setLastCheckedOutTime(todayRecord.getCheckOutTime().toString());
-            }else{
+            } else if (todayRecord.getBreakStartTime()!=null) {
                 timeManagementQuickResponseDto.setLastCheckedOutTime(todayRecord.getBreakStartTime().toString());
             }
 

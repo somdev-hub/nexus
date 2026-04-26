@@ -1,9 +1,9 @@
 package com.nexus.hr.service.implementations;
 
+import com.nexus.hr.exception.ServiceLevelException;
 import com.nexus.hr.model.enums.LeaveType;
-import com.nexus.hr.repository.EmployeeLeavesRepo;
-import com.nexus.hr.repository.PayrollRepo;
-import com.nexus.hr.repository.TimeManagementRepo;
+import com.nexus.hr.payload.response.HeroAnalyticsResponseDto;
+import com.nexus.hr.repository.*;
 import com.nexus.hr.service.interfaces.AnalyticsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -30,6 +30,17 @@ public class AnalyticsServiceImpl implements AnalyticsService {
     private final TimeManagementRepo timeManagementRepo;
     private final EmployeeLeavesRepo employeeLeavesRepo;
     private final PayrollRepo payrollRepo;
+    private final HrEntityRepo hrEntityRepo;
+    private final HrRequestRepo hrRequestRepo;
+
+    private static HeroAnalyticsResponseDto.Values fillHeroAnalyticsResponseValues(Integer presentValue, Integer differenceValue, String comparisonWith) {
+        HeroAnalyticsResponseDto.Values presentEmployeesCountValues = new HeroAnalyticsResponseDto.Values();
+        presentEmployeesCountValues.setValue(presentValue);
+        presentEmployeesCountValues.setDifference(differenceValue);
+        presentEmployeesCountValues.setTrend(differenceValue > 0 ? HeroAnalyticsResponseDto.Trend.INCREMENT : differenceValue < 0 ? HeroAnalyticsResponseDto.Trend.DECREMENT : HeroAnalyticsResponseDto.Trend.STABLE);
+        presentEmployeesCountValues.setComparisonWith(comparisonWith);
+        return presentEmployeesCountValues;
+    }
 
     @Override
     public ResponseEntity<?> getEmployeeAvgStrength(Long orgId) {
@@ -425,6 +436,49 @@ public class AnalyticsServiceImpl implements AnalyticsService {
             e.printStackTrace();
             return ResponseEntity.internalServerError()
                     .body("Error fetching role-wise leaves data: " + e.getMessage());
+        }
+    }
+
+    @Override
+    public ResponseEntity<?> getHeroAnalytics(Long orgId) {
+        if (ObjectUtils.isEmpty(orgId)) {
+            return ResponseEntity.badRequest().body("Organization ID is required");
+        }
+        try {
+            HeroAnalyticsResponseDto response = new HeroAnalyticsResponseDto();
+            Integer employeeCount = hrEntityRepo.countAllByOrgAndIsActiveTrue(orgId);
+            Integer diffOfEmployee = hrEntityRepo.getHrEntityCountDiffThisWeekVsPrevious(orgId);
+            HeroAnalyticsResponseDto.Values employeeCountValues = fillHeroAnalyticsResponseValues(
+                    employeeCount, diffOfEmployee, "Previous Week"
+            );
+            response.setTotalEmployees(employeeCountValues);
+
+            LocalDate date = LocalDate.now();
+            Integer presentEmployeesCount = hrEntityRepo.countPresentEmployees(orgId, date.getDayOfMonth(), date.getMonthValue(), date.getYear());
+            Integer presentEmployeesCountDiffTodayVsYesterday = hrEntityRepo.getPresentEmployeesCountDiffTodayVsYesterday(orgId, date.getDayOfMonth(), date.getMonthValue(), date.getYear());
+            HeroAnalyticsResponseDto.Values values = fillHeroAnalyticsResponseValues(presentEmployeesCount, presentEmployeesCountDiffTodayVsYesterday, "Yesterday");
+            response.setPresentEmployees(values);
+
+            Integer onLeaveEmployeesCount= employeeCount-presentEmployeesCount;
+            Integer previousDayOnLeaveEmployeesCount = hrEntityRepo.getPreviousDayOnLeaveEmployeesCount(orgId, date.getDayOfMonth(), date.getMonthValue(), date.getYear());
+            Integer onLeaveEmployeesCountDiffTodayVsYesterday = onLeaveEmployeesCount - previousDayOnLeaveEmployeesCount;
+            HeroAnalyticsResponseDto.Values onLeaveEmployeesValues = fillHeroAnalyticsResponseValues(onLeaveEmployeesCount, onLeaveEmployeesCountDiffTodayVsYesterday, "Yesterday");
+            response.setOnLeaveEmployees(onLeaveEmployeesValues);
+
+            Integer openHrRequests = hrRequestRepo.countOpenRequestsByOrgId(orgId);
+            Integer hrRequestsCountDiffWeekly = hrRequestRepo.countDiffInPrevWeekAndThisWeekHrRequests(orgId);
+            HeroAnalyticsResponseDto.Values hrRequestValues = fillHeroAnalyticsResponseValues(openHrRequests, hrRequestsCountDiffWeekly, "Previous Week");
+            response.setOpenHrRequests(hrRequestValues);
+
+            return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            throw new ServiceLevelException(
+                    "AnalyticsServiceImpl",
+                    "Error fetching hero analytics data",
+                    "getHeroAnalytics",
+                    e.getClass().getSimpleName(),
+                    e.getMessage()
+            );
         }
     }
 

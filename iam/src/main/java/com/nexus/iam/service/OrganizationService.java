@@ -62,4 +62,6 @@ public interface OrganizationService {
     ResponseEntity<?> getHrRequestInsights(Long orgId);
 
     ResponseEntity<?> getTimeManagementQuickUpdate(Long empId);
+
+    ResponseEntity<?> getHeroAnalytics(Long orgId);
 }

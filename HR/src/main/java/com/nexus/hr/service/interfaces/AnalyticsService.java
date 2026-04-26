@@ -23,4 +23,6 @@ public interface AnalyticsService {
     ResponseEntity<?> getLeavesDepartmentWise(Long orgId, String monthYear);
 
     ResponseEntity<?> getLeavesRoleWise(Long orgId, Map<String, List<Long>> roleEmpIdMap, String monthYear);
+
+    ResponseEntity<?> getHeroAnalytics(Long orgId);
 }

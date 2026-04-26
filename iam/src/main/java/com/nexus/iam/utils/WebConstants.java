@@ -154,6 +154,9 @@ public class WebConstants {
     @Value("${time.management.quick.update.url}")
     private String timeManagementQuickUpdateUrl;
 
+    @Value("${hero.analytics.url}")
+    private String heroAnalyticsUrl;
+
     // Keycloak URLs
     public String getKeycloakAdminUrl() {
         return keycloakServerUrl + "/admin/realms/" + keycloakRealm;

@@ -79,4 +79,17 @@ public interface HrRequestRepo extends JpaRepository<HrRequest, Long> {
                                                         WHERE hrEntity.org = :orgId AND hrRequest.status IN :statuses
             """)
     Long findCountByOrgIdAndStatusIn(Long orgId, List<HrRequestStatus> statuses);
+
+    @Query(value = "select count(*) from hr.t_hr_entity t, hr.t_hr_requests tr where t.org =:orgId and t.hr_id =tr.hr_entity_hr_id and tr.status = 'OPEN'", nativeQuery = true)
+    Integer countOpenRequestsByOrgId(Long orgId);
+
+    @Query(value = """
+            SELECT COUNT(*)
+            FROM hr.t_hr_entity t
+            JOIN hr.t_hr_requests tr ON t.hr_id = tr.hr_entity_hr_id
+            WHERE t.org = :orgId
+              AND tr.status = 'OPEN'
+              AND tr.applied_on >= NOW() - INTERVAL '7 days'
+        """, nativeQuery = true)
+    Integer countDiffInPrevWeekAndThisWeekHrRequests(Long orgId);
 }

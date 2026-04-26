@@ -250,4 +250,9 @@ public class OrganizationController {
         return organizationService.getTimeManagementQuickUpdate(empId);
     }
 
+    @GetMapping("/hero-analytics")
+    public ResponseEntity<?> getHeroAnalytics(@RequestParam Long orgId) {
+        return organizationService.getHeroAnalytics(orgId);
+    }
+
 }

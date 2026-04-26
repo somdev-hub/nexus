@@ -58,4 +58,9 @@ public class AnalyticsController {
     public ResponseEntity<?> getLeavesRoleWise(@RequestParam Long orgId, @RequestBody Map<String, List<Long>> roleEmpIdMap, @RequestParam String monthYear) {
         return analyticsService.getLeavesRoleWise(orgId, roleEmpIdMap, monthYear);
     }
+
+    @GetMapping("/hero-analytics")
+    public ResponseEntity<?> getHeroAnalytics(@RequestParam Long orgId){
+        return analyticsService.getHeroAnalytics(orgId);
+    }
 }
