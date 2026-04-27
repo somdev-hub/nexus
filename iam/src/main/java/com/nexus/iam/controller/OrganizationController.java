@@ -255,4 +255,9 @@ public class OrganizationController {
         return organizationService.getHeroAnalytics(orgId);
     }
 
+    @GetMapping("/hr-requests/today")
+    public ResponseEntity<?> getTodayHrRequests(@RequestParam Long orgId, @RequestParam(required = false, defaultValue = "0") Integer page, @RequestParam(required = false, defaultValue = "10") Integer offset, @RequestParam(required = false) String status, @RequestParam(required = false) String empName) {
+        return organizationService.getTodayAppliedHrRequests(orgId, status, page, offset, empName);
+    }
+
 }

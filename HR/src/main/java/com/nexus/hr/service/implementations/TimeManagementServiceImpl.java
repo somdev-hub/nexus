@@ -26,6 +26,7 @@ import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -642,7 +643,7 @@ public class TimeManagementServiceImpl implements TimeManagementService {
             HrEntity hrEntity = hrEntityRepo.findByEmployeeId(empId)
                     .orElseThrow(() -> new ResourceNotFoundException("HrEntity", "employeeId", empId));
 
-            LocalDate today = LocalDate.now();
+            LocalDate today = LocalDate.now(ZoneId.of("Asia/Kolkata"));
             TimeManagement todayRecord = timeManagementRepo.findByDayMonthYearAndHrEntity(
                     today.getDayOfMonth(),
                     today.getMonthValue(),

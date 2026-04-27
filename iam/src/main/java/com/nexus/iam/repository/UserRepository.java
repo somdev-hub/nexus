@@ -16,6 +16,11 @@ import java.util.Optional;
 
 @Repository
 public interface UserRepository extends JpaRepository<User, Long> {
+
+    @Query("""
+                        SELECT u FROM User u
+                        WHERE u.name ILIKE :name
+            """)
     Optional<User> findByName(String name);
 
     Optional<User> findByEmail(String email);
@@ -78,12 +83,12 @@ public interface UserRepository extends JpaRepository<User, Long> {
     List<Map<String, Object>> getRolesWithUserIds(Long orgId);
 
     @Query(value = """
-            SELECT r.name as roleName, u.id as userId
-            FROM iam.t_roles r
-            INNER JOIN iam.t_user_roles ur ON r.id = ur.role_id
-            INNER JOIN iam.t_users u ON ur.user_id = u.id
-            WHERE u.organization_id = :orgId
-            ORDER BY r.name, u.id
-""", nativeQuery = true)
+                        SELECT r.name as roleName, u.id as userId
+                        FROM iam.t_roles r
+                        INNER JOIN iam.t_user_roles ur ON r.id = ur.role_id
+                        INNER JOIN iam.t_users u ON ur.user_id = u.id
+                        WHERE u.organization_id = :orgId
+                        ORDER BY r.name, u.id
+            """, nativeQuery = true)
     List<Map<String, Object>> getRoleUserIdsMapping(Long orgId);
 }

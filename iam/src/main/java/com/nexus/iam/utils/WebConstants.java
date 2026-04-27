@@ -157,6 +157,9 @@ public class WebConstants {
     @Value("${hero.analytics.url}")
     private String heroAnalyticsUrl;
 
+    @Value("${today.applied.hr.requests.url}")
+    private String todayAppliedHrRequestsUrl;
+
     // Keycloak URLs
     public String getKeycloakAdminUrl() {
         return keycloakServerUrl + "/admin/realms/" + keycloakRealm;
@@ -198,4 +201,5 @@ public class WebConstants {
     public boolean isKeycloakOAuth2Enabled() {
         return keycloakOAuth2Enabled;
     }
+
 }

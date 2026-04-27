@@ -30,6 +30,8 @@ import org.springframework.util.ObjectUtils;
 import java.sql.Date;
 import java.sql.Timestamp;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -142,6 +144,10 @@ public class HrRequestServiceImpl implements HrRequestService {
 
     @Override
     public ResponseEntity<?> getAllHrRequests(Long orgId, HrRequestType requestType, HrRequestStatus status, Pageable pageable) {
+        if (ObjectUtils.isEmpty(orgId)) {
+            throw new ServiceLevelException("HR Service", "Organization ID cannot be null or empty",
+                    "getAllHrRequests", "InvalidInput", "Organization ID is null or empty");
+        }
         try {
             Page<HrRequest> hrRequestsPage;
             if (!ObjectUtils.isEmpty(requestType) && !ObjectUtils.isEmpty(status)) {
@@ -235,7 +241,7 @@ public class HrRequestServiceImpl implements HrRequestService {
             Long openCases = hrRequestRepo.findCountByOrgIdAndStatus(orgId, HrRequestStatus.OPEN);
             Long approvedCases = hrRequestRepo.findCountByOrgIdAndStatus(orgId, HrRequestStatus.APPROVED);
             Long rejectedCases = hrRequestRepo.findCountByOrgIdAndStatus(orgId, HrRequestStatus.REJECTED);
-            Long inScrutinyCases= hrRequestRepo.findCountByOrgIdAndStatus(orgId, HrRequestStatus.SCRUTINY);
+            Long inScrutinyCases = hrRequestRepo.findCountByOrgIdAndStatus(orgId, HrRequestStatus.SCRUTINY);
             Long allHandledCases = hrRequestRepo.findCountByOrgIdAndStatusIn(orgId, List.of(HrRequestStatus.APPROVED, HrRequestStatus.REJECTED, HrRequestStatus.CLOSED));
 
             map.put("openCases", openCases);
@@ -247,6 +253,34 @@ public class HrRequestServiceImpl implements HrRequestService {
         } catch (RuntimeException e) {
             throw new ServiceLevelException("HR Service", "Exception occurred while fetching HR request insights",
                     "getHrRequestInsights", e.getClass().getName(), e.getMessage());
+        }
+        return response;
+    }
+
+    @Override
+    public ResponseEntity<?> getAllTodayRequests(Long orgId, Pageable of, HrRequestStatus status, Long empId) {
+        if (ObjectUtils.isEmpty(orgId)) {
+            throw new ServiceLevelException("HR Service", "Organization ID cannot be null or empty",
+                    "getAllTodayRequests", "InvalidInput", "Organization ID is null or empty");
+        }
+        ResponseEntity<?> response;
+        try {
+            LocalDate today = LocalDate.now(ZoneId.of("Asia/Kolkata"));
+            LocalDateTime startOfDay = today.atStartOfDay();
+            LocalDateTime endOfDay = today.plusDays(1).atStartOfDay();
+            if (!ObjectUtils.isEmpty(empId)) {
+                List<HrRequest> byOrgIdAndDateTodayAndEmpId = hrRequestRepo.findByOrgIdAndDateTodayAndEmpId(orgId, empId, startOfDay, endOfDay, of);
+                response = ResponseEntity.ok(byOrgIdAndDateTodayAndEmpId);
+            } else if (!ObjectUtils.isEmpty(status)) {
+                List<HrRequest> byOrgIdAndDateTodayAndStatus = hrRequestRepo.findByOrgIdAndDateTodayAndStatus(orgId, status.name(), startOfDay, endOfDay, of);
+                response = ResponseEntity.ok(byOrgIdAndDateTodayAndStatus);
+            } else {
+                List<HrRequest> byOrgIdAndDateToday = hrRequestRepo.findByOrgIdAndDateToday(orgId, startOfDay, endOfDay, of);
+                response = ResponseEntity.ok(byOrgIdAndDateToday);
+            }
+        } catch (RuntimeException e) {
+            throw new ServiceLevelException("HR Service", "Exception occurred while fetching today's HR requests",
+                    "getAllTodayRequests", e.getClass().getName(), e.getMessage());
         }
         return response;
     }

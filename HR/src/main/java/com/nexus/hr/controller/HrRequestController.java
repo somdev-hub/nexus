@@ -53,4 +53,9 @@ public class HrRequestController {
     public ResponseEntity<?> getAllInsightRequests(@RequestParam Long orgId){
         return hrRequestService.getHrRequestInsights(orgId);
     }
+
+    @GetMapping("/today")
+    public ResponseEntity<?> getAllTodayRequests(@RequestParam Long orgId, @RequestParam(required = false, defaultValue = "0") Integer page, @RequestParam(required = false, defaultValue = "10") Integer offset, @RequestParam(required = false) HrRequestStatus status, @RequestParam(required = false) Long empId){
+        return hrRequestService.getAllTodayRequests(orgId, PageRequest.of(page, offset), status, empId);
+    }
 }

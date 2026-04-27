@@ -2,7 +2,6 @@ package com.nexus.iam.service.impl;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nexus.iam.config.CacheConfig;
 import com.nexus.iam.dto.LoginResponse;
@@ -25,7 +24,6 @@ import com.nexus.iam.service.OrganizationService;
 import com.nexus.iam.utils.*;
 import lombok.RequiredArgsConstructor;
 import org.json.JSONArray;
-import org.json.JSONObject;
 import org.jspecify.annotations.NonNull;
 import org.modelmapper.ModelMapper;
 import org.springframework.cache.annotation.Cacheable;
@@ -1128,6 +1126,9 @@ public class OrganizationServiceImpl implements OrganizationService {
 
     @Override
     public ResponseEntity<?> getManyHrRequests(Long orgId, String requestType, String status, Integer page, Integer offset, String token) {
+        if (ObjectUtils.isEmpty(orgId)) {
+            throw new IllegalArgumentException("Organization ID is required");
+        }
         try {
             UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getManyHrRequestsUrl())
                     .queryParam("orgId", orgId)
@@ -1289,6 +1290,51 @@ public class OrganizationServiceImpl implements OrganizationService {
                     e.getClass().getSimpleName(),
                     e.getLocalizedMessage());
         }
+        return response;
+    }
+
+    @Override
+    public ResponseEntity<?> getTodayAppliedHrRequests(Long orgId, String status, Integer page, Integer offset, String empName) {
+        if (ObjectUtils.isEmpty(orgId)) {
+            throw new IllegalArgumentException("Organization ID is required");
+        }
+        ResponseEntity<?> response;
+        try {
+            Long empId=null;
+            if (!ObjectUtils.isEmpty(empName)){
+                Optional<User> user = userRepository.findByName(empName);
+                if (user.isPresent()) {
+                    empId = user.get().getId();
+                } else {
+                    throw new IllegalArgumentException("Employee not found");
+                }
+            }
+            UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getTodayAppliedHrRequestsUrl())
+                    .queryParam("orgId", orgId)
+                    .queryParam("status", status)
+                    .queryParam("page", page)
+                    .queryParam("offset", offset);
+            if (!ObjectUtils.isEmpty(empName)){
+                builder.queryParam("empId", empId);
+            }
+            response = restService.iamRestCall(builder.toUriString(), null, Map.of(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE), HttpMethod.GET, null);
+            if (!response.getStatusCode().is2xxSuccessful() || ObjectUtils.isEmpty(response.getBody())) {
+                throw new ServiceLevelException(
+                        "OrganizationServiceImpl",
+                        "Failed to get today's applied HR requests: External API returned status: " + response.getStatusCode(),
+                        "getTodayAppliedHrRequests",
+                        "API_ERROR",
+                        response.getBody() != null ? response.getBody().toString() : "External API returned status: " + response.getStatusCode());
+            }
+        } catch (RuntimeException e) {
+            throw new ServiceLevelException(
+                    "OrganizationServiceImpl",
+                    "Failed to get today's applied HR requests: " + e.getMessage(),
+                    "getTodayAppliedHrRequests",
+                    e.getClass().getSimpleName(),
+                    e.getLocalizedMessage());
+        }
+
         return response;
     }
 }

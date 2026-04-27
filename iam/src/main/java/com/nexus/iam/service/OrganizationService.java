@@ -64,4 +64,6 @@ public interface OrganizationService {
     ResponseEntity<?> getTimeManagementQuickUpdate(Long empId);
 
     ResponseEntity<?> getHeroAnalytics(Long orgId);
+
+    ResponseEntity<?> getTodayAppliedHrRequests(Long orgId, String status, Integer page, Integer offset, String empName);
 }

@@ -17,4 +17,6 @@ public interface HrRequestService {
     ResponseEntity<?> getAllClosedRequests(Long orgId, PageRequest of);
 
     ResponseEntity<?> getHrRequestInsights(Long orgId);
+
+    ResponseEntity<?> getAllTodayRequests(Long orgId, Pageable of, HrRequestStatus status, Long empId);
 }
