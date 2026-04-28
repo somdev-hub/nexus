@@ -13,6 +13,7 @@ import org.springframework.util.ObjectUtils;
 
 import java.text.NumberFormat;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.List;
@@ -191,7 +192,7 @@ public class DocumentTemplateService {
 
     private Context buildCompensationCardContext(PdfTemplateDto data) {
         Context context = new Context();
-        String currentDate = LocalDate.now().format(DATE_FORMATTER);
+        String currentDate = LocalDate.now(ZoneId.of("Asia/Kolkata")).format(DATE_FORMATTER);
         String effectiveDate = formatDate(data.getEffectiveFrom());
 
         context.setVariable("organizationName", defaultIfEmpty(data.getOrganizationName()));
@@ -232,7 +233,7 @@ public class DocumentTemplateService {
 
     private Context buildPromotionLetterContext(PdfTemplateDto data) {
         Context context = new Context();
-        LocalDate currentDate = LocalDate.now();
+        LocalDate currentDate = LocalDate.now(ZoneId.of("Asia/Kolkata"));
         String currentDateStr = currentDate.format(DATE_FORMATTER);
         String effectiveDateStr = formatDate(data.getEffectiveFrom());
 
@@ -258,8 +259,8 @@ public class DocumentTemplateService {
 
     private Context buildSalarySlipContext(PdfTemplateDto data) {
         Context context = new Context();
-        String currentDate = LocalDate.now().format(DATE_FORMATTER);
-        String paymentMonth = LocalDate.now().format(DateTimeFormatter.ofPattern("MMMM, yyyy"));
+        String currentDate = LocalDate.now(ZoneId.of("Asia/Kolkata")).format(DATE_FORMATTER);
+        String paymentMonth = LocalDate.now(ZoneId.of("Asia/Kolkata")).format(DateTimeFormatter.ofPattern("MMMM, yyyy"));
 
         context.setVariable("organizationName", defaultIfEmpty(data.getOrganizationName()));
         context.setVariable("organizationAddress", defaultIfEmpty(data.getOrganizationAddress()));

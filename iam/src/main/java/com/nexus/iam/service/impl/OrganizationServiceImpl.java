@@ -1154,12 +1154,12 @@ public class OrganizationServiceImpl implements OrganizationService {
             throw new IllegalArgumentException("Request ID and action are required");
         }
         try {
-            String userId = keycloakTokenUtil.extractUserId(token);
+            Long userId = keycloakTokenUtil.extractUserIdFromDatabase(token);
             UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getTakeActionOnHrRequestUrl())
                     .queryParam("requestId", requestId)
                     .queryParam("action", action)
                     .queryParam("resolutionRemarks", resolutionRemarks)
-                    .queryParam("userId", Long.valueOf(userId));
+                    .queryParam("userId", userId);
 //            Map<String, String> headers = commonUtils.buildJsonHeaders(token);
             return restService.iamRestCall(builder.toUriString(), null, Map.of(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE), HttpMethod.POST, null);
         } catch (RuntimeException e) {

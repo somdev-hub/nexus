@@ -453,7 +453,7 @@ public class KeycloakAuthenticationServiceImpl implements KeycloakAuthentication
      * @return LoginResponse with new tokens, user data, org, and role
      */
     @Override
-    @CircuitBreaker(name = "keycloak-auth", fallbackMethod = "refreshTokenFallback")
+//    @CircuitBreaker(name = "keycloak-auth", fallbackMethod = "refreshTokenFallback")
     @Retry(name = "keycloak-auth")
     public ResponseEntity<LoginResponse> refreshToken(String refreshToken) {
         try {
@@ -477,6 +477,7 @@ public class KeycloakAuthenticationServiceImpl implements KeycloakAuthentication
 
             ResponseEntity<Map> response = restClient.post()
                     .uri(tokenUrl)
+                    .header("Content-Type", "application/x-www-form-urlencoded")
                     .body(body)
                     .retrieve()
                     .toEntity(Map.class);
@@ -550,6 +551,7 @@ public class KeycloakAuthenticationServiceImpl implements KeycloakAuthentication
 
             ResponseEntity<Map> response = restClient.post()
                     .uri(tokenUrl)
+                    .header("Content-Type", "application/x-www-form-urlencoded")
                     .body(body)
                     .retrieve()
                     .toEntity(Map.class);

@@ -19,9 +19,12 @@ import lombok.extern.slf4j.Slf4j;
  * without requiring database lookups or network calls to Keycloak.
  * 
  * Usage in microservices:
- * - Extract user ID: keycloakTokenUtil.extractUserId(token)
+ * - Extract database user ID: keycloakTokenUtil.extractUserIdFromDatabase(token)
+ * - Extract Keycloak ID (hexadecimal UUID): keycloakTokenUtil.extractKeycloakId(token)
  * - Extract roles: keycloakTokenUtil.extractRoles(token)
  * - Validate token: keycloakTokenUtil.validateToken(token)
+ *
+ * IMPORTANT: extractUserId() is deprecated - use extractUserIdFromDatabase() instead
  */
 @Slf4j
 @Component
@@ -32,6 +35,9 @@ public class KeycloakTokenUtil {
 
     @Autowired
     private WebConstants webConstants;
+
+    @Autowired(required = false)
+    private com.nexus.iam.repository.UserRepository userRepository;
 
     /**
      * Validate JWT token against Keycloak JWKS
@@ -49,16 +55,70 @@ public class KeycloakTokenUtil {
     }
 
     /**
-     * Extract user ID (Keycloak subject) from JWT
+     * Extract database user ID from JWT token
+     * Attempts multiple strategies:
+     * 1. First checks for custom 'userId' claim (if added by Keycloak mapper)
+     * 2. Falls back to extracting keycloakId (sub claim) and looking up in database
+     *
+     * @param token JWT token
+     * @return Database user ID (Long), or null if not found
      */
-    public String extractUserId(String token) {
+    public Long extractUserIdFromDatabase(String token) {
         try {
-            Jwt jwt = jwtDecoder.decode(token);
-            return jwt.getClaimAsString("sub");
+            Jwt jwt = jwtDecoder.decode(token.startsWith("Bearer ") ? token.substring(7) : token);
+
+            // Strategy 1: Check for custom userId claim (if Keycloak mapper is configured)
+            Object userIdClaim = jwt.getClaims().get("userId");
+            if (userIdClaim != null) {
+                try {
+                    return Long.valueOf(userIdClaim.toString());
+                } catch (NumberFormatException e) {
+                    log.debug("Custom userId claim found but not a valid Long: {}", userIdClaim);
+                }
+            }
+
+            // Strategy 2: Extract keycloakId and look up in database
+            String keycloakId = jwt.getClaimAsString("sub");
+            if (keycloakId != null && userRepository != null) {
+                var user = userRepository.findByKeycloakId(keycloakId);
+                if (user.isPresent()) {
+                    return user.get().getId();
+                } else {
+                    log.warn("User not found in database for keycloakId: {}", keycloakId);
+                }
+            }
+
+            log.error("Could not extract database userId from token");
+            return null;
         } catch (Exception e) {
-            log.error("Error extracting user ID from token: {}", e.getMessage());
+            log.error("Error extracting database user ID from token: {}", e.getMessage());
             return null;
         }
+    }
+
+    /**
+     * Extract user ID (Keycloak subject - hexadecimal UUID) from JWT
+     * WARNING: This returns the Keycloak ID, not the database userId
+     * Use extractUserIdFromDatabase() to get the actual database userId instead
+     */
+    public String extractKeycloakId(String token) {
+        try {
+            Jwt jwt = jwtDecoder.decode(token.startsWith("Bearer ") ? token.substring(7) : token);
+            return jwt.getClaimAsString("sub");
+        } catch (Exception e) {
+            log.error("Error extracting Keycloak ID from token: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Extract user ID (Keycloak subject) from JWT
+     * DEPRECATED: Use extractUserIdFromDatabase() instead to get the actual database userId
+     */
+    @Deprecated(forRemoval = true, since = "2.0")
+    public String extractUserId(String token) {
+        log.warn("extractUserId() is deprecated and returns Keycloak ID. Use extractUserIdFromDatabase() to get database userId");
+        return extractKeycloakId(token);
     }
 
     /**

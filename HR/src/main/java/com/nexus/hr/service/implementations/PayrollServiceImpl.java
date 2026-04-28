@@ -32,6 +32,7 @@ import org.springframework.util.ObjectUtils;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 
@@ -264,8 +265,8 @@ public class PayrollServiceImpl implements PayrollService {
 
             // Fetch last 6 months salary vs overtime data
             log.info("Fetching last 6 months salary vs overtime data for orgId: {}", requestBody.getOrgId());
-            int currentYear = LocalDate.now().getYear();
-            String currentMonth = LocalDate.now().getMonth().name();
+            int currentYear = LocalDate.now(ZoneId.of("Asia/Kolkata")).getYear();
+            String currentMonth = LocalDate.now(ZoneId.of("Asia/Kolkata")).getMonth().name();
 
             List<Map<String, Object>> rawOvertimeResults = payrollRepo.getLast6MonthsSalaryVsOvertimeRaw(
                     requestBody.getOrgId(),
@@ -497,7 +498,7 @@ public class PayrollServiceImpl implements PayrollService {
 
     private String generateTransactionReference() {
         // APR_2026_uuid
-        return LocalDate.now().getMonth().name() + "_" + LocalDate.now().getYear() + "_" + UUID.randomUUID();
+        return LocalDate.now(ZoneId.of("Asia/Kolkata")).getMonth().name() + "_" + LocalDate.now().getYear() + "_" + UUID.randomUUID();
     }
 
     private void enrichPaymentMethodDetails(InitiatePaymentDto initiatePaymentDto,

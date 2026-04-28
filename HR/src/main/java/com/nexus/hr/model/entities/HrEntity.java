@@ -64,4 +64,8 @@ public class HrEntity {
     @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, mappedBy = "hrEntity")
     @JsonManagedReference("hrEntity-employeeLeaves")
     private List<EmployeeLeaves> employeeLeaves = new ArrayList<>();
+
+    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, mappedBy = "createdBy")
+    @JsonManagedReference("hrEntity-recruitments")
+    private List<Recruitment>  recruitments = new ArrayList<>();
 }

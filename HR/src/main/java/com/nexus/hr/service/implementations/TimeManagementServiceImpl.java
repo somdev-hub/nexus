@@ -30,6 +30,7 @@ import java.time.ZoneId;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TimeZone;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Service
@@ -57,7 +58,7 @@ public class TimeManagementServiceImpl implements TimeManagementService {
                 return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
             }
 
-            LocalDate today = LocalDate.now();
+            LocalDate today = LocalDate.now(ZoneId.of("Asia/Kolkata"));
             TimeManagement todayRecord = timeManagementRepo.findByDayMonthYearAndHrEntity(
                     today.getDayOfMonth(),
                     today.getMonthValue(),
@@ -95,7 +96,7 @@ public class TimeManagementServiceImpl implements TimeManagementService {
         newRecord.setCreatedOn(Timestamp.valueOf(LocalDateTime.now()));
 
         // Set check-in time
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(ZoneId.of("Asia/Kolkata"));
         newRecord.setCheckInTime(Timestamp.valueOf(now));
         newRecord.setIsPresent(true);
         newRecord.setIsOnLeave(false);
@@ -112,7 +113,7 @@ public class TimeManagementServiceImpl implements TimeManagementService {
      * Handle existing day entry - manage break and checkout times
      */
     private ResponseEntity<?> handleExistingDayEntry(TimeManagement todayRecord, HrEntity hrEntity, LocalDate today) {
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(ZoneId.of("Asia/Kolkata"));
         Timestamp currentTime = Timestamp.valueOf(now);
 
         if (Boolean.TRUE.equals(todayRecord.getIsOnLeave())) {

@@ -2,6 +2,7 @@ package com.nexus.iam.exception;
 
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
@@ -20,7 +21,7 @@ public class GlobalExceptionHandler {
         return new ErrorResponseDto(
                 "Bad Request",
                 HttpStatus.BAD_REQUEST.value(),
-                Timestamp.valueOf(LocalDateTime.now()),
+                Timestamp.valueOf(LocalDateTime.now(ZoneId.of("Asia/Kolkata"))),
                 ex.getMessage());
     }
 
@@ -29,7 +30,7 @@ public class GlobalExceptionHandler {
         ErrorResponseDto errorResponse = new ErrorResponseDto(
                 "Resource Not Found",
                 HttpStatus.NOT_FOUND.value(),
-                Timestamp.valueOf(LocalDateTime.now()),
+                Timestamp.valueOf(LocalDateTime.now(ZoneId.of("Asia/Kolkata"))),
                 ex.getMessage());
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
     }
