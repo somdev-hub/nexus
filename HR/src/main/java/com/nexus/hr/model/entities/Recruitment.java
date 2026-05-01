@@ -1,5 +1,6 @@
 package com.nexus.hr.model.entities;
 
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import com.nexus.hr.model.enums.HiringStatus;
 import com.nexus.hr.model.enums.HiringType;
 import jakarta.persistence.*;
@@ -11,6 +12,8 @@ import jakarta.validation.Valid;
 
 import java.sql.Timestamp;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 
 @Data
 @Entity
@@ -49,6 +52,12 @@ public class Recruitment {
 
     @NotNull
     private String totalCompensation;
+
+    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, mappedBy = "recruitment")
+    @JsonManagedReference("recruitment-applicants")
+    private List<Applicant> applicantsList = new ArrayList<>();
+
+    private Long totalApplicants;
 
     @ManyToOne
     @JoinColumn(name = "created_by_hr_id")

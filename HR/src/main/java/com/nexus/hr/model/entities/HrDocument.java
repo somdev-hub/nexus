@@ -41,4 +41,9 @@ public class HrDocument {
     @JoinColumn(name = "compensation_id")
     @JsonBackReference("compensation-compensationCard")
     private Compensation compensation;
+
+    @ManyToOne
+    @JoinColumn(name = "applicant_id")
+    @JsonBackReference("applicant-hrDocuments")
+    private Applicant applicant;
 }

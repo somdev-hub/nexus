@@ -1,0 +1,104 @@
+package com.nexus.hr.controller;
+
+import com.nexus.hr.model.entities.Applicant;
+import com.nexus.hr.model.enums.ApplicationStatus;
+import com.nexus.hr.service.interfaces.ApplicantService;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.time.LocalDate;
+
+@RestController
+@RequiredArgsConstructor
+@RequestMapping("/hr/applicants")
+public class ApplicantController {
+
+    private final ApplicantService applicantService;
+
+    /**
+     * Create a new applicant
+     * @param applicant Applicant entity with required fields
+     * @return Created applicant
+     */
+    @PostMapping("/")
+    public ResponseEntity<?> createApplicant(@Valid @RequestBody Applicant applicant) {
+        return applicantService.createApplicant(applicant);
+    }
+
+    /**
+     * Get applicant by ID
+     * @param id Applicant ID
+     * @return Applicant details
+     */
+    @GetMapping("/{id}")
+    public ResponseEntity<?> getApplicantById(@PathVariable Long id) {
+        return applicantService.getApplicantById(id);
+    }
+
+    /**
+     * Get all applicants with optional filters and pagination
+     * All filter parameters are optional and can be combined
+     *
+     * @param status Application status (e.g., APPLIED, REJECTED, ACCEPTED)
+     * @param name Search by applicant first or last name (case-insensitive, partial match)
+     * @param gender Applicant gender (M, F, etc.)
+     * @param minAge Minimum age for filtering
+     * @param maxAge Maximum age for filtering
+     * @param appliedFromDate Start date for applied date range (yyyy-MM-dd)
+     * @param appliedToDate End date for applied date range (yyyy-MM-dd)
+     * @param yearsOfExperience Minimum years of experience
+     * @param pageNo Page number (default: 0)
+     * @param pageSize Page size (default: 10)
+     * @return Paginated list of applicants
+     */
+    @GetMapping("/")
+    public ResponseEntity<?> getAllApplicants(
+            @RequestParam(required = false) ApplicationStatus status,
+            @RequestParam(required = false) String name,
+            @RequestParam(required = false) Character gender,
+            @RequestParam(required = false) Integer minAge,
+            @RequestParam(required = false) Integer maxAge,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate appliedFromDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate appliedToDate,
+            @RequestParam(required = false) Integer yearsOfExperience,
+            @RequestParam(required = false, defaultValue = "0") Integer pageNo,
+            @RequestParam(required = false, defaultValue = "10") Integer pageSize
+    ) {
+        return applicantService.getAllApplicants(
+                status,
+                name,
+                gender,
+                minAge,
+                maxAge,
+                appliedFromDate,
+                appliedToDate,
+                yearsOfExperience,
+                PageRequest.of(pageNo, pageSize)
+        );
+    }
+
+    /**
+     * Update an existing applicant
+     * @param applicant Applicant entity with updated fields (applicantId is required)
+     * @return Updated applicant
+     */
+    @PutMapping("/")
+    public ResponseEntity<?> updateApplicant(@Valid @RequestBody Applicant applicant) {
+        return applicantService.updateApplicant(applicant);
+    }
+
+    /**
+     * Delete an applicant
+     * @param id Applicant ID to delete
+     * @return Success message
+     */
+    @DeleteMapping("/{id}")
+    public ResponseEntity<?> deleteApplicant(@PathVariable Long id) {
+        return applicantService.deleteApplicant(id);
+    }
+}
+
