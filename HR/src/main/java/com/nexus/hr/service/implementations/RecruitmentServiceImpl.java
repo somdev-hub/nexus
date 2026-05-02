@@ -6,14 +6,20 @@ import com.nexus.hr.model.entities.HrEntity;
 import com.nexus.hr.model.entities.Recruitment;
 import com.nexus.hr.model.enums.HiringStatus;
 import com.nexus.hr.model.enums.HiringType;
+import com.nexus.hr.payload.response.RecruitmentTableResponse;
 import com.nexus.hr.repository.HrEntityRepo;
 import com.nexus.hr.repository.RecruitmentRepo;
 import com.nexus.hr.service.interfaces.RecruitmentService;
 import lombok.RequiredArgsConstructor;
+import org.modelmapper.ModelMapper;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.util.ObjectUtils;
+
+import java.util.List;
 
 @RequiredArgsConstructor
 @Service
@@ -21,6 +27,7 @@ public class RecruitmentServiceImpl implements RecruitmentService {
 
     private final RecruitmentRepo recruitmentRepo;
     private final HrEntityRepo hrEntityRepo;
+    private final ModelMapper modelMapper;
 
     @Override
     public ResponseEntity<?> createRecruitment(Recruitment recruitment, Long empId) {
@@ -40,6 +47,7 @@ public class RecruitmentServiceImpl implements RecruitmentService {
                     empId.toString()
             ));
             recruitment.setCreatedBy(hrEntity);
+            recruitment.setHiringStatus(HiringStatus.OPEN);
             Recruitment savedRecruitment = recruitmentRepo.save(recruitment);
             return ResponseEntity.ok(savedRecruitment);
         } catch (Exception e) {
@@ -82,7 +90,7 @@ public class RecruitmentServiceImpl implements RecruitmentService {
     }
 
     @Override
-    public ResponseEntity<?> getAllRecruitments(Boolean isActive, Long empId, HiringType hiringType, HiringStatus hiringStatus, PageRequest pageRequest) {
+    public ResponseEntity<?> getAllRecruitments(Long orgId, Boolean isActive, Long empId, HiringType hiringType, HiringStatus hiringStatus, Pageable pageRequest) {
         try {
             // Validate pageRequest
             if (ObjectUtils.isEmpty(pageRequest)) {
@@ -106,59 +114,65 @@ public class RecruitmentServiceImpl implements RecruitmentService {
 
             if (hasIsActive && hasEmpId && hasHiringType && hasHiringStatus) {
                 // All four filters provided
-                result = recruitmentRepo.findByAllFilters(isActive, empId, hiringType, hiringStatus, pageRequest);
+                result = recruitmentRepo.findByAllFilters(orgId, isActive, empId, hiringType, hiringStatus, pageRequest);
             } else if (hasIsActive && hasEmpId && hasHiringType) {
                 // isActive, empId, hiringType
-                result = recruitmentRepo.findByIsActiveAndCreatedByEmployeeIdAndHiringType(isActive, empId, hiringType, pageRequest);
+                result = recruitmentRepo.findByOrgIdAndIsActiveAndCreatedByEmployeeIdAndHiringType(orgId, isActive, empId, hiringType, pageRequest);
             } else if (hasIsActive && hasEmpId && hasHiringStatus) {
                 // isActive, empId, hiringStatus
-                result = recruitmentRepo.findByIsActiveAndCreatedByEmployeeIdAndHiringStatus(isActive, empId, hiringStatus, pageRequest);
+                result = recruitmentRepo.findByOrgIdAndIsActiveAndCreatedByEmployeeIdAndHiringStatus(orgId, isActive, empId, hiringStatus, pageRequest);
             } else if (hasIsActive && hasHiringType && hasHiringStatus) {
                 // isActive, hiringType, hiringStatus
-                result = recruitmentRepo.findByIsActiveAndHiringTypeAndHiringStatus(isActive, hiringType, hiringStatus, pageRequest);
+                result = recruitmentRepo.findByOrgIdAndIsActiveAndHiringTypeAndHiringStatus(orgId, isActive, hiringType, hiringStatus, pageRequest);
             } else if (hasEmpId && hasHiringType && hasHiringStatus) {
                 // empId, hiringType, hiringStatus
-                result = recruitmentRepo.findByCreatedByEmployeeIdAndHiringTypeAndHiringStatus(empId, hiringType, hiringStatus, pageRequest);
+                result = recruitmentRepo.findByOrgIdAndCreatedByEmployeeIdAndHiringTypeAndHiringStatus(orgId, empId, hiringType, hiringStatus, pageRequest);
             } else if (hasIsActive && hasEmpId) {
                 // isActive and empId
-                result = recruitmentRepo.findByIsActiveAndCreatedByEmployeeId(isActive, empId, pageRequest);
+                result = recruitmentRepo.findByOrgIdAndIsActiveAndCreatedByEmployeeId(orgId, isActive, empId, pageRequest);
             } else if (hasIsActive && hasHiringType) {
                 // isActive and hiringType
-                result = recruitmentRepo.findByIsActiveAndHiringType(isActive, hiringType, pageRequest);
+                result = recruitmentRepo.findByOrgIdAndIsActiveAndHiringType(orgId, isActive, hiringType, pageRequest);
             } else if (hasIsActive && hasHiringStatus) {
                 // isActive and hiringStatus
-                result = recruitmentRepo.findByIsActiveAndHiringStatus(isActive, hiringStatus, pageRequest);
+                result = recruitmentRepo.findByOrgIdAndIsActiveAndHiringStatus(orgId, isActive, hiringStatus, pageRequest);
             } else if (hasEmpId && hasHiringType) {
                 // empId and hiringType
-                result = recruitmentRepo.findByCreatedByEmployeeIdAndHiringType(empId, hiringType, pageRequest);
+                result = recruitmentRepo.findByOrgIdAndCreatedByEmployeeIdAndHiringType(orgId, empId, hiringType, pageRequest);
             } else if (hasEmpId && hasHiringStatus) {
                 // empId and hiringStatus
-                result = recruitmentRepo.findByCreatedByEmployeeIdAndHiringStatus(empId, hiringStatus, pageRequest);
+                result = recruitmentRepo.findByOrgIdAndCreatedByEmployeeIdAndHiringStatus(orgId, empId, hiringStatus, pageRequest);
             } else if (hasHiringType && hasHiringStatus) {
                 // hiringType and hiringStatus
-                result = recruitmentRepo.findByHiringTypeAndHiringStatus(hiringType, hiringStatus, pageRequest);
+                result = recruitmentRepo.findByOrgIdAndHiringTypeAndHiringStatus(orgId, hiringType, hiringStatus, pageRequest);
             } else if (hasIsActive) {
                 // Only isActive
-                result = recruitmentRepo.findByIsActive(isActive, pageRequest);
+                result = recruitmentRepo.findByOrgIdAndIsActive(orgId, isActive, pageRequest);
             } else if (hasEmpId) {
                 // Only empId
-                result = recruitmentRepo.findByCreatedByEmployeeId(empId, pageRequest);
+                result = recruitmentRepo.findByOrgIdAndCreatedByEmployeeId(orgId, empId, pageRequest);
             } else if (hasHiringType) {
                 // Only hiringType
-                result = recruitmentRepo.findByHiringType(hiringType, pageRequest);
+                result = recruitmentRepo.findByOrgIdAndHiringType(orgId, hiringType, pageRequest);
             } else if (hasHiringStatus) {
                 // Only hiringStatus
-                result = recruitmentRepo.findByHiringStatus(hiringStatus, pageRequest);
+                result = recruitmentRepo.findByOrgIdAndHiringStatus(orgId, hiringStatus, pageRequest);
             } else {
-                // No filters provided - return all recruitments
-                result = recruitmentRepo.findAll(pageRequest);
+                // No filters provided - return all recruitments for the organization
+                result = recruitmentRepo.findByOrgId(orgId, pageRequest);
             }
+
+            Page<RecruitmentTableResponse> mappedResults = result.map(recruitment -> {
+                RecruitmentTableResponse map = modelMapper.map(recruitment, RecruitmentTableResponse.class);
+                map.setHiringManager(recruitment.getCreatedBy().getEmployeeId());
+                return map;
+            });
 
             if (result.isEmpty()) {
-                return ResponseEntity.ok(org.springframework.data.domain.Page.empty(pageRequest));
+                return ResponseEntity.ok(Page.empty(pageRequest));
             }
 
-            return ResponseEntity.ok(result);
+            return ResponseEntity.ok(mappedResults);
         } catch (ServiceLevelException e) {
             throw e;
         } catch (Exception e) {
@@ -241,6 +255,36 @@ public class RecruitmentServiceImpl implements RecruitmentService {
                     "RecruimentService",
                     "Error occurred while updating recruitment",
                     "updateRecruitment",
+                    "Service level exception",
+                    e.getMessage()
+            );
+        }
+    }
+
+    @Override
+    public ResponseEntity<?> getClosedRecruitments(Long orgId, Pageable of) {
+        if (ObjectUtils.isEmpty(orgId)) {
+            throw new ServiceLevelException(
+                    "RecruimentService",
+                    "Organization id is missing",
+                    "getClosedRecruitments",
+                    "Missing required data exception",
+                    "Required data organization id is missing"
+            );
+        }
+        try {
+            Page<Recruitment> closedRecruitments = recruitmentRepo.findByOrgIdAndHiringStatusIn(orgId, List.of(HiringStatus.CLOSED, HiringStatus.HIRED), of);
+            Page<RecruitmentTableResponse> mappedResults = closedRecruitments.map(recruitment -> {
+                RecruitmentTableResponse map = modelMapper.map(recruitment, RecruitmentTableResponse.class);
+                map.setHiringManager(recruitment.getCreatedBy().getEmployeeId());
+                return map;
+            });
+            return ResponseEntity.ok(mappedResults);
+        } catch (Exception e) {
+            throw new ServiceLevelException(
+                    "RecruimentService",
+                    "Error occurred while fetching closed recruitments",
+                    "getClosedRecruitments",
                     "Service level exception",
                     e.getMessage()
             );

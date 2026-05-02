@@ -44,6 +44,6 @@ public class HrDocument {
 
     @ManyToOne
     @JoinColumn(name = "applicant_id")
-    @JsonBackReference("applicant-hrDocuments")
+    @JsonBackReference("applicant-documents")
     private Applicant applicant;
 }

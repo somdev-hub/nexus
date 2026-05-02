@@ -1,5 +1,6 @@
 package com.nexus.hr.model.entities;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.nexus.hr.model.enums.LeaveType;
 import jakarta.persistence.*;
 import lombok.Data;
@@ -17,6 +18,7 @@ public class EmployeeLeaveAllocation {
 
     @ManyToOne
     @JoinColumn(name = "hr_entity_hr_id")
+    @JsonBackReference("hrEntity-leaveAllocations")
     private HrEntity hrEntity;
 
     @Enumerated(EnumType.STRING)

@@ -1,5 +1,6 @@
 package com.nexus.hr.model.entities;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 import com.nexus.hr.model.enums.HiringStatus;
 import com.nexus.hr.model.enums.HiringType;
@@ -61,6 +62,7 @@ public class Recruitment {
 
     @ManyToOne
     @JoinColumn(name = "created_by_hr_id")
+    @JsonBackReference("hrEntity-recruitments")
     private HrEntity createdBy;
 
     @Enumerated(EnumType.STRING)

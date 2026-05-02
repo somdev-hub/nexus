@@ -5,6 +5,7 @@ import com.nexus.hr.model.enums.HiringStatus;
 import com.nexus.hr.model.enums.HiringType;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 
 public interface RecruitmentService {
@@ -12,7 +13,9 @@ public interface RecruitmentService {
 
     ResponseEntity<?> getRecruitment(Long id);
 
-    ResponseEntity<?> getAllRecruitments(Boolean isActive, Long empId, HiringType hiringType, HiringStatus hiringStatus, PageRequest pageRequest);
+    ResponseEntity<?> getAllRecruitments(Long orgId, Boolean isActive, Long empId, HiringType hiringType, HiringStatus hiringStatus, Pageable pageRequest);
 
     ResponseEntity<?> updateRecruitment(@Valid Recruitment recruitment, Long empId);
+
+    ResponseEntity<?> getClosedRecruitments(Long orgId, Pageable of);
 }

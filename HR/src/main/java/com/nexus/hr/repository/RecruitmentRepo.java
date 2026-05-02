@@ -16,57 +16,67 @@ import java.util.List;
 @Repository
 public interface RecruitmentRepo extends JpaRepository<Recruitment, Long>, JpaSpecificationExecutor<Recruitment> {
 
-    // Query by isActive only
-    Page<Recruitment> findByIsActive(Boolean isActive, Pageable pageable);
+    // Query by orgId only
+    Page<Recruitment> findByOrgId(Long orgId, Pageable pageable);
 
-    // Query by empId (createdBy.employeeId) only
-    @Query("SELECT r FROM Recruitment r WHERE r.createdBy.employeeId = :empId")
-    Page<Recruitment> findByCreatedByEmployeeId(@Param("empId") Long empId, Pageable pageable);
+    // Query by orgId and isActive
+    Page<Recruitment> findByOrgIdAndIsActive(Long orgId, Boolean isActive, Pageable pageable);
 
-    // Query by hiringType only
-    Page<Recruitment> findByHiringType(HiringType hiringType, Pageable pageable);
+    // Query by orgId and empId (createdBy.employeeId)
+    @Query("SELECT r FROM Recruitment r WHERE r.orgId = :orgId AND r.createdBy.employeeId = :empId")
+    Page<Recruitment> findByOrgIdAndCreatedByEmployeeId(@Param("orgId") Long orgId, @Param("empId") Long empId, Pageable pageable);
 
-    // Query by hiringStatus only
-    Page<Recruitment> findByHiringStatus(HiringStatus hiringStatus, Pageable pageable);
+    // Query by orgId and hiringType
+    Page<Recruitment> findByOrgIdAndHiringType(Long orgId, HiringType hiringType, Pageable pageable);
 
-    // Query by isActive and empId
-    @Query("SELECT r FROM Recruitment r WHERE r.isActive = :isActive AND r.createdBy.employeeId = :empId")
-    Page<Recruitment> findByIsActiveAndCreatedByEmployeeId(@Param("isActive") Boolean isActive, @Param("empId") Long empId, Pageable pageable);
+    // Query by orgId and hiringStatus
+    Page<Recruitment> findByOrgIdAndHiringStatus(Long orgId, HiringStatus hiringStatus, Pageable pageable);
 
-    // Query by isActive and hiringType
-    Page<Recruitment> findByIsActiveAndHiringType(Boolean isActive, HiringType hiringType, Pageable pageable);
+    // Query by orgId, isActive, and empId
+    @Query("SELECT r FROM Recruitment r WHERE r.orgId = :orgId AND r.isActive = :isActive AND r.createdBy.employeeId = :empId")
+    Page<Recruitment> findByOrgIdAndIsActiveAndCreatedByEmployeeId(@Param("orgId") Long orgId, @Param("isActive") Boolean isActive, @Param("empId") Long empId, Pageable pageable);
 
-    // Query by isActive and hiringStatus
-    Page<Recruitment> findByIsActiveAndHiringStatus(Boolean isActive, HiringStatus hiringStatus, Pageable pageable);
+    // Query by orgId, isActive, and hiringType
+    Page<Recruitment> findByOrgIdAndIsActiveAndHiringType(Long orgId, Boolean isActive, HiringType hiringType, Pageable pageable);
 
-    // Query by empId and hiringType
-    @Query("SELECT r FROM Recruitment r WHERE r.createdBy.employeeId = :empId AND r.hiringType = :hiringType")
-    Page<Recruitment> findByCreatedByEmployeeIdAndHiringType(@Param("empId") Long empId, @Param("hiringType") HiringType hiringType, Pageable pageable);
+    // Query by orgId, isActive, and hiringStatus
+    Page<Recruitment> findByOrgIdAndIsActiveAndHiringStatus(Long orgId, Boolean isActive, HiringStatus hiringStatus, Pageable pageable);
 
-    // Query by empId and hiringStatus
-    @Query("SELECT r FROM Recruitment r WHERE r.createdBy.employeeId = :empId AND r.hiringStatus = :hiringStatus")
-    Page<Recruitment> findByCreatedByEmployeeIdAndHiringStatus(@Param("empId") Long empId, @Param("hiringStatus") HiringStatus hiringStatus, Pageable pageable);
+    // Query by orgId, empId, and hiringType
+    @Query("SELECT r FROM Recruitment r WHERE r.orgId = :orgId AND r.createdBy.employeeId = :empId AND r.hiringType = :hiringType")
+    Page<Recruitment> findByOrgIdAndCreatedByEmployeeIdAndHiringType(@Param("orgId") Long orgId, @Param("empId") Long empId, @Param("hiringType") HiringType hiringType, Pageable pageable);
 
-    // Query by hiringType and hiringStatus
-    Page<Recruitment> findByHiringTypeAndHiringStatus(HiringType hiringType, HiringStatus hiringStatus, Pageable pageable);
+    // Query by orgId, empId, and hiringStatus
+    @Query("SELECT r FROM Recruitment r WHERE r.orgId = :orgId AND r.createdBy.employeeId = :empId AND r.hiringStatus = :hiringStatus")
+    Page<Recruitment> findByOrgIdAndCreatedByEmployeeIdAndHiringStatus(@Param("orgId") Long orgId, @Param("empId") Long empId, @Param("hiringStatus") HiringStatus hiringStatus, Pageable pageable);
 
-    // Query by isActive, empId, and hiringType
-    @Query("SELECT r FROM Recruitment r WHERE r.isActive = :isActive AND r.createdBy.employeeId = :empId AND r.hiringType = :hiringType")
-    Page<Recruitment> findByIsActiveAndCreatedByEmployeeIdAndHiringType(@Param("isActive") Boolean isActive, @Param("empId") Long empId, @Param("hiringType") HiringType hiringType, Pageable pageable);
+    // Query by orgId, hiringType, and hiringStatus
+    Page<Recruitment> findByOrgIdAndHiringTypeAndHiringStatus(Long orgId, HiringType hiringType, HiringStatus hiringStatus, Pageable pageable);
 
-    // Query by isActive, empId, and hiringStatus
-    @Query("SELECT r FROM Recruitment r WHERE r.isActive = :isActive AND r.createdBy.employeeId = :empId AND r.hiringStatus = :hiringStatus")
-    Page<Recruitment> findByIsActiveAndCreatedByEmployeeIdAndHiringStatus(@Param("isActive") Boolean isActive, @Param("empId") Long empId, @Param("hiringStatus") HiringStatus hiringStatus, Pageable pageable);
+    // Query by orgId, isActive, empId, and hiringType
+    @Query("SELECT r FROM Recruitment r WHERE r.orgId = :orgId AND r.isActive = :isActive AND r.createdBy.employeeId = :empId AND r.hiringType = :hiringType")
+    Page<Recruitment> findByOrgIdAndIsActiveAndCreatedByEmployeeIdAndHiringType(@Param("orgId") Long orgId, @Param("isActive") Boolean isActive, @Param("empId") Long empId, @Param("hiringType") HiringType hiringType, Pageable pageable);
 
-    // Query by isActive, hiringType, and hiringStatus
-    Page<Recruitment> findByIsActiveAndHiringTypeAndHiringStatus(Boolean isActive, HiringType hiringType, HiringStatus hiringStatus, Pageable pageable);
+    // Query by orgId, isActive, empId, and hiringStatus
+    @Query("SELECT r FROM Recruitment r WHERE r.orgId = :orgId AND r.isActive = :isActive AND r.createdBy.employeeId = :empId AND r.hiringStatus = :hiringStatus")
+    Page<Recruitment> findByOrgIdAndIsActiveAndCreatedByEmployeeIdAndHiringStatus(@Param("orgId") Long orgId, @Param("isActive") Boolean isActive, @Param("empId") Long empId, @Param("hiringStatus") HiringStatus hiringStatus, Pageable pageable);
 
-    // Query by empId, hiringType, and hiringStatus
-    @Query("SELECT r FROM Recruitment r WHERE r.createdBy.employeeId = :empId AND r.hiringType = :hiringType AND r.hiringStatus = :hiringStatus")
-    Page<Recruitment> findByCreatedByEmployeeIdAndHiringTypeAndHiringStatus(@Param("empId") Long empId, @Param("hiringType") HiringType hiringType, @Param("hiringStatus") HiringStatus hiringStatus, Pageable pageable);
+    // Query by orgId, isActive, hiringType, and hiringStatus
+    Page<Recruitment> findByOrgIdAndIsActiveAndHiringTypeAndHiringStatus(Long orgId, Boolean isActive, HiringType hiringType, HiringStatus hiringStatus, Pageable pageable);
 
-    // Query by all four filters
-    @Query("SELECT r FROM Recruitment r WHERE r.isActive = :isActive AND r.createdBy.employeeId = :empId AND r.hiringType = :hiringType AND r.hiringStatus = :hiringStatus")
-    Page<Recruitment> findByAllFilters(@Param("isActive") Boolean isActive, @Param("empId") Long empId, @Param("hiringType") HiringType hiringType, @Param("hiringStatus") HiringStatus hiringStatus, Pageable pageable);
+    // Query by orgId, empId, hiringType, and hiringStatus
+    @Query("SELECT r FROM Recruitment r WHERE r.orgId = :orgId AND r.createdBy.employeeId = :empId AND r.hiringType = :hiringType AND r.hiringStatus = :hiringStatus")
+    Page<Recruitment> findByOrgIdAndCreatedByEmployeeIdAndHiringTypeAndHiringStatus(@Param("orgId") Long orgId, @Param("empId") Long empId, @Param("hiringType") HiringType hiringType, @Param("hiringStatus") HiringStatus hiringStatus, Pageable pageable);
 
+    // Query by all five filters (orgId, isActive, empId, hiringType, hiringStatus)
+    @Query("SELECT r FROM Recruitment r WHERE r.orgId = :orgId AND r.isActive = :isActive AND r.createdBy.employeeId = :empId AND r.hiringType = :hiringType AND r.hiringStatus = :hiringStatus")
+    Page<Recruitment> findByAllFilters(@Param("orgId") Long orgId, @Param("isActive") Boolean isActive, @Param("empId") Long empId, @Param("hiringType") HiringType hiringType, @Param("hiringStatus") HiringStatus hiringStatus, Pageable pageable);
+
+
+    @Query("""
+                        SELECT r FROM Recruitment r
+                        WHERE r.orgId = :orgId
+                        AND r.hiringStatus IN :statuses
+            """)
+    Page<Recruitment> findByOrgIdAndHiringStatusIn(Long orgId, List<HiringStatus> statuses, Pageable of);
 }
