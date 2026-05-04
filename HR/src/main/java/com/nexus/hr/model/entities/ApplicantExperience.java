@@ -22,7 +22,7 @@ public class ApplicantExperience {
 
     private String previousCompany;
     private String jobTitle;
-    private Integer yearsOfExperience;
+    private Double yearsOfExperience;
     private String jobDescription;
     private LocalDate startDate;
     private LocalDate endDate;

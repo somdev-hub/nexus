@@ -8,7 +8,8 @@ public class CommonConstants {
             "application/pdf",
             "image/jpeg",
             "image/jpg",
-            "image/png");
+            "image/png"
+            );
 
     public static final long MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024; // 20 MB
     public static final int MAX_FILE_SIZE_MB = 20; // 20 MB

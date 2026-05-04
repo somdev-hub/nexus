@@ -8,6 +8,7 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.util.LinkedMultiValueMap;
@@ -16,6 +17,7 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.nexus.iam.entities.Logs;
 import com.nexus.iam.repository.LogsRepo;
 
@@ -115,17 +117,53 @@ public class RestService {
 
             if (value instanceof MultipartFile) {
                 MultipartFile file = (MultipartFile) value;
-                // Convert MultipartFile to ByteArrayResource
+                // Convert MultipartFile to ByteArrayResource and set per-part content type
                 ByteArrayResource fileResource = new ByteArrayResource(file.getBytes()) {
                     @Override
                     public String getFilename() {
                         return file.getOriginalFilename();
                     }
                 };
-                body.add(entry.getKey(), fileResource);
+                HttpHeaders fileHeaders = new HttpHeaders();
+                if (file.getContentType() != null) {
+                    fileHeaders.setContentType(MediaType.parseMediaType(file.getContentType()));
+                }
+                HttpEntity<ByteArrayResource> filePart = new HttpEntity<>(fileResource, fileHeaders);
+                body.add(entry.getKey(), filePart);
             } else {
-                // Send DTO and other objects directly - RestTemplate will handle serialization
-                body.add(entry.getKey(), value);
+                // For non-file parts (DTOs / JSON) ensure the part has application/json
+                // If value is already a String, assume it's JSON; otherwise serialize it
+                String jsonPart;
+                ObjectMapper mapper = new ObjectMapper();
+                if (value instanceof String) {
+                    String s = (String) value;
+                    String current = s;
+                    String normalized = null;
+                    // Try to unwrap quoted/escaped JSON up to several times
+                    for (int i = 0; i < 5; i++) {
+                        try {
+                            JsonNode node = mapper.readTree(current);
+                            if (node.isTextual()) {
+                                // unwrap one level
+                                current = node.textValue();
+                                continue;
+                            } else {
+                                normalized = mapper.writeValueAsString(node);
+                                break;
+                            }
+                        } catch (Exception ex) {
+                            // not parseable JSON at this level
+                            break;
+                        }
+                    }
+                    jsonPart = normalized != null ? normalized : current;
+                } else {
+                    jsonPart = mapper.writeValueAsString(value);
+                }
+                HttpHeaders partHeaders = new HttpHeaders();
+                partHeaders.setContentType(MediaType.APPLICATION_JSON);
+                HttpEntity<String> partEntity = new HttpEntity<>(jsonPart, partHeaders);
+                body.add(entry.getKey(), partEntity);
             }
         }
 

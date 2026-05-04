@@ -18,5 +18,7 @@ public enum DocumentType {
     EXPERIENCE_LETTER,
     COMPENSATION_CARD,
     OTHER_HR_DOCUMENTS,
+    RESUME,
+    COVER_LETTER,
     OTHER
 }

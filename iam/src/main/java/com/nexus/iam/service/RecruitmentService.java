@@ -2,6 +2,9 @@ package com.nexus.iam.service;
 
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.time.LocalDate;
 
 public interface RecruitmentService {
     ResponseEntity<?> createRecruitment(String recruitment, Long empId);
@@ -13,4 +16,10 @@ public interface RecruitmentService {
     ResponseEntity<?> getRecruitment(Long id);
 
     ResponseEntity<?> getClosedRecruitments(Long orgId, Integer pageNo, Integer pageOffset);
+
+    ResponseEntity<?> createApplicantWithDocuments(Long recruitmentId, String applicant, MultipartFile resume, MultipartFile coverLetter);
+
+    ResponseEntity<?> getAllApplicants(Long recruitmentId, String status, String name, Character gender, Integer minAge, Integer maxAge, LocalDate appliedFromDate, LocalDate appliedToDate, Integer yearsOfExperience, Integer pageNo, Integer pageSize);
+
+    ResponseEntity<?> getApplicantById(Long id);
 }

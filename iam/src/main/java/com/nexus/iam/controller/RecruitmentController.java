@@ -3,8 +3,13 @@ package com.nexus.iam.controller;
 import com.nexus.iam.service.RecruitmentService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.time.LocalDate;
 
 @RestController
 @RequiredArgsConstructor
@@ -36,4 +41,54 @@ public class RecruitmentController {
     public ResponseEntity<?> closeRecruitment(@RequestParam Long orgId, @RequestParam(required = false, defaultValue = "0") Integer pageNo, @RequestParam(required = false, defaultValue = "10") Integer pageOffset) {
         return recruitmentService.getClosedRecruitments(orgId, pageNo, pageOffset);
     }
+
+    @PostMapping(value = "/applicant", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<?> createApplicantWithDocuments(
+            @RequestPart("recruitmentId") Long recruitmentId,
+            @RequestPart("applicant") String applicant,
+            @RequestPart(value = "resume", required = false) MultipartFile resume,
+            @RequestPart(value = "coverLetter", required = false) MultipartFile coverLetter) {
+        return recruitmentService.createApplicantWithDocuments(recruitmentId,applicant, resume, coverLetter);
+    }
+
+    @GetMapping("/applicant")
+    public ResponseEntity<?> getAllApplicants(
+            @RequestParam Long recruitmentId,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String name,
+            @RequestParam(required = false) Character gender,
+            @RequestParam(required = false) Integer minAge,
+            @RequestParam(required = false) Integer maxAge,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate appliedFromDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate appliedToDate,
+            @RequestParam(required = false) Integer yearsOfExperience,
+            @RequestParam(required = false, defaultValue = "0") Integer pageNo,
+            @RequestParam(required = false, defaultValue = "10") Integer pageSize
+    ) {
+        return recruitmentService.getAllApplicants(
+                recruitmentId,
+                status,
+                name,
+                gender,
+                minAge,
+                maxAge,
+                appliedFromDate,
+                appliedToDate,
+                yearsOfExperience,
+                pageNo,
+                pageSize
+        );
+    }
+
+    /**
+     * Get applicant by ID
+     *
+     * @param id Applicant ID
+     * @return Applicant details
+     */
+    @GetMapping("/applicant/{id}")
+    public ResponseEntity<?> getApplicantById(@PathVariable Long id) {
+        return recruitmentService.getApplicantById(id);
+    }
+
 }

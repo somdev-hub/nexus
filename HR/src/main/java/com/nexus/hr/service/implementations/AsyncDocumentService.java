@@ -396,6 +396,96 @@ public class AsyncDocumentService {
     }
 
     /**
+     * Asynchronously uploads applicant resume to DMS
+     */
+    @Async("hrDocumentTaskExecutor")
+    public CompletableFuture<DocumentResult> uploadApplicantResume(
+            MultipartFile resumeFile, Long applicantId) {
+
+        log.info("Starting async upload of Resume for applicant: {}", applicantId);
+
+        try {
+            String fileName = "Resume_Applicant_" + applicantId + ".pdf";
+            ResponseEntity<?> dmsResponse = callDmsToUpload(
+                resumeFile, applicantId, fileName, "RESUME", applicantId);
+
+            // Process response
+            if (dmsResponse.getStatusCode().is2xxSuccessful()) {
+                @SuppressWarnings("unchecked")
+                Map<String, String> responseBody = (Map<String, String>) dmsResponse.getBody();
+                if (responseBody != null && responseBody.containsKey("documentUrl")) {
+                    log.info("Successfully uploaded Resume for applicant: {}", applicantId);
+                    return CompletableFuture.completedFuture(new DocumentResult(
+                        responseBody.get("documentUrl"),
+                        responseBody.get("documentName"),
+                        responseBody.get("documentType"),
+                        true,
+                        null
+                    ));
+                }
+            }
+
+            log.error("Failed to upload Resume to DMS for applicant: {}", applicantId);
+            return CompletableFuture.completedFuture(new DocumentResult(
+                null, null, "RESUME", false,
+                "DMS upload failed with status: " + dmsResponse.getStatusCode()
+            ));
+
+        } catch (Exception e) {
+            log.error("Error uploading Resume for applicant: {}", applicantId, e);
+            return CompletableFuture.completedFuture(new DocumentResult(
+                null, null, "RESUME", false,
+                "Exception: " + e.getMessage()
+            ));
+        }
+    }
+
+    /**
+     * Asynchronously uploads applicant cover letter to DMS
+     */
+    @Async("hrDocumentTaskExecutor")
+    public CompletableFuture<DocumentResult> uploadApplicantCoverLetter(
+            MultipartFile coverLetterFile, Long applicantId) {
+
+        log.info("Starting async upload of Cover Letter for applicant: {}", applicantId);
+
+        try {
+            String fileName = "CoverLetter_Applicant_" + applicantId + ".pdf";
+            ResponseEntity<?> dmsResponse = callDmsToUpload(
+                coverLetterFile, applicantId, fileName, "COVER_LETTER", applicantId);
+
+            // Process response
+            if (dmsResponse.getStatusCode().is2xxSuccessful()) {
+                @SuppressWarnings("unchecked")
+                Map<String, String> responseBody = (Map<String, String>) dmsResponse.getBody();
+                if (responseBody != null && responseBody.containsKey("documentUrl")) {
+                    log.info("Successfully uploaded Cover Letter for applicant: {}", applicantId);
+                    return CompletableFuture.completedFuture(new DocumentResult(
+                        responseBody.get("documentUrl"),
+                        responseBody.get("documentName"),
+                        responseBody.get("documentType"),
+                        true,
+                        null
+                    ));
+                }
+            }
+
+            log.error("Failed to upload Cover Letter to DMS for applicant: {}", applicantId);
+            return CompletableFuture.completedFuture(new DocumentResult(
+                null, null, "COVER_LETTER", false,
+                "DMS upload failed with status: " + dmsResponse.getStatusCode()
+            ));
+
+        } catch (Exception e) {
+            log.error("Error uploading Cover Letter for applicant: {}", applicantId, e);
+            return CompletableFuture.completedFuture(new DocumentResult(
+                null, null, "COVER_LETTER", false,
+                "Exception: " + e.getMessage()
+            ));
+        }
+    }
+
+    /**
      * Upload document to DMS service
      */
     private ResponseEntity<?> callDmsToUpload(MultipartFile file, Long userId, String fileName,

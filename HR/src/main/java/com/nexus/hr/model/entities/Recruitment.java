@@ -2,6 +2,7 @@ package com.nexus.hr.model.entities;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.nexus.hr.model.enums.HiringStatus;
 import com.nexus.hr.model.enums.HiringType;
 import jakarta.persistence.*;
@@ -55,7 +56,7 @@ public class Recruitment {
     private String totalCompensation;
 
     @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, mappedBy = "recruitment")
-    @JsonManagedReference("recruitment-applicants")
+    @JsonIgnore
     private List<Applicant> applicantsList = new ArrayList<>();
 
     private Long totalApplicants;

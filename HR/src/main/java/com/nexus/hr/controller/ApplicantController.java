@@ -7,8 +7,10 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
 
@@ -21,16 +23,22 @@ public class ApplicantController {
 
     /**
      * Create a new applicant
+     *
      * @param applicant Applicant entity with required fields
      * @return Created applicant
      */
-    @PostMapping("/")
-    public ResponseEntity<?> createApplicant(@Valid @RequestBody Applicant applicant) {
-        return applicantService.createApplicant(applicant);
+    @PostMapping(value = "/", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<?> createApplicantWithDocuments(
+            @RequestPart("recruitmentId") Long recruitmentId,
+            @RequestPart("applicant") Applicant applicant,
+            @RequestPart(value = "resume", required = false) MultipartFile resume,
+            @RequestPart(value = "coverLetter", required = false) MultipartFile coverLetter) {
+        return applicantService.createApplicantWithDocuments(recruitmentId, applicant, resume, coverLetter);
     }
 
     /**
      * Get applicant by ID
+     *
      * @param id Applicant ID
      * @return Applicant details
      */
@@ -43,20 +51,21 @@ public class ApplicantController {
      * Get all applicants with optional filters and pagination
      * All filter parameters are optional and can be combined
      *
-     * @param status Application status (e.g., APPLIED, REJECTED, ACCEPTED)
-     * @param name Search by applicant first or last name (case-insensitive, partial match)
-     * @param gender Applicant gender (M, F, etc.)
-     * @param minAge Minimum age for filtering
-     * @param maxAge Maximum age for filtering
-     * @param appliedFromDate Start date for applied date range (yyyy-MM-dd)
-     * @param appliedToDate End date for applied date range (yyyy-MM-dd)
+     * @param status            Application status (e.g., APPLIED, REJECTED, ACCEPTED)
+     * @param name              Search by applicant first or last name (case-insensitive, partial match)
+     * @param gender            Applicant gender (M, F, etc.)
+     * @param minAge            Minimum age for filtering
+     * @param maxAge            Maximum age for filtering
+     * @param appliedFromDate   Start date for applied date range (yyyy-MM-dd)
+     * @param appliedToDate     End date for applied date range (yyyy-MM-dd)
      * @param yearsOfExperience Minimum years of experience
-     * @param pageNo Page number (default: 0)
-     * @param pageSize Page size (default: 10)
+     * @param pageNo            Page number (default: 0)
+     * @param pageSize          Page size (default: 10)
      * @return Paginated list of applicants
      */
     @GetMapping("/")
     public ResponseEntity<?> getAllApplicants(
+            @RequestParam Long recruitmentId,
             @RequestParam(required = false) ApplicationStatus status,
             @RequestParam(required = false) String name,
             @RequestParam(required = false) Character gender,
@@ -69,6 +78,7 @@ public class ApplicantController {
             @RequestParam(required = false, defaultValue = "10") Integer pageSize
     ) {
         return applicantService.getAllApplicants(
+                recruitmentId,
                 status,
                 name,
                 gender,
@@ -83,6 +93,7 @@ public class ApplicantController {
 
     /**
      * Update an existing applicant
+     *
      * @param applicant Applicant entity with updated fields (applicantId is required)
      * @return Updated applicant
      */
@@ -93,6 +104,7 @@ public class ApplicantController {
 
     /**
      * Delete an applicant
+     *
      * @param id Applicant ID to delete
      * @return Success message
      */

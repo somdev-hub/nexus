@@ -163,6 +163,9 @@ public class WebConstants {
     @Value("${hr.recuitment.url}")
     private String hrRecruitmentUrl;
 
+    @Value("${hr.applicant.url}")
+    private String applicantUrl;
+
     // Keycloak URLs
     public String getKeycloakAdminUrl() {
         return keycloakServerUrl + "/admin/realms/" + keycloakRealm;
@@ -204,5 +207,4 @@ public class WebConstants {
     public boolean isKeycloakOAuth2Enabled() {
         return keycloakOAuth2Enabled;
     }
-
 }
