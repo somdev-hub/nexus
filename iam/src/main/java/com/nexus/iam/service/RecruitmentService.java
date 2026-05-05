@@ -22,4 +22,6 @@ public interface RecruitmentService {
     ResponseEntity<?> getAllApplicants(Long recruitmentId, String status, String name, Character gender, Integer minAge, Integer maxAge, LocalDate appliedFromDate, LocalDate appliedToDate, Integer yearsOfExperience, Integer pageNo, Integer pageSize);
 
     ResponseEntity<?> getApplicantById(Long id);
+
+    ResponseEntity<?> getRecruitmentAnalytics(Long orgId);
 }

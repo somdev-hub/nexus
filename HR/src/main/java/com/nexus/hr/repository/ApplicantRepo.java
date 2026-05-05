@@ -199,7 +199,53 @@ public interface ApplicantRepo extends JpaRepository<Applicant, Long>, JpaSpecif
      @Query("SELECT a FROM Applicant a WHERE a.recruitment.recruitmentId = :recruitmentId AND a.applicationStatus = :status AND a.applicantGender = :gender AND DATE(a.appliedOn) >= :startDate AND DATE(a.appliedOn) <= :endDate")
      Page<Applicant> findByRecruitment_RecruitmentIdAndStatusAndGenderAndAppliedBetweenDates(@Param("recruitmentId") Long recruitmentId, @Param("status") ApplicationStatus status, @Param("gender") Character gender, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate, Pageable pageable);
 
-     @Query("SELECT DISTINCT a FROM Applicant a JOIN a.applicantExperiences exp WHERE a.recruitment.recruitmentId = :recruitmentId AND a.applicationStatus = :status AND a.applicantGender = :gender AND exp.yearsOfExperience >= :yearsOfExperience")
-     Page<Applicant> findByRecruitment_RecruitmentIdAndStatusAndGenderAndYearsOfExperience(@Param("recruitmentId") Long recruitmentId, @Param("status") ApplicationStatus status, @Param("gender") Character gender, @Param("yearsOfExperience") Integer yearsOfExperience, Pageable pageable);
+      @Query("SELECT DISTINCT a FROM Applicant a JOIN a.applicantExperiences exp WHERE a.recruitment.recruitmentId = :recruitmentId AND a.applicationStatus = :status AND a.applicantGender = :gender AND exp.yearsOfExperience >= :yearsOfExperience")
+      Page<Applicant> findByRecruitment_RecruitmentIdAndStatusAndGenderAndYearsOfExperience(@Param("recruitmentId") Long recruitmentId, @Param("status") ApplicationStatus status, @Param("gender") Character gender, @Param("yearsOfExperience") Integer yearsOfExperience, Pageable pageable);
+
+     // ===== CUSTOM QUERIES FOR ANALYTICS =====
+
+     // Count applications by status
+     @Query("SELECT COUNT(a) FROM Applicant a WHERE a.recruitment.orgId = :orgId AND a.applicationStatus = :status")
+     Long countApplicationsByStatus(@Param("orgId") Long orgId, @Param("status") ApplicationStatus status);
+
+     // Count total applications for organization
+     @Query("SELECT COUNT(a) FROM Applicant a WHERE a.recruitment.orgId = :orgId")
+     Long countTotalApplications(@Param("orgId") Long orgId);
+
+     // Count applications from previous week
+     @Query(value = "SELECT COUNT(a) FROM hr.t_hr_applicants a JOIN hr.t_hr_recruitments r ON a.recruitment_id = r.recruitment_id WHERE r.org_id = :orgId AND a.applied_on::date >= (CURRENT_DATE - INTERVAL '1 week') AND a.applied_on::date < CURRENT_DATE", nativeQuery = true)
+     Long countApplicationsPreviousWeek(@Param("orgId") Long orgId);
+
+     // Count applications from previous month
+     @Query(value = "SELECT COUNT(a) FROM hr.t_hr_applicants a JOIN hr.t_hr_recruitments r ON a.recruitment_id = r.recruitment_id WHERE r.org_id = :orgId AND EXTRACT(MONTH FROM a.applied_on) = EXTRACT(MONTH FROM (CURRENT_DATE - INTERVAL '1 month')) AND EXTRACT(YEAR FROM a.applied_on) = EXTRACT(YEAR FROM (CURRENT_DATE - INTERVAL '1 month'))", nativeQuery = true)
+     Long countApplicationsPreviousMonth(@Param("orgId") Long orgId);
+
+     // Count applications from previous quarter
+     @Query(value = "SELECT COUNT(a) FROM hr.t_hr_applicants a JOIN hr.t_hr_recruitments r ON a.recruitment_id = r.recruitment_id WHERE r.org_id = :orgId AND EXTRACT(QUARTER FROM a.applied_on) = EXTRACT(QUARTER FROM (CURRENT_DATE - INTERVAL '3 months')) AND EXTRACT(YEAR FROM a.applied_on) = EXTRACT(YEAR FROM (CURRENT_DATE - INTERVAL '3 months'))", nativeQuery = true)
+     Long countApplicationsPreviousQuarter(@Param("orgId") Long orgId);
+
+     // Average time to hire (in days) - from applied to offer accepted
+     @Query(value = "SELECT AVG(EXTRACT(DAY FROM (a.updated_on - a.applied_on))) FROM hr.t_hr_applicants a JOIN hr.t_hr_recruitments r ON a.recruitment_id = r.recruitment_id WHERE r.org_id = :orgId AND a.application_status = 'OFFER_ACCEPTED'", nativeQuery = true)
+     Double averageTimeToHire(@Param("orgId") Long orgId);
+
+     // Average time to hire from previous quarter
+     @Query(value = "SELECT AVG(EXTRACT(DAY FROM (a.updated_on - a.applied_on))) FROM hr.t_hr_applicants a JOIN hr.t_hr_recruitments r ON a.recruitment_id = r.recruitment_id WHERE r.org_id = :orgId AND a.application_status = 'OFFER_ACCEPTED' AND EXTRACT(QUARTER FROM a.applied_on) = EXTRACT(QUARTER FROM (CURRENT_DATE - INTERVAL '3 months')) AND EXTRACT(YEAR FROM a.applied_on) = EXTRACT(YEAR FROM (CURRENT_DATE - INTERVAL '3 months'))", nativeQuery = true)
+     Double averageTimeToHirePreviousQuarter(@Param("orgId") Long orgId);
+
+     // Offer acceptance rate - count of offer accepted
+     @Query(value = "SELECT COUNT(a) FROM hr.t_hr_applicants a JOIN hr.t_hr_recruitments r ON a.recruitment_id = r.recruitment_id WHERE r.org_id = :orgId AND a.application_status = 'OFFER_ACCEPTED'", nativeQuery = true)
+     Long countOfferAccepted(@Param("orgId") Long orgId);
+
+     // Count selected candidates
+     @Query(value = "SELECT COUNT(a) FROM hr.t_hr_applicants a JOIN hr.t_hr_recruitments r ON a.recruitment_id = r.recruitment_id WHERE r.org_id = :orgId AND a.application_status = 'SELECTED'", nativeQuery = true)
+     Long countSelected(@Param("orgId") Long orgId);
+
+     // Count offer accepted from previous quarter
+     @Query(value = "SELECT COUNT(a) FROM hr.t_hr_applicants a JOIN hr.t_hr_recruitments r ON a.recruitment_id = r.recruitment_id WHERE r.org_id = :orgId AND a.application_status = 'OFFER_ACCEPTED' AND EXTRACT(QUARTER FROM a.applied_on) = EXTRACT(QUARTER FROM (CURRENT_DATE - INTERVAL '3 months')) AND EXTRACT(YEAR FROM a.applied_on) = EXTRACT(YEAR FROM (CURRENT_DATE - INTERVAL '3 months'))", nativeQuery = true)
+     Long countOfferAcceptedPreviousQuarter(@Param("orgId") Long orgId);
+
+     // Count selected from previous quarter
+     @Query(value = "SELECT COUNT(a) FROM hr.t_hr_applicants a JOIN hr.t_hr_recruitments r ON a.recruitment_id = r.recruitment_id WHERE r.org_id = :orgId AND a.application_status = 'SELECTED' AND EXTRACT(QUARTER FROM a.applied_on) = EXTRACT(QUARTER FROM (CURRENT_DATE - INTERVAL '3 months')) AND EXTRACT(YEAR FROM a.applied_on) = EXTRACT(YEAR FROM (CURRENT_DATE - INTERVAL '3 months'))", nativeQuery = true)
+     Long countSelectedPreviousQuarter(@Param("orgId") Long orgId);
 }
 

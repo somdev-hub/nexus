@@ -4,9 +4,12 @@ import com.nexus.hr.exception.ResourceNotFoundException;
 import com.nexus.hr.exception.ServiceLevelException;
 import com.nexus.hr.model.entities.HrEntity;
 import com.nexus.hr.model.entities.Recruitment;
+import com.nexus.hr.model.enums.ApplicationStatus;
 import com.nexus.hr.model.enums.HiringStatus;
 import com.nexus.hr.model.enums.HiringType;
+import com.nexus.hr.payload.response.RecruitmentAnalyticsResponseDto;
 import com.nexus.hr.payload.response.RecruitmentTableResponse;
+import com.nexus.hr.repository.ApplicantRepo;
 import com.nexus.hr.repository.HrEntityRepo;
 import com.nexus.hr.repository.RecruitmentRepo;
 import com.nexus.hr.service.interfaces.RecruitmentService;
@@ -26,6 +29,7 @@ import java.util.List;
 public class RecruitmentServiceImpl implements RecruitmentService {
 
     private final RecruitmentRepo recruitmentRepo;
+    private final ApplicantRepo applicantRepo;
     private final HrEntityRepo hrEntityRepo;
     private final ModelMapper modelMapper;
 
@@ -285,6 +289,145 @@ public class RecruitmentServiceImpl implements RecruitmentService {
                     "RecruimentService",
                     "Error occurred while fetching closed recruitments",
                     "getClosedRecruitments",
+                    "Service level exception",
+                    e.getMessage()
+            );
+        }
+    }
+
+    @Override
+    public ResponseEntity<?> getRecruitmentAnalytics(Long orgId) {
+        if (ObjectUtils.isEmpty(orgId)) {
+            throw new ServiceLevelException(
+                    "RecruimentService",
+                    "Organization id is missing",
+                    "getRecruitmentAnalytics",
+                    "Missing required data exception",
+                    "Required data organization id is missing"
+            );
+        }
+        try {
+            RecruitmentAnalyticsResponseDto analytics = new RecruitmentAnalyticsResponseDto();
+
+            // 1. Open Roles - DIFFERENCE_COMPARISON with previous month
+            Long currentOpenRoles = recruitmentRepo.countOpenRecruitments(orgId);
+            Long previousMonthOpenRoles = recruitmentRepo.countOpenRecruitmentsPreviousMonth(orgId);
+            Integer openRolesDifference = (currentOpenRoles != null ? currentOpenRoles.intValue() : 0)
+                    - (previousMonthOpenRoles != null ? previousMonthOpenRoles.intValue() : 0);
+            RecruitmentAnalyticsResponseDto.Trend openRolesTrend = openRolesDifference > 0 ?
+                    RecruitmentAnalyticsResponseDto.Trend.INCREMENT :
+                    (openRolesDifference < 0 ? RecruitmentAnalyticsResponseDto.Trend.DECREMENT : RecruitmentAnalyticsResponseDto.Trend.STABLE);
+
+            analytics.setOpenRoles(new RecruitmentAnalyticsResponseDto.Values(
+                    currentOpenRoles != null ? currentOpenRoles.intValue() : 0,
+                    RecruitmentAnalyticsResponseDto.Type.DIFFERENCE_COMPARISON,
+                    Math.abs(openRolesDifference),
+                    openRolesTrend,
+                    "Active job openings",
+                    "previous month"
+            ));
+
+            // 2. Current Applications - DIFFERENCE_COMPARISON with previous week
+            Long currentApplications = applicantRepo.countTotalApplications(orgId);
+            Long previousWeekApplications = applicantRepo.countApplicationsPreviousWeek(orgId);
+            Integer applicationsDifference = (currentApplications != null ? currentApplications.intValue() : 0)
+                    - (previousWeekApplications != null ? previousWeekApplications.intValue() : 0);
+            RecruitmentAnalyticsResponseDto.Trend applicationsTrend = applicationsDifference > 0 ?
+                    RecruitmentAnalyticsResponseDto.Trend.INCREMENT :
+                    (applicationsDifference < 0 ? RecruitmentAnalyticsResponseDto.Trend.DECREMENT : RecruitmentAnalyticsResponseDto.Trend.STABLE);
+
+            analytics.setCurrentApplications(new RecruitmentAnalyticsResponseDto.Values(
+                    currentApplications != null ? currentApplications.intValue() : 0,
+                    RecruitmentAnalyticsResponseDto.Type.DIFFERENCE_COMPARISON,
+                    Math.abs(applicationsDifference),
+                    applicationsTrend,
+                    "Total applications received",
+                    "previous week"
+            ));
+
+            // 3. Under Review - VALUE_COMPARISON between REVIEW and INTERVIEW_SCHEDULED
+            Long underReviewCount = applicantRepo.countApplicationsByStatus(orgId, ApplicationStatus.REVIEW);
+            Long interviewScheduledCount = applicantRepo.countApplicationsByStatus(orgId, ApplicationStatus.INTERVIEW_SCHEDULED);
+            Integer underReviewDifference = (underReviewCount != null ? underReviewCount.intValue() : 0)
+                    - (interviewScheduledCount != null ? interviewScheduledCount.intValue() : 0);
+            RecruitmentAnalyticsResponseDto.Trend underReviewTrend = RecruitmentAnalyticsResponseDto.Trend.STABLE;
+
+            analytics.setUnderReview(new RecruitmentAnalyticsResponseDto.Values(
+                    underReviewCount != null ? underReviewCount.intValue() : 0,
+                    RecruitmentAnalyticsResponseDto.Type.VALUE_COMPARISON,
+                    Math.abs(underReviewDifference),
+                    underReviewTrend,
+                    "applications under review",
+                    "Interview scheduled"
+            ));
+
+            // 4. Offer Sent - VALUE_COMPARISON between SELECTED and OFFER_ACCEPTED
+            Long offerSentCount = applicantRepo.countSelected(orgId);
+            Long offerAcceptedCount = applicantRepo.countOfferAccepted(orgId);
+            Integer offerSentDifference = (offerSentCount != null ? offerSentCount.intValue() : 0)
+                    - (offerAcceptedCount != null ? offerAcceptedCount.intValue() : 0);
+            RecruitmentAnalyticsResponseDto.Trend offerSentTrend = RecruitmentAnalyticsResponseDto.Trend.STABLE;
+
+            analytics.setOfferSent(new RecruitmentAnalyticsResponseDto.Values(
+                    offerSentCount != null ? offerSentCount.intValue() : 0,
+                    RecruitmentAnalyticsResponseDto.Type.VALUE_COMPARISON,
+                    Math.abs(offerSentDifference),
+                    offerSentTrend,
+                    "Outstanding offers",
+                    "Offer accepted"
+            ));
+
+            // 5. Recruitment TAT (Time To Hire) - DIFFERENCE_COMPARISON with quarterly
+            Double currentTAT = applicantRepo.averageTimeToHire(orgId);
+            Double previousQuarterTAT = applicantRepo.averageTimeToHirePreviousQuarter(orgId);
+            Integer tatDifference = (currentTAT != null ? currentTAT.intValue() : 0)
+                    - (previousQuarterTAT != null ? previousQuarterTAT.intValue() : 0);
+            RecruitmentAnalyticsResponseDto.Trend tatTrend = tatDifference < 0 ?
+                    RecruitmentAnalyticsResponseDto.Trend.INCREMENT :
+                    (tatDifference > 0 ? RecruitmentAnalyticsResponseDto.Trend.DECREMENT : RecruitmentAnalyticsResponseDto.Trend.STABLE);
+
+            analytics.setRecruitmentTAT(new RecruitmentAnalyticsResponseDto.Values(
+                    currentTAT != null ? currentTAT.intValue() : 0,
+                    RecruitmentAnalyticsResponseDto.Type.DIFFERENCE_COMPARISON,
+                    Math.abs(tatDifference),
+                    tatTrend,
+                    "Average hiring duration",
+                    "previous quarter"
+            ));
+
+            // 6. Offer Acceptance Rate - DIFFERENCE_COMPARISON with quarterly
+            Long currentOfferAccepted = applicantRepo.countOfferAccepted(orgId);
+            Long currentSelected = applicantRepo.countSelected(orgId);
+            Integer currentOfferAcceptanceRate = (currentSelected != null && currentSelected > 0) ?
+                    (int)((currentOfferAccepted != null ? currentOfferAccepted : 0) * 100 / currentSelected) : 0;
+
+            Long previousQuarterOfferAccepted = applicantRepo.countOfferAcceptedPreviousQuarter(orgId);
+            Long previousQuarterSelected = applicantRepo.countSelectedPreviousQuarter(orgId);
+            Integer previousQuarterOfferAcceptanceRate = (previousQuarterSelected != null && previousQuarterSelected > 0) ?
+                    (int)((previousQuarterOfferAccepted != null ? previousQuarterOfferAccepted : 0) * 100 / previousQuarterSelected) : 0;
+
+            Integer offerAcceptanceRateDifference = currentOfferAcceptanceRate - previousQuarterOfferAcceptanceRate;
+            RecruitmentAnalyticsResponseDto.Trend offerAcceptanceTrend = offerAcceptanceRateDifference > 0 ?
+                    RecruitmentAnalyticsResponseDto.Trend.INCREMENT :
+                    (offerAcceptanceRateDifference < 0 ? RecruitmentAnalyticsResponseDto.Trend.DECREMENT : RecruitmentAnalyticsResponseDto.Trend.STABLE);
+
+            analytics.setOfferAcceptance(new RecruitmentAnalyticsResponseDto.Values(
+                    currentOfferAcceptanceRate,
+                    RecruitmentAnalyticsResponseDto.Type.DIFFERENCE_COMPARISON,
+                    Math.abs(offerAcceptanceRateDifference),
+                    offerAcceptanceTrend,
+                    "Conversion rate",
+                    "previous quarter"
+            ));
+
+            return ResponseEntity.ok(analytics);
+        } catch (ServiceLevelException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new ServiceLevelException(
+                    "RecruimentService",
+                    "Error occurred while fetching recruitment analytics",
+                    "getRecruitmentAnalytics",
                     "Service level exception",
                     e.getMessage()
             );

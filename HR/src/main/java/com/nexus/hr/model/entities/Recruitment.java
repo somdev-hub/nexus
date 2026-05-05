@@ -1,16 +1,14 @@
 package com.nexus.hr.model.entities;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
-import com.fasterxml.jackson.annotation.JsonManagedReference;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.nexus.hr.model.enums.HiringStatus;
 import com.nexus.hr.model.enums.HiringType;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
-import jakarta.validation.constraints.*;
-import jakarta.validation.Valid;
 
 import java.sql.Timestamp;
 import java.time.LocalDate;

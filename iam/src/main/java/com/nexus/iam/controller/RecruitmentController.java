@@ -2,7 +2,6 @@ package com.nexus.iam.controller;
 
 import com.nexus.iam.service.RecruitmentService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -91,4 +90,8 @@ public class RecruitmentController {
         return recruitmentService.getApplicantById(id);
     }
 
+    @GetMapping("/analytics")
+    public ResponseEntity<?> getRecruitmentAnalytics(@RequestParam Long orgId) {
+        return recruitmentService.getRecruitmentAnalytics(orgId);
+    }
 }

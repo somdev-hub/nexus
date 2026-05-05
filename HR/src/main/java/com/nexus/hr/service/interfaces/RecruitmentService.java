@@ -18,4 +18,6 @@ public interface RecruitmentService {
     ResponseEntity<?> updateRecruitment(@Valid Recruitment recruitment, Long empId);
 
     ResponseEntity<?> getClosedRecruitments(Long orgId, Pageable of);
+
+    ResponseEntity<?> getRecruitmentAnalytics(Long orgId);
 }

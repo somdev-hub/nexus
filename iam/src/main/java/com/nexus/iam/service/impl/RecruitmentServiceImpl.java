@@ -321,4 +321,43 @@ public class RecruitmentServiceImpl implements RecruitmentService {
             );
         }
     }
+
+    @Override
+    public ResponseEntity<?> getRecruitmentAnalytics(Long orgId) {
+        if (ObjectUtils.isEmpty(orgId)) {
+            throw new ServiceLevelException(
+                    "RecruitmentService",
+                    "Required params missing",
+                    "getRecruitmentAnalytics",
+                    "BAD_REQUEST",
+                    "Please provide required params"
+            );
+        }
+        try {
+            UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getHrRecruitmentUrl() + "/analytics")
+                    .queryParam("orgId", orgId);
+            Map<String, String> headers = new HashMap<>();
+            headers.put(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
+            ResponseEntity<?> response = restService.iamRestCall(builder.toUriString(), null, headers, HttpMethod.GET, null);
+            if (!response.getStatusCode().is2xxSuccessful()) {
+                throw new ServiceLevelException(
+                        "RecruitmentService",
+                        "Failed to fetch recruitment analytics",
+                        "getRecruitmentAnalytics",
+                        response.getStatusCode().toString(),
+                        response.getBody() != null ? response.getBody().toString() : "No response body"
+                );
+            }
+            return response;
+
+        } catch (RuntimeException e) {
+            throw new ServiceLevelException(
+                    "RecruitmentService",
+                    "Exception occurred while fetching recruitment analytics",
+                    "getRecruitmentAnalytics",
+                    "INTERNAL_SERVER_ERROR",
+                    e.getMessage()
+            );
+        }
+    }
 }

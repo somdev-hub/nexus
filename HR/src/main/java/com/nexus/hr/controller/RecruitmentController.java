@@ -41,4 +41,9 @@ public class RecruitmentController {
     public ResponseEntity<?> closeRecruitment(@RequestParam Long orgId, @RequestParam(required = false, defaultValue = "0") Integer pageNo, @RequestParam(required = false, defaultValue = "10") Integer pageOffset) {
         return recruitmentService.getClosedRecruitments(orgId, PageRequest.of(pageNo, pageOffset));
     }
+
+    @GetMapping("/analytics")
+    public ResponseEntity<?> getRecruitmentAnalytics(@RequestParam Long orgId) {
+        return recruitmentService.getRecruitmentAnalytics(orgId);
+    }
 }
