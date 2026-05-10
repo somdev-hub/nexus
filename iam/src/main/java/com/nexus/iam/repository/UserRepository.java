@@ -9,6 +9,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Map;
@@ -93,4 +94,11 @@ public interface UserRepository extends JpaRepository<User, Long> {
                         ORDER BY r.name, u.id
             """, nativeQuery = true)
     List<Map<String, Object>> getRoleUserIdsMapping(Long orgId);
+
+    // query to select with name case insensitive
+    @Query(value = """
+                        SELECT * FROM iam.t_users t WHERE LOWER(t.name) LIKE LOWER(CONCAT('%', :name, '%'))
+            """, nativeQuery = true)
+    @Transactional(readOnly = true)
+    List<User> findByNameMatch(String name);
 }

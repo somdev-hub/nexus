@@ -1,6 +1,7 @@
 package com.nexus.cms.service;
 
 import com.nexus.cms.util.WebConstants;
+import com.nexus.cms.model.entities.Message;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -33,6 +34,55 @@ public class KafkaConsumerService {
     private final ObjectMapper objectMapper;
     private final EmailCommunicationService emailCommunicationService;
     private final KafkaBacklogService kafkaBacklogService;
+    private final ChatService chatService;                    // NEW: for chat message handling
+    private final MessageBroadcaster messageBroadcaster;      // NEW: for WebSocket delivery
+
+    /**
+     * Consume chat messages from chat-messages topic
+     * Persists messages to database and broadcasts via WebSocket
+     */
+    @KafkaListener(topics = "chat-messages", groupId = "cms-chat-group", containerFactory = "singleRecordKafkaListenerContainerFactory")
+    public void consumeChatMessage(
+            @Payload String message,
+            @Header(KafkaHeaders.RECEIVED_KEY) String key,
+            @Header(KafkaHeaders.RECEIVED_PARTITION) int partition,
+            @Header(KafkaHeaders.OFFSET) long offset,
+            Acknowledgment acknowledgment) {
+        try {
+            String trimmedMessage = message.trim();
+
+            if (trimmedMessage.isEmpty()) {
+                log.warn("Received empty message from chat-messages topic");
+                acknowledgment.acknowledge();
+                return;
+            }
+
+            log.debug("Processing chat message from partition: {} offset: {}", partition, offset);
+
+            // Deserialize message
+            Message chatMessage = objectMapper.readValue(trimmedMessage, Message.class);
+
+            // Persist to database (idempotency check inside service)
+            Message persistedMessage = chatService.persistMessage(chatMessage);
+
+            // Broadcast via WebSocket to all conversation participants
+            messageBroadcaster.broadcastToConversation(persistedMessage);
+
+            log.info("Chat message processed and broadcasted - ID: {}, Conversation: {}",
+                    chatMessage.getId(), chatMessage.getConversationId());
+
+            // Acknowledge after successful processing
+            acknowledgment.acknowledge();
+
+        } catch (JsonParseException e) {
+            log.error("JSON parsing error for chat message. Key: {}, offset: {}. Error: {}",
+                    key, offset, e.getMessage(), e);
+            acknowledgment.acknowledge();
+        } catch (Exception e) {
+            log.error("Error processing chat message from partition: {}, offset: {}", partition, offset, e);
+            // Don't acknowledge on error - message will be reprocessed
+        }
+    }
 
     /**
      * Consume notification messages (batch)
@@ -112,14 +162,6 @@ public class KafkaConsumerService {
     }
 
     @KafkaListener(topics = "candidate-selection-mail-topic", groupId = "cms-group", containerFactory = "singleRecordKafkaListenerContainerFactory")
-    /**
-     * Message<String> kafkaMessage = MessageBuilder
-     * .withPayload(message)
-     * .setHeader(KafkaHeaders.TOPIC, topic)
-     * .setHeader("kafka_messageKey", key)
-     * .setHeader("timestamp", LocalDateTime.now().toString())
-     * .build();
-     */
     public void consumeCandidateSelectionMail(
             @Payload String message,
             @Header(KafkaHeaders.RECEIVED_KEY) String key,
@@ -144,7 +186,6 @@ public class KafkaConsumerService {
             if (payload.containsKey("commsType") && payload.containsKey("uuid") && payload.containsKey("topic")
                     && payload.get("commsType").equals("email")) {
                 log.info("Processing candidate selection email with key: {}, offset: {}", key, offset);
-                // Add your email processing logic here
                 kafkaBacklogService.logReceived(
                         payload.get("topic").toString(),
                         payload.get("uuid").toString());
@@ -197,8 +238,7 @@ public class KafkaConsumerService {
                 String topic = payload.get("topic").toString();
                 String uuid = payload.get("uuid").toString();
 
-                // Log backlog in separate transaction to avoid aborting main transaction if it
-                // fails
+                // Log backlog in separate transaction to avoid aborting main transaction if it fails
                 try {
                     kafkaBacklogService.logReceived(topic, uuid);
                 } catch (Exception e) {
@@ -233,39 +273,6 @@ public class KafkaConsumerService {
         }
     }
 
-    /**
-     * Alternative: Single record consumer (uncomment if needed)
-     * Use this instead of batch for high-latency requirements
-     */
-    /*
-     * @KafkaListener(
-     * topics = "cms-notifications",
-     * groupId = "cms-notification-group-single",
-     * containerFactory = "singleRecordKafkaListenerContainerFactory"
-     * )
-     * public void consumeNotificationSingleRecord(
-     * 
-     * @Payload String message,
-     * 
-     * @Header(KafkaHeaders.RECEIVED_KEY) String key,
-     * 
-     * @Header(KafkaHeaders.RECEIVED_PARTITION_ID) int partition,
-     * 
-     * @Header(KafkaHeaders.OFFSET) long offset,
-     * Acknowledgment acknowledgment) {
-     * 
-     * try {
-     * log.info("Processing single notification: key={}, partition={}, offset={}",
-     * key, partition, offset);
-     * 
-     * processNotification(message);
-     * acknowledgment.acknowledge();
-     * 
-     * } catch (Exception e) {
-     * log.error("Error processing single notification", e);
-     * }
-     * }
-     */
 
     /**
      * Process notification message

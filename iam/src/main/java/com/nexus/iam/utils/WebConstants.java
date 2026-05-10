@@ -166,6 +166,11 @@ public class WebConstants {
     @Value("${hr.applicant.url}")
     private String applicantUrl;
 
+    @Value("${cms.conversation.url}")
+    private String cmsConversationUrl;
+
+    @Value("${cms.message.url}")
+    private String cmsMessageUrl;
     // Keycloak URLs
     public String getKeycloakAdminUrl() {
         return keycloakServerUrl + "/admin/realms/" + keycloakRealm;

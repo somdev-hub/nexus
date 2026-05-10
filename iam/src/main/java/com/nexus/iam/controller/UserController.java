@@ -73,4 +73,12 @@ public class UserController {
         }
         return userService.deleteUser(userId);
     }
+
+    @GetMapping("/get-user-by-name")
+    public ResponseEntity<?> getUserByName(@RequestParam("name") String name) {
+        if (ObjectUtils.isEmpty(name)) {
+            return new ResponseEntity<>("Name must not be null", HttpStatus.BAD_REQUEST);
+        }
+        return userService.getUserByName(name);
+    }
 }

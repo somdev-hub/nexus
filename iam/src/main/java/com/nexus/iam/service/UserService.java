@@ -22,4 +22,6 @@ public interface UserService {
     ResponseEntity<?> updateProfilePhoto(MultipartFile file, Long userId);
 
     ResponseEntity<?> getUserDetails(Long userId);
+
+    ResponseEntity<?> getUserByName(String name);
 }

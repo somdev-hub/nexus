@@ -11,6 +11,10 @@ public class UserDetailsDto {
 
     private String email;
 
+    private String role;
+
+    private String department;
+
     private String phone;
 
     private String address;
