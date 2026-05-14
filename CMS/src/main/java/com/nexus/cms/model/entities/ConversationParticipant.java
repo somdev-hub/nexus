@@ -7,7 +7,6 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.sql.Timestamp;
-import java.util.UUID;
 
 @Entity
 @Table(name = "t_conversation_participants", schema = "cms",
@@ -19,8 +18,8 @@ import java.util.UUID;
 public class ConversationParticipant {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    private UUID id;
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
     /**
      * Reference to conversation
@@ -44,7 +43,7 @@ public class ConversationParticipant {
     /**
      * Last message ID seen by participant (for read status tracking)
      */
-    private UUID lastSeenMessageId;
+    private Long lastSeenMessageId;
 
     /**
      * Timestamp of last message seen

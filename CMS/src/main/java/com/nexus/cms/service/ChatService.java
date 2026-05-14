@@ -14,8 +14,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.ObjectUtils;
 
 import java.sql.Timestamp;
-import java.util.concurrent.CompletableFuture;
-import java.util.UUID;
 
 /**
  * ChatService handles message operations:
@@ -37,22 +35,21 @@ public class ChatService {
      * Send a message to a conversation
      *
      * @param conversationId UUID of target conversation
-     * @param senderId      User ID of sender
-     * @param content       Message content
-     * @param orgId         Organization ID
-     * @return              Created Message entity
+     * @param senderId       User ID of sender
+     * @param content        Message content
+     * @param orgId          Organization ID
+     * @return Created Message entity
      */
     @Transactional
-    public Message sendMessage(UUID conversationId, Long senderId, String content, Long orgId) {
+    public Message sendMessage(Long conversationId, Long senderId, String content, Long orgId) {
         if (ObjectUtils.isEmpty(conversationId) || ObjectUtils.isEmpty(senderId) ||
-            ObjectUtils.isEmpty(content) || ObjectUtils.isEmpty(orgId)) {
+                ObjectUtils.isEmpty(content) || ObjectUtils.isEmpty(orgId)) {
             throw new ServiceLevelException(
                     "ChatService",
                     "Conversation ID, Sender ID, content, and Organization ID are required",
                     "sendMessage",
                     "Missing required data",
-                    "All parameters must be provided"
-            );
+                    "All parameters must be provided");
         }
 
         try {
@@ -64,13 +61,11 @@ public class ChatService {
                         "User is not a participant of this conversation",
                         "sendMessage",
                         "Unauthorized access",
-                        "User " + senderId + " is not in conversation " + conversationId
-                );
+                        "User " + senderId + " is not in conversation " + conversationId);
             }
 
             // Create message with UUID for idempotency
             Message message = Message.builder()
-                    .id(UUID.randomUUID())
                     .conversationId(conversationId)
                     .senderId(senderId)
                     .content(content)
@@ -95,8 +90,7 @@ public class ChatService {
                     "Error occurred while sending message",
                     "sendMessage",
                     "Service level exception",
-                    e.getMessage()
-            );
+                    e.getMessage());
         }
     }
 
@@ -124,21 +118,20 @@ public class ChatService {
      * Get conversation message history with pagination
      *
      * @param conversationId Conversation UUID
-     * @param orgId         Organization ID
-     * @param userId        User requesting history (must be participant)
-     * @param pageable      Pagination info
-     * @return              Page of messages ordered by timestamp DESC (newest first)
+     * @param orgId          Organization ID
+     * @param userId         User requesting history (must be participant)
+     * @param pageable       Pagination info
+     * @return Page of messages ordered by timestamp DESC (newest first)
      */
     @Transactional(readOnly = true)
-    public Page<Message> getConversationHistory(UUID conversationId, Long orgId, Long userId, Pageable pageable) {
+    public Page<Message> getConversationHistory(Long conversationId, Long orgId, Long userId, Pageable pageable) {
         if (ObjectUtils.isEmpty(conversationId) || ObjectUtils.isEmpty(orgId) || ObjectUtils.isEmpty(userId)) {
             throw new ServiceLevelException(
                     "ChatService",
                     "Conversation ID, Organization ID, and User ID are required",
                     "getConversationHistory",
                     "Missing required data",
-                    "All parameters must be provided"
-            );
+                    "All parameters must be provided");
         }
 
         try {
@@ -152,14 +145,12 @@ public class ChatService {
                         "User is not a participant of this conversation",
                         "getConversationHistory",
                         "Unauthorized access",
-                        "User cannot access this conversation's history"
-                );
+                        "User cannot access this conversation's history");
             }
 
             Page<Message> messages = messageRepository.findByConversationIdOrderByTimestampDesc(
                     conversationId,
-                    pageable
-            );
+                    pageable);
 
             log.debug("Retrieved {} messages from conversation {}", messages.getSize(), conversationId);
             return messages;
@@ -173,8 +164,7 @@ public class ChatService {
                     "Error occurred while fetching conversation history",
                     "getConversationHistory",
                     "Service level exception",
-                    e.getMessage()
-            );
+                    e.getMessage());
         }
     }
 
@@ -182,30 +172,28 @@ public class ChatService {
      * Get a specific message by ID
      */
     @Transactional(readOnly = true)
-    public Message getMessage(UUID messageId, Long orgId) {
+    public Message getMessage(Long messageId, Long orgId) {
         if (ObjectUtils.isEmpty(messageId) || ObjectUtils.isEmpty(orgId)) {
             throw new ServiceLevelException(
                     "ChatService",
                     "Message ID and Organization ID are required",
                     "getMessage",
                     "Missing required data",
-                    "Both parameters must be provided"
-            );
+                    "Both parameters must be provided");
         }
 
         return messageRepository.findByIdAndOrgId(messageId, orgId)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Message",
                         "id",
-                        messageId.toString()
-                ));
+                        messageId.toString()));
     }
 
     /**
      * Check if message exists for idempotency
      */
     @Transactional(readOnly = true)
-    public boolean messageExists(UUID messageId) {
+    public boolean messageExists(Long messageId) {
         return messageRepository.existsById(messageId);
     }
 
@@ -221,8 +209,7 @@ public class ChatService {
                     "Message and Message ID are required",
                     "persistMessage",
                     "Missing required data",
-                    "Message cannot be null"
-            );
+                    "Message cannot be null");
         }
 
         try {
@@ -244,8 +231,7 @@ public class ChatService {
                     "Error occurred while persisting message",
                     "persistMessage",
                     "Service level exception",
-                    e.getMessage()
-            );
+                    e.getMessage());
         }
     }
 
@@ -253,7 +239,7 @@ public class ChatService {
      * Get total message count for conversation
      */
     @Transactional(readOnly = true)
-    public long getConversationMessageCount(UUID conversationId) {
+    public long getConversationMessageCount(Long conversationId) {
         return messageRepository.countByConversationId(conversationId);
     }
 
@@ -261,8 +247,7 @@ public class ChatService {
      * Get delivered message count (for statistics)
      */
     @Transactional(readOnly = true)
-    public long getDeliveredMessageCount(UUID conversationId) {
+    public long getDeliveredMessageCount(Long conversationId) {
         return messageRepository.countDeliveredMessages(conversationId);
     }
 }
-

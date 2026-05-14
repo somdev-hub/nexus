@@ -5,10 +5,14 @@ import com.nexus.iam.service.ChatService;
 import com.nexus.iam.utils.RestService;
 import com.nexus.iam.utils.WebConstants;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.util.UriComponentsBuilder;
+
+import java.util.Map;
 
 
 @RequiredArgsConstructor
@@ -22,7 +26,7 @@ public class ChatServiceImpl implements ChatService {
     public ResponseEntity<?> createConversation(String request, Long userId) {
         try {
             UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getCmsConversationUrl()).queryParam("userId", userId);
-            ResponseEntity<?> response = restService.iamRestCall(builder.toUriString(), request, null, HttpMethod.POST, userId);
+            ResponseEntity<?> response = restService.iamRestCall(builder.toUriString(), request, Map.of(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE), HttpMethod.POST, userId);
             if (!response.getStatusCode().is2xxSuccessful()) {
                 throw new ServiceLevelException(
                         "ChatService",
@@ -52,7 +56,7 @@ public class ChatServiceImpl implements ChatService {
                     .queryParam("size", size)
                     .queryParam("orgId", orgId)
                     .queryParam("userId", userId);
-            ResponseEntity<?> response = restService.iamRestCall(builder.toUriString(), null, null, HttpMethod.GET, userId);
+            ResponseEntity<?> response = restService.iamRestCall(builder.toUriString(), null, Map.of(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE), HttpMethod.GET, userId);
             if (!response.getStatusCode().is2xxSuccessful()) {
                 throw new ServiceLevelException(
                         "ChatService",
@@ -82,7 +86,7 @@ public class ChatServiceImpl implements ChatService {
             UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getCmsConversationUrl() + "/" + conversationId)
                     .queryParam("orgId", orgId)
                     .queryParam("userId", userId);
-            ResponseEntity<?> response = restService.iamRestCall(builder.toUriString(), null, null, HttpMethod.GET, userId);
+            ResponseEntity<?> response = restService.iamRestCall(builder.toUriString(), null, Map.of(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE), HttpMethod.GET, userId);
             if (!response.getStatusCode().is2xxSuccessful()) {
                 throw new ServiceLevelException(
                         "ChatService",
@@ -112,7 +116,7 @@ public class ChatServiceImpl implements ChatService {
                     .queryParam("page", page)
                     .queryParam("size", size)
                     .queryParam("userId", userId);
-            ResponseEntity<?> response = restService.iamRestCall(builder.toUriString(), null, null, HttpMethod.GET, userId);
+            ResponseEntity<?> response = restService.iamRestCall(builder.toUriString(), null, Map.of(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE), HttpMethod.GET, userId);
             if (!response.getStatusCode().is2xxSuccessful()) {
                 throw new ServiceLevelException(
                         "ChatService",
@@ -139,7 +143,7 @@ public class ChatServiceImpl implements ChatService {
         try {
             UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getCmsConversationUrl() + "/" + conversationId + "/participants")
                     .queryParam("orgId", orgId);
-            ResponseEntity<?> response = restService.iamRestCall(builder.toUriString(), request, null, HttpMethod.POST, null);
+            ResponseEntity<?> response = restService.iamRestCall(builder.toUriString(), request, Map.of(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE), HttpMethod.POST, null);
             if (!response.getStatusCode().is2xxSuccessful()) {
                 throw new ServiceLevelException(
                         "ChatService",
@@ -168,7 +172,7 @@ public class ChatServiceImpl implements ChatService {
                     .queryParam("conversationId", conversationId)
                     .queryParam("userId", userId)
                     .queryParam("orgId", orgId);
-            ResponseEntity<?> response = restService.iamRestCall(builder.toUriString(), null, null, HttpMethod.DELETE, null);
+            ResponseEntity<?> response = restService.iamRestCall(builder.toUriString(), null, Map.of(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE), HttpMethod.DELETE, null);
             if (!response.getStatusCode().is2xxSuccessful()) {
                 throw new ServiceLevelException(
                         "ChatService",
@@ -196,7 +200,7 @@ public class ChatServiceImpl implements ChatService {
             UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getCmsMessageUrl())
                     .queryParam("orgId", orgId)
                     .queryParam("userId", userId);
-            ResponseEntity<?> response = restService.iamRestCall(builder.toUriString(), request, null, HttpMethod.POST, userId);
+            ResponseEntity<?> response = restService.iamRestCall(builder.toUriString(), request, Map.of(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE), HttpMethod.POST, userId);
             if (!response.getStatusCode().is2xxSuccessful()) {
                 throw new ServiceLevelException(
                         "ChatService",
@@ -224,7 +228,7 @@ public class ChatServiceImpl implements ChatService {
             UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getCmsMessageUrl() + "/" + messageId)
                     .queryParam("messageId", messageId)
                     .queryParam("orgId", orgId);
-            ResponseEntity<?> response = restService.iamRestCall(builder.toUriString(), null, null, HttpMethod.GET, null);
+            ResponseEntity<?> response = restService.iamRestCall(builder.toUriString(), null, Map.of(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE), HttpMethod.GET, null);
             if (!response.getStatusCode().is2xxSuccessful()) {
                 throw new ServiceLevelException(
                         "ChatService",
@@ -252,7 +256,7 @@ public class ChatServiceImpl implements ChatService {
             UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getCmsConversationUrl() + "/" + conversationId + "/stats")
                     .queryParam("conversationId", conversationId)
                     .queryParam("orgId", orgId);
-            ResponseEntity<?> response = restService.iamRestCall(builder.toUriString(), null, null, HttpMethod.GET, null);
+            ResponseEntity<?> response = restService.iamRestCall(builder.toUriString(), null, Map.of(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE), HttpMethod.GET, null);
             if (!response.getStatusCode().is2xxSuccessful()) {
                 throw new ServiceLevelException(
                         "ChatService",

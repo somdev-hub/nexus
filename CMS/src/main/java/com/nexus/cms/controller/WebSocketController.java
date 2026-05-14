@@ -13,7 +13,6 @@ import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
 import org.springframework.stereotype.Controller;
 
 import java.security.Principal;
-import java.util.UUID;
 
 /**
  * WebSocket Controller for Real-Time Chat
@@ -37,10 +36,11 @@ public class WebSocketController {
      * Client sends: /app/chat/send with message payload
      * Server broadcasts: /topic/conversations/{conversationId}
      *
-     * @param request        ChatPayload.SendMessageRequest with conversationId, content
+     * @param request        ChatPayload.SendMessageRequest with conversationId,
+     *                       content
      * @param principal      Authenticated user (from JWT token)
      * @param headerAccessor Session headers
-     * @return               Broadcasted message
+     * @return Broadcasted message
      */
     @MessageMapping("/chat/send")
     @SendTo("/topic/conversations/{conversationId}")
@@ -60,8 +60,7 @@ public class WebSocketController {
                     request.getConversationId(),
                     senderId,
                     request.getContent(),
-                    request.getOrgId()
-            );
+                    request.getOrgId());
 
             log.info("Message broadcast - ID: {}, Conversation: {}",
                     message.getId(), message.getConversationId());
@@ -74,8 +73,7 @@ public class WebSocketController {
             messageBroadcaster.sendNotification(
                     Long.valueOf(principal.getName()),
                     "Error",
-                    "Failed to send message: " + e.getMessage()
-            );
+                    "Failed to send message: " + e.getMessage());
             return null;
         }
     }
@@ -146,7 +144,7 @@ public class WebSocketController {
      */
     @MessageMapping("/chat/joined/{conversationId}")
     public void handleUserJoined(
-            @DestinationVariable UUID conversationId,
+            @DestinationVariable Long conversationId,
             Principal principal) {
 
         try {
@@ -158,8 +156,7 @@ public class WebSocketController {
             messageBroadcaster.broadcastPresenceEvent(
                     conversationId,
                     userId,
-                    "JOINED"
-            );
+                    "JOINED");
 
         } catch (Exception e) {
             log.error("Error handling user joined event", e);
@@ -172,7 +169,7 @@ public class WebSocketController {
      */
     @MessageMapping("/chat/left/{conversationId}")
     public void handleUserLeft(
-            @DestinationVariable UUID conversationId,
+            @DestinationVariable Long conversationId,
             Principal principal) {
 
         try {
@@ -184,8 +181,7 @@ public class WebSocketController {
             messageBroadcaster.broadcastPresenceEvent(
                     conversationId,
                     userId,
-                    "LEFT"
-            );
+                    "LEFT");
 
         } catch (Exception e) {
             log.error("Error handling user left event", e);
@@ -204,4 +200,3 @@ public class WebSocketController {
                 .build();
     }
 }
-

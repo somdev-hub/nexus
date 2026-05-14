@@ -1,19 +1,30 @@
 package com.nexus.cms.model.entities;
 
-import jakarta.persistence.*;
+import java.sql.Timestamp;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Index;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.sql.Timestamp;
-import java.util.UUID;
-
 @Entity
 @Table(name = "t_messages", schema = "cms", indexes = {
-    @Index(name = "idx_conversation_id", columnList = "conversation_id"),
-    @Index(name = "idx_sender_id", columnList = "sender_id"),
-    @Index(name = "idx_timestamp", columnList = "timestamp")
+        @Index(name = "idx_conversation_id", columnList = "conversation_id"),
+        @Index(name = "idx_sender_id", columnList = "sender_id"),
+        @Index(name = "idx_timestamp", columnList = "timestamp")
 })
 @Data
 @NoArgsConstructor
@@ -25,9 +36,9 @@ public class Message {
      * Unique message ID (UUID for idempotency and distributed generation)
      */
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(unique = true, nullable = false)
-    private UUID id;
+    private Long id;
 
     /**
      * Reference to conversation
@@ -40,7 +51,7 @@ public class Message {
      * ID of conversation for denormalization (improves query performance)
      */
     @Column(name = "conversation_id", insertable = false, updatable = false, nullable = false)
-    private UUID conversationId;
+    private Long conversationId;
 
     /**
      * User ID of message sender
@@ -82,15 +93,15 @@ public class Message {
     private MessageType type = MessageType.TEXT;
 
     public enum MessageStatus {
-        SENT,       // Published to Kafka topic
-        DELIVERED   // Persisted to database
+        SENT, // Published to Kafka topic
+        DELIVERED // Persisted to database
     }
 
     public enum MessageType {
-        TEXT,      // Plain text message
-        IMAGE,     // Image attachment (future)
-        FILE,      // File attachment (future)
-        SYSTEM     // System message (user joined, etc.)
+        TEXT, // Plain text message
+        IMAGE, // Image attachment (future)
+        FILE, // File attachment (future)
+        SYSTEM // System message (user joined, etc.)
     }
 
     @PrePersist
@@ -100,4 +111,3 @@ public class Message {
         }
     }
 }
-

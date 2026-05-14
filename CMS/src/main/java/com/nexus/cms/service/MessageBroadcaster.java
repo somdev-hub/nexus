@@ -6,8 +6,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 
-import java.util.UUID;
-
 /**
  * MessageBroadcaster handles real-time message distribution via WebSocket
  * Routes messages to appropriate STOMP destinations
@@ -60,8 +58,7 @@ public class MessageBroadcaster {
             messagingTemplate.convertAndSendToUser(
                     userId.toString(),
                     "/queue/messages",
-                    message
-            );
+                    message);
             log.debug("Message sent to user {} - MessageID: {}", userId, message.getId());
 
         } catch (Exception e) {
@@ -73,9 +70,9 @@ public class MessageBroadcaster {
      * Send notification to specific user
      * Lightweight operation for generic notifications
      *
-     * @param userId   Target user ID
-     * @param title    Notification title
-     * @param message  Notification message
+     * @param userId  Target user ID
+     * @param title   Notification title
+     * @param message Notification message
      */
     public void sendNotification(Long userId, String title, String message) {
         if (userId == null || title == null || message == null) {
@@ -93,8 +90,7 @@ public class MessageBroadcaster {
             messagingTemplate.convertAndSendToUser(
                     userId.toString(),
                     "/queue/notifications",
-                    notification
-            );
+                    notification);
             log.debug("Notification sent to user {} - Title: {}", userId, title);
 
         } catch (Exception e) {
@@ -106,11 +102,11 @@ public class MessageBroadcaster {
      * Broadcast presence information (user joined, left, etc.)
      * System message for conversation participants
      *
-     * @param conversationId Conversation UUID
-     * @param userId        User ID of presence event
-     * @param eventType     "JOINED", "LEFT", "TYPING", etc.
+     * @param conversationId Conversation ID
+     * @param userId         User ID of presence event
+     * @param eventType      "JOINED", "LEFT", "TYPING", etc.
      */
-    public void broadcastPresenceEvent(UUID conversationId, Long userId, String eventType) {
+    public void broadcastPresenceEvent(Long conversationId, Long userId, String eventType) {
         if (conversationId == null || userId == null || eventType == null) {
             log.warn("Cannot broadcast presence event with null parameters");
             return;
@@ -151,10 +147,9 @@ public class MessageBroadcaster {
     @lombok.Data
     @lombok.Builder
     public static class PresenceEvent {
-        private UUID conversationId;
+        private Long conversationId;
         private Long userId;
-        private String eventType;  // JOINED, LEFT, TYPING, etc.
+        private String eventType; // JOINED, LEFT, TYPING, etc.
         private Long timestamp;
     }
 }
-

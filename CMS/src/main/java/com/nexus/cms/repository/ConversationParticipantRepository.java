@@ -1,43 +1,43 @@
 package com.nexus.cms.repository;
 
-import com.nexus.cms.model.entities.ConversationParticipant;
+import java.util.List;
+import java.util.Optional;
+
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
+import com.nexus.cms.model.entities.ConversationParticipant;
 
 @Repository
-public interface ConversationParticipantRepository extends JpaRepository<ConversationParticipant, UUID> {
+public interface ConversationParticipantRepository extends JpaRepository<ConversationParticipant, Long> {
 
     /**
      * Find participant by conversation ID and user ID
      */
-    Optional<ConversationParticipant> findByConversationIdAndUserId(UUID conversationId, Long userId);
+    Optional<ConversationParticipant> findByConversationIdAndUserId(Long conversationId, Long userId);
 
     /**
      * Find all participants in a conversation
      */
-    List<ConversationParticipant> findByConversationId(UUID conversationId);
+    List<ConversationParticipant> findByConversationId(Long conversationId);
 
     /**
      * Check if user is participant of conversation
      */
-    boolean existsByConversationIdAndUserId(UUID conversationId, Long userId);
+    boolean existsByConversationIdAndUserId(Long conversationId, Long userId);
 
     /**
      * Count participants in conversation
      */
-    long countByConversationId(UUID conversationId);
+    long countByConversationId(Long conversationId);
 
     /**
      * Find all conversations for a user
      */
     @Query("""
-            SELECT cp FROM ConversationParticipant cp 
+            SELECT cp FROM ConversationParticipant cp
             WHERE cp.userId = :userId
             ORDER BY cp.joinedAt DESC
             """)
@@ -46,7 +46,7 @@ public interface ConversationParticipantRepository extends JpaRepository<Convers
     /**
      * Delete participant from conversation
      */
-    void deleteByConversationIdAndUserId(UUID conversationId, Long userId);
+    void deleteByConversationIdAndUserId(Long conversationId, Long userId);
 
     /**
      * Check if user is in multiple conversations
@@ -60,4 +60,3 @@ public interface ConversationParticipantRepository extends JpaRepository<Convers
             """)
     long countUserConversationsInOrg(@Param("userId") Long userId, @Param("orgId") Long orgId);
 }
-

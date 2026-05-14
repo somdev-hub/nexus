@@ -1,18 +1,28 @@
 package com.nexus.cms.model.entities;
 
-import jakarta.persistence.*;
+import java.sql.Timestamp;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Index;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
+import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.sql.Timestamp;
-import java.util.HashSet;
-import java.util.Set;
-import java.util.UUID;
-
 @Entity
-@Table(name = "t_conversations", schema = "cms")
+@Table(name = "t_conversations", schema = "cms", indexes = {
+        @Index(name = "idx_org_id_active", columnList = "org_id, is_active"),
+        @Index(name = "idx_created_by", columnList = "created_by")
+})
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -20,8 +30,8 @@ import java.util.UUID;
 public class Conversation {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    private UUID id;
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
     /**
      * Conversation name - optional for DIRECT chats, required for GROUP chats
@@ -66,22 +76,25 @@ public class Conversation {
     private Boolean isActive = true;
 
     /**
-     * One-to-many relationship with participants
+     * Participant count (denormalized for better query performance)
      */
-    @OneToMany(mappedBy = "conversation", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @Column(name = "participant_count", nullable = false)
     @Builder.Default
-    private Set<ConversationParticipant> participants = new HashSet<>();
+    private Integer participantCount = 0;
 
     /**
-     * One-to-many relationship with messages
+     * Last message ID for quick access to latest message
      */
-    @OneToMany(mappedBy = "conversation", cascade = CascadeType.ALL, orphanRemoval = false, fetch = FetchType.LAZY)
-    @Builder.Default
-    private Set<Message> messages = new HashSet<>();
+    private Long lastMessageId;
+
+    /**
+     * Last message timestamp
+     */
+    private Timestamp lastMessageAt;
 
     public enum ConversationType {
-        DIRECT,    // One-to-one chat
-        GROUP      // Group chat with multiple participants
+        DIRECT, // One-to-one chat
+        GROUP // Group chat with multiple participants
     }
 
     @PrePersist
@@ -99,4 +112,3 @@ public class Conversation {
         updatedAt = new Timestamp(System.currentTimeMillis());
     }
 }
-

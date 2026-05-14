@@ -8,7 +8,6 @@ import lombok.NoArgsConstructor;
 
 import java.sql.Timestamp;
 import java.util.List;
-import java.util.UUID;
 
 /**
  * Chat-related request and response DTOs
@@ -23,10 +22,10 @@ public class ChatPayload {
     @AllArgsConstructor
     @Builder
     public static class CreateConversationRequest {
-        private Conversation.ConversationType type;  // DIRECT or GROUP
-        private String name;                         // Optional for DIRECT, required for GROUP
-        private List<Long> participantIds;          // List of user IDs
-        private Long orgId;                         // Organization ID
+        private Conversation.ConversationType type; // DIRECT or GROUP
+        private String name; // Optional for DIRECT, required for GROUP
+        private List<Long> participantIds; // List of user IDs
+        private Long orgId; // Organization ID
     }
 
     /**
@@ -37,7 +36,7 @@ public class ChatPayload {
     @AllArgsConstructor
     @Builder
     public static class SendMessageRequest {
-        private UUID conversationId;
+        private Long conversationId;
         private String content;
         private Long orgId;
     }
@@ -61,7 +60,7 @@ public class ChatPayload {
     @AllArgsConstructor
     @Builder
     public static class TypingIndicatorRequest {
-        private UUID conversationId;
+        private Long conversationId;
         private Long userId;
     }
 
@@ -120,7 +119,7 @@ public class ChatPayload {
     @AllArgsConstructor
     @Builder
     public static class ConversationStats {
-        private UUID conversationId;
+        private Long conversationId;
         private Long totalMessages;
         private Long deliveredMessages;
         private Long participantCount;
@@ -135,7 +134,7 @@ public class ChatPayload {
     @AllArgsConstructor
     @Builder
     public static class ConversationSummary {
-        private UUID id;
+        private Long id;
         private String name;
         private Conversation.ConversationType type;
         private String lastMessage;
@@ -146,6 +145,28 @@ public class ChatPayload {
     }
 
     /**
+     * Detailed conversation response (for creation and details endpoint)
+     */
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class ConversationResponse {
+        private Long id;
+        private String name;
+        private Conversation.ConversationType type;
+        private Long createdBy;
+        private Long orgId;
+        private Boolean isActive;
+        private Integer participantCount;
+        private Timestamp createdAt;
+        private Timestamp updatedAt;
+        private Long lastMessageId;
+        private Timestamp lastMessageAt;
+        private List<ParticipantInfo> participants;
+    }
+
+    /**
      * Message with sender info (denormalized for response)
      */
     @Data
@@ -153,8 +174,8 @@ public class ChatPayload {
     @AllArgsConstructor
     @Builder
     public static class MessageResponse {
-        private UUID id;
-        private UUID conversationId;
+        private Long id;
+        private Long conversationId;
         private Long senderId;
         private String senderName;
         private String content;
@@ -171,7 +192,7 @@ public class ChatPayload {
     @AllArgsConstructor
     @Builder
     public static class ConversationDetailResponse {
-        private UUID id;
+        private Long id;
         private String name;
         private Conversation.ConversationType type;
         private Long createdBy;
@@ -194,4 +215,3 @@ public class ChatPayload {
         private Boolean isActive;
     }
 }
-
