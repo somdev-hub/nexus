@@ -96,17 +96,14 @@ public class ChatController {
         try {
             Pageable pageable = PageRequest.of(page, size);
 
-            Page<Conversation> conversations = conversationService.getUserConversations(
+            Page<ChatPayload.ConversationSummary> conversations = conversationService.getUserConversations(
                     userId,
                     orgId,
                     pageable);
-
-            // Map to summary DTOs
-            Page<ChatPayload.ConversationSummary> summaries = conversations
-                    .map(conversationMapper::toConversationSummary);
+            
 
             log.info("Fetched {} conversations for user {}", conversations.getTotalElements(), userId);
-            return ResponseEntity.ok(summaries);
+            return ResponseEntity.ok(conversations);
 
         } catch (ServiceLevelException e) {
             log.warn("Service error fetching conversations: {}", e.getMessage());

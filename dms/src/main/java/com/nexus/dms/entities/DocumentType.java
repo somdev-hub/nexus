@@ -20,5 +20,6 @@ public enum DocumentType {
     OTHER_HR_DOCUMENTS,
     RESUME,
     COVER_LETTER,
+    CHAT_MESSAGE_ATTACHMENT,
     OTHER
 }

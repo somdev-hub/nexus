@@ -18,24 +18,81 @@ public class MessageBroadcaster {
     private final SimpMessagingTemplate messagingTemplate;
 
     /**
-     * Broadcast message to all participants in conversation
+     * Broadcast message to all participants EXCEPT the sender
+     * This prevents the sender from receiving their own message twice
+     * Sender gets a separate confirmation via sendToUser()
+     * 
      * Sends to /topic/conversations/{conversationId} destination
      *
      * @param message Message to broadcast
      */
     public void broadcastToConversation(Message message) {
-        if (message == null || message.getConversationId() == null) {
-            log.warn("Cannot broadcast null message or message without conversationId");
+        if (message == null) {
+            log.warn("Cannot broadcast null message");
+            return;
+        }
+
+        Long conversationId = resolveConversationId(message);
+        if (conversationId == null) {
+            log.warn("Cannot broadcast message without conversationId - MessageID: {}", message.getId());
             return;
         }
 
         try {
-            String destination = "/topic/conversations/" + message.getConversationId();
-            messagingTemplate.convertAndSend(destination, message);
-            log.debug("Message broadcasted to {} - MessageID: {}", destination, message.getId());
+            String destination = "/topic/conversations/" + conversationId;
+            WebSocketMessagePayload payload = toWebSocketMessage(message, conversationId);
+
+            // Add a field to indicate this is for other users (not the sender)
+            // The frontend can use this to avoid showing duplicate
+            payload.setExcludeUserId(message.getSenderId());
+
+            messagingTemplate.convertAndSend(destination, payload);
+            log.debug("Message broadcasted to {} (excluding sender {}) - MessageID: {}",
+                    destination, message.getSenderId(), message.getId());
 
         } catch (Exception e) {
             log.error("Error broadcasting message to conversation", e);
+        }
+    }
+
+    /**
+     * Send message confirmation to sender only
+     * Sender receives this to display their message locally after confirmation
+     * 
+     * Sends to /user/{userId}/queue/message-confirmation
+     *
+     * @param message Message to confirm
+     */
+    public void sendMessageConfirmationToSender(Message message) {
+        if (message == null) {
+            log.warn("Cannot send confirmation for null message");
+            return;
+        }
+
+        Long senderId = message.getSenderId();
+        if (senderId == null) {
+            log.warn("Cannot send confirmation without senderId - MessageID: {}", message.getId());
+            return;
+        }
+
+        Long conversationId = resolveConversationId(message);
+        if (conversationId == null) {
+            log.warn("Cannot send confirmation without conversationId - MessageID: {}", message.getId());
+            return;
+        }
+
+        try {
+            WebSocketMessagePayload payload = toWebSocketMessage(message, conversationId);
+            payload.setConfirmed(true);
+
+            messagingTemplate.convertAndSendToUser(
+                    senderId.toString(),
+                    "/queue/message-confirmation",
+                    payload);
+            log.debug("Message confirmation sent to sender {} - MessageID: {}", senderId, message.getId());
+
+        } catch (Exception e) {
+            log.error("Error sending message confirmation to sender {}", senderId, e);
         }
     }
 
@@ -53,12 +110,14 @@ public class MessageBroadcaster {
             return;
         }
 
+        Long conversationId = resolveConversationId(message);
+
         try {
             String destination = "/user/" + userId + "/queue/messages";
             messagingTemplate.convertAndSendToUser(
                     userId.toString(),
                     "/queue/messages",
-                    message);
+                    toWebSocketMessage(message, conversationId));
             log.debug("Message sent to user {} - MessageID: {}", userId, message.getId());
 
         } catch (Exception e) {
@@ -128,6 +187,57 @@ public class MessageBroadcaster {
         } catch (Exception e) {
             log.error("Error broadcasting presence event", e);
         }
+    }
+
+    private Long resolveConversationId(Message message) {
+        Long conversationId = message.getConversationId();
+        if (conversationId == null && message.getConversation() != null) {
+            conversationId = message.getConversation().getId();
+        }
+        return conversationId;
+    }
+
+    private WebSocketMessagePayload toWebSocketMessage(Message message, Long conversationId) {
+        return WebSocketMessagePayload.builder()
+                .id(message.getId())
+                .conversationId(conversationId)
+                .senderId(message.getSenderId())
+                .senderName("User " + message.getSenderId())
+                .content(message.getContent())
+                .timestamp(message.getTimestamp())
+                .status(message.getStatus() != null ? message.getStatus().name().toLowerCase() : null)
+                .type(message.getType() != null ? message.getType().name() : null)
+                .orgId(message.getOrgId())
+                .build();
+    }
+
+    @lombok.Data
+    @lombok.Builder
+    public static class WebSocketMessagePayload {
+        private Long id;
+        private Long conversationId;
+        private Long senderId;
+        private String senderName;
+        private String content;
+        private java.sql.Timestamp timestamp;
+        private String status;
+        private String type;
+        private Long orgId;
+
+        /**
+         * When set, indicates this message should NOT be displayed to this user ID
+         * Used when broadcasting: sender is excluded since they get a separate
+         * confirmation
+         */
+        @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
+        private Long excludeUserId;
+
+        /**
+         * When true, indicates this is a confirmed message (already persisted to DB)
+         * Used in sender confirmation: sender knows the message was successfully saved
+         */
+        @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
+        private Boolean confirmed;
     }
 
     /**

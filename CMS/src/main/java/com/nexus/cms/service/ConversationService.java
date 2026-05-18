@@ -2,8 +2,11 @@ package com.nexus.cms.service;
 
 import com.nexus.cms.exception.ResourceNotFoundException;
 import com.nexus.cms.exception.ServiceLevelException;
+import com.nexus.cms.mapper.ConversationMapper;
 import com.nexus.cms.model.entities.Conversation;
 import com.nexus.cms.model.entities.ConversationParticipant;
+import com.nexus.cms.payload.ChatPayload;
+import com.nexus.cms.model.entities.Conversation.ConversationType;
 import com.nexus.cms.repository.ConversationParticipantRepository;
 import com.nexus.cms.repository.ConversationRepository;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +28,7 @@ public class ConversationService {
 
     private final ConversationRepository conversationRepository;
     private final ConversationParticipantRepository participantRepository;
+    private final ConversationMapper conversationMapper;
 
     /**
      * Create a new conversation (DIRECT 1-1 or GROUP)
@@ -71,6 +75,9 @@ public class ConversationService {
                         .userId(userId)
                         .joinedAt(new Timestamp(System.currentTimeMillis()))
                         .build();
+                if (creatorUserId.equals(userId)) {
+                    participant.setIsPrimary(true);
+                }
                 participants.add(participant);
             }
 
@@ -135,7 +142,7 @@ public class ConversationService {
      * Get all conversations where user is a participant
      */
     @Transactional(readOnly = true)
-    public Page<Conversation> getUserConversations(Long userId, Long orgId, Pageable pageable) {
+    public Page<ChatPayload.ConversationSummary> getUserConversations(Long userId, Long orgId, Pageable pageable) {
         if (ObjectUtils.isEmpty(userId) || ObjectUtils.isEmpty(orgId)) {
             throw new ServiceLevelException(
                     "ConversationService",
@@ -145,7 +152,12 @@ public class ConversationService {
                     "userId and orgId cannot be null");
         }
 
-        return conversationRepository.findUserConversations(orgId, userId, pageable);
+        Page<Conversation> userConversations = conversationRepository.findUserConversations(orgId, userId, pageable);
+        Page<ChatPayload.ConversationSummary> summaries = userConversations
+                .map(conversation -> conversationMapper.toConversationSummary(conversation, userId));
+
+        return summaries;
+
     }
 
     /**

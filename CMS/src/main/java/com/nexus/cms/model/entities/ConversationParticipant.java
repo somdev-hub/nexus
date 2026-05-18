@@ -1,6 +1,7 @@
 package com.nexus.cms.model.entities;
 
 import jakarta.persistence.*;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -9,8 +10,8 @@ import lombok.NoArgsConstructor;
 import java.sql.Timestamp;
 
 @Entity
-@Table(name = "t_conversation_participants", schema = "cms",
-       uniqueConstraints = @UniqueConstraint(columnNames = {"conversation_id", "user_id"}))
+@Table(name = "t_conversation_participants", schema = "cms", uniqueConstraints = @UniqueConstraint(columnNames = {
+        "conversation_id", "user_id" }))
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -24,9 +25,12 @@ public class ConversationParticipant {
     /**
      * Reference to conversation
      */
+    @JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "conversation_id", nullable = false)
     private Conversation conversation;
+
+    private Boolean isPrimary;
 
     /**
      * User ID of participant
@@ -57,4 +61,3 @@ public class ConversationParticipant {
         }
     }
 }
-

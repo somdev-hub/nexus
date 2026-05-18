@@ -39,6 +39,7 @@ public class ChatPayload {
         private Long conversationId;
         private String content;
         private Long orgId;
+        private Long userId; // Sender ID (from WebSocket request since Principal may be null)
     }
 
     /**
@@ -50,6 +51,17 @@ public class ChatPayload {
     @Builder
     public static class AddParticipantRequest {
         private Long userId;
+    }
+
+    /**
+     * Request for user presence events (joined/left)
+     */
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class UserPresenceRequest {
+        private Long userId; // User ID (from WebSocket request since Principal may be null)
     }
 
     /**
@@ -142,6 +154,7 @@ public class ChatPayload {
         private Timestamp lastMessageTime;
         private Integer unreadCount;
         private Long participantCount;
+        private Long participantId; // ID of the participant record for the current user (for status tracking)
     }
 
     /**

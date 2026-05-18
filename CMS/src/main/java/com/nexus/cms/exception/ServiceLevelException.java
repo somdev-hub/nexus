@@ -27,7 +27,7 @@ public class ServiceLevelException extends RuntimeException {
         this.exceptionType = exceptionType;
         this.description = description;
         this.timestamp = new Timestamp(System.currentTimeMillis());
-        this.microservice = "HR";
+        this.microservice = "CMS";
         this.statusCode = HttpStatus.INTERNAL_SERVER_ERROR.value();
     }
 }

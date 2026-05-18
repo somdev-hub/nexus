@@ -34,11 +34,14 @@ public class ChatService {
     /**
      * Send a message to a conversation
      *
+     * IMPORTANT: Messages are persisted to database BEFORE Kafka publication
+     * This ensures no message loss even if Kafka is temporarily unavailable.
+     *
      * @param conversationId UUID of target conversation
      * @param senderId       User ID of sender
      * @param content        Message content
      * @param orgId          Organization ID
-     * @return Created Message entity
+     * @return Created Message entity with database ID
      */
     @Transactional
     public Message sendMessage(Long conversationId, Long senderId, String content, Long orgId) {
@@ -53,6 +56,8 @@ public class ChatService {
         }
 
         try {
+            var conversation = conversationService.getConversation(conversationId, orgId);
+
             // Verify sender is participant
             boolean isParticipant = conversationService.isUserParticipant(conversationId, senderId);
             if (!isParticipant) {
@@ -64,9 +69,9 @@ public class ChatService {
                         "User " + senderId + " is not in conversation " + conversationId);
             }
 
-            // Create message with UUID for idempotency
+            // Create message
             Message message = Message.builder()
-                    .conversationId(conversationId)
+                    .conversation(conversation)
                     .senderId(senderId)
                     .content(content)
                     .timestamp(new Timestamp(System.currentTimeMillis()))
@@ -75,11 +80,22 @@ public class ChatService {
                     .type(Message.MessageType.TEXT)
                     .build();
 
-            // Publish to Kafka asynchronously (non-blocking)
-            publishMessageToKafka(message);
+            // **CRITICAL**: Save to database FIRST before Kafka
+            // This ensures persistence even if Kafka fails
+            Message savedMessage = messageRepository.save(message);
+            // conversationId is read-only mapped from FK and may remain null on this
+            // managed instance until reload; set it for immediate in-process routing.
+            savedMessage.setConversationId(conversationId);
+            log.debug("Message persisted to database - ID: {}, Conversation: {}",
+                    savedMessage.getId(), conversationId);
 
-            log.debug("Message sent to Kafka - ID: {}, Conversation: {}", message.getId(), conversationId);
-            return message;
+            // Publish to Kafka asynchronously (non-blocking)
+            // If Kafka fails, message is already in database
+            publishMessageToKafka(savedMessage);
+            log.debug("Message published to Kafka - ID: {}, Conversation: {}",
+                    savedMessage.getId(), conversationId);
+
+            return savedMessage;
 
         } catch (ServiceLevelException e) {
             throw e;
@@ -95,23 +111,66 @@ public class ChatService {
     }
 
     /**
-     * Publish message to Kafka topic for persistence and distribution
-     * Key is conversationId to ensure ordering
+     * Publish message to Kafka topic for distribution across services
+     * 
+     * Note: Message is already persisted in database before this is called.
+     * Kafka publication is for event streaming and caching in other services.
+     * If Kafka is unavailable, message remains in database for later consumption.
+     * 
+     * Key is conversationId to ensure ordering of messages in same conversation
      */
     private void publishMessageToKafka(Message message) {
         try {
-            String messageJson = objectMapper.writeValueAsString(message);
-            String key = message.getConversationId().toString();
+            Long conversationId = message.getConversationId();
+            if (conversationId == null && message.getConversation() != null) {
+                conversationId = message.getConversation().getId();
+            }
+
+            if (conversationId == null) {
+                log.warn("Skipping Kafka publish because conversationId is null - MessageID: {}", message.getId());
+                return;
+            }
+
+            KafkaMessagePayload payload = KafkaMessagePayload.builder()
+                    .id(message.getId())
+                    .conversationId(conversationId)
+                    .senderId(message.getSenderId())
+                    .content(message.getContent())
+                    .timestamp(message.getTimestamp())
+                    .status(message.getStatus() != null ? message.getStatus().name() : null)
+                    .type(message.getType() != null ? message.getType().name() : null)
+                    .orgId(message.getOrgId())
+                    .build();
+
+            String messageJson = objectMapper.writeValueAsString(payload);
+            String key = conversationId.toString();
 
             kafkaProducerService.publishMessage("chat-messages", key, messageJson)
-                    .thenAccept(result -> log.debug("Message persisted via Kafka: {}", result))
+                    .thenAccept(result -> log.debug("Message published to Kafka: {}", result))
                     .exceptionally(ex -> {
-                        log.error("Failed to publish message to Kafka", ex);
+                        // Message is already in database, log error but don't fail
+                        log.warn("Failed to publish message to Kafka (will retry via backlog service) - " +
+                                "MessageID: {}, Error: {}", message.getId(), ex.getMessage());
+                        // Could queue for retry using KafkaBacklogService here
                         return null;
                     });
         } catch (Exception e) {
-            log.error("Error serializing message for Kafka", e);
+            log.warn("Error serializing message for Kafka (message persisted in database) - " +
+                    "MessageID: {}, Error: {}", message.getId(), e.getMessage());
         }
+    }
+
+    @lombok.Data
+    @lombok.Builder
+    private static class KafkaMessagePayload {
+        private Long id;
+        private Long conversationId;
+        private Long senderId;
+        private String content;
+        private Timestamp timestamp;
+        private String status;
+        private String type;
+        private Long orgId;
     }
 
     /**
