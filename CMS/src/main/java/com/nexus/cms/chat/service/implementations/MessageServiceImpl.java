@@ -1,12 +1,10 @@
 package com.nexus.cms.chat.service.implementations;
 
-import com.nexus.cms.chat.entities.ChatConversation;
-import com.nexus.cms.chat.entities.ChatConversationParticipant;
-import com.nexus.cms.chat.entities.ChatMessage;
-import com.nexus.cms.chat.entities.ChatMessageAttachment;
+import com.nexus.cms.chat.entities.*;
 import com.nexus.cms.chat.enums.ChatMessageStatus;
 import com.nexus.cms.chat.model.ChatMessageRequestDto;
 import com.nexus.cms.chat.repositories.ChatConversationRepo;
+import com.nexus.cms.chat.repositories.ChatMessageIndividualStatusRepo;
 import com.nexus.cms.chat.repositories.ChatMessageRepo;
 import com.nexus.cms.chat.service.interfaces.MessageService;
 import com.nexus.cms.exception.ResourceNotFoundException;
@@ -41,6 +39,7 @@ public class MessageServiceImpl implements MessageService {
     private final ModelMapper modelMapper;
     private final CommonUtils commonUtils;
     private final ChatMessageRepo chatMessageRepo;
+    private final ChatMessageIndividualStatusRepo chatMessageIndividualStatusRepo;
 
     @Override
     public ResponseEntity<?> sendMessage(ChatMessageRequestDto message, List<MultipartFile> files) {
@@ -61,7 +60,29 @@ public class MessageServiceImpl implements MessageService {
             chatMessage.setChatConversationParticipant(chatConversationParticipant);
             chatMessage.setChatConversation(chatConversation);
 
+
             chatMessage = chatMessageRepo.save(chatMessage);
+            ChatMessage finalChatMessage1 = chatMessage;
+            List<ChatMessageIndividualStatus> chatMessageIndividualStatuses = chatConversation.getChatConversationParticipants().stream().map(participant -> {
+                if (!participant.equals(chatConversationParticipant)) {
+                    ChatMessageIndividualStatus status = new ChatMessageIndividualStatus();
+                    status.setParticipant(participant);
+                    status.setChatMessage(finalChatMessage1);
+                    status.setStatus(ChatMessageStatus.SENT);
+                    return status;
+                }
+
+                return null;
+            }).filter(Objects::nonNull).toList();
+
+            chatMessageIndividualStatusRepo.saveAll(chatMessageIndividualStatuses);
+
+            ChatMessage finalChatMessage = chatMessage;
+            List<ChatMessageAttachment> attachments = new ArrayList<>();
+            if (!ObjectUtils.isEmpty(message.getChatMessageAttachmentList())) {
+                message.getChatMessageAttachmentList().forEach(attachment -> attachment.setChatMessage(finalChatMessage));
+                attachments.addAll(message.getChatMessageAttachmentList());
+            }
 
             if (!ObjectUtils.isEmpty(files)) {
                 Map<String, String> headers = new ConcurrentHashMap<>();
@@ -70,8 +91,6 @@ public class MessageServiceImpl implements MessageService {
                 UriComponentsBuilder url = UriComponentsBuilder.fromUriString(
                         webConstants.getDmsIndividualDocumentUploadUrl());
 
-                ChatMessage finalChatMessage = chatMessage;
-                List<ChatMessageAttachment> attachments = new ArrayList<>();
                 files.forEach(file -> {
                     Map<String, Object> payload = new ConcurrentHashMap<>();
                     Map<String, Object> dto = new HashMap<>();
@@ -96,8 +115,8 @@ public class MessageServiceImpl implements MessageService {
                     }
                 });
 
-                chatMessage.setChatMessageAttachmentList(attachments);
             }
+            chatMessage.setChatMessageAttachmentList(attachments);
             chatMessage = chatMessageRepo.save(chatMessage);
             return ResponseEntity.ok(chatMessage);
         } catch (Exception e) {
@@ -105,6 +124,77 @@ public class MessageServiceImpl implements MessageService {
                     "MessageServiceImpl",
                     "Failed to send message",
                     "sendMesssage",
+                    e.getClass().getSimpleName(),
+                    e.getMessage()
+            );
+        }
+    }
+
+    @Override
+    public ResponseEntity<?> editMessage(ChatMessageRequestDto message) {
+        try {
+            ChatMessage chatMessage = chatMessageRepo.findById(message.getChatMessageId()).orElseThrow(() -> new ResourceNotFoundException(
+                    "ChatMessage",
+                    "id",
+                    message.getChatMessageId()
+            ));
+            chatMessage.setChatMessageText(message.getChatMessageText());
+            chatMessage.setIsEdited(true);
+            chatMessage = chatMessageRepo.save(chatMessage);
+            return ResponseEntity.ok(chatMessage);
+        } catch (Exception e) {
+            throw new ServiceLevelException(
+                    "MessageServiceImpl",
+                    "Failed to edit message",
+                    "editMesssage",
+                    e.getClass().getSimpleName(),
+                    e.getMessage()
+            );
+        }
+    }
+
+    @Override
+    public ResponseEntity<?> sendMultimediaMessage(List<MultipartFile> files, Long participantId) {
+        if (ObjectUtils.isEmpty(files) || ObjectUtils.isEmpty(participantId)){
+            throw new IllegalArgumentException("Files and participantId must be provided");
+        }
+        try {
+            Map<String, String> headers = new ConcurrentHashMap<>();
+            headers.put(CommonConstants.CONTENT_TYPE, CommonConstants.MULTIPART_FORM_DATA);
+            headers.put(CommonConstants.AUTHORIZATION, commonUtils.getToken());
+            UriComponentsBuilder url = UriComponentsBuilder.fromUriString(
+                    webConstants.getDmsIndividualDocumentUploadUrl());
+
+            List<ChatMessageAttachment> chatMessageAttachments = files.stream().map(file -> {
+                Map<String, Object> payload = new ConcurrentHashMap<>();
+                Map<String, Object> dto = new HashMap<>();
+                dto.put("userId", participantId);
+                dto.put("fileName", file.getOriginalFilename());
+                dto.put("remarks", "multimedia_message_" + participantId + "_" + new Timestamp(System.currentTimeMillis()));
+                dto.put("documentType", "CHAT_MESSAGE_ATTACHMENT");
+
+                payload.put("file", file);
+                payload.put("dto", dto);
+
+                ResponseEntity<?> dmsResponse = restService.cmsRestCall(url.toUriString(), payload, headers, HttpMethod.POST, 1L);
+                if (dmsResponse.getStatusCode().is2xxSuccessful() && !ObjectUtils.isEmpty(dmsResponse.getBody())) {
+                    JSONObject dmsResponseBody = new JSONObject(dmsResponse.getBody().toString());
+                    String documentUrl = dmsResponseBody.optString("documentUrl");
+                    ChatMessageAttachment chatMessageAttachment = new ChatMessageAttachment();
+                    chatMessageAttachment.setFilePath(documentUrl);
+                    chatMessageAttachment.setFileName(file.getOriginalFilename());
+                    chatMessageAttachment.setAttachmentType(commonUtils.validateAttachmentType(Objects.requireNonNull(file.getContentType())));
+                    return chatMessageAttachment;
+                }
+                return null;
+            }).filter(Objects::nonNull).toList();
+
+            return ResponseEntity.ok(chatMessageAttachments);
+        } catch (Exception e) {
+            throw new ServiceLevelException(
+                    "MessageServiceImpl",
+                    "Failed to send multimedia message",
+                    "sendMultimediaMesssage",
                     e.getClass().getSimpleName(),
                     e.getMessage()
             );

@@ -40,6 +40,8 @@ public class ChatMessage {
     @UpdateTimestamp
     private Timestamp updatedAt;
 
+    private Boolean isEdited;
+
     private Timestamp receivedAt;
 
     @ToString.Exclude
@@ -67,4 +69,10 @@ public class ChatMessage {
     public void prePersist() {
         this.isActive = true;
     }
+
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    @OneToMany(mappedBy = "chatMessage", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @JsonManagedReference("message-individual-statuses")
+    private List<ChatMessageIndividualStatus> chatMessageIndividualStatuses;
 }

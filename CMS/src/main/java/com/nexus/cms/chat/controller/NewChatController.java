@@ -40,4 +40,10 @@ public class NewChatController {
     public ResponseEntity<?> updateChatConversation(@RequestPart @Valid ConversationRequestDto request, @RequestPart MultipartFile chatConversationAvatar){
         return newChatService.updateChatConversation(request, chatConversationAvatar);
     }
+
+
+    @PostMapping("/view")
+    public ResponseEntity<?> viewConversation(@RequestParam Long participantId, @RequestParam Long conversationId){
+        return newChatService.viewConversation(participantId, conversationId);
+    }
 }

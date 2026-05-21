@@ -1,17 +1,17 @@
 package com.nexus.cms.chat.service.implementations;
 
-import com.nexus.cms.chat.entities.ChatConversation;
-import com.nexus.cms.chat.entities.ChatConversationParticipant;
-import com.nexus.cms.chat.entities.ChatMessage;
-import com.nexus.cms.chat.entities.ChatMessageAttachment;
+import com.nexus.cms.chat.entities.*;
 import com.nexus.cms.chat.enums.ChatConversationType;
+import com.nexus.cms.chat.enums.ChatMessageStatus;
 import com.nexus.cms.chat.enums.ChatMessageType;
 import com.nexus.cms.chat.enums.ChatParticipantStatus;
 import com.nexus.cms.chat.model.ChatConversationDetailedSummary;
 import com.nexus.cms.chat.model.ChatConversationQuickResponseDto;
 import com.nexus.cms.chat.model.ConversationMessagesDto;
 import com.nexus.cms.chat.model.ConversationRequestDto;
+import com.nexus.cms.chat.repositories.ChatConversationParticipantRepo;
 import com.nexus.cms.chat.repositories.ChatConversationRepo;
+import com.nexus.cms.chat.repositories.ChatMessageIndividualStatusRepo;
 import com.nexus.cms.chat.repositories.ChatMessageRepo;
 import com.nexus.cms.chat.service.interfaces.NewChatService;
 import com.nexus.cms.exception.ResourceNotFoundException;
@@ -29,6 +29,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.ObjectUtils;
@@ -53,24 +54,31 @@ public class NewChatServiceImpl implements NewChatService {
     private final RestService restService;
     private final ModelMapper modelMapper;
     private final CommonUtils commonUtils;
+    private final ChatConversationParticipantRepo chatConversationParticipantRepo;
+    private final ChatMessageIndividualStatusRepo chatMessageIndividualStatusRepo;
 
     @Transactional
     @Override
-    public ResponseEntity<?> createChatConversation(ConversationRequestDto request, MultipartFile chatConversationAvatar) {
+    public ResponseEntity<?> createChatConversation(ConversationRequestDto request,
+                                                    MultipartFile chatConversationAvatar) {
         try {
 
-            List<ChatConversationParticipant> chatConversationParticipants = new ArrayList<>(request.getChatConversationParticipants().stream().map(chatConversationParticipantDto -> {
-                ChatConversationParticipant conversationParticipant = modelMapper.map(chatConversationParticipantDto, ChatConversationParticipant.class);
-                conversationParticipant.setChatParticipantStatus(ChatParticipantStatus.JOINED);
-                return conversationParticipant;
-            }).toList());
+            List<ChatConversationParticipant> chatConversationParticipants = new ArrayList<>(
+                    request.getChatConversationParticipants().stream().map(chatConversationParticipantDto -> {
+                        ChatConversationParticipant conversationParticipant = modelMapper
+                                .map(chatConversationParticipantDto, ChatConversationParticipant.class);
+                        conversationParticipant.setChatParticipantStatus(ChatParticipantStatus.JOINED);
+                        return conversationParticipant;
+                    }).toList());
 
             ChatConversation chatConversation = modelMapper.map(request, ChatConversation.class);
             chatConversationParticipants.forEach(participant -> participant.setChatConversation(chatConversation));
             chatConversation.setChatConversationParticipants(chatConversationParticipants);
             chatConversation.setTotalParticipants((long) chatConversationParticipants.size());
             chatConversation.setTotalMessages(0L);
-            chatConversation.setLastModifiedBy(chatConversationParticipants.stream().filter(ChatConversationParticipant::getIsChatCreator).findFirst().orElseThrow().getParticipantId());
+            chatConversation.setLastModifiedBy(
+                    chatConversationParticipants.stream().filter(ChatConversationParticipant::getIsChatCreator)
+                            .findFirst().orElseThrow().getParticipantId());
 
             if (!ObjectUtils.isEmpty(chatConversationAvatar)) {
                 String contentType = chatConversationAvatar.getContentType();
@@ -80,8 +88,7 @@ public class NewChatServiceImpl implements NewChatService {
                             "Unsupported file type for chat conversation avatar",
                             "createChatConversation",
                             "UnsupportedFileTypeException",
-                            "Only JPEG and PNG images are supported for chat conversation avatars."
-                    );
+                            "Only JPEG and PNG images are supported for chat conversation avatars.");
                 }
                 String fileExtension = switch (contentType) {
                     case "image/jpeg" -> "jpg";
@@ -91,8 +98,7 @@ public class NewChatServiceImpl implements NewChatService {
                             "Unsupported file type for chat conversation avatar",
                             "createChatConversation",
                             "UnsupportedFileTypeException",
-                            "Only JPEG and PNG images are supported for chat conversation avatars."
-                    );
+                            "Only JPEG and PNG images are supported for chat conversation avatars.");
                 };
                 Map<String, Object> payload = new ConcurrentHashMap<>();
                 Map<String, Object> dto = new HashMap<>();
@@ -111,7 +117,8 @@ public class NewChatServiceImpl implements NewChatService {
                 UriComponentsBuilder url = UriComponentsBuilder.fromUriString(
                         webConstants.getDmsOrgDocumentUploadUrl());
 
-                ResponseEntity<?> dmsResponse = restService.cmsRestCall(url.toUriString(), payload, headers, HttpMethod.POST, request.getOrgId());
+                ResponseEntity<?> dmsResponse = restService.cmsRestCall(url.toUriString(), payload, headers,
+                        HttpMethod.POST, request.getOrgId());
                 if (dmsResponse.getStatusCode().is2xxSuccessful() && !ObjectUtils.isEmpty(dmsResponse.getBody())) {
                     JSONObject dmsResponseBody = new JSONObject(dmsResponse.getBody().toString());
                     chatConversation.setChatConversationAvatar(dmsResponseBody.optString("documentUrl"));
@@ -128,8 +135,7 @@ public class NewChatServiceImpl implements NewChatService {
                     "Failed to create chat conversation",
                     "createChatConversation",
                     e.getClass().getSimpleName(),
-                    e.getMessage()
-            );
+                    e.getMessage());
         }
     }
 
@@ -137,35 +143,51 @@ public class NewChatServiceImpl implements NewChatService {
     public ResponseEntity<?> getChatConversationMessages(Long participantId) {
         try {
             List<ChatConversation> chatConversations = chatConversationRepo.findByParticipantId(participantId);
-            List<ChatConversationQuickResponseDto> chatConversationQuickResponseDtos = chatConversations.stream().map(conversation -> {
-                ChatConversationQuickResponseDto chatConversationQuickResponseDto = modelMapper.map(conversation, ChatConversationQuickResponseDto.class);
-                ChatConversationParticipant chatConversationParticipant = conversation.getChatConversationParticipants().stream().filter(participant -> participant.getParticipantId().equals(participantId)).findFirst().orElseThrow(() -> new ResourceNotFoundException("Participant", "participantId", participantId));
-                Timestamp lastRead = chatConversationParticipant.getLastRead();
-                long count = conversation.getChatMessages().stream().filter(message -> message.getSentAt().after(lastRead)).count();
-                // get latest message
-                ChatMessage latestMessage = conversation.getChatMessages().isEmpty() ? null : conversation.getChatMessages().getLast();
+            List<ChatConversationQuickResponseDto> chatConversationQuickResponseDtos = chatConversations.stream()
+                    .map(conversation -> {
+                        ChatConversationQuickResponseDto chatConversationQuickResponseDto = modelMapper
+                                .map(conversation, ChatConversationQuickResponseDto.class);
+                        ChatConversationParticipant chatConversationParticipant = conversation
+                                .getChatConversationParticipants().stream()
+                                .filter(participant -> participant.getParticipantId().equals(participantId)).findFirst()
+                                .orElseThrow(() -> new ResourceNotFoundException("Participant", "participantId",
+                                        participantId));
+                        Timestamp lastRead = chatConversationParticipant.getLastRead();
+                        long count = conversation.getChatMessages().stream()
+                                .filter(message -> message.getSentAt().after(lastRead)).count();
+                        // get latest message
+                        ChatMessage latestMessage = conversation.getChatMessages().isEmpty() ? null
+                                : conversation.getChatMessages().getLast();
 
-                if (!ObjectUtils.isEmpty(latestMessage)) {
-                    if (latestMessage.getChatMessageType().equals(ChatMessageType.TEXT)) {
-                        chatConversationQuickResponseDto.setLastMessage(latestMessage.getChatMessageText());
-                    } else {
-                        chatConversationQuickResponseDto.setLastMessage(latestMessage.getChatMessageType().name());
-                    }
-                    chatConversationQuickResponseDto.setLastMessageAt(latestMessage.getSentAt());
-                    chatConversationQuickResponseDto.setLastMessageSenderId(latestMessage.getChatConversationParticipant().getParticipantId());
-                    chatConversationQuickResponseDto.setLastMessageSenderName(latestMessage.getChatConversationParticipant().getParticipantName());
-                }
-                chatConversationQuickResponseDto.setUnreadCount(count);
+                        if (!ObjectUtils.isEmpty(latestMessage)) {
+                            if (latestMessage.getChatMessageType().equals(ChatMessageType.TEXT)) {
+                                chatConversationQuickResponseDto.setLastMessage(latestMessage.getChatMessageText());
+                            } else {
+                                chatConversationQuickResponseDto
+                                        .setLastMessage(latestMessage.getChatMessageType().name());
+                            }
+                            chatConversationQuickResponseDto.setLastMessageAt(latestMessage.getSentAt());
+                            chatConversationQuickResponseDto.setLastMessageSenderId(
+                                    latestMessage.getChatConversationParticipant().getParticipantId());
+                            chatConversationQuickResponseDto.setLastMessageSenderName(
+                                    latestMessage.getChatConversationParticipant().getParticipantName());
+                        }
+                        chatConversationQuickResponseDto.setUnreadCount(count);
 
-                if (conversation.getChatConversationType().equals(ChatConversationType.DIRECT)) {
-                    ChatConversationParticipant otherParticipant = conversation.getChatConversationParticipants().stream().filter(participant -> !participant.equals(chatConversationParticipant)).findFirst().orElseThrow(() -> new RuntimeException("Other participant not found"));
-                    chatConversationQuickResponseDto.setOtherParticipantName(otherParticipant.getParticipantName());
-                    chatConversationQuickResponseDto.setOtherParticipantAvatar(otherParticipant.getParticipantAvatar());
-                    chatConversationQuickResponseDto.setOtherParticipantId(otherParticipant.getParticipantId());
-                }
+                        if (conversation.getChatConversationType().equals(ChatConversationType.DIRECT)) {
+                            ChatConversationParticipant otherParticipant = conversation
+                                    .getChatConversationParticipants().stream()
+                                    .filter(participant -> !participant.equals(chatConversationParticipant)).findFirst()
+                                    .orElseThrow(() -> new RuntimeException("Other participant not found"));
+                            chatConversationQuickResponseDto
+                                    .setOtherParticipantName(otherParticipant.getParticipantName());
+                            chatConversationQuickResponseDto
+                                    .setOtherParticipantAvatar(otherParticipant.getParticipantAvatar());
+                            chatConversationQuickResponseDto.setOtherParticipantId(otherParticipant.getParticipantId());
+                        }
 
-                return chatConversationQuickResponseDto;
-            }).toList();
+                        return chatConversationQuickResponseDto;
+                    }).toList();
 
             if (chatConversationQuickResponseDtos.isEmpty()) {
                 return new ResponseEntity<>(chatConversationQuickResponseDtos, HttpStatus.NO_CONTENT);
@@ -178,21 +200,27 @@ public class NewChatServiceImpl implements NewChatService {
                     "Failed to retrieve chat conversations for participant",
                     "getChatConversation",
                     e.getClass().getSimpleName(),
-                    e.getMessage()
-            );
+                    e.getMessage());
         }
     }
 
+    @Transactional
     @Override
-    public ResponseEntity<?> getChatConversationMessages(Long conversationId, Long participantId, Long beforeId, Long limit) {
+    public ResponseEntity<?> getChatConversationMessages(Long conversationId, Long participantId, Long beforeId,
+                                                         Long limit) {
         try {
-            Pageable pageable = PageRequest.of(0, limit.intValue());
-            List<ChatMessage> chatMessages =
-                    (beforeId == null) ?
-                            chatMessageRepo.findLatestMessages(conversationId, pageable) :
-                            chatMessageRepo.findMessagesBefore(conversationId, pageable, beforeId);
+            ChatConversation chatConversation = chatConversationRepo.findById(conversationId).orElseThrow(
+                    () -> new ResourceNotFoundException("ChatConversation", "conversationId", conversationId));
+            ChatConversationParticipant chatConversationParticipant = chatConversation.getChatConversationParticipants()
+                    .stream().filter(participant -> participant.getParticipantId().equals(participantId)).findFirst()
+                    .orElseThrow(() -> new ResourceNotFoundException("Participant", "participantId", participantId));
 
-            if (ObjectUtils.isEmpty(chatMessages) || chatMessages.isEmpty()){
+            Pageable pageable = PageRequest.of(0, limit.intValue());
+            List<ChatMessage> chatMessages = (beforeId == null)
+                    ? chatMessageRepo.findLatestMessages(conversationId, pageable)
+                    : chatMessageRepo.findMessagesBefore(conversationId, pageable, beforeId);
+
+            if (ObjectUtils.isEmpty(chatMessages) || chatMessages.isEmpty()) {
                 Map<String, Object> result = new HashMap<>();
                 result.put("messages", new ArrayList<>());
                 result.put("hasMore", false);
@@ -200,15 +228,29 @@ public class NewChatServiceImpl implements NewChatService {
                 return new ResponseEntity<>(result, HttpStatus.NO_CONTENT);
             }
 
+            // Phase 1: Update received statuses and track last read
+            updateReceivedStatuses(conversationId, participantId, chatMessages);
+
+            // Phase 3: Trigger async aggregate status update (non-blocking)
+            updateAggregateStatusAsync(conversationId);
+
+            // Update lastRead to the newest message's sentAt and lastMessageId
+            ChatMessage newestMessage = chatMessages.getFirst();
+            chatConversationParticipant.setLastRead(newestMessage.getSentAt());
+            chatConversationParticipant.setLastMessageId(newestMessage.getChatMessageId());
+            chatConversationParticipantRepo.save(chatConversationParticipant);
+
             boolean hasMore = chatMessages.size() >= limit;
             Long nextCursor = hasMore ? chatMessages.getFirst().getChatMessageId() : null;
             List<ConversationMessagesDto> conversationMessagesDtos = chatMessages.stream().map(message -> {
-                ConversationMessagesDto conversationMessagesDto = modelMapper.map(message, ConversationMessagesDto.class);
+                ConversationMessagesDto conversationMessagesDto = modelMapper.map(message,
+                        ConversationMessagesDto.class);
                 List<ConversationMessagesDto.MessageSeenBy> messageSeenByList = message
                         .getChatConversation()
                         .getChatConversationParticipants()
                         .stream()
-                        .filter(participant -> participant.getLastRead() != null && participant.getLastRead().after(message.getSentAt()))
+                        .filter(participant -> participant.getLastRead() != null
+                                && participant.getLastRead().after(message.getSentAt()))
                         .map(participant -> modelMapper.map(participant, ConversationMessagesDto.MessageSeenBy.class))
                         .toList();
                 conversationMessagesDto.setMessageSeenByList(messageSeenByList);
@@ -227,22 +269,28 @@ public class NewChatServiceImpl implements NewChatService {
                     "Failed to retrieve chat conversation messages",
                     "getChatConversation",
                     e.getClass().getSimpleName(),
-                    e.getMessage()
-            );
+                    e.getMessage());
         }
     }
 
     @Override
     public ResponseEntity<?> getChatConversation(Long conversationId, Long participantId) {
         try {
-            ChatConversation chatConversation = chatConversationRepo.findById(conversationId).orElseThrow(() -> new ResourceNotFoundException("ChatConversation", "conversationId", conversationId));
-            ChatConversationDetailedSummary chatConversationDetailedSummary = modelMapper.map(chatConversation, ChatConversationDetailedSummary.class);
+            ChatConversation chatConversation = chatConversationRepo.findById(conversationId).orElseThrow(
+                    () -> new ResourceNotFoundException("ChatConversation", "conversationId", conversationId));
+            ChatConversationDetailedSummary chatConversationDetailedSummary = modelMapper.map(chatConversation,
+                    ChatConversationDetailedSummary.class);
             chatConversation.getChatMessages().forEach(message -> {
                 List<ChatMessageAttachment> chatMessageAttachmentList = message.getChatMessageAttachmentList();
-                List<ChatMessageAttachment> imageAndVideoAttachments = chatMessageAttachmentList.stream().filter(attachment -> attachment.getAttachmentType() != null &&
-                        CommonConstants.IMAGE_AND_VIDEO_ATTACHMENT_TYPES.contains(attachment.getAttachmentType())).toList();
-                List<ChatMessageAttachment> fileAttachments = chatMessageAttachmentList.stream().filter(attachment -> attachment.getAttachmentType() != null &&
-                        CommonConstants.FILE_ATTACHMENT_TYPES.contains(attachment.getAttachmentType())).toList();
+                List<ChatMessageAttachment> imageAndVideoAttachments = chatMessageAttachmentList.stream()
+                        .filter(attachment -> attachment.getAttachmentType() != null &&
+                                CommonConstants.IMAGE_AND_VIDEO_ATTACHMENT_TYPES
+                                        .contains(attachment.getAttachmentType()))
+                        .toList();
+                List<ChatMessageAttachment> fileAttachments = chatMessageAttachmentList.stream()
+                        .filter(attachment -> attachment.getAttachmentType() != null &&
+                                CommonConstants.FILE_ATTACHMENT_TYPES.contains(attachment.getAttachmentType()))
+                        .toList();
                 chatConversationDetailedSummary.getImageAndVideoAttachments().addAll(imageAndVideoAttachments);
                 chatConversationDetailedSummary.getFileAttachments().addAll(fileAttachments);
             });
@@ -253,15 +301,17 @@ public class NewChatServiceImpl implements NewChatService {
                     "Failed to retrieve chat conversation details",
                     "getChatConversation",
                     e.getClass().getSimpleName(),
-                    e.getMessage()
-            );
+                    e.getMessage());
         }
     }
 
     @Override
-    public ResponseEntity<?> updateChatConversation(ConversationRequestDto request, MultipartFile chatConversationAvatar) {
+    public ResponseEntity<?> updateChatConversation(ConversationRequestDto request,
+                                                    MultipartFile chatConversationAvatar) {
         try {
-            ChatConversation chatConversation = chatConversationRepo.findById(request.getChatConversationId()).orElseThrow(() -> new ResourceNotFoundException("ChatConversation", "conversationId", request.getChatConversationId()));
+            ChatConversation chatConversation = chatConversationRepo.findById(request.getChatConversationId())
+                    .orElseThrow(() -> new ResourceNotFoundException("ChatConversation", "conversationId",
+                            request.getChatConversationId()));
             modelMapper.map(request, chatConversation);
             if (!ObjectUtils.isEmpty(chatConversationAvatar)) {
                 String contentType = chatConversationAvatar.getContentType();
@@ -271,8 +321,7 @@ public class NewChatServiceImpl implements NewChatService {
                             "Unsupported file type for chat conversation avatar",
                             "updateChatConversation",
                             "UnsupportedFileTypeException",
-                            "Only JPEG and PNG images are supported for chat conversation avatars."
-                    );
+                            "Only JPEG and PNG images are supported for chat conversation avatars.");
                 }
                 String fileExtension = switch (contentType) {
                     case "image/jpeg" -> "jpg";
@@ -282,8 +331,7 @@ public class NewChatServiceImpl implements NewChatService {
                             "Unsupported file type for chat conversation avatar",
                             "updateChatConversation",
                             "UnsupportedFileTypeException",
-                            "Only JPEG and PNG images are supported for chat conversation avatars."
-                    );
+                            "Only JPEG and PNG images are supported for chat conversation avatars.");
                 };
                 Map<String, Object> payload = new ConcurrentHashMap<>();
                 Map<String, Object> dto = new HashMap<>();
@@ -302,7 +350,8 @@ public class NewChatServiceImpl implements NewChatService {
                 UriComponentsBuilder url = UriComponentsBuilder.fromUriString(
                         webConstants.getDmsOrgDocumentUploadUrl());
 
-                ResponseEntity<?> dmsResponse = restService.cmsRestCall(url.toUriString(), payload, headers, HttpMethod.POST, request.getOrgId());
+                ResponseEntity<?> dmsResponse = restService.cmsRestCall(url.toUriString(), payload, headers,
+                        HttpMethod.POST, request.getOrgId());
                 if (dmsResponse.getStatusCode().is2xxSuccessful() && !ObjectUtils.isEmpty(dmsResponse.getBody())) {
                     JSONObject dmsResponseBody = new JSONObject(dmsResponse.getBody().toString());
                     chatConversation.setChatConversationAvatar(dmsResponseBody.optString("documentUrl"));
@@ -316,8 +365,208 @@ public class NewChatServiceImpl implements NewChatService {
                     "Failed to update chat conversation",
                     "updateChatConversation",
                     e.getClass().getSimpleName(),
-                    e.getMessage()
-            );
+                    e.getMessage());
+        }
+    }
+
+    @Override
+    public ResponseEntity<?> viewConversation(Long participantId, Long conversationId) {
+        try {
+            ChatConversation chatConversation = chatConversationRepo.findById(conversationId).orElseThrow(
+                    () -> new ResourceNotFoundException("ChatConversation", "conversationId", conversationId));
+            ChatConversationParticipant chatConversationParticipant = chatConversation.getChatConversationParticipants()
+                    .stream().filter(participant -> participant.getParticipantId().equals(participantId)).findFirst()
+                    .orElseThrow(() -> new ResourceNotFoundException("ChatConversationParticipant", "participantId",
+                            participantId));
+            chatConversationParticipant.setLastRead(new Timestamp(System.currentTimeMillis()));
+            chatConversationParticipantRepo.save(chatConversationParticipant);
+            return ResponseEntity.ok().build();
+        } catch (Exception e) {
+            throw new ServiceLevelException(
+                    "NewChatServiceImpl",
+                    "Failed to mark conversation as viewed",
+                    "viewConversation",
+                    e.getClass().getSimpleName(),
+                    e.getMessage());
+        }
+    }
+
+    @Override
+    public ResponseEntity<ChatMessageIndividualStatus> markReceived(Long messageId, Long participantId) {
+        try {
+            ChatMessage chatMessage = chatMessageRepo.findById(messageId)
+                    .orElseThrow(() -> new ResourceNotFoundException("ChatMessage", "messageId", messageId));
+            ChatConversationParticipant chatConversationParticipant = chatConversationParticipantRepo
+                    .findByChatConversationIdAndParticipantId(chatMessage.getChatConversation().getChatConversationId(),
+                            participantId)
+                    .orElseThrow(() -> new ResourceNotFoundException("ChatConversationParticipant",
+                            "participantId", participantId));
+            ChatMessageIndividualStatus individualStatus = chatMessageIndividualStatusRepo
+                    .findByChatMessageIdAndChatConversationParticipant(messageId, chatConversationParticipant)
+                    .orElseGet(() -> {
+                        ChatMessageIndividualStatus newStatus = new ChatMessageIndividualStatus();
+                        newStatus.setChatMessage(chatMessage);
+                        newStatus.setParticipant(chatConversationParticipant);
+                        return newStatus;
+                    });
+            individualStatus.setStatus(ChatMessageStatus.RECEIVED);
+            chatMessageIndividualStatusRepo.save(individualStatus);
+            return ResponseEntity.ok(individualStatus);
+        } catch (Exception e) {
+            throw new ServiceLevelException(
+                    "NewChatServiceImpl",
+                    "Failed to mark message as received",
+                    "markReceived",
+                    e.getClass().getSimpleName(),
+                    e.getMessage());
+        }
+    }
+
+    /**
+     * Phase 1: Batch update individual message statuses from SENT to RECEIVED
+     * when participant fetches messages
+     *
+     * @param conversationId The conversation ID
+     * @param participantId  The participant ID
+     * @param chatMessages   The fetched chat messages
+     */
+    private void updateReceivedStatuses(Long conversationId, Long participantId, List<ChatMessage> chatMessages) {
+        if (chatMessages.isEmpty()) {
+            return;
+        }
+
+        try {
+            // Extract message IDs from fetched messages
+            List<Long> messageIds = chatMessages.stream()
+                    .map(ChatMessage::getChatMessageId)
+                    .toList();
+
+            // Batch update: Set all SENT statuses to RECEIVED for this participant
+            chatMessageIndividualStatusRepo.batchUpdateStatusToReceived(participantId, messageIds,
+                    ChatMessageStatus.RECEIVED);
+
+            log.debug("Updated {} message statuses to RECEIVED for participant {} in conversation {}",
+                    messageIds.size(), participantId, conversationId);
+        } catch (Exception e) {
+            log.error("Failed to update received statuses for participant {} in conversation {}",
+                    participantId, conversationId, e);
+            // Non-blocking: Don't fail the entire fetch operation if status update fails
+            // Status updates are eventually consistent
+        }
+    }
+
+    /**
+     * Phase 3: Calculate and update aggregate message status
+     * Determines the max status across all individual participant statuses
+     * If all participants RECEIVED → message RECEIVED
+     * If any participant SENT → message SENT
+     * Async: Non-blocking execution to keep fetch response fast
+     * Eventually consistent: Updates may lag behind actual state by seconds
+     *
+     * @param conversationId The conversation ID
+     */
+    @Async
+    public void updateAggregateStatusAsync(Long conversationId) {
+        try {
+            ChatConversation chatConversation = chatConversationRepo.findById(conversationId)
+                    .orElseThrow(
+                            () -> new ResourceNotFoundException("ChatConversation", "conversationId", conversationId));
+
+            // Get all messages in conversation that need status recalculation
+            List<ChatMessage> chatMessages = chatConversation.getChatMessages();
+
+            // Update each message's aggregate status based on individual statuses
+            List<ChatMessage> updatedMessages = chatMessages.stream().map(message -> {
+                List<ChatMessageIndividualStatus> individualStatuses = message.getChatMessageIndividualStatuses();
+
+                if (individualStatuses.isEmpty()) {
+                    // No individual statuses yet (shouldn't happen, but handle gracefully)
+                    message.setChatMessageStatus(ChatMessageStatus.SENT);
+                    return message;
+                }
+
+                // Count status distribution
+                long sentCount = individualStatuses.stream()
+                        .filter(status -> status.getStatus().equals(ChatMessageStatus.SENT))
+                        .count();
+                long receivedCount = individualStatuses.stream()
+                        .filter(status -> status.getStatus().equals(ChatMessageStatus.RECEIVED))
+                        .count();
+
+                // Determine aggregate status: max across all participants
+                // RECEIVED (highest) > SENT (lowest)
+                if (receivedCount == individualStatuses.size()) {
+                    // All participants have received
+                    message.setChatMessageStatus(ChatMessageStatus.RECEIVED);
+                } else if (sentCount == individualStatuses.size()) {
+                    // All participants still in SENT state
+                    message.setChatMessageStatus(ChatMessageStatus.SENT);
+                } else {
+                    // Mixed: Some received, some not
+                    // Use PARTIALLY_RECEIVED to indicate partial delivery
+                    message.setChatMessageStatus(ChatMessageStatus.PARTIALLY_RECEIVED);
+                }
+
+                return message;
+            }).toList();
+
+            // Batch save all updated messages
+            chatMessageRepo.saveAll(updatedMessages);
+
+            log.debug("Updated aggregate status for {} messages in conversation {}",
+                    updatedMessages.size(), conversationId);
+        } catch (Exception e) {
+            log.error("Failed to update aggregate status for conversation {}",
+                    conversationId, e);
+            // Non-blocking: Exception doesn't affect primary operation
+            // Status will be recalculated on next fetch
+        }
+    }
+
+    /**
+     * Phase 4 (Legacy): Synchronous method for aggregate status updates
+     * Kept for backward compatibility. Prefer updateAggregateStatusAsync() for new
+     * operations.
+     *
+     * @deprecated Use updateAggregateStatusAsync(Long conversationId) instead
+     */
+    @Deprecated
+    public ResponseEntity<?> updateAggregateStatus(Timestamp messagesAfter, Long conversationId) {
+        try {
+            ChatConversation chatConversation = chatConversationRepo.findById(conversationId).orElseThrow(
+                    () -> new ResourceNotFoundException("ChatConversation", "conversationId", conversationId));
+            List<ChatMessage> chatMessages = chatMessageRepo.finaByChatConversationIdAndAfter(conversationId,
+                    messagesAfter);
+            List<ChatMessage> chatMessageList = chatMessages.stream().map(message -> {
+                List<ChatMessageIndividualStatus> chatMessageIndividualStatuses = message
+                        .getChatMessageIndividualStatuses();
+                // received
+                long receivedCount = chatMessageIndividualStatuses.stream()
+                        .filter(status -> status.getStatus().equals(ChatMessageStatus.RECEIVED)).count();
+                long deliveredCount = chatMessageIndividualStatuses.stream()
+                        .filter(status -> status.getStatus().equals(ChatMessageStatus.DELIVERED)).count();
+                if (deliveredCount == chatConversation.getTotalParticipants()) {
+                    message.setChatMessageStatus(ChatMessageStatus.DELIVERED);
+                }
+                if (receivedCount == chatConversation.getTotalParticipants()) {
+                    message.setChatMessageStatus(ChatMessageStatus.RECEIVED);
+                }
+                if (receivedCount > 0) {
+                    message.setChatMessageStatus(ChatMessageStatus.PARTIALLY_RECEIVED);
+                }
+
+                return message;
+            }).toList();
+
+            chatMessageRepo.saveAll(chatMessageList);
+            return ResponseEntity.ok().build();
+        } catch (Exception e) {
+            throw new ServiceLevelException(
+                    "NewChatServiceImpl",
+                    "Failed to update aggregate message status",
+                    "updateAggregateStatus",
+                    e.getClass().getSimpleName(),
+                    e.getMessage());
         }
     }
 }

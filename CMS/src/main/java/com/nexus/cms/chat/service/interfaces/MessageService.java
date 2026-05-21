@@ -9,4 +9,8 @@ import java.util.List;
 
 public interface MessageService {
     ResponseEntity<?> sendMessage(@Valid ChatMessageRequestDto message, List<MultipartFile> files);
+
+    ResponseEntity<?> editMessage(@Valid ChatMessageRequestDto message);
+
+    ResponseEntity<?> sendMultimediaMessage(List<MultipartFile> files, Long participantId);
 }
