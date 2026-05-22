@@ -42,7 +42,7 @@ public class MessageServiceImpl implements MessageService {
     private final ChatMessageIndividualStatusRepo chatMessageIndividualStatusRepo;
 
     @Override
-    public ResponseEntity<?> sendMessage(ChatMessageRequestDto message, List<MultipartFile> files) {
+    public ResponseEntity<ChatMessage> sendMessage(ChatMessageRequestDto message, List<MultipartFile> files) {
         try {
             ChatConversation chatConversation = chatConversationRepo.findById(message.getChatConversationId()).orElseThrow(() -> new ResourceNotFoundException(
                     "ChatConversation",

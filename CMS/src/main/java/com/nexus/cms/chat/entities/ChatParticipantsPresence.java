@@ -17,7 +17,7 @@ public class ChatParticipantsPresence {
 
     private Long userId;
 
-    private Boolean isOnline;
+//    private Boolean isOnline;
 
     private Timestamp lastActiveAt;
 }

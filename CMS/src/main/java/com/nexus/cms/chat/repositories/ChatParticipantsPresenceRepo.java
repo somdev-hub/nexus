@@ -6,15 +6,25 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
+import java.sql.Timestamp;
+
 @Repository
 public interface ChatParticipantsPresenceRepo extends JpaRepository<ChatParticipantsPresence, Long> {
     boolean existsByUserId(Long userId);
 
+//    @Modifying
+//    @Query("""
+//            UPDATE ChatParticipantsPresence cpp
+//            SET cpp.isOnline = :isOnline
+//            WHERE cpp.userId = :userId
+//            """)
+//    void updatePresenceStatus(Long userId, boolean isOnline);
+
     @Modifying
     @Query("""
-            UPDATE ChatParticipantsPresence cpp
-            SET cpp.isOnline = :isOnline
-            WHERE cpp.userId = :userId
+                        UPDATE ChatParticipantsPresence cpp
+                        SET cpp.lastActiveAt = :timestamp
+                        WHERE cpp.userId = :userId
             """)
-    void updatePresenceStatus(Long userId, boolean isOnline);
+    void updateLastActive(Long userId, Timestamp timestamp);
 }
