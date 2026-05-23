@@ -65,6 +65,9 @@ public class ChatMessage {
 
     private Boolean isActive;
 
+    @Version
+    private Long version;
+
     @PrePersist
     public void prePersist() {
         this.isActive = true;

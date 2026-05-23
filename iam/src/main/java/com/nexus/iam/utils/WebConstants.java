@@ -171,6 +171,31 @@ public class WebConstants {
 
     @Value("${cms.message.url}")
     private String cmsMessageUrl;
+
+    // ============================================
+    // NEW CHAT SERVICE (v2) PROPERTIES
+    // ============================================
+    @Value("${cms.new.chat.conversation.url}")
+    private String cmsNewChatConversationUrl;
+
+    @Value("${cms.new.chat.conversations.url}")
+    private String cmsNewChatConversationsUrl;
+
+    @Value("${cms.new.chat.conversation.details.url}")
+    private String cmsNewChatConversationDetailsUrl;
+
+    @Value("${cms.new.chat.view.url}")
+    private String cmsNewChatViewUrl;
+
+    @Value("${cms.new.chat.message.url}")
+    private String cmsNewChatMessageUrl;
+
+    @Value("${cms.new.chat.multimedia.url}")
+    private String cmsNewChatMultimediaUrl;
+
+    @Value("${cms.new.chat.messages.url}")
+    private String cmsNewChatMessagesUrl;
+
     // Keycloak URLs
     public String getKeycloakAdminUrl() {
         return keycloakServerUrl + "/admin/realms/" + keycloakRealm;

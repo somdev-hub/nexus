@@ -1,32 +1,30 @@
 package com.nexus.cms.util;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-//import com.nexus.hr.model.entities.WOWOConfig;
-import com.nexus.cms.chat.enums.AttachmentType;
-import com.nexus.cms.exception.ServiceLevelException;
-import com.nexus.cms.payload.RestPayload;
-import com.nexus.cms.payload.TokenPayloadDto;
-//import com.nexus.hr.service.interfaces.WOWOConfigService;
-import lombok.RequiredArgsConstructor;
+import java.util.HashMap;
+import java.util.Map;
+
 import org.springframework.core.ParameterizedTypeReference;
-import org.springframework.core.env.Environment;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.util.ObjectUtils;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.util.UriComponentsBuilder;
 
-import java.util.HashMap;
-import java.util.Map;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+//import com.nexus.hr.model.entities.WOWOConfig;
+import com.nexus.cms.chat.enums.AttachmentType;
+import com.nexus.cms.payload.RestPayload;
+import com.nexus.cms.payload.TokenPayloadDto;
+
+//import com.nexus.hr.service.interfaces.WOWOConfigService;
+import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
 public class CommonUtils {
 
     private final WebConstants webConstants;
-    private final Object tokenLock = new Object(); // Lock for thread-safe token management
-    private final Environment environment;
 //    private final WOWOConfigService wowoConfigService;
     private String token;
 

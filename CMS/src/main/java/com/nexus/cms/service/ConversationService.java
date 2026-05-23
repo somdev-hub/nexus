@@ -1,25 +1,29 @@
 package com.nexus.cms.service;
 
-import com.nexus.cms.exception.ResourceNotFoundException;
-import com.nexus.cms.exception.ServiceLevelException;
-import com.nexus.cms.mapper.ConversationMapper;
-import com.nexus.cms.model.entities.Conversation;
-import com.nexus.cms.model.entities.ConversationParticipant;
-import com.nexus.cms.payload.ChatPayload;
-import com.nexus.cms.model.entities.Conversation.ConversationType;
-import com.nexus.cms.repository.ConversationParticipantRepository;
-import com.nexus.cms.repository.ConversationRepository;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import java.sql.Timestamp;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.ObjectUtils;
 
-import java.sql.Timestamp;
-import java.util.*;
-import java.util.stream.Collectors;
+import com.nexus.cms.exception.ResourceNotFoundException;
+import com.nexus.cms.exception.ServiceLevelException;
+import com.nexus.cms.mapper.ConversationMapper;
+import com.nexus.cms.model.entities.Conversation;
+import com.nexus.cms.model.entities.ConversationParticipant;
+import com.nexus.cms.payload.ChatPayload;
+import com.nexus.cms.repository.ConversationParticipantRepository;
+import com.nexus.cms.repository.ConversationRepository;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @Service
