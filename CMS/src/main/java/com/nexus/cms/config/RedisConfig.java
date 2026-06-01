@@ -11,7 +11,6 @@ import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.listener.PatternTopic;
 import org.springframework.data.redis.listener.RedisMessageListenerContainer;
-import org.springframework.data.redis.listener.adapter.MessageListenerAdapter;
 import org.springframework.data.redis.serializer.JacksonJsonRedisSerializer;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
 import org.springframework.session.data.redis.config.annotation.web.http.EnableRedisHttpSession;
@@ -29,7 +28,7 @@ import org.springframework.session.data.redis.config.annotation.web.http.EnableR
  * - spring-boot-starter-data-redis dependency
  */
 @Configuration
-@EnableRedisHttpSession(maxInactiveIntervalInSeconds = 1800)  // 30 minutes session timeout
+@EnableRedisHttpSession(maxInactiveIntervalInSeconds = 1800) // 30 minutes session timeout
 public class RedisConfig {
 
     /**
@@ -46,15 +45,13 @@ public class RedisConfig {
         objectMapper.setVisibility(PropertyAccessor.ALL, JsonAutoDetect.Visibility.ANY);
         objectMapper.activateDefaultTyping(
                 LaissezFaireSubTypeValidator.instance,
-                ObjectMapper.DefaultTyping.NON_FINAL
-        );
+                ObjectMapper.DefaultTyping.NON_FINAL);
 
         // Use StringRedisSerializer for keys
         StringRedisSerializer stringSerializer = new StringRedisSerializer();
 
         // Use Jackson2JsonRedisSerializer for values
-        JacksonJsonRedisSerializer <Object> jacksonSerializer =
-                new JacksonJsonRedisSerializer <>(Object.class);
+        JacksonJsonRedisSerializer<Object> jacksonSerializer = new JacksonJsonRedisSerializer<>(Object.class);
 
         // Set key-value serializers
         template.setKeySerializer(stringSerializer);
@@ -75,18 +72,12 @@ public class RedisConfig {
     @Bean
     public RedisMessageListenerContainer redisListenerContainer(
             RedisConnectionFactory factory,
-            MessageListenerAdapter listenerAdapter
-    ) {
+            RedisMessageSubscriber subscriber) {
         RedisMessageListenerContainer container = new RedisMessageListenerContainer();
         container.setConnectionFactory(factory);
-        container.addMessageListener(listenerAdapter,
-                new PatternTopic("conversation:*"));  // listen to all conversation channels
+        container.addMessageListener(subscriber,
+                new PatternTopic("conversation:*")); // listen to all conversation channels
         return container;
-    }
-
-    @Bean
-    public MessageListenerAdapter listenerAdapter(RedisMessageSubscriber subscriber) {
-        return new MessageListenerAdapter(subscriber, "onMessage");
     }
 
     /**
@@ -95,10 +86,8 @@ public class RedisConfig {
      * Auto-configured by Spring Boot, available for injection
      */
     // @Bean
-    // public StringRedisTemplate stringRedisTemplate(RedisConnectionFactory factory) {
-    //     return new StringRedisTemplate(factory);
+    // public StringRedisTemplate stringRedisTemplate(RedisConnectionFactory
+    // factory) {
+    // return new StringRedisTemplate(factory);
     // }
 }
-
-
-

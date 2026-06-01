@@ -8,6 +8,7 @@ import com.nexus.iam.entities.Department;
 import com.nexus.iam.entities.Organization;
 import com.nexus.iam.entities.Role;
 import com.nexus.iam.entities.User;
+import com.nexus.iam.exception.ResourceNotFoundException;
 import com.nexus.iam.exception.ServiceLevelException;
 import com.nexus.iam.exception.UnauthorizedException;
 import com.nexus.iam.repository.DepartmentRepository;
@@ -643,6 +644,7 @@ public class KeycloakAuthenticationServiceImpl implements KeycloakAuthentication
                     .tokenType("Bearer")
                     .expiresIn(expiresIn)
                     .email(userDto.getEmail())
+                    .phone(syncedUser.getPhone())
                     .name(userDto.getFirstName() + " " + userDto.getLastName())
                     .userId(userId)
                     .orgId(orgId)
@@ -753,6 +755,8 @@ public class KeycloakAuthenticationServiceImpl implements KeycloakAuthentication
                 return Map.of("error", "Token is required");
             }
 
+            if (token.startsWith("Bearer")) token = token.substring(7).trim(); // Remove "Bearer " prefix if present
+
             log.debug("Decrypting Keycloak token");
 
             // Decode and validate JWT signature
@@ -776,6 +780,26 @@ public class KeycloakAuthenticationServiceImpl implements KeycloakAuthentication
                     claims.put(key, value);
                 }
             });
+
+            /**
+             * private boolean isValid;
+             *     private List<Map<String, String>> roles;
+             *     private long expiration;
+             *     private long issuedAt;
+             *     private String type;
+             *     private Long userId;
+             *     private Long orgId;
+             *     private String username;
+             *     private String email;
+             */
+
+            User user = userRepository.findByEmail(claims.get("email").toString()).orElseThrow(() -> new ResourceNotFoundException("User", "email", claims.getOrDefault("email", "").toString()));
+
+            claims.put("isValid", true);
+            claims.put("userId", user.getId());
+            claims.put("orgId", user.getOrganization() != null ? user.getOrganization().getId() : null);
+            claims.put("username", user.getName());
+            claims.put("roles", user.getRoles());
 
             log.debug("All token claims extracted successfully");
             return claims;

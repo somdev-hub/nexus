@@ -75,6 +75,6 @@ public class ChatConversationParticipant {
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     @JsonBackReference("participant-messages")
-    @OneToMany(mappedBy = "chatConversationParticipant", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "participant", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private List<ChatMessageIndividualStatus> chatMessageIndividualStatuses;
 }

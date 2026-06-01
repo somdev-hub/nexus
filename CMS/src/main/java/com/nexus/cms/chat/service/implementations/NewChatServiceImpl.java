@@ -205,7 +205,7 @@ public class NewChatServiceImpl implements NewChatService {
                                 ? null
                                 : conversation.getChatMessages().getLast();
 
-                if (!ObjectUtils.isEmpty(latestMessage) && latestMessage!=null) {
+                if (!ObjectUtils.isEmpty(latestMessage) && latestMessage != null) {
                         if (latestMessage.getChatMessageType()
                                         .equals(ChatMessageType.TEXT)) {
                                 chatConversationQuickResponseDto.setLastMessage(
@@ -295,6 +295,19 @@ public class NewChatServiceImpl implements NewChatService {
                         List<ConversationMessagesDto> conversationMessagesDtos = chatMessages.stream().map(message -> {
                                 ConversationMessagesDto conversationMessagesDto = modelMapper.map(message,
                                                 ConversationMessagesDto.class);
+
+                                // Map participant information
+                                ChatConversationParticipant senderParticipant = message
+                                                .getChatConversationParticipant();
+                                if (senderParticipant != null) {
+                                        ConversationMessagesDto.ParticipantInfo participantInfo = new ConversationMessagesDto.ParticipantInfo();
+                                        participantInfo.setParticipantId(senderParticipant.getParticipantId());
+                                        participantInfo.setParticipantName(senderParticipant.getParticipantName());
+                                        participantInfo.setParticipantEmail(senderParticipant.getParticipantEmail());
+                                        participantInfo.setParticipantAvatar(senderParticipant.getParticipantAvatar());
+                                        conversationMessagesDto.setChatConversationParticipant(participantInfo);
+                                }
+
                                 List<ConversationMessagesDto.MessageSeenBy> messageSeenByList = message
                                                 .getChatConversation()
                                                 .getChatConversationParticipants()
@@ -308,7 +321,7 @@ public class NewChatServiceImpl implements NewChatService {
                                 return conversationMessagesDto;
                         }).toList();
 
-                        Map<String, Object> result = new ConcurrentHashMap<>();
+                        Map<String, Object> result = new HashMap<>();
                         result.put("messages", conversationMessagesDtos);
                         result.put("hasMore", hasMore);
                         result.put("nextCursor", nextCursor);
@@ -650,7 +663,7 @@ public class NewChatServiceImpl implements NewChatService {
 
         /**
          * Validate conversation creation request
-         * 
+         *
          * @throws ServiceLevelException if validation fails
          */
         private void validateConversationCreationRequest(ConversationRequestDto request) {

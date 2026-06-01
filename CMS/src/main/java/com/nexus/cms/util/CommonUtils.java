@@ -25,7 +25,7 @@ import lombok.RequiredArgsConstructor;
 public class CommonUtils {
 
     private final WebConstants webConstants;
-//    private final WOWOConfigService wowoConfigService;
+    // private final WOWOConfigService wowoConfigService;
     private String token;
 
     public boolean validateToken(String token) {
@@ -91,7 +91,11 @@ public class CommonUtils {
 
     public TokenPayloadDto decryptToken(String token) {
         String authUrl = webConstants.getDecryptTokenUrl();
-        Map<String, String> body = Map.of("token", token.substring(7));
+        if (token.startsWith("Bearer ")) {
+            token = token.substring(7);
+        }
+        // String tokenSubstring = token.substring(7);
+        Map<String, String> body = Map.of("token", token);
         try {
             RestClient restClient = RestClient.create();
             ResponseEntity<TokenPayloadDto> response = restClient.post().uri(authUrl)
@@ -100,11 +104,17 @@ public class CommonUtils {
                     .toEntity(TokenPayloadDto.class);
 
             if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
-                return response.getBody();
+                TokenPayloadDto payload = response.getBody();
+                // Validate that userId is not 0 (indicates invalid token)
+                if (payload.getUserId() == 0) {
+                    return null;
+                }
+                return payload;
             } else {
                 return null;
             }
         } catch (Exception e) {
+            System.err.println("[TokenDecrypt] Exception during token decryption: " + e.getMessage());
             e.printStackTrace();
             return null;
         }
@@ -125,7 +135,7 @@ public class CommonUtils {
     }
 
     public RestPayload buildRestPayload(String url, Map<String, String> queriesParams,
-                                        Map<Integer, String> pathVariables, String headerType) {
+            Map<Integer, String> pathVariables, String headerType) {
         RestPayload restPayload = new RestPayload();
         UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(url);
 
@@ -160,27 +170,28 @@ public class CommonUtils {
 
     }
 
-//    public boolean isWiredOn(String wowoName) {
-//        if (ObjectUtils.isEmpty(wowoName)) {
-//            return false;
-//        }
-//        try {
-//            String property = environment.getProperty("wowo." + wowoName + ".active");
-//            if (!ObjectUtils.isEmpty(property)) {
-//                return Boolean.parseBoolean(property);
-//            }
-//            WOWOConfig wowoConfig = wowoConfigService.getWOWOConfigByName(wowoName).getBody();
-//            if (wowoConfig != null) {
-//                return wowoConfig.getIsActive();
-//            } else {
-//                return false;
-//            }
-//        } catch (Exception e) {
-//            return false;
-//        }
-//    }
+    // public boolean isWiredOn(String wowoName) {
+    // if (ObjectUtils.isEmpty(wowoName)) {
+    // return false;
+    // }
+    // try {
+    // String property = environment.getProperty("wowo." + wowoName + ".active");
+    // if (!ObjectUtils.isEmpty(property)) {
+    // return Boolean.parseBoolean(property);
+    // }
+    // WOWOConfig wowoConfig =
+    // wowoConfigService.getWOWOConfigByName(wowoName).getBody();
+    // if (wowoConfig != null) {
+    // return wowoConfig.getIsActive();
+    // } else {
+    // return false;
+    // }
+    // } catch (Exception e) {
+    // return false;
+    // }
+    // }
 
-    public AttachmentType validateAttachmentType(String contentType){
+    public AttachmentType validateAttachmentType(String contentType) {
 
         return switch (contentType) {
             case "image/jpeg" -> AttachmentType.JPG;

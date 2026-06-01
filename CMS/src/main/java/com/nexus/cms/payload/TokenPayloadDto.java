@@ -13,6 +13,8 @@ public class TokenPayloadDto {
     private long expiration;
     private long issuedAt;
     private String type;
-    private long userId;
+    private Long userId;
+    private Long orgId;
     private String username;
+    private String email;
 }

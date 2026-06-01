@@ -20,7 +20,7 @@ public class ChatMessageIndividualStatus {
 
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
-    @JsonBackReference("message-individual-status")
+    @JsonBackReference("message-individual-statuses")
     @ManyToOne
     @JoinColumn(name = "chat_message_chat_message_id")
     private ChatMessage chatMessage;

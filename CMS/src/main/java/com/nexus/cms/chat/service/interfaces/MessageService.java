@@ -9,7 +9,8 @@ import org.springframework.web.multipart.MultipartFile;
 import java.util.List;
 
 public interface MessageService {
-    ResponseEntity<ChatMessage> sendMessage(@Valid ChatMessageRequestDto message, List<MultipartFile> files);
+    ResponseEntity<ChatMessage> sendMessage(@Valid ChatMessageRequestDto message, List<MultipartFile> files,
+            Long participantId);
 
     ResponseEntity<?> editMessage(@Valid ChatMessageRequestDto message);
 

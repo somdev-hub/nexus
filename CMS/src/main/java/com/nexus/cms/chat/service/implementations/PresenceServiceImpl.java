@@ -6,15 +6,22 @@ import com.nexus.cms.chat.properties.ChatConstants;
 import com.nexus.cms.chat.repositories.ChatParticipantsPresenceRepo;
 import com.nexus.cms.chat.service.interfaces.PresenceService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.sql.Timestamp;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import java.util.concurrent.TimeUnit;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class PresenceServiceImpl implements PresenceService {
 
     private final RedisTemplate<String, Object> redisTemplate;
@@ -26,14 +33,17 @@ public class PresenceServiceImpl implements PresenceService {
         redisTemplate.opsForValue().set(
                 ChatConstants.PRESENCE_KEY + userId,
                 PresenceEventDto.PresenceEventStatus.ONLINE,
-                ChatConstants.PRESENCE_TTL_MINUTES, TimeUnit.MINUTES  // auto-expires if server crashes
+                ChatConstants.PRESENCE_TTL_MINUTES, TimeUnit.MINUTES // auto-expires if server crashes
         );
+        log.debug("Setting user {} online (redis key={})", userId, ChatConstants.PRESENCE_KEY + userId);
         broadcast(userId, PresenceEventDto.PresenceEventStatus.ONLINE);
     }
 
     @Override
+    @Transactional
     public void setOffline(Long userId) {
         redisTemplate.delete(ChatConstants.PRESENCE_KEY + userId);
+        log.debug("Setting user {} offline (deleted redis key={})", userId, ChatConstants.PRESENCE_KEY + userId);
         broadcast(userId, PresenceEventDto.PresenceEventStatus.OFFLINE);
         if (chatParticipantsPresenceRepo.existsByUserId(userId)) {
             chatParticipantsPresenceRepo.updateLastActive(userId, new Timestamp(System.currentTimeMillis()));
@@ -51,15 +61,22 @@ public class PresenceServiceImpl implements PresenceService {
     }
 
     @Override
+    public Map<Long, Boolean> getOnlineStatuses(List<Long> userIds) {
+        return userIds.stream()
+                .distinct()
+                .collect(Collectors.toMap(userId -> userId, this::isOnline, (left, right) -> left));
+    }
+
+    @Override
     public void heartbeat(Long userId) {
         redisTemplate.expire(
                 ChatConstants.PRESENCE_KEY + userId,
-                ChatConstants.PRESENCE_TTL_MINUTES, TimeUnit.MINUTES
-        );
+                ChatConstants.PRESENCE_TTL_MINUTES, TimeUnit.MINUTES);
     }
 
     @Override
     public void broadcast(Long userId, PresenceEventDto.PresenceEventStatus status) {
-        messagingTemplate.convertAndSend("/topic/presence", new PresenceEventDto(userId, status, new Timestamp(System.currentTimeMillis())));
+        messagingTemplate.convertAndSend("/topic/presence",
+                new PresenceEventDto(userId, status, new Timestamp(System.currentTimeMillis())));
     }
 }

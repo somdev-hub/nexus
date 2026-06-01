@@ -6,6 +6,7 @@ import com.nexus.iam.utils.RestService;
 import com.nexus.iam.utils.WebConstants;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.json.JSONObject;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
@@ -17,6 +18,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Implementation of NewChatService
@@ -32,15 +34,19 @@ public class NewChatServiceImpl implements NewChatService {
     private final WebConstants webConstants;
 
     @Override
-    public ResponseEntity<?> createConversation(String request, MultipartFile avatar, Long participantId, Long orgId) {
-        log.debug("Creating conversation for participantId: {}, orgId: {}", participantId, orgId);
-
-        if (ObjectUtils.isEmpty(participantId) || ObjectUtils.isEmpty(orgId)) {
-            return ResponseEntity.badRequest().body("Participant ID and Organization ID are required");
-        }
+    public ResponseEntity<?> createConversation(String request, MultipartFile avatar) {
+        log.debug("Creating conversation");
 
         try {
-            String url = webConstants.getCmsNewChatConversationUrl();
+            // Build URL with query parameters for participantId and orgId
+            UriComponentsBuilder builder = UriComponentsBuilder
+                    .fromUriString(webConstants.getCmsNewChatConversationUrl());
+
+            Map<String, String> headers = new HashMap<>();
+            // Explicitly set content type to multipart/form-data as the controller expects
+            // @RequestPart
+            headers.put(HttpHeaders.CONTENT_TYPE, "multipart/form-data");
+
             Map<String, Object> payload = new HashMap<>();
             payload.put("request", request);
             if (avatar != null) {
@@ -48,11 +54,11 @@ public class NewChatServiceImpl implements NewChatService {
             }
 
             ResponseEntity<?> response = restService.iamRestCall(
-                    url,
+                    builder.toUriString(),
                     payload,
-                    Map.of(HttpHeaders.CONTENT_TYPE, MediaType.MULTIPART_FORM_DATA_VALUE),
+                    headers,
                     HttpMethod.POST,
-                    participantId);
+                    null);
 
             if (!response.getStatusCode().is2xxSuccessful()) {
                 throw new ServiceLevelException(
@@ -411,6 +417,48 @@ public class NewChatServiceImpl implements NewChatService {
                     "NewChatService",
                     "Failed to fetch conversation messages",
                     "getConversationMessages",
+                    e.getClass().getSimpleName(),
+                    e.getMessage());
+        }
+    }
+
+    @Override
+    public ResponseEntity<?> getPresenceStatuses(java.util.List<Long> userIds) {
+        log.debug("Fetching presence statuses for {} userIds", userIds != null ? userIds.size() : 0);
+
+        if (ObjectUtils.isEmpty(userIds)) {
+            return ResponseEntity.badRequest().body("At least one userId is required");
+        }
+
+        try {
+            UriComponentsBuilder builder = UriComponentsBuilder
+                    .fromUriString(webConstants.getCmsChatPresenceBatchUrl());
+
+            for (Long userId : userIds) {
+                builder.queryParam("userIds", userId);
+            }
+
+            ResponseEntity<?> response = restService.iamRestCall(
+                    builder.toUriString(),
+                    null,
+                    Map.of(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE),
+                    HttpMethod.GET,
+                    null);
+
+            if (!response.getStatusCode().is2xxSuccessful()) {
+                throw new ServiceLevelException(
+                        "NewChatService",
+                        "Failed to fetch presence statuses",
+                        "getPresenceStatuses",
+                        "HTTP " + response.getStatusCode().value(),
+                        response.getBody() != null ? response.getBody().toString() : "Unknown error");
+            }
+            return response;
+        } catch (RuntimeException e) {
+            throw new ServiceLevelException(
+                    "NewChatService",
+                    "Failed to fetch presence statuses",
+                    "getPresenceStatuses",
                     e.getClass().getSimpleName(),
                     e.getMessage());
         }

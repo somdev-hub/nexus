@@ -38,8 +38,15 @@ public class RestService {
         ResponseEntity<?> responseEntity = null;
         String requestLog = null;
         try {
+            boolean isMultipartByHeader = headers != null
+                    && headers.entrySet().stream()
+                            .anyMatch(e -> "Content-Type".equalsIgnoreCase(e.getKey())
+                                    && e.getValue() != null
+                                    && e.getValue().toLowerCase().contains(MediaType.MULTIPART_FORM_DATA_VALUE));
+
             // Check if payload contains multipart files
-            if (payload instanceof Map && containsMultipartFile((Map<String, Object>) payload)) {
+            if (payload instanceof Map
+                    && (containsMultipartFile((Map<String, Object>) payload) || isMultipartByHeader)) {
                 responseEntity = handleMultipartRequest(url, (Map<String, Object>) payload, headers, method);
                 requestLog = serializePayload(payload); // Serialize to JSON even for multipart
             } else {
@@ -195,6 +202,5 @@ public class RestService {
         HttpEntity<Object> httpEntity = new HttpEntity<>(payload, httpHeaders);
         return restTemplate.exchange(url, method, httpEntity, String.class);
     }
-
 
 }

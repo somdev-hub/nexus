@@ -1,5 +1,6 @@
 package com.nexus.iam.service;
 
+import org.json.JSONObject;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -12,7 +13,7 @@ public interface NewChatService {
     /**
      * Create a new conversation (DIRECT or GROUP)
      */
-    ResponseEntity<?> createConversation(String request, MultipartFile avatar, Long participantId, Long orgId);
+    ResponseEntity<?> createConversation(String request, MultipartFile avatar);
 
     /**
      * Get all conversations for a participant
@@ -54,4 +55,9 @@ public interface NewChatService {
      */
     ResponseEntity<?> getConversationMessages(Long conversationId, Long participantId, Long beforeId, Long limit,
             Long orgId);
+
+    /**
+     * Get online/offline presence statuses for a batch of users.
+     */
+    ResponseEntity<?> getPresenceStatuses(java.util.List<Long> userIds);
 }

@@ -22,12 +22,22 @@ public class ConversationMessagesDto {
     private Timestamp receivedAt;
     private List<ChatMessageAttachment> chatMessageAttachmentList;
     private List<MessageSeenBy> messageSeenByList;
+    private ParticipantInfo chatConversationParticipant;
 
     @Data
     @AllArgsConstructor
     @NoArgsConstructor
-    public static class MessageSeenBy
-    {
+    public static class ParticipantInfo {
+        private Long participantId;
+        private String participantName;
+        private String participantEmail;
+        private String participantAvatar;
+    }
+
+    @Data
+    @AllArgsConstructor
+    @NoArgsConstructor
+    public static class MessageSeenBy {
         private Long participantId;
         private String participantName;
         private String participantAvatar;

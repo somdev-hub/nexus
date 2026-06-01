@@ -5,7 +5,6 @@ import com.nexus.cms.chat.service.interfaces.NewChatService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -16,7 +15,7 @@ import org.springframework.web.multipart.MultipartFile;
 public class NewChatController {
     private final NewChatService newChatService;
 
-    @PostMapping(value = "/conversation", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PostMapping(value = "/conversation")
     public ResponseEntity<?> createChatConversation(@RequestPart @Valid ConversationRequestDto request, @RequestPart(required = false) MultipartFile chatConversationAvatar){
         return newChatService.createChatConversation(request, chatConversationAvatar);
     }

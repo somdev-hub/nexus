@@ -1,6 +1,8 @@
 package com.nexus.iam.controller;
 
 import lombok.RequiredArgsConstructor;
+import org.json.JSONObject;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -23,19 +25,15 @@ public class NewChatController {
     /**
      * Create a new conversation (DIRECT or GROUP)
      * 
-     * @param request       MultipartFile containing JSON request and optional
-     *                      avatar file
-     * @param participantId Current participant ID (from JWT token)
-     * @param orgId         Organization ID
+     * @param request MultipartFile containing JSON request and optional
+     *                avatar file
      * @return ResponseEntity with created conversation details
      */
-    @PostMapping("/conversation")
+    @PostMapping(value = "/conversation", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> createConversation(
-            @RequestParam("request") String request,
-            @RequestParam(value = "chatConversationAvatar", required = false) MultipartFile avatar,
-            @RequestParam Long participantId,
-            @RequestParam Long orgId) {
-        return newChatService.createConversation(request, avatar, participantId, orgId);
+            @RequestPart("request") String request,
+            @RequestPart(value = "chatConversationAvatar", required = false) MultipartFile avatar) {
+        return newChatService.createConversation(request, avatar);
     }
 
     /**
@@ -169,5 +167,10 @@ public class NewChatController {
             @RequestParam(defaultValue = "50") Long limit,
             @RequestParam Long orgId) {
         return newChatService.getConversationMessages(conversationId, participantId, beforeId, limit, orgId);
+    }
+
+    @GetMapping("/presence/batch")
+    public ResponseEntity<?> getPresenceStatuses(@RequestParam java.util.List<Long> userIds) {
+        return newChatService.getPresenceStatuses(userIds);
     }
 }

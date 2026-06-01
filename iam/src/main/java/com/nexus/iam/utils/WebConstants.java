@@ -196,6 +196,9 @@ public class WebConstants {
     @Value("${cms.new.chat.messages.url}")
     private String cmsNewChatMessagesUrl;
 
+    @Value("${cms.chat.presence.batch.url}")
+    private String cmsChatPresenceBatchUrl;
+
     // Keycloak URLs
     public String getKeycloakAdminUrl() {
         return keycloakServerUrl + "/admin/realms/" + keycloakRealm;
