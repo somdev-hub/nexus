@@ -1,0 +1,166 @@
+package com.nexus.cms.service;
+
+import com.nexus.cms.exception.ResourceNotFoundException;
+import com.nexus.cms.exception.ServiceLevelException;
+import com.nexus.cms.model.entities.EventTemplate;
+import com.nexus.cms.model.entities.TemplateParam;
+import com.nexus.cms.repository.EventTemplateRepo;
+import com.nexus.cms.util.CommonConstants;
+import com.nexus.cms.util.CommonUtils;
+import com.nexus.cms.util.RestService;
+import com.nexus.cms.util.WebConstants;
+import lombok.RequiredArgsConstructor;
+import org.json.JSONObject;
+import org.jspecify.annotations.NonNull;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.ObjectUtils;
+import org.springframework.web.util.UriComponentsBuilder;
+
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
+@Service
+@RequiredArgsConstructor
+public class EventOnboardingService {
+
+    private final EventTemplateRepo eventTemplateRepo;
+    private final WebConstants webConstants;
+    private final CommonUtils commonUtils;
+    private final RestService restService;
+
+    @Transactional
+    public ResponseEntity<?> addEventTemplate(EventTemplate eventTemplate) {
+        if (ObjectUtils.isEmpty(eventTemplate)) {
+            throw new IllegalArgumentException("Event Template cannot be null or empty");
+        }
+        try {
+            if (!ObjectUtils.isEmpty(eventTemplate.getTemplateHtml())){
+                // Logic to save the HTML content to a file and set the URL
+                String htmlUrl = saveHtmlToFile(eventTemplate.getTemplateHtml(), eventTemplate.getOrgId(), eventTemplate.getTemplateName());
+                eventTemplate.setTemplateHtmlUrl(htmlUrl);
+            }
+            EventTemplate savedTemplate = eventTemplateRepo.save(eventTemplate);
+            return ResponseEntity.ok(savedTemplate);
+        } catch (Exception e) {
+            throw new ServiceLevelException("EventOnboardingService", e.getMessage(), "addEventTemplate", e.getClass().getName(), e.getLocalizedMessage());
+        }
+    }
+
+    private String saveHtmlToFile(String templateHtml, Long orgId, String templateName) {
+        try{
+            // STEP 1 create a temp file and write templateHtml to that file
+            ByteArrayResource fileResource = getByteArrayResource(templateHtml, orgId, templateName);
+            // STEP 2 save the file to DMS
+            Map<String, String> headers = new ConcurrentHashMap<>();
+            headers.put(CommonConstants.CONTENT_TYPE, CommonConstants.MULTIPART_FORM_DATA);
+            headers.put(CommonConstants.AUTHORIZATION, commonUtils.getToken());
+            UriComponentsBuilder url = UriComponentsBuilder.fromUriString(
+                    webConstants.getDmsOrgDocumentUploadUrl());
+
+            Map<String, Object> payload = new ConcurrentHashMap<>();
+            Map<String, Object> dto = new HashMap<>();
+            dto.put("orgId", orgId);
+            dto.put("fileName", templateName + "_"+orgId+".html");
+            dto.put("remarks", "Event Template HTML file upload for template: " + templateName);
+            dto.put("documentType", "EVENT_TEMPLATE");
+
+            payload.put("file", fileResource);
+            payload.put("dto", dto);
+            ResponseEntity<?> dmsResponse = restService.cmsRestCall(url.toUriString(), payload, headers,
+                    HttpMethod.POST, orgId);
+            // STEP 3 return the url
+            if (dmsResponse.getStatusCode().is2xxSuccessful() && !ObjectUtils.isEmpty(dmsResponse.getBody())) {
+                return commonUtils.parseAndGetDocumentUrl(dmsResponse);
+            } else {
+                throw new ServiceLevelException("EventOnboardingService", "Failed to upload HTML to DMS. Response: " + dmsResponse, "saveHtmlToFile", "DMSUploadException", "DMS did not return a successful response");
+            }
+        } catch (Exception e) {
+            throw new ServiceLevelException("EventOnboardingService", e.getMessage(), "saveHtmlToFile", e.getClass().getName(), e.getLocalizedMessage());
+        }
+    }
+
+    private static @NonNull ByteArrayResource getByteArrayResource(String templateHtml, Long orgId, String templateName) throws IOException {
+        byte[] htmlBytes = templateHtml.getBytes(StandardCharsets.UTF_8);
+        ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(htmlBytes);
+        // transfer to ByteArrayOutputStream
+        ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+        byteArrayInputStream.transferTo(byteArrayOutputStream);
+        byte[] fileBytes = byteArrayOutputStream.toByteArray();
+        return new ByteArrayResource(fileBytes) {
+            @Override
+            public String getFilename() {
+                return templateName + "_" + orgId + ".html"; // filename MUST be present
+            }
+        };
+    }
+
+    @Transactional
+    public ResponseEntity<?> updateEventTemplate(EventTemplate eventTemplate, Boolean templateUpdate) {
+        if (ObjectUtils.isEmpty(eventTemplate) || ObjectUtils.isEmpty(eventTemplate.getEventTemplateId())) {
+            throw new IllegalArgumentException("Event Template and its ID cannot be null or empty");
+        }
+        try {
+            if (!eventTemplateRepo.existsById(eventTemplate.getEventTemplateId())) {
+                throw new ServiceLevelException("EventOnboardingService", "Event Template not found with ID: " + eventTemplate.getEventTemplateId(), "updateEventTemplate", "NotFoundException", "No Event Template exists with the provided ID");
+            }
+            if (Boolean.TRUE.equals(templateUpdate) && !ObjectUtils.isEmpty(eventTemplate.getTemplateHtml())){
+                // Logic to save the HTML content to a file and set the URL
+                String htmlUrl = saveHtmlToFile(eventTemplate.getTemplateHtml(), eventTemplate.getOrgId(), eventTemplate.getTemplateName());
+                eventTemplate.setTemplateHtmlUrl(htmlUrl);
+            }
+            EventTemplate updatedTemplate = eventTemplateRepo.save(eventTemplate);
+            return ResponseEntity.ok(updatedTemplate);
+        } catch (ServiceLevelException e) {
+            throw e; // Rethrow custom exceptions
+        } catch (Exception e) {
+            throw new ServiceLevelException("EventOnboardingService", e.getMessage(), "updateEventTemplate", e.getClass().getName(), e.getLocalizedMessage());
+        }
+    }
+
+    @Transactional
+    public ResponseEntity<?> addTemplateParams(List<TemplateParam> templateParams, Long eventTemplateId) {
+        if (ObjectUtils.isEmpty(templateParams) || ObjectUtils.isEmpty(eventTemplateId)) {
+            throw new IllegalArgumentException("Template Param and Event Template ID cannot be null or empty");
+        }
+        try {
+            EventTemplate eventTemplate = eventTemplateRepo.findById(eventTemplateId)
+                    .orElseThrow(() -> new ResourceNotFoundException("EventTemplate", "eventTemplateId", eventTemplateId));
+
+            List<TemplateParam> existingParams = eventTemplate.getTemplateParams();
+            existingParams.addAll(templateParams);
+            eventTemplate.setTemplateParams(existingParams);
+
+            EventTemplate updatedTemplate = eventTemplateRepo.save(eventTemplate);
+            return ResponseEntity.ok(updatedTemplate);
+        } catch (Exception e) {
+            throw new ServiceLevelException("EventOnboardingService", e.getMessage(), "addTemplateParam", e.getClass().getName(), e.getLocalizedMessage());
+        }
+    }
+
+    @Transactional
+    public ResponseEntity<?> updateTemplateParams(List<TemplateParam> templateParams, Long eventTemplateId) {
+        if (ObjectUtils.isEmpty(templateParams) || ObjectUtils.isEmpty(eventTemplateId)) {
+            throw new IllegalArgumentException("Template Params and Event Template ID cannot be null or empty");
+        }
+        try {
+            EventTemplate eventTemplate = eventTemplateRepo.findById(eventTemplateId)
+                    .orElseThrow(() -> new ResourceNotFoundException("EventTemplate", "eventTemplateId", eventTemplateId));
+
+            eventTemplate.setTemplateParams(templateParams);
+            EventTemplate updatedTemplate = eventTemplateRepo.save(eventTemplate);
+            return ResponseEntity.ok(updatedTemplate);
+        } catch (Exception e) {
+            throw new ServiceLevelException("EventOnboardingService", e.getMessage(), "updateTemplateParams", e.getClass().getName(), e.getLocalizedMessage());
+        }
+    }
+}

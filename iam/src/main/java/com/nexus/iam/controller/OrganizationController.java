@@ -260,4 +260,36 @@ public class OrganizationController {
         return organizationService.getTodayAppliedHrRequests(orgId, status, page, offset, empName);
     }
 
+    @PostMapping("/event-onboarding/template")
+    public ResponseEntity<?> createEventOnboardingTemplate(@RequestBody String requestBody, @RequestHeader("Authorization") String token) {
+        if (ObjectUtils.isEmpty(token) || !jwtUtil.isValidToken(token)) {
+            return ResponseEntity.status(401).body("Unauthorized: Invalid or missing token");
+        }
+        return organizationService.createEventOnboardingTemplate(requestBody, token);
+    }
+
+    @PutMapping("/event-onboarding/template")
+    public ResponseEntity<?> updateEventOnboardingTemplate(@RequestBody String requestBody, @RequestHeader("Authorization") String token) {
+        if (ObjectUtils.isEmpty(token) || !jwtUtil.isValidToken(token)) {
+            return ResponseEntity.status(401).body("Unauthorized: Invalid or missing token");
+        }
+        return organizationService.updateEventOnboardingTemplate(requestBody, token);
+    }
+
+     @PostMapping("/event-onboarding/template/params")
+    public ResponseEntity<?> addEventOnboardingTemplateParams(@RequestBody String requestBody, @RequestHeader("Authorization") String token) {
+         if (ObjectUtils.isEmpty(token) || !jwtUtil.isValidToken(token)) {
+             return ResponseEntity.status(401).body("Unauthorized: Invalid or missing token");
+         }
+         return organizationService.addEventOnboardingTemplateParams(requestBody, token);
+     }
+
+     @PutMapping("/event-onboarding/template/params")
+    public ResponseEntity<?> updateEventOnboardingTemplateParams(@RequestBody String requestBody, @RequestHeader("Authorization") String token) {
+         if (ObjectUtils.isEmpty(token) || !jwtUtil.isValidToken(token)) {
+             return ResponseEntity.status(401).body("Unauthorized: Invalid or missing token");
+         }
+         return organizationService.updateEventOnboardingTemplateParams(requestBody, token);
+     }
+
 }

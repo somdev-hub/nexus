@@ -38,6 +38,7 @@ public class ConversationService {
      * Create a new conversation (DIRECT 1-1 or GROUP)
      * Single transaction approach - cascade relationships removed so no isolation
      * issues
+     * @deprecated This method is marked as deprecated to indicate that the conversation creation
      */
     @Transactional
     public Conversation createConversation(

@@ -20,17 +20,23 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class RestService {
     private final RestLogsRepo logsRepo;
-
     private final CommonUtils commonUtils;
 
     @SuppressWarnings("unchecked")
     public ResponseEntity<?> cmsRestCall(String url, Object payload, Map<String, String> headers,
-            HttpMethod method, Long orgId) {
+                                         HttpMethod method, Long orgId) {
         ResponseEntity<?> responseEntity = null;
         String requestLog = null;
         try {
+            boolean isMultipartByHeader = headers != null
+                    && headers.entrySet().stream()
+                    .anyMatch(e -> "Content-Type".equalsIgnoreCase(e.getKey())
+                            && e.getValue() != null
+                            && e.getValue().toLowerCase().contains(MediaType.MULTIPART_FORM_DATA_VALUE));
+
             // Check if payload contains multipart files
-            if (payload instanceof Map && containsMultipartFile((Map<String, Object>) payload)) {
+            if (payload instanceof Map
+                    && (containsMultipartFile((Map<String, Object>) payload) || isMultipartByHeader)) {
                 responseEntity = handleMultipartRequest(url, (Map<String, Object>) payload, headers, method);
                 requestLog = serializePayload(payload); // Serialize to JSON even for multipart
             } else {
@@ -42,21 +48,21 @@ public class RestService {
                     HttpStatus.INTERNAL_SERVER_ERROR);
             requestLog = payload != null ? serializePayload(payload) : null;
         } finally {
-            RestLogs log=new RestLogs();
-            log.setRequestUrl(url);
-            log.setHttpMethod(method.name());
-            log.setRequest(requestLog);
+            RestLogs logs = new RestLogs();
+            logs.setRequestUrl(url);
+            logs.setHttpMethod(method.name());
+            logs.setRequest(requestLog);
             if (responseEntity != null) {
                 Object respBody = responseEntity.getBody();
                 String responseString = respBody != null ? respBody.toString() : null;
                 if (responseString != null) {
-                    log.setResponse(commonUtils.jsonValidator(responseString));
+                    logs.setResponse(commonUtils.jsonValidator(responseString));
                 }
-                log.setResponseStatus(responseEntity.getStatusCode().value());
+                logs.setResponseStatus(responseEntity.getStatusCode().value());
             }
-            log.setOrgId(orgId != null ? orgId : 0L);
+            logs.setOrgId(orgId != null ? orgId : 0L);
 
-            logsRepo.save(log);
+            logsRepo.save(logs);
         }
 
         return responseEntity;
@@ -81,7 +87,11 @@ public class RestService {
                 for (Map.Entry<String, Object> entry : map.entrySet()) {
                     if (entry.getValue() instanceof MultipartFile) {
                         safeMap.put(entry.getKey(), "MultipartFile");
-                    } else {
+                    }
+                    else if (entry.getValue() instanceof ByteArrayResource) {
+                        safeMap.put(entry.getKey(), "ByteArrayResource");
+                    }
+                    else {
                         safeMap.put(entry.getKey(), entry.getValue());
                     }
                 }
@@ -97,7 +107,7 @@ public class RestService {
     }
 
     private ResponseEntity<?> handleMultipartRequest(String url, Map<String, Object> payload,
-            Map<String, String> headers, HttpMethod method) throws IOException {
+                                                     Map<String, String> headers, HttpMethod method) throws IOException {
         RestTemplate restTemplate = new RestTemplate();
 
         // Create multipart body
@@ -106,8 +116,7 @@ public class RestService {
         for (Map.Entry<String, Object> entry : payload.entrySet()) {
             Object value = entry.getValue();
 
-            if (value instanceof MultipartFile) {
-                MultipartFile file = (MultipartFile) value;
+            if (value instanceof MultipartFile file) {
                 // Convert MultipartFile to ByteArrayResource and set per-part content type
                 ByteArrayResource fileResource = new ByteArrayResource(file.getBytes()) {
                     @Override
@@ -121,14 +130,21 @@ public class RestService {
                 }
                 HttpEntity<ByteArrayResource> filePart = new HttpEntity<>(fileResource, fileHeaders);
                 body.add(entry.getKey(), filePart);
-            } else {
+            }
+            else if (value instanceof ByteArrayResource resource) {
+                // Handle ByteArrayResource (e.g. in-memory generated files)
+                HttpHeaders fileHeaders = new HttpHeaders();
+                fileHeaders.setContentType(MediaType.TEXT_HTML); // or APPLICATION_OCTET_STREAM
+                HttpEntity<ByteArrayResource> filePart = new HttpEntity<>(resource, fileHeaders);
+                body.add(entry.getKey(), filePart);
+
+            }
+            else {
                 // For non-file parts (DTOs / JSON) ensure the part has application/json
                 // If value is already a String, assume it's JSON; otherwise serialize it
                 String jsonPart;
                 ObjectMapper mapper = new ObjectMapper();
-                if (value instanceof String) {
-                    String s = (String) value;
-                    String current = s;
+                if (value instanceof String current) {
                     String normalized = null;
                     // Try to unwrap quoted/escaped JSON up to several times
                     for (int i = 0; i < 5; i++) {
@@ -175,7 +191,7 @@ public class RestService {
     }
 
     private ResponseEntity<?> handleRegularRequest(String url, Object payload, Map<String, String> headers,
-            HttpMethod method) {
+                                                   HttpMethod method) {
         RestTemplate restTemplate = new RestTemplate();
 
         HttpHeaders httpHeaders = new HttpHeaders();

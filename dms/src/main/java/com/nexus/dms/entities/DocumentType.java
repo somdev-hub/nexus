@@ -21,5 +21,6 @@ public enum DocumentType {
     RESUME,
     COVER_LETTER,
     CHAT_MESSAGE_ATTACHMENT,
+    EVENT_TEMPLATE,
     OTHER
 }

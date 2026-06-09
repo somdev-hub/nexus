@@ -199,6 +199,12 @@ public class WebConstants {
     @Value("${cms.chat.presence.batch.url}")
     private String cmsChatPresenceBatchUrl;
 
+    @Value("${event.onboarding.template.url}")
+    private String eventOnboardingTemplateUrl;
+
+    @Value("${event.onboarding.template.params.url}")
+    private String eventOnboardingTemplateParamsUrl;
+
     // Keycloak URLs
     public String getKeycloakAdminUrl() {
         return keycloakServerUrl + "/admin/realms/" + keycloakRealm;

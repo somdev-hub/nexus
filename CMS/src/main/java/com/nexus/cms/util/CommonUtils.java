@@ -1,8 +1,12 @@
 package com.nexus.cms.util;
 
-import java.util.HashMap;
-import java.util.Map;
-
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.nexus.cms.chat.enums.AttachmentType;
+import com.nexus.cms.payload.RestPayload;
+import com.nexus.cms.payload.TokenPayloadDto;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -10,18 +14,15 @@ import org.springframework.util.ObjectUtils;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.util.UriComponentsBuilder;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-//import com.nexus.hr.model.entities.WOWOConfig;
-import com.nexus.cms.chat.enums.AttachmentType;
-import com.nexus.cms.payload.RestPayload;
-import com.nexus.cms.payload.TokenPayloadDto;
+import java.util.HashMap;
+import java.util.Map;
 
+//import com.nexus.hr.model.entities.WOWOConfig;
 //import com.nexus.hr.service.interfaces.WOWOConfigService;
-import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class CommonUtils {
 
     private final WebConstants webConstants;
@@ -135,7 +136,7 @@ public class CommonUtils {
     }
 
     public RestPayload buildRestPayload(String url, Map<String, String> queriesParams,
-            Map<Integer, String> pathVariables, String headerType) {
+                                        Map<Integer, String> pathVariables, String headerType) {
         RestPayload restPayload = new RestPayload();
         UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(url);
 
@@ -208,5 +209,22 @@ public class CommonUtils {
             case "application/zip" -> AttachmentType.ZIP;
             default -> AttachmentType.OTHER;
         };
+    }
+
+    public String parseAndGetDocumentUrl(ResponseEntity<?> dmsResponse) {
+        try {
+            if (dmsResponse == null || !dmsResponse.getStatusCode().is2xxSuccessful() || dmsResponse.getBody() == null) {
+                return "";
+            }
+            @SuppressWarnings("unchecked")
+            Map<String, String> responseBody = (Map<String, String>) dmsResponse.getBody();
+            if (responseBody != null && responseBody.containsKey("documentUrl")) {
+                return responseBody.get("documentUrl");
+            }
+            return "";
+        } catch (Exception e) {
+            log.error("Error parsing DMS response to extract document URL", e);
+            return "";
+        }
     }
 }

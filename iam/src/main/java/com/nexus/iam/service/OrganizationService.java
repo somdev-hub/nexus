@@ -66,4 +66,12 @@ public interface OrganizationService {
     ResponseEntity<?> getHeroAnalytics(Long orgId);
 
     ResponseEntity<?> getTodayAppliedHrRequests(Long orgId, String status, Integer page, Integer offset, String empName);
+
+    ResponseEntity<?> createEventOnboardingTemplate(String requestBody, String token);
+
+    ResponseEntity<?> updateEventOnboardingTemplate(String requestBody, String token);
+
+    ResponseEntity<?> addEventOnboardingTemplateParams(String requestBody, String token);
+
+    ResponseEntity<?> updateEventOnboardingTemplateParams(String requestBody, String token);
 }

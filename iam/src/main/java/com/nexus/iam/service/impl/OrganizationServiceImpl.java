@@ -1337,4 +1337,120 @@ public class OrganizationServiceImpl implements OrganizationService {
 
         return response;
     }
+
+    @Override
+    public ResponseEntity<?> createEventOnboardingTemplate(String requestBody, String token) {
+        if (ObjectUtils.isEmpty(requestBody)) {
+            throw new IllegalArgumentException("Request body cannot be null or empty");
+        }
+        ResponseEntity<?> response;
+        try {
+            UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getEventOnboardingTemplateUrl());
+            Map<String, String> headers = commonUtils.buildJsonHeaders(token);
+            response = restService.iamRestCall(builder.toUriString(), requestBody, headers, HttpMethod.POST, null);
+            if (!response.getStatusCode().is2xxSuccessful() || ObjectUtils.isEmpty(response.getBody())) {
+                throw new ServiceLevelException(
+                        "OrganizationServiceImpl",
+                        "Failed to create event onboarding template: External API returned status: " + response.getStatusCode(),
+                        "createEventOnboardingTemplate",
+                        "API_ERROR",
+                        response.getBody() != null ? response.getBody().toString() : "External API returned status: " + response.getStatusCode());
+            }
+            return response;
+        } catch (RuntimeException e) {
+            throw new ServiceLevelException(
+                    "OrganizationServiceImpl",
+                    "Failed to create event onboarding template: " + e.getMessage(),
+                    "createEventOnboardingTemplate",
+                    e.getClass().getSimpleName(),
+                    e.getLocalizedMessage());
+        }
+    }
+
+    @Override
+    public ResponseEntity<?> updateEventOnboardingTemplate(String requestBody, String token) {
+        if (ObjectUtils.isEmpty(requestBody)) {
+            throw new IllegalArgumentException("Request body cannot be null or empty");
+        }
+        ResponseEntity<?> response;
+        try {
+            UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getEventOnboardingTemplateUrl());
+            Map<String, String> headers = commonUtils.buildJsonHeaders(token);
+            response = restService.iamRestCall(builder.toUriString(), requestBody, headers, HttpMethod.PUT, null);
+            if (!response.getStatusCode().is2xxSuccessful() || ObjectUtils.isEmpty(response.getBody())) {
+                throw new ServiceLevelException(
+                        "OrganizationServiceImpl",
+                        "Failed to update event onboarding template: External API returned status: " + response.getStatusCode(),
+                        "updateEventOnboardingTemplate",
+                        "API_ERROR",
+                        response.getBody() != null ? response.getBody().toString() : "External API returned status: " + response.getStatusCode());
+            }
+            return response;
+        } catch (RuntimeException e) {
+            throw new ServiceLevelException(
+                    "OrganizationServiceImpl",
+                    "Failed to update event onboarding template: " + e.getMessage(),
+                    "updateEventOnboardingTemplate",
+                    e.getClass().getSimpleName(),
+                    e.getLocalizedMessage());
+        }
+    }
+
+    @Override
+    public ResponseEntity<?> addEventOnboardingTemplateParams(String requestBody, String token) {
+        if (ObjectUtils.isEmpty(requestBody)) {
+            throw new IllegalArgumentException("Request body cannot be null or empty");
+        }
+        ResponseEntity<?> response;
+        try {
+            UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getEventOnboardingTemplateParamsUrl());
+            Map<String, String> headers = commonUtils.buildJsonHeaders(token);
+            response = restService.iamRestCall(builder.toUriString(), requestBody, headers, HttpMethod.POST, null);
+            if (!response.getStatusCode().is2xxSuccessful() || ObjectUtils.isEmpty(response.getBody())) {
+                throw new ServiceLevelException(
+                        "OrganizationServiceImpl",
+                        "Failed to add event onboarding template parameters: External API returned status: " + response.getStatusCode(),
+                        "addEventOnboardingTemplateParams",
+                        "API_ERROR",
+                        response.getBody() != null ? response.getBody().toString() : "External API returned status: " + response.getStatusCode());
+            }
+        } catch (RuntimeException e) {
+            throw new ServiceLevelException(
+                    "OrganizationServiceImpl",
+                    "Failed to add event onboarding template parameters: " + e.getMessage(),
+                    "addEventOnboardingTemplateParams",
+                    e.getClass().getSimpleName(),
+                    e.getLocalizedMessage());
+        }
+        return response;
+    }
+
+    @Override
+    public ResponseEntity<?> updateEventOnboardingTemplateParams(String requestBody, String token) {
+        if (ObjectUtils.isEmpty(requestBody)) {
+            throw new IllegalArgumentException("Request body cannot be null or empty");
+        }
+        ResponseEntity<?> response;
+        try {
+            UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getEventOnboardingTemplateParamsUrl());
+            Map<String, String> headers = commonUtils.buildJsonHeaders(token);
+            response = restService.iamRestCall(builder.toUriString(), requestBody, headers, HttpMethod.PUT, null);
+            if (!response.getStatusCode().is2xxSuccessful() || ObjectUtils.isEmpty(response.getBody())) {
+                throw new ServiceLevelException(
+                        "OrganizationServiceImpl",
+                        "Failed to update event onboarding template parameters: External API returned status: " + response.getStatusCode(),
+                        "updateEventOnboardingTemplateParams",
+                        "API_ERROR",
+                        response.getBody() != null ? response.getBody().toString() : "External API returned status: " + response.getStatusCode());
+            }
+        } catch (RuntimeException e) {
+            throw new ServiceLevelException(
+                    "OrganizationServiceImpl",
+                    "Failed to update event onboarding template parameters: " + e.getMessage(),
+                    "updateEventOnboardingTemplateParams",
+                    e.getClass().getSimpleName(),
+                    e.getLocalizedMessage());
+        }
+        return response;
+    }
 }

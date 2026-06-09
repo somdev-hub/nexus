@@ -121,8 +121,7 @@ public class MessageServiceImpl implements MessageService {
                     ResponseEntity<?> dmsResponse = restService.cmsRestCall(url.toUriString(), payload, headers,
                             HttpMethod.POST, chatConversation.getOrgId());
                     if (dmsResponse.getStatusCode().is2xxSuccessful() && !ObjectUtils.isEmpty(dmsResponse.getBody())) {
-                        JSONObject dmsResponseBody = new JSONObject(dmsResponse.getBody().toString());
-                        String documentUrl = dmsResponseBody.optString("documentUrl");
+                        String documentUrl = commonUtils.parseAndGetDocumentUrl(dmsResponse);
                         ChatMessageAttachment chatMessageAttachment = new ChatMessageAttachment();
                         chatMessageAttachment.setChatMessage(finalChatMessage);
                         chatMessageAttachment.setFilePath(documentUrl);
