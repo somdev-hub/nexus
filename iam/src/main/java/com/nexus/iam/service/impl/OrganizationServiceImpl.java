@@ -1300,8 +1300,8 @@ public class OrganizationServiceImpl implements OrganizationService {
         }
         ResponseEntity<?> response;
         try {
-            Long empId=null;
-            if (!ObjectUtils.isEmpty(empName)){
+            Long empId = null;
+            if (!ObjectUtils.isEmpty(empName)) {
                 Optional<User> user = userRepository.findByName(empName);
                 if (user.isPresent()) {
                     empId = user.get().getId();
@@ -1314,7 +1314,7 @@ public class OrganizationServiceImpl implements OrganizationService {
                     .queryParam("status", status)
                     .queryParam("page", page)
                     .queryParam("offset", offset);
-            if (!ObjectUtils.isEmpty(empName)){
+            if (!ObjectUtils.isEmpty(empName)) {
                 builder.queryParam("empId", empId);
             }
             response = restService.iamRestCall(builder.toUriString(), null, Map.of(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE), HttpMethod.GET, null);
@@ -1448,6 +1448,93 @@ public class OrganizationServiceImpl implements OrganizationService {
                     "OrganizationServiceImpl",
                     "Failed to update event onboarding template parameters: " + e.getMessage(),
                     "updateEventOnboardingTemplateParams",
+                    e.getClass().getSimpleName(),
+                    e.getLocalizedMessage());
+        }
+        return response;
+    }
+
+    @Override
+    public ResponseEntity<?> getEventOnboardingTemplates(Long orgId) {
+        if (ObjectUtils.isEmpty(orgId)) {
+            throw new IllegalArgumentException("Organization ID is required");
+        }
+        ResponseEntity<?> response;
+        try {
+            UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getEventOnboardingTemplateUrl())
+                    .queryParam("orgId", orgId);
+            response = restService.iamRestCall(builder.toUriString(), null, Map.of(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE), HttpMethod.GET, null);
+            if (!response.getStatusCode().is2xxSuccessful() || ObjectUtils.isEmpty(response.getBody())) {
+                throw new ServiceLevelException(
+                        "OrganizationServiceImpl",
+                        "Failed to get event onboarding templates: External API returned status: " + response.getStatusCode(),
+                        "getEventOnboardingTemplates",
+                        "API_ERROR",
+                        response.getBody() != null ? response.getBody().toString() : "External API returned status: " + response.getStatusCode());
+            }
+        } catch (RuntimeException e) {
+            throw new ServiceLevelException(
+                    "OrganizationServiceImpl",
+                    "Failed to get event onboarding templates: " + e.getMessage(),
+                    "getEventOnboardingTemplates",
+                    e.getClass().getSimpleName(),
+                    e.getLocalizedMessage());
+        }
+        return response;
+    }
+
+    @Override
+    public ResponseEntity<?> getEventOnboardingTemplateDetails(Long eventTemplateId) {
+        if (ObjectUtils.isEmpty(eventTemplateId)) {
+            throw new IllegalArgumentException("Event Template ID is required");
+        }
+        ResponseEntity<?> response;
+        try {
+            UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getEventOnboardingTemplateUrl());
+            response = restService.iamRestCall(builder.toUriString() + "/" + eventTemplateId, null, Map.of(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE), HttpMethod.GET, null);
+            if (!response.getStatusCode().is2xxSuccessful() || ObjectUtils.isEmpty(response.getBody())) {
+                throw new ServiceLevelException(
+                        "OrganizationServiceImpl",
+                        "Failed to get event onboarding template details: External API returned status: " + response.getStatusCode(),
+                        "getEventOnboardingTemplateDetails",
+                        "API_ERROR",
+                        response.getBody() != null ? response.getBody().toString() : "External API returned status: " + response.getStatusCode());
+            }
+        } catch (RuntimeException e) {
+            throw new ServiceLevelException(
+                    "OrganizationServiceImpl",
+                    "Failed to get event onboarding template details: " + e.getMessage(),
+                    "getEventOnboardingTemplateDetails",
+                    e.getClass().getSimpleName(),
+                    e.getLocalizedMessage());
+        }
+        return response;
+    }
+
+    @Override
+    public ResponseEntity<?> getEventOnboardingTemplateDetailsByName(Long orgId, String templateName) {
+        if (ObjectUtils.isEmpty(orgId) || ObjectUtils.isEmpty(templateName)) {
+            throw new IllegalArgumentException("Organization ID and Template Name are required");
+        }
+        ResponseEntity<?> response;
+        try {
+            UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getEventOnboardingTemplateUrl() + "/name")
+                    .queryParam("templateName", templateName)
+                    .queryParam("orgId", orgId);
+            response = restService.iamRestCall(builder.toUriString(), null, Map.of(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE), HttpMethod.GET, null);
+            if (!response.getStatusCode().is2xxSuccessful() || ObjectUtils.isEmpty(response.getBody())) {
+                throw new ServiceLevelException(
+                        "OrganizationServiceImpl",
+                        "Failed to get event onboarding template details by name: External API returned status: " + response.getStatusCode(),
+                        "getEventOnboardingTemplateDetailsByName",
+                        "API_ERROR",
+                        response.getBody() != null ? response.getBody().toString() : "External API returned status: " + response.getStatusCode());
+            }
+        } catch (RuntimeException e) {
+            throw new ServiceLevelException(
+                    "OrganizationServiceImpl",
+                    "Failed to get event onboarding template details by name: " + e.getMessage(),
+                    "getEventOnboardingTemplateDetailsByName",
                     e.getClass().getSimpleName(),
                     e.getLocalizedMessage());
         }

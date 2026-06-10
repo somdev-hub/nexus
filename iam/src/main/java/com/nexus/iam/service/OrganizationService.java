@@ -74,4 +74,10 @@ public interface OrganizationService {
     ResponseEntity<?> addEventOnboardingTemplateParams(String requestBody, String token);
 
     ResponseEntity<?> updateEventOnboardingTemplateParams(String requestBody, String token);
+
+    ResponseEntity<?> getEventOnboardingTemplates(Long orgId);
+
+    ResponseEntity<?> getEventOnboardingTemplateDetails(Long eventTemplateId);
+
+    ResponseEntity<?> getEventOnboardingTemplateDetailsByName(Long orgId, String templateName);
 }

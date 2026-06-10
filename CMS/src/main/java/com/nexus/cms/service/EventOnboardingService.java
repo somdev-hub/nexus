@@ -4,14 +4,15 @@ import com.nexus.cms.exception.ResourceNotFoundException;
 import com.nexus.cms.exception.ServiceLevelException;
 import com.nexus.cms.model.entities.EventTemplate;
 import com.nexus.cms.model.entities.TemplateParam;
+import com.nexus.cms.payload.ShortEventTemplatePayload;
 import com.nexus.cms.repository.EventTemplateRepo;
 import com.nexus.cms.util.CommonConstants;
 import com.nexus.cms.util.CommonUtils;
 import com.nexus.cms.util.RestService;
 import com.nexus.cms.util.WebConstants;
 import lombok.RequiredArgsConstructor;
-import org.json.JSONObject;
 import org.jspecify.annotations.NonNull;
+import org.modelmapper.ModelMapper;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
@@ -37,6 +38,7 @@ public class EventOnboardingService {
     private final WebConstants webConstants;
     private final CommonUtils commonUtils;
     private final RestService restService;
+    private final ModelMapper modelMapper;
 
     @Transactional
     public ResponseEntity<?> addEventTemplate(EventTemplate eventTemplate) {
@@ -161,6 +163,51 @@ public class EventOnboardingService {
             return ResponseEntity.ok(updatedTemplate);
         } catch (Exception e) {
             throw new ServiceLevelException("EventOnboardingService", e.getMessage(), "updateTemplateParams", e.getClass().getName(), e.getLocalizedMessage());
+        }
+    }
+
+    public ResponseEntity<?> getEventTemplates(Long orgId) {
+        if (orgId==null){
+            throw new IllegalArgumentException("Organization ID cannot be null");
+        }
+        try{
+            List<EventTemplate> eventTemplates = eventTemplateRepo.findByOrgIdAndIsActiveTrue(orgId);
+            List<ShortEventTemplatePayload> shortEventTemplatePayloads = eventTemplates.stream().map(template -> {
+                ShortEventTemplatePayload map = modelMapper.map(template, ShortEventTemplatePayload.class);
+                map.setNumberOfParams(ObjectUtils.isEmpty(template.getTemplateParams()) ? 0 : template.getTemplateParams().size());
+                return map;
+            }).toList();
+            return ResponseEntity.ok(shortEventTemplatePayloads);
+        } catch (Exception e) {
+            throw new ServiceLevelException("EventOnboardingService", e.getMessage(), "getEventTemplates", e.getClass().getName(), e.getLocalizedMessage());
+        }
+    }
+
+    public ResponseEntity<?> getEventTemplateById(Long eventTemplateId) {
+        if (eventTemplateId == null) {
+            throw new IllegalArgumentException("Event Template ID cannot be null");
+        }
+        try {
+            EventTemplate eventTemplate = eventTemplateRepo.findById(eventTemplateId)
+                    .orElseThrow(() -> new ResourceNotFoundException("EventTemplate", "eventTemplateId", eventTemplateId));
+            return ResponseEntity.ok(eventTemplate);
+        } catch (Exception e) {
+            throw new ServiceLevelException("EventOnboardingService", e.getMessage(), "getEventTemplateById", e.getClass().getName(), e.getLocalizedMessage());
+        }
+    }
+
+    public ResponseEntity<?> getEventTemplateByName(String templateName, Long orgId) {
+        if (ObjectUtils.isEmpty(templateName) || orgId == null) {
+            throw new IllegalArgumentException("Template Name and Organization ID cannot be null or empty");
+        }
+        try {
+            EventTemplate eventTemplate = eventTemplateRepo.findByTemplateNameAndOrgIdAndIsActiveTrue(templateName, orgId)
+                    .orElseThrow(() -> new ResourceNotFoundException("EventTemplate", "templateName and orgId", templateName + " and " + orgId));
+            ShortEventTemplatePayload map = modelMapper.map(eventTemplate, ShortEventTemplatePayload.class);
+            map.setNumberOfParams(ObjectUtils.isEmpty(eventTemplate.getTemplateParams()) ? 0 : eventTemplate.getTemplateParams().size());
+            return ResponseEntity.ok(map);
+        } catch (Exception e) {
+            throw new ServiceLevelException("EventOnboardingService", e.getMessage(), "getEventTemplateByName", e.getClass().getName(), e.getLocalizedMessage());
         }
     }
 }

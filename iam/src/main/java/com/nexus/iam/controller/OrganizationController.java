@@ -232,8 +232,8 @@ public class OrganizationController {
 
     @GetMapping("/hr-requests/closed")
     public ResponseEntity<?> getClosedHrRequests(@RequestParam Long orgId,
-                                               @RequestParam(value = "page", required = false, defaultValue = "0") Integer page,
-                                               @RequestParam(value = "offset", required = false, defaultValue = "10") Integer offset, @RequestHeader("Authorization") String token) {
+                                                 @RequestParam(value = "page", required = false, defaultValue = "0") Integer page,
+                                                 @RequestParam(value = "offset", required = false, defaultValue = "10") Integer offset, @RequestHeader("Authorization") String token) {
         if (ObjectUtils.isEmpty(token) || !jwtUtil.isValidToken(token)) {
             return ResponseEntity.status(401).body("Unauthorized: Invalid or missing token");
         }
@@ -241,7 +241,7 @@ public class OrganizationController {
     }
 
     @GetMapping("hr-requests/insights")
-    public ResponseEntity<?> getHrRequestsInsights(@RequestParam Long orgId){
+    public ResponseEntity<?> getHrRequestsInsights(@RequestParam Long orgId) {
         return organizationService.getHrRequestInsights(orgId);
     }
 
@@ -276,20 +276,36 @@ public class OrganizationController {
         return organizationService.updateEventOnboardingTemplate(requestBody, token);
     }
 
-     @PostMapping("/event-onboarding/template/params")
+    @PostMapping("/event-onboarding/template/params")
     public ResponseEntity<?> addEventOnboardingTemplateParams(@RequestBody String requestBody, @RequestHeader("Authorization") String token) {
-         if (ObjectUtils.isEmpty(token) || !jwtUtil.isValidToken(token)) {
-             return ResponseEntity.status(401).body("Unauthorized: Invalid or missing token");
-         }
-         return organizationService.addEventOnboardingTemplateParams(requestBody, token);
-     }
+        if (ObjectUtils.isEmpty(token) || !jwtUtil.isValidToken(token)) {
+            return ResponseEntity.status(401).body("Unauthorized: Invalid or missing token");
+        }
+        return organizationService.addEventOnboardingTemplateParams(requestBody, token);
+    }
 
-     @PutMapping("/event-onboarding/template/params")
+    @PutMapping("/event-onboarding/template/params")
     public ResponseEntity<?> updateEventOnboardingTemplateParams(@RequestBody String requestBody, @RequestHeader("Authorization") String token) {
-         if (ObjectUtils.isEmpty(token) || !jwtUtil.isValidToken(token)) {
-             return ResponseEntity.status(401).body("Unauthorized: Invalid or missing token");
-         }
-         return organizationService.updateEventOnboardingTemplateParams(requestBody, token);
-     }
+        if (ObjectUtils.isEmpty(token) || !jwtUtil.isValidToken(token)) {
+            return ResponseEntity.status(401).body("Unauthorized: Invalid or missing token");
+        }
+        return organizationService.updateEventOnboardingTemplateParams(requestBody, token);
+    }
+
+    @GetMapping("/event-onboarding/template")
+    public ResponseEntity<?> getEventOnboardingTemplates(@RequestParam Long orgId) {
+        return organizationService.getEventOnboardingTemplates(orgId);
+    }
+
+    @GetMapping("/event-onboarding/template/{eventTemplateId}")
+    public ResponseEntity<?> getEventOnboardingTemplateDetails(@PathVariable Long eventTemplateId) {
+        return organizationService.getEventOnboardingTemplateDetails(eventTemplateId);
+    }
+
+    @GetMapping("/event-onboarding/template/name")
+    public ResponseEntity<?> getEventOnboardingTemplateDetailsByName(@RequestParam Long orgId, @RequestParam String templateName) {
+        return organizationService.getEventOnboardingTemplateDetailsByName(orgId, templateName);
+    }
+
 
 }

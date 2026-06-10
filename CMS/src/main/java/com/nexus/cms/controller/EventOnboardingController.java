@@ -35,4 +35,19 @@ public class EventOnboardingController {
     public ResponseEntity<?> updateTemplateParams(@RequestBody List<TemplateParam> templateParams, @RequestParam Long eventTemplateId) {
         return eventOnboardingService.updateTemplateParams(templateParams, eventTemplateId);
     }
+
+    @GetMapping("/template")
+    public ResponseEntity<?> getEventTemplates(@RequestParam Long orgId){
+        return eventOnboardingService.getEventTemplates(orgId);
+    }
+
+    @GetMapping("/template/name")
+    public ResponseEntity<?> getEventTemplateByName(@RequestParam String templateName, @RequestParam Long orgId) {
+        return eventOnboardingService.getEventTemplateByName(templateName, orgId);
+    }
+
+    @GetMapping("/template/{eventTemplateId}")
+    public ResponseEntity<?> getEventTemplateById(@PathVariable Long eventTemplateId) {
+        return eventOnboardingService.getEventTemplateById(eventTemplateId);
+    }
 }
