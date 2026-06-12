@@ -2,6 +2,7 @@ package com.nexus.cms.controller;
 
 import com.nexus.cms.model.entities.EventTemplate;
 import com.nexus.cms.model.entities.TemplateParam;
+import com.nexus.cms.payload.MailTriggerDto;
 import com.nexus.cms.service.EventOnboardingService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -49,5 +50,10 @@ public class EventOnboardingController {
     @GetMapping("/template/{eventTemplateId}")
     public ResponseEntity<?> getEventTemplateById(@PathVariable Long eventTemplateId) {
         return eventOnboardingService.getEventTemplateById(eventTemplateId);
+    }
+
+    @PostMapping("/trigger")
+    public ResponseEntity<?> triggerMail(@RequestBody MailTriggerDto mailTriggerDto) {
+        return eventOnboardingService.triggerMail(mailTriggerDto);
     }
 }

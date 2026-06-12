@@ -1368,13 +1368,13 @@ public class OrganizationServiceImpl implements OrganizationService {
     }
 
     @Override
-    public ResponseEntity<?> updateEventOnboardingTemplate(String requestBody, String token) {
+    public ResponseEntity<?> updateEventOnboardingTemplate(String requestBody, Boolean templateUpdate, String token) {
         if (ObjectUtils.isEmpty(requestBody)) {
             throw new IllegalArgumentException("Request body cannot be null or empty");
         }
         ResponseEntity<?> response;
         try {
-            UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getEventOnboardingTemplateUrl());
+            UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getEventOnboardingTemplateUrl()).queryParam("templateUpdate", templateUpdate);
             Map<String, String> headers = commonUtils.buildJsonHeaders(token);
             response = restService.iamRestCall(builder.toUriString(), requestBody, headers, HttpMethod.PUT, null);
             if (!response.getStatusCode().is2xxSuccessful() || ObjectUtils.isEmpty(response.getBody())) {

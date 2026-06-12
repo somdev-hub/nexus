@@ -66,7 +66,7 @@ public class CommonUtils {
 
         // fileNameValidation using regex
         String originalFilename = file.getOriginalFilename();
-        if (originalFilename != null && !originalFilename.matches("^[a-zA-Z0-9._-]+$")) {
+        if (originalFilename != null && !originalFilename.matches("^[a-zA-Z0-9._:\\-]+$")) {
             throw new FileValidationException(
                     "Invalid file name",
                     HttpStatus.BAD_REQUEST,

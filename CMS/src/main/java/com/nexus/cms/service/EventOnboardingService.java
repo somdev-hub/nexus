@@ -4,31 +4,38 @@ import com.nexus.cms.exception.ResourceNotFoundException;
 import com.nexus.cms.exception.ServiceLevelException;
 import com.nexus.cms.model.entities.EventTemplate;
 import com.nexus.cms.model.entities.TemplateParam;
+import com.nexus.cms.payload.MailTriggerDto;
 import com.nexus.cms.payload.ShortEventTemplatePayload;
 import com.nexus.cms.repository.EventTemplateRepo;
 import com.nexus.cms.util.CommonConstants;
 import com.nexus.cms.util.CommonUtils;
 import com.nexus.cms.util.RestService;
 import com.nexus.cms.util.WebConstants;
+import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.NonNull;
 import org.modelmapper.ModelMapper;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
+import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.ObjectUtils;
+import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Consumer;
 
 @Service
 @RequiredArgsConstructor
@@ -39,6 +46,23 @@ public class EventOnboardingService {
     private final CommonUtils commonUtils;
     private final RestService restService;
     private final ModelMapper modelMapper;
+    private final RestTemplate restTemplate;
+    private final JavaMailSender javaMailSender;
+
+    private static @NonNull ByteArrayResource getByteArrayResource(String templateHtml, Long orgId, String templateName) throws IOException {
+        byte[] htmlBytes = templateHtml.getBytes(StandardCharsets.UTF_8);
+        ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(htmlBytes);
+        // transfer to ByteArrayOutputStream
+        ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+        byteArrayInputStream.transferTo(byteArrayOutputStream);
+        byte[] fileBytes = byteArrayOutputStream.toByteArray();
+        return new ByteArrayResource(fileBytes) {
+            @Override
+            public String getFilename() {
+                return templateName + "_" + orgId + "_" + LocalDateTime.now() + ".html"; // filename MUST be present
+            }
+        };
+    }
 
     @Transactional
     public ResponseEntity<?> addEventTemplate(EventTemplate eventTemplate) {
@@ -46,7 +70,7 @@ public class EventOnboardingService {
             throw new IllegalArgumentException("Event Template cannot be null or empty");
         }
         try {
-            if (!ObjectUtils.isEmpty(eventTemplate.getTemplateHtml())){
+            if (!ObjectUtils.isEmpty(eventTemplate.getTemplateHtml())) {
                 // Logic to save the HTML content to a file and set the URL
                 String htmlUrl = saveHtmlToFile(eventTemplate.getTemplateHtml(), eventTemplate.getOrgId(), eventTemplate.getTemplateName());
                 eventTemplate.setTemplateHtmlUrl(htmlUrl);
@@ -59,7 +83,7 @@ public class EventOnboardingService {
     }
 
     private String saveHtmlToFile(String templateHtml, Long orgId, String templateName) {
-        try{
+        try {
             // STEP 1 create a temp file and write templateHtml to that file
             ByteArrayResource fileResource = getByteArrayResource(templateHtml, orgId, templateName);
             // STEP 2 save the file to DMS
@@ -72,7 +96,7 @@ public class EventOnboardingService {
             Map<String, Object> payload = new ConcurrentHashMap<>();
             Map<String, Object> dto = new HashMap<>();
             dto.put("orgId", orgId);
-            dto.put("fileName", templateName + "_"+orgId+".html");
+            dto.put("fileName", templateName + "_" + orgId + "_" + LocalDateTime.now() + ".html");
             dto.put("remarks", "Event Template HTML file upload for template: " + templateName);
             dto.put("documentType", "EVENT_TEMPLATE");
 
@@ -91,41 +115,35 @@ public class EventOnboardingService {
         }
     }
 
-    private static @NonNull ByteArrayResource getByteArrayResource(String templateHtml, Long orgId, String templateName) throws IOException {
-        byte[] htmlBytes = templateHtml.getBytes(StandardCharsets.UTF_8);
-        ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(htmlBytes);
-        // transfer to ByteArrayOutputStream
-        ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-        byteArrayInputStream.transferTo(byteArrayOutputStream);
-        byte[] fileBytes = byteArrayOutputStream.toByteArray();
-        return new ByteArrayResource(fileBytes) {
-            @Override
-            public String getFilename() {
-                return templateName + "_" + orgId + ".html"; // filename MUST be present
-            }
-        };
-    }
-
     @Transactional
     public ResponseEntity<?> updateEventTemplate(EventTemplate eventTemplate, Boolean templateUpdate) {
         if (ObjectUtils.isEmpty(eventTemplate) || ObjectUtils.isEmpty(eventTemplate.getEventTemplateId())) {
             throw new IllegalArgumentException("Event Template and its ID cannot be null or empty");
         }
         try {
-            if (!eventTemplateRepo.existsById(eventTemplate.getEventTemplateId())) {
-                throw new ServiceLevelException("EventOnboardingService", "Event Template not found with ID: " + eventTemplate.getEventTemplateId(), "updateEventTemplate", "NotFoundException", "No Event Template exists with the provided ID");
-            }
-            if (Boolean.TRUE.equals(templateUpdate) && !ObjectUtils.isEmpty(eventTemplate.getTemplateHtml())){
+            EventTemplate savedEventTemplate = eventTemplateRepo.findById(eventTemplate.getEventTemplateId()).orElseThrow(() -> new ResourceNotFoundException("EventTemplate", "eventTemplateId", eventTemplate.getEventTemplateId()));
+            if (Boolean.TRUE.equals(templateUpdate) && !ObjectUtils.isEmpty(eventTemplate.getTemplateHtml())) {
                 // Logic to save the HTML content to a file and set the URL
                 String htmlUrl = saveHtmlToFile(eventTemplate.getTemplateHtml(), eventTemplate.getOrgId(), eventTemplate.getTemplateName());
-                eventTemplate.setTemplateHtmlUrl(htmlUrl);
+                savedEventTemplate.setTemplateHtmlUrl(htmlUrl);
             }
-            EventTemplate updatedTemplate = eventTemplateRepo.save(eventTemplate);
+            setIfExist(eventTemplate.getEventTemplateType(), savedEventTemplate::setEventTemplateType);
+            setIfExist(eventTemplate.getTemplateName(), savedEventTemplate::setTemplateName);
+            setIfExist(eventTemplate.getIsActive(), savedEventTemplate::setIsActive);
+            savedEventTemplate.getTemplateParams().clear(); // Clear existing params to avoid duplication
+            savedEventTemplate.getTemplateParams().addAll(eventTemplate.getTemplateParams()); // Add new params
+            EventTemplate updatedTemplate = eventTemplateRepo.save(savedEventTemplate);
             return ResponseEntity.ok(updatedTemplate);
         } catch (ServiceLevelException e) {
             throw e; // Rethrow custom exceptions
         } catch (Exception e) {
             throw new ServiceLevelException("EventOnboardingService", e.getMessage(), "updateEventTemplate", e.getClass().getName(), e.getLocalizedMessage());
+        }
+    }
+
+    private <T> void setIfExist(T object, Consumer<T> consumer) {
+        if (!ObjectUtils.isEmpty(object)) {
+            consumer.accept(object);
         }
     }
 
@@ -167,10 +185,10 @@ public class EventOnboardingService {
     }
 
     public ResponseEntity<?> getEventTemplates(Long orgId) {
-        if (orgId==null){
+        if (orgId == null) {
             throw new IllegalArgumentException("Organization ID cannot be null");
         }
-        try{
+        try {
             List<EventTemplate> eventTemplates = eventTemplateRepo.findByOrgIdAndIsActiveTrue(orgId);
             List<ShortEventTemplatePayload> shortEventTemplatePayloads = eventTemplates.stream().map(template -> {
                 ShortEventTemplatePayload map = modelMapper.map(template, ShortEventTemplatePayload.class);
@@ -208,6 +226,43 @@ public class EventOnboardingService {
             return ResponseEntity.ok(map);
         } catch (Exception e) {
             throw new ServiceLevelException("EventOnboardingService", e.getMessage(), "getEventTemplateByName", e.getClass().getName(), e.getLocalizedMessage());
+        }
+    }
+
+    public ResponseEntity<?> triggerMail(MailTriggerDto mailTriggerDto) {
+        if (ObjectUtils.isEmpty(mailTriggerDto) || ObjectUtils.isEmpty(mailTriggerDto.getTemplateName()) || ObjectUtils.isEmpty(mailTriggerDto.getOrgId())
+                || ObjectUtils.isEmpty(mailTriggerDto.getRecipientEmails())) {
+            throw new IllegalArgumentException("Mail Trigger DTO, Template Name, Organization ID and Recipient Emails cannot be null or empty");
+        }
+        try{
+            EventTemplate eventTemplate = eventTemplateRepo.findByTemplateNameAndOrgIdAndIsActiveTrue(mailTriggerDto.getTemplateName(), mailTriggerDto.getOrgId())
+                    .orElseThrow(() -> new ResourceNotFoundException("EventTemplate", "templateName and orgId", mailTriggerDto.getTemplateName() + " and " + mailTriggerDto.getOrgId()));
+            Map<String, String> paramMap = new HashMap<>();
+            if (!ObjectUtils.isEmpty(mailTriggerDto.getTemplateParams())) {
+                mailTriggerDto.getTemplateParams().forEach(param -> paramMap.put(param.getKey(), param.getValue()));
+            }
+            String templateHtmlUrl = eventTemplate.getTemplateHtmlUrl();
+            // fetch the html content
+            String templateHtml = restTemplate.getForObject(templateHtmlUrl, String.class);
+            if (ObjectUtils.isEmpty(templateHtml)) {
+                throw new ServiceLevelException("EventOnboardingService", "Failed to fetch template HTML content from URL: " + templateHtmlUrl, "triggerMail", "TemplateFetchException", "DMS did not return template content");
+            }
+            // placeholders are present in this fashion: ${key}
+            for (Map.Entry<String, String> entry : paramMap.entrySet()) {
+                String placeholder = "${" + entry.getKey() + "}";
+                templateHtml = templateHtml.replace(placeholder, entry.getValue());
+            }
+            // trigger the mail with the final HTML content
+            MimeMessage mimeMessage = javaMailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, "utf-8");
+            helper.setText(templateHtml, true); // set to true for HTML content
+            helper.setTo(mailTriggerDto.getRecipientEmails().toArray(new String[0]));
+            helper.setSubject("Notification from " + mailTriggerDto.getTemplateName()); // You can customize the subject as needed
+            javaMailSender.send(mimeMessage);
+            return ResponseEntity.ok("Mail triggered successfully");
+
+        } catch (Exception e) {
+            throw new ServiceLevelException("EventOnboardingService", e.getMessage(), "triggerMail", e.getClass().getName(), e.getLocalizedMessage());
         }
     }
 }

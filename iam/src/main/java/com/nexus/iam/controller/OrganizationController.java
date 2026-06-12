@@ -269,11 +269,11 @@ public class OrganizationController {
     }
 
     @PutMapping("/event-onboarding/template")
-    public ResponseEntity<?> updateEventOnboardingTemplate(@RequestBody String requestBody, @RequestHeader("Authorization") String token) {
+    public ResponseEntity<?> updateEventOnboardingTemplate(@RequestBody String requestBody, @RequestParam(required = false) Boolean templateUpdate, @RequestHeader("Authorization") String token) {
         if (ObjectUtils.isEmpty(token) || !jwtUtil.isValidToken(token)) {
             return ResponseEntity.status(401).body("Unauthorized: Invalid or missing token");
         }
-        return organizationService.updateEventOnboardingTemplate(requestBody, token);
+        return organizationService.updateEventOnboardingTemplate(requestBody, templateUpdate, token);
     }
 
     @PostMapping("/event-onboarding/template/params")
