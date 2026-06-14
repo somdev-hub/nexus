@@ -17,11 +17,13 @@ public class KafkaBacklogService {
 
     private final KafkaBacklogsRepo kafkaBacklogsRepo;
 
-    public void logReceived(String topic, String uuid) {
+    public void logReceived(String topic, String uuid, Long orgId, String templateParam) {
         try {
             KafkaBacklogs kafkaBacklog = new KafkaBacklogs();
             kafkaBacklog.setTopic(topic);
             kafkaBacklog.setUuid(uuid);
+            kafkaBacklog.setOrgId(orgId);
+            kafkaBacklog.setTemplateParam(templateParam);
             kafkaBacklog.setStatus(KafkaStatus.RECEIVED);
             kafkaBacklog.setMessageReceivedAt(new Timestamp(System.currentTimeMillis()));
             kafkaBacklog.setHasProcessed(Boolean.FALSE);

@@ -80,4 +80,10 @@ public interface OrganizationService {
     ResponseEntity<?> getEventOnboardingTemplateDetails(Long eventTemplateId);
 
     ResponseEntity<?> getEventOnboardingTemplateDetailsByName(Long orgId, String templateName);
+
+    ResponseEntity<?> triggerEventOnboardingMail(String payload);
+
+    ResponseEntity<?> getEventOnboardingHits(String templateName, Long orgId);
+
+    ResponseEntity<?> getEventStatusBreakdown(String templateName, Long orgId);
 }

@@ -4,9 +4,11 @@ import com.nexus.cms.exception.ResourceNotFoundException;
 import com.nexus.cms.exception.ServiceLevelException;
 import com.nexus.cms.model.entities.EventTemplate;
 import com.nexus.cms.model.entities.TemplateParam;
+import com.nexus.cms.model.enums.KafkaStatus;
 import com.nexus.cms.payload.MailTriggerDto;
 import com.nexus.cms.payload.ShortEventTemplatePayload;
 import com.nexus.cms.repository.EventTemplateRepo;
+import com.nexus.cms.repository.KafkaBacklogsRepo;
 import com.nexus.cms.util.CommonConstants;
 import com.nexus.cms.util.CommonUtils;
 import com.nexus.cms.util.RestService;
@@ -31,11 +33,10 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -48,6 +49,8 @@ public class EventOnboardingService {
     private final ModelMapper modelMapper;
     private final RestTemplate restTemplate;
     private final JavaMailSender javaMailSender;
+    private final KafkaBacklogService kafkaBacklogService;
+    private final KafkaBacklogsRepo kafkaBacklogsRepo;
 
     private static @NonNull ByteArrayResource getByteArrayResource(String templateHtml, Long orgId, String templateName) throws IOException {
         byte[] htmlBytes = templateHtml.getBytes(StandardCharsets.UTF_8);
@@ -234,9 +237,11 @@ public class EventOnboardingService {
                 || ObjectUtils.isEmpty(mailTriggerDto.getRecipientEmails())) {
             throw new IllegalArgumentException("Mail Trigger DTO, Template Name, Organization ID and Recipient Emails cannot be null or empty");
         }
-        try{
+        UUID uuid = UUID.randomUUID();
+        try {
             EventTemplate eventTemplate = eventTemplateRepo.findByTemplateNameAndOrgIdAndIsActiveTrue(mailTriggerDto.getTemplateName(), mailTriggerDto.getOrgId())
                     .orElseThrow(() -> new ResourceNotFoundException("EventTemplate", "templateName and orgId", mailTriggerDto.getTemplateName() + " and " + mailTriggerDto.getOrgId()));
+            kafkaBacklogService.logReceived(null, uuid.toString(), mailTriggerDto.getOrgId(), mailTriggerDto.getTemplateName());
             Map<String, String> paramMap = new HashMap<>();
             if (!ObjectUtils.isEmpty(mailTriggerDto.getTemplateParams())) {
                 mailTriggerDto.getTemplateParams().forEach(param -> paramMap.put(param.getKey(), param.getValue()));
@@ -259,10 +264,45 @@ public class EventOnboardingService {
             helper.setTo(mailTriggerDto.getRecipientEmails().toArray(new String[0]));
             helper.setSubject("Notification from " + mailTriggerDto.getTemplateName()); // You can customize the subject as needed
             javaMailSender.send(mimeMessage);
+            kafkaBacklogService.logProcessed(null, uuid.toString());
             return ResponseEntity.ok("Mail triggered successfully");
 
         } catch (Exception e) {
+            kafkaBacklogService.logFailed(null, uuid.toString());
             throw new ServiceLevelException("EventOnboardingService", e.getMessage(), "triggerMail", e.getClass().getName(), e.getLocalizedMessage());
+        }
+    }
+
+    public ResponseEntity<?> getEventHits(String templateParam, Long orgId) {
+        if (!eventTemplateRepo.existsByTemplateNameAndOrgIdAndIsActiveTrue(templateParam, orgId)) {
+            throw new ResourceNotFoundException("EventTemplate", "templateParam and orgId", templateParam + " and " + orgId);
+        }
+        List<Object[]> monthlyCountByTemplateParam = kafkaBacklogsRepo.findMonthlyCountByTemplateParam(templateParam);
+        Map<String, Long> monthlyCount = new HashMap<>();
+        for (Object[] row : monthlyCountByTemplateParam) {
+            String month = (String) row[0];
+            Long count = ((Number) row[2]).longValue();
+            monthlyCount.put(month, count);
+        }
+
+        return ResponseEntity.ok(monthlyCount);
+    }
+
+    public ResponseEntity<?> getEventStatusBreakdown(String templateName, Long orgId) {
+        try {
+            if (!eventTemplateRepo.existsByTemplateNameAndOrgIdAndIsActiveTrue(templateName, orgId)) {
+                throw new ResourceNotFoundException("EventTemplate", "templateName and orgId", templateName + " and " + orgId);
+            }
+
+            Map<String, Long> statusMap = Arrays.stream(KafkaStatus.values())
+                    .collect(Collectors.toMap(Enum::name, s -> 0L));  // seed all 4 with 0
+
+            kafkaBacklogsRepo.findStatusCountByTemplateParamAndOrgId(templateName, orgId)
+                    .forEach(row -> statusMap.put((String) row[0], ((Number) row[1]).longValue()));
+
+            return ResponseEntity.ok(statusMap);
+        } catch (Exception e) {
+            throw new ServiceLevelException("EventOnboardingService", e.getMessage(), "getEventStatusBreakdown", e.getClass().getName(), e.getLocalizedMessage());
         }
     }
 }

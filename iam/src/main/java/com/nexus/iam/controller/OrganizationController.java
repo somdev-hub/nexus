@@ -8,6 +8,7 @@ import com.nexus.iam.repository.UserRepository;
 import com.nexus.iam.security.JwtUtil;
 import com.nexus.iam.service.OrganizationService;
 import lombok.RequiredArgsConstructor;
+import org.checkerframework.checker.index.qual.GTENegativeOne;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.ObjectUtils;
@@ -307,5 +308,19 @@ public class OrganizationController {
         return organizationService.getEventOnboardingTemplateDetailsByName(orgId, templateName);
     }
 
+    @PostMapping("/event-onboarding/trigger")
+    public ResponseEntity<?> triggerEventOnboardingMail(@RequestBody String payload){
+        return organizationService.triggerEventOnboardingMail(payload);
+    }
+
+    @GetMapping("/event-onboarding/hits")
+    public ResponseEntity<?> getEventOnboardingHits(@RequestParam String templateName, @RequestParam Long orgId) {
+        return organizationService.getEventOnboardingHits(templateName, orgId);
+    }
+
+    @GetMapping("/event-status-breakdown")
+    public ResponseEntity<?> getEventStatusBreakdown(@RequestParam String templateName, @RequestParam Long orgId) {
+        return organizationService.getEventStatusBreakdown(templateName, orgId);
+    }
 
 }

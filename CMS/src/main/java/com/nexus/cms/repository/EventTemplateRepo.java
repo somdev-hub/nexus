@@ -12,4 +12,8 @@ public interface EventTemplateRepo extends JpaRepository<EventTemplate, Long> {
     List<EventTemplate> findByOrgIdAndIsActiveTrue(Long orgId);
 
     Optional<EventTemplate> findByTemplateNameAndOrgIdAndIsActiveTrue(String templateName, Long orgId);
+
+    boolean existsByTemplateNameAndOrgIdAndIsActiveTrue(String templateName, Long orgId);
+
+    List<EventTemplate> findByOrgId(Long orgId);
 }

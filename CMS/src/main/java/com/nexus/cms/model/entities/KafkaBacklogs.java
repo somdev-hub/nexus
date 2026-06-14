@@ -19,6 +19,10 @@ public class KafkaBacklogs {
 
     private String topic;
 
+    private Long orgId;
+
+    private String templateParam;
+
     @Column(nullable = false, unique = true)
     private String uuid;
 

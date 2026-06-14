@@ -184,11 +184,13 @@ public class KafkaConsumerService {
             Map<String, Object> payload = objectMapper.readValue(trimmedMessage, Map.class);
 
             if (payload.containsKey("commsType") && payload.containsKey("uuid") && payload.containsKey("topic")
-                    && payload.get("commsType").equals("email")) {
+                    && payload.get("commsType").equals("email") && payload.containsKey("orgId")) {
                 log.info("Processing candidate selection email with key: {}, offset: {}", key, offset);
                 kafkaBacklogService.logReceived(
                         payload.get("topic").toString(),
-                        payload.get("uuid").toString());
+                        payload.get("uuid").toString(),
+                        Long.valueOf(payload.get("orgId").toString()),
+                        payload.getOrDefault("templateParam", "").toString());
                 emailCommunicationService.handleEmailCommunication(trimmedMessage);
                 acknowledgment.acknowledge();
             } else {
@@ -233,14 +235,16 @@ public class KafkaConsumerService {
             Map<String, Object> payload = objectMapper.readValue(trimmedMessage, Map.class);
 
             if (payload.containsKey("commsType") && payload.containsKey("uuid") && payload.containsKey("topic")
-                    && payload.get("commsType").equals("email")) {
+                    && payload.get("commsType").equals("email") && payload.containsKey("orgId")) {
                 log.info("Processing salary payment email with key: {}, offset: {}", key, offset);
                 String topic = payload.get("topic").toString();
                 String uuid = payload.get("uuid").toString();
+                Long orgId = Long.valueOf(payload.get("orgId").toString());
+                String templateParam = payload.getOrDefault("templateParam", "").toString();
 
                 // Log backlog in separate transaction to avoid aborting main transaction if it fails
                 try {
-                    kafkaBacklogService.logReceived(topic, uuid);
+                    kafkaBacklogService.logReceived(topic, uuid, orgId, templateParam);
                 } catch (Exception e) {
                     log.error(
                             "Failed to log kafka backlog for topic: {} and uuid: {}. Continuing with email processing.",

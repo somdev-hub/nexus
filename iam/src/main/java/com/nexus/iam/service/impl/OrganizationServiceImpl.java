@@ -1540,4 +1540,92 @@ public class OrganizationServiceImpl implements OrganizationService {
         }
         return response;
     }
+
+    @Override
+    public ResponseEntity<?> triggerEventOnboardingMail(String payload) {
+        if (ObjectUtils.isEmpty(payload)) {
+            throw new IllegalArgumentException("Payload cannot be null or empty");
+        }
+        ResponseEntity<?> response;
+        try {
+            UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getTriggerEventOnboardingMailUrl());
+            response = restService.iamRestCall(builder.toUriString(), payload, Map.of(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE), HttpMethod.POST, null);
+            if (!response.getStatusCode().is2xxSuccessful() || ObjectUtils.isEmpty(response.getBody())) {
+                throw new ServiceLevelException(
+                        "OrganizationServiceImpl",
+                        "Failed to trigger event onboarding mail: External API returned status: " + response.getStatusCode(),
+                        "triggerEventOnboardingMail",
+                        "API_ERROR",
+                        response.getBody() != null ? response.getBody().toString() : "External API returned status: " + response.getStatusCode());
+            }
+        } catch (RuntimeException e) {
+            throw new ServiceLevelException(
+                    "OrganizationServiceImpl",
+                    "Failed to trigger event onboarding mail: " + e.getMessage(),
+                    "triggerEventOnboardingMail",
+                    e.getClass().getSimpleName(),
+                    e.getLocalizedMessage());
+        }
+        return response;
+    }
+
+    @Override
+    public ResponseEntity<?> getEventOnboardingHits(String templateName, Long orgId) {
+        if (ObjectUtils.isEmpty(templateName) || ObjectUtils.isEmpty(orgId)) {
+            throw new IllegalArgumentException("Template Name and Organization ID are required");
+        }
+        ResponseEntity<?> response;
+        try {
+            UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getEventOnboardingHitsUrl())
+                    .queryParam("templateName", templateName)
+                    .queryParam("orgId", orgId);
+            response = restService.iamRestCall(builder.toUriString(), null, Map.of(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE), HttpMethod.GET, null);
+            if (!response.getStatusCode().is2xxSuccessful() || ObjectUtils.isEmpty(response.getBody())) {
+                throw new ServiceLevelException(
+                        "OrganizationServiceImpl",
+                        "Failed to get event onboarding hits: External API returned status: " + response.getStatusCode(),
+                        "getEventOnboardingHits",
+                        "API_ERROR",
+                        response.getBody() != null ? response.getBody().toString() : "External API returned status: " + response.getStatusCode());
+            }
+        } catch (RuntimeException e) {
+            throw new ServiceLevelException(
+                    "OrganizationServiceImpl",
+                    "Failed to get event onboarding hits: " + e.getMessage(),
+                    "getEventOnboardingHits",
+                    e.getClass().getSimpleName(),
+                    e.getLocalizedMessage());
+        }
+        return response;
+    }
+
+    @Override
+    public ResponseEntity<?> getEventStatusBreakdown(String templateName, Long orgId) {
+        if (ObjectUtils.isEmpty(templateName) || ObjectUtils.isEmpty(orgId)) {
+            throw new IllegalArgumentException("Template Name and Organization ID are required");
+        }
+        ResponseEntity<?> response;
+        try {
+            UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getEventStatusBreakdownUrl())
+                    .queryParam("templateName", templateName)
+                    .queryParam("orgId", orgId);
+            response = restService.iamRestCall(builder.toUriString(), null, Map.of(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE), HttpMethod.GET, null);
+            if (!response.getStatusCode().is2xxSuccessful() || ObjectUtils.isEmpty(response.getBody())) {
+                throw new ServiceLevelException(
+                        "OrganizationServiceImpl",
+                        "Failed to get event status breakdown: External API returned status: " + response.getStatusCode(),
+                        "getEventStatusBreakdown",
+                        "API_ERROR",
+                        response.getBody() != null ? response.getBody().toString() : "External API returned status: " + response.getStatusCode());
+            }
+        } catch (RuntimeException e) {
+            throw new ServiceLevelException(
+                    "OrganizationServiceImpl",
+                    "Failed to get event status breakdown: " + e.getMessage(),
+                    "getEventStatusBreakdown",
+                    e.getClass().getSimpleName(),
+                    e.getLocalizedMessage());
+        }
+        return response;
+    }
 }

@@ -56,4 +56,14 @@ public class EventOnboardingController {
     public ResponseEntity<?> triggerMail(@RequestBody MailTriggerDto mailTriggerDto) {
         return eventOnboardingService.triggerMail(mailTriggerDto);
     }
+
+    @GetMapping("/event-hits")
+    public ResponseEntity<?> getEventHits(@RequestParam String templateName, @RequestParam Long orgId){
+        return eventOnboardingService.getEventHits(templateName, orgId);
+    }
+
+    @GetMapping("/event-status-breakdown")
+    public ResponseEntity<?> getEventStatusBreakdown(@RequestParam String templateName, @RequestParam Long orgId){
+        return eventOnboardingService.getEventStatusBreakdown(templateName, orgId);
+    }
 }

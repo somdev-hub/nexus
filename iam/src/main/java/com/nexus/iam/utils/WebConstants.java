@@ -205,6 +205,15 @@ public class WebConstants {
     @Value("${event.onboarding.template.params.url}")
     private String eventOnboardingTemplateParamsUrl;
 
+    @Value("${event.onboarding.trigger.mail.url}")
+    private String triggerEventOnboardingMailUrl;
+
+    @Value("${event.onboarding.event.hits.url}")
+    private String eventOnboardingHitsUrl;
+
+    @Value("${event.onboarding.event.status.breakdown.url}")
+    private String eventStatusBreakdownUrl;
+
     // Keycloak URLs
     public String getKeycloakAdminUrl() {
         return keycloakServerUrl + "/admin/realms/" + keycloakRealm;
