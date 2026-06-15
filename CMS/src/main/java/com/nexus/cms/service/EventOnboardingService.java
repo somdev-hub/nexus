@@ -252,17 +252,19 @@ public class EventOnboardingService {
             if (ObjectUtils.isEmpty(templateHtml)) {
                 throw new ServiceLevelException("EventOnboardingService", "Failed to fetch template HTML content from URL: " + templateHtmlUrl, "triggerMail", "TemplateFetchException", "DMS did not return template content");
             }
+            String subject = eventTemplate.getEventSubject();
             // placeholders are present in this fashion: ${key}
             for (Map.Entry<String, String> entry : paramMap.entrySet()) {
                 String placeholder = "${" + entry.getKey() + "}";
                 templateHtml = templateHtml.replace(placeholder, entry.getValue());
+                subject = subject.replace(placeholder, entry.getValue());
             }
             // trigger the mail with the final HTML content
             MimeMessage mimeMessage = javaMailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, "utf-8");
             helper.setText(templateHtml, true); // set to true for HTML content
             helper.setTo(mailTriggerDto.getRecipientEmails().toArray(new String[0]));
-            helper.setSubject("Notification from " + mailTriggerDto.getTemplateName()); // You can customize the subject as needed
+            helper.setSubject(subject); // You can customize the subject as needed
             javaMailSender.send(mimeMessage);
             kafkaBacklogService.logProcessed(null, uuid.toString());
             return ResponseEntity.ok("Mail triggered successfully");

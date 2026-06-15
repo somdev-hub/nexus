@@ -14,6 +14,7 @@ import com.nexus.hr.repository.HrEntityRepo;
 import com.nexus.hr.repository.HrRequestRepo;
 import com.nexus.hr.repository.PayrollRepo;
 import com.nexus.hr.repository.PositionRepository;
+import com.nexus.hr.service.interfaces.CommsService;
 import com.nexus.hr.service.interfaces.CommunicationService;
 import com.nexus.hr.service.interfaces.HrService;
 import com.nexus.hr.utils.*;
@@ -61,6 +62,7 @@ public class HrServiceImpl implements HrService {
     private final LeaveAllocationUtils leaveAllocationUtils;
     private final PositionRepository positionRepository;
     private final PayrollRepo payrollRepo;
+    private final CommsService commsService;
 
     private static @NonNull AttendanceStatus getAttendanceStatus(TimeManagement attendance) {
         AttendanceStatus status;
@@ -299,31 +301,42 @@ public class HrServiceImpl implements HrService {
 
             // Send communication email and Kafka message
             try {
-                EmailCommunicationDto emailCommunicationDto = new EmailCommunicationDto();
-                emailCommunicationDto.setSenderEmail("hr@nexus.com");
-                emailCommunicationDto.setRecipientEmails(List.of(hrInitRequestDto.getPersonalEmail()));
-                emailCommunicationDto.setSubject("Update on your application");
-                emailCommunicationDto.setBody(communicationTemplateBuilder.buildHrInitEmailTemplate());
+//                EmailCommunicationDto emailCommunicationDto = new EmailCommunicationDto();
+//                emailCommunicationDto.setSenderEmail("hr@nexus.com");
+//                emailCommunicationDto.setRecipientEmails(List.of(hrInitRequestDto.getPersonalEmail()));
+//                emailCommunicationDto.setSubject("Update on your application");
+//                emailCommunicationDto.setBody(communicationTemplateBuilder.buildHrInitEmailTemplate());
+//
+//                Map<String, Object> placeholders = new HashMap<>();
+//                placeholders.put("name", hrInitRequestDto.getFullName());
+//                placeholders.put("employeeId", savedHrEntity.getEmployeeId());
+//                placeholders.put("department", hrInitRequestDto.getDepartment());
+//                placeholders.put("position", hrInitRequestDto.getTitle());
+//                placeholders.put("dateOfJoining", savedHrEntity.getDateOfJoining().toString());
+//                placeholders.put("organizationName", "Nexus Corporation");
+//                emailCommunicationDto.setPlaceholders(placeholders);
+//
+//                emailCommunicationDto.setAttachments(List.of(
+//                        new EmailAttachmentDto("Joining_Letter_" + savedHrEntity.getEmployeeId() + ".pdf",
+//                                "application/pdf", joiningLetterUrl),
+//                        new EmailAttachmentDto("Letter_Of_Intent_" + savedHrEntity.getEmployeeId() + ".pdf",
+//                                "application/pdf", letterOfIntentUrl),
+//                        new EmailAttachmentDto("Compensation_Card_" + savedHrEntity.getEmployeeId() + ".pdf",
+//                                "application/pdf", compensationCardUrl)));
+//
+//                // CRITICAL: Publish to Kafka (now outside transaction)
+//                communicationService.sendCommunicationOverKafkaForCandidateSelection(emailCommunicationDto);
 
-                Map<String, Object> placeholders = new HashMap<>();
-                placeholders.put("name", hrInitRequestDto.getFullName());
-                placeholders.put("employeeId", savedHrEntity.getEmployeeId());
-                placeholders.put("department", hrInitRequestDto.getDepartment());
-                placeholders.put("position", hrInitRequestDto.getTitle());
-                placeholders.put("dateOfJoining", savedHrEntity.getDateOfJoining().toString());
-                placeholders.put("organizationName", "Nexus Corporation");
-                emailCommunicationDto.setPlaceholders(placeholders);
 
-                emailCommunicationDto.setAttachments(List.of(
+                List<EmailAttachmentDto> emailAttachmentDtos = List.of(
                         new EmailAttachmentDto("Joining_Letter_" + savedHrEntity.getEmployeeId() + ".pdf",
                                 "application/pdf", joiningLetterUrl),
                         new EmailAttachmentDto("Letter_Of_Intent_" + savedHrEntity.getEmployeeId() + ".pdf",
                                 "application/pdf", letterOfIntentUrl),
                         new EmailAttachmentDto("Compensation_Card_" + savedHrEntity.getEmployeeId() + ".pdf",
-                                "application/pdf", compensationCardUrl)));
+                                "application/pdf", compensationCardUrl));
+                commsService.sendCommunication(CommonConstants.CommsTriggerPoint.CANDIDATE_SELECTION_MAIL, savedHrEntity.getHrId(), emailAttachmentDtos);
 
-                // CRITICAL: Publish to Kafka (now outside transaction)
-                communicationService.sendCommunicationOverKafkaForCandidateSelection(emailCommunicationDto);
                 log.info("Welcome email published to Kafka successfully for employee ID: {}",
                         savedHrEntity.getEmployeeId());
             } catch (Exception emailException) {

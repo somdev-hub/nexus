@@ -47,7 +47,11 @@ public class CommunicationServiceImpl implements CommunicationService {
     private final KafkaProducer kafkaProducer;
     private final ObjectMapper objectMapper;
 
+    /**
+     * @deprecated this method has been deprecated, please use sendCommunicationOverKafka method
+     */
     @Override
+    @Deprecated
     public ResponseEntity<?> sendCommunicationOverEmail(EmailCommunicationDto emailCommunicationDto) {
         long startTime = System.currentTimeMillis();
 
@@ -120,7 +124,11 @@ public class CommunicationServiceImpl implements CommunicationService {
         }
     }
 
+    /**
+      @deprecated this method has been deprecated, please use sendCommunicationOverKafka method
+     */
     @Override
+    @Deprecated
     public void sendCommunicationOverKafkaForCandidateSelection(EmailCommunicationDto emailCommunicationDto)
             throws JsonProcessingException {
         try {
@@ -155,7 +163,11 @@ public class CommunicationServiceImpl implements CommunicationService {
         }
     }
 
+    /**
+      @deprecated this method has been deprecated, please use sendCommunicationOverKafka method
+     */
     @Override
+    @Deprecated
     public void sendCommunicationOverKafkaForPayroll(EmailCommunicationDto emailCommunicationDto) {
         try {
             validateEmailCommunication(emailCommunicationDto);
@@ -180,6 +192,41 @@ public class CommunicationServiceImpl implements CommunicationService {
         } catch (Exception e) {
             log.error("Error sending payroll communication over Kafka: {}", e.getMessage(), e);
             // Don't rethrow - payment processing should not fail if email fails
+        }
+    }
+
+    @Override
+    public void sendCommunicationOverKafka(EmailCommunicationDto emailCommunicationDto){
+        try{
+            validateEmailCommunication(emailCommunicationDto);
+            KafkaMessageDto kafkaMessageDto = new KafkaMessageDto();
+            kafkaMessageDto.setCommsType(emailCommunicationDto.getCommType().name());
+            kafkaMessageDto.setTopic(CommonConstants.HR_KAFKA_MAIL_TOPIC);
+            String uuid = UUID.randomUUID().toString();
+            kafkaMessageDto.setUuid(uuid);
+            kafkaMessageDto.setMessage(objectMapper.writeValueAsString(emailCommunicationDto));
+            kafkaProducer.publishMessage(CommonConstants.HR_KAFKA_MAIL_TOPIC, "email-hr-key",
+                    objectMapper.writeValueAsString(kafkaMessageDto));
+
+            logCommunicationToDatabase(emailCommunicationDto, CommunicationStatus.SENT, uuid);
+            logger.saveLogs(
+                    "/communication/send-email-kafka",
+                    HttpMethod.POST,
+                    HttpStatus.OK,
+                    emailCommunicationDto,
+                    "Email communication sent over Kafka successfully",
+                    null);
+            log.info("Email communication sent over Kafka successfully with UUID: {}", uuid);
+
+        } catch (Exception e) {
+            log.error("Error sending communication over Kafka: {}", e.getMessage(), e);
+            logger.saveLogs(
+                    "/communication/send-email-kafka",
+                    HttpMethod.POST,
+                    HttpStatus.INTERNAL_SERVER_ERROR,
+                    emailCommunicationDto,
+                    e.getMessage(),
+                    null);
         }
     }
 
@@ -232,6 +279,7 @@ public class CommunicationServiceImpl implements CommunicationService {
     /**
      * Attaches files to email from provided URLs
      */
+    @Deprecated
     private void attachFilesToEmail(MimeMessageHelper helper, List<EmailAttachmentDto> attachments)
             throws MessagingException {
         for (EmailAttachmentDto attachment : attachments) {
@@ -493,6 +541,7 @@ public class CommunicationServiceImpl implements CommunicationService {
      * @param dto  The email communication DTO containing the placeholders map
      * @return The processed body with placeholders replaced
      */
+    @Deprecated
     private String replacePlaceholders(String body, EmailCommunicationDto dto) {
         if (ObjectUtils.isEmpty(body)) {
             return body;

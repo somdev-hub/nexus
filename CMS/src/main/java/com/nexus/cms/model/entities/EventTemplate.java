@@ -26,6 +26,8 @@ public class EventTemplate {
     @Enumerated(EnumType.STRING)
     private EventTemplateType eventTemplateType;
 
+    private String eventSubject;
+
     private String templateHtmlUrl;
 
     private Long orgId;

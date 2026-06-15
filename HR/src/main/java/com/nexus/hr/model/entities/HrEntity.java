@@ -28,6 +28,8 @@ public class HrEntity {
 
     private Long org;
 
+    private String orgName;
+
     private Date dateOfJoining;
 
     private Date dateOfLeaving;
