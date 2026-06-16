@@ -1,7 +1,7 @@
 package com.nexus.hr.model.enums;
 
 public enum CommType {
-    MAIL,
+    EMAIL,
     WHATSAPP,
     SMS
 }

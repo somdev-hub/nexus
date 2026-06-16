@@ -133,6 +133,7 @@ public class EventOnboardingService {
             setIfExist(eventTemplate.getEventTemplateType(), savedEventTemplate::setEventTemplateType);
             setIfExist(eventTemplate.getTemplateName(), savedEventTemplate::setTemplateName);
             setIfExist(eventTemplate.getIsActive(), savedEventTemplate::setIsActive);
+            setIfExist(eventTemplate.getEventSubject(), savedEventTemplate::setEventSubject);
             savedEventTemplate.getTemplateParams().clear(); // Clear existing params to avoid duplication
             savedEventTemplate.getTemplateParams().addAll(eventTemplate.getTemplateParams()); // Add new params
             EventTemplate updatedTemplate = eventTemplateRepo.save(savedEventTemplate);
@@ -258,6 +259,16 @@ public class EventOnboardingService {
                 String placeholder = "${" + entry.getKey() + "}";
                 templateHtml = templateHtml.replace(placeholder, entry.getValue());
                 subject = subject.replace(placeholder, entry.getValue());
+            }
+            // check from the applicable params if any param is left out then set the default value of that param
+            if (!ObjectUtils.isEmpty(eventTemplate.getTemplateParams())) {
+                for (TemplateParam templateParam : eventTemplate.getTemplateParams()) {
+                    String placeholder = "${" + templateParam.getParamName() + "}";
+                    if (templateHtml.contains(placeholder) && !paramMap.containsKey(templateParam.getParamName()) && !ObjectUtils.isEmpty(templateParam.getParamDefaultValue())) {
+                        templateHtml = templateHtml.replace(placeholder, templateParam.getParamDefaultValue());
+                        subject = subject.replace(placeholder, templateParam.getParamDefaultValue());
+                    }
+                }
             }
             // trigger the mail with the final HTML content
             MimeMessage mimeMessage = javaMailSender.createMimeMessage();

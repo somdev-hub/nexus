@@ -64,6 +64,7 @@ public class CommsServiceImpl implements CommsService {
             EmailCommunicationDto emailCommunicationDto = new EmailCommunicationDto();
             if (!ObjectUtils.isEmpty(hrId)){
                 HrEntity hrEntity = hrEntityRepo.findById(hrId).orElseThrow(() -> new ResourceNotFoundException("HrEntity", "hrId", hrId));
+                emailCommunicationDto.setOrgId(hrEntity.getOrg());
                 RestPayload restPayload = commonUtils.buildRestPayload(webConstants.getUserDetailsUrl(),
                         Map.of("userId", hrEntity.getEmployeeId().toString()), null, CommonConstants.APPLICATION_JSON);
                 ResponseEntity<?> userResponse = restServices.hrRestCall(restPayload.getBuilder().toUriString(), null,

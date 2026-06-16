@@ -1,5 +1,6 @@
 package com.nexus.cms.service;
 
+import com.nexus.cms.model.enums.CommsType;
 import com.nexus.cms.util.WebConstants;
 import com.nexus.cms.model.entities.Message;
 import lombok.RequiredArgsConstructor;
@@ -161,6 +162,10 @@ public class KafkaConsumerService {
         }
     }
 
+    /**
+     * @deprecated This method is deprecated and will be removed in future versions. Use the new hr-kafka-mail-topic listener instead.
+     */
+    @Deprecated
     @KafkaListener(topics = "candidate-selection-mail-topic", groupId = "cms-group", containerFactory = "singleRecordKafkaListenerContainerFactory")
     public void consumeCandidateSelectionMail(
             @Payload String message,
@@ -212,7 +217,9 @@ public class KafkaConsumerService {
     /**
      * Consume salary payment email messages from PMS
      * Triggers email notifications when salary payments are successfully processed
+     * @deprecated This method is deprecated and will be removed in future versions. Use the new hr-kafka-mail-topic listener instead.
      */
+    @Deprecated
     @KafkaListener(topics = "salary-payment-mail-topic", groupId = "cms-group", containerFactory = "singleRecordKafkaListenerContainerFactory")
     public void consumeSalaryPaymentMail(
             @Payload String message,
@@ -253,6 +260,51 @@ public class KafkaConsumerService {
                 }
 
                 // Process email in try-catch to handle attachment failures gracefully
+                try {
+                    emailCommunicationService.handleEmailCommunication(trimmedMessage);
+                } catch (Exception e) {
+                    log.error("Failed to handle email communication for uuid: {}. Error: {}", uuid, e.getMessage(), e);
+                    // Log the error but acknowledge the message to avoid messages stuck in Kafka
+                }
+
+                acknowledgment.acknowledge();
+            } else {
+                log.warn("Received message with unsupported commsType: {}", payload.get("commsType"));
+                acknowledgment.acknowledge();
+            }
+        } catch (JsonParseException e) {
+            log.error(
+                    "JSON parsing error for salary payment email. Message content (first 1000 chars): {}. Error: {}",
+                    message.length() > 1000 ? message.substring(0, 1000) : message,
+                    e.getMessage(), e);
+            acknowledgment.acknowledge();
+        } catch (Exception e) {
+            log.error("Error processing salary payment email with key: {}, offset: {}", key, offset, e);
+            acknowledgment.acknowledge();
+        }
+    }
+
+    @KafkaListener(topics = "hr-kafka-mail-topic", groupId = "cms-group", containerFactory = "singleRecordKafkaListenerContainerFactory")
+    public void consumeHrKafkaMail(
+            @Payload String message,
+            @Header(KafkaHeaders.RECEIVED_KEY) String key,
+            @Header(KafkaHeaders.OFFSET) long offset,
+            Acknowledgment acknowledgment) {
+        try {
+            String trimmedMessage = message.trim();
+
+            if (trimmedMessage.isEmpty()) {
+                log.warn("Received empty message from topic salary-payment-mail");
+                acknowledgment.acknowledge();
+                return;
+            }
+            @SuppressWarnings("unchecked")
+            Map<String, Object> payload = objectMapper.readValue(trimmedMessage, Map.class);
+
+            if (payload.containsKey("commsType") && payload.containsKey("uuid")
+                    && payload.get("commsType").equals(CommsType.EMAIL.name())) {
+                log.info("Processing salary payment email with key: {}, offset: {}", key, offset);
+                String uuid = payload.get("uuid").toString();
                 try {
                     emailCommunicationService.handleEmailCommunication(trimmedMessage);
                 } catch (Exception e) {

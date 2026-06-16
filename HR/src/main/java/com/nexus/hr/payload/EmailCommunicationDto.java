@@ -17,6 +17,7 @@ public class EmailCommunicationDto {
     private List<String> recipientEmails;
     private List<String> ccEmails;
     private List<String> bccEmails;
+    private Long orgId;
 
     private List<EmailAttachmentDto> attachments;
 

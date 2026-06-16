@@ -1,10 +1,15 @@
 package com.nexus.cms.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.nexus.cms.exception.ResourceNotFoundException;
+import com.nexus.cms.exception.ServiceLevelException;
+import com.nexus.cms.model.entities.EventTemplate;
+import com.nexus.cms.model.entities.TemplateParam;
 import com.nexus.cms.model.enums.CommsStatus;
 import com.nexus.cms.model.enums.CommsType;
 import com.nexus.cms.payload.EmailAttachmentDto;
 import com.nexus.cms.payload.EmailCommunicationDto;
-import com.nexus.cms.util.CommonConstants;
+import com.nexus.cms.repository.EventTemplateRepo;
 import com.nexus.cms.util.WebConstants;
 import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
@@ -16,9 +21,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.ObjectUtils;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestTemplate;
 import org.thymeleaf.ITemplateEngine;
 import org.thymeleaf.context.Context;
-import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.util.List;
 import java.util.Map;
@@ -34,10 +39,14 @@ public class EmailCommunicationService {
     private final WebConstants webConstants;
     private final LoggerService loggerService;
     private final KafkaBacklogService kafkaBacklogService;
+    private final EventTemplateRepo eventTemplateRepo;
+    private final RestTemplate restTemplate;
 
+    @SuppressWarnings("unchecked")
     public void handleEmailCommunication(String message) {
         Map<String, Object> kafkaContent = null;
         EmailCommunicationDto emailCommunicationDto = null;
+        String uuid;
         try {
             kafkaContent = objectMapper.readValue(message, Map.class);
             if (kafkaContent.containsKey("message")) {
@@ -46,6 +55,10 @@ public class EmailCommunicationService {
                 String emailDtoJson = kafkaContent.get("message").toString();
                 emailCommunicationDto = objectMapper.readValue(emailDtoJson, EmailCommunicationDto.class);
             }
+            if (!kafkaContent.containsKey("uuid")) {
+                throw new IllegalArgumentException("UUID is missing in the Kafka message");
+            }
+            uuid = kafkaContent.get("uuid").toString();
 
             long startTime = System.currentTimeMillis();
 
@@ -61,18 +74,52 @@ public class EmailCommunicationService {
 
                 helper.setFrom(fromEmail);
                 helper.setTo(emailCommunicationDto.getRecipientEmails().toArray(new String[0]));
-                helper.setSubject(emailCommunicationDto.getSubject());
+//                helper.setSubject(emailCommunicationDto.getSubject());
 
-                String emailFilename = null;
-                if (kafkaContent.containsKey("topic")
-                        && kafkaContent.get("topic").equals(CommonConstants.CANDIDATE_SELECTION_MAIL_TOPIC)) {
-                    emailFilename = CommonConstants.HR_INIT_EMAIL_FILE_NAME;
-                } else if (kafkaContent.containsKey("topic")
-                        && kafkaContent.get("topic").equals(CommonConstants.SALARY_PAYMENT_MAIL_TOPIC)) {
-                    emailFilename = CommonConstants.SALARY_PAYMENT_EMAIL_FILE_NAME;
+//                String emailFilename = null;
+//                if (kafkaContent.containsKey("topic")
+//                        && kafkaContent.get("topic").equals(CommonConstants.CANDIDATE_SELECTION_MAIL_TOPIC)) {
+//                    emailFilename = CommonConstants.HR_INIT_EMAIL_FILE_NAME;
+//                } else if (kafkaContent.containsKey("topic")
+//                        && kafkaContent.get("topic").equals(CommonConstants.SALARY_PAYMENT_MAIL_TOPIC)) {
+//                    emailFilename = CommonConstants.SALARY_PAYMENT_EMAIL_FILE_NAME;
+//                }
+//                String processedBody = renderThymeleafTemplate(emailFilename, emailCommunicationDto.getPlaceholders());
+//
+                // new methods
+                if (ObjectUtils.isEmpty(emailCommunicationDto.getTemplateName()) || ObjectUtils.isEmpty(emailCommunicationDto.getOrgId())) {
+                    throw new IllegalArgumentException("Template name and organization ID are required for email communication");
                 }
-                String processedBody = renderThymeleafTemplate(emailFilename, emailCommunicationDto.getPlaceholders());
-                helper.setText(processedBody, true);
+//                EmailCommunicationDto finalEmailCommunicationDto = emailCommunicationDto;
+                String templateName = emailCommunicationDto.getTemplateName();
+                EventTemplate eventTemplate = eventTemplateRepo.findByTemplateNameAndOrgIdAndIsActiveTrue(templateName, emailCommunicationDto.getOrgId()).orElseThrow(() -> new ResourceNotFoundException("EventTemplate", "templateName", templateName));
+                kafkaBacklogService.logReceived(null, uuid, emailCommunicationDto.getOrgId(), templateName);
+                String templateHtmlUrl = eventTemplate.getTemplateHtmlUrl();
+                // fetch the html content
+                String templateHtml = restTemplate.getForObject(templateHtmlUrl, String.class);
+                if (ObjectUtils.isEmpty(templateHtml)) {
+                    throw new ServiceLevelException("EventOnboardingService", "Failed to fetch template HTML content from URL: " + templateHtmlUrl, "triggerMail", "TemplateFetchException", "DMS did not return template content");
+                }
+                String subject = eventTemplate.getEventSubject();
+                // placeholders are present in this fashion: ${key}
+                for (Map.Entry<String, String> entry : emailCommunicationDto.getTemplateParams().entrySet()) {
+                    String placeholder = "${" + entry.getKey() + "}";
+                    templateHtml = templateHtml.replace(placeholder, entry.getValue());
+                    subject = subject.replace(placeholder, entry.getValue());
+                }
+                // check from the applicable params if any param is left out then set the default value of that param
+                if (!ObjectUtils.isEmpty(eventTemplate.getTemplateParams())) {
+                    for (TemplateParam templateParam : eventTemplate.getTemplateParams()) {
+                        String placeholder = "${" + templateParam.getParamName() + "}";
+                        if (templateHtml.contains(placeholder) && !emailCommunicationDto.getTemplateParams().containsKey(templateParam.getParamName()) && !ObjectUtils.isEmpty(templateParam.getParamDefaultValue())) {
+                            templateHtml = templateHtml.replace(placeholder, templateParam.getParamDefaultValue());
+                            subject = subject.replace(placeholder, templateParam.getParamDefaultValue());
+                        }
+                    }
+                }
+
+                helper.setSubject(subject);
+                helper.setText(templateHtml, true);
                 if (!CollectionUtils.isEmpty(emailCommunicationDto.getCcEmails())) {
                     helper.setCc(emailCommunicationDto.getCcEmails().toArray(new String[0]));
                 }
@@ -92,7 +139,7 @@ public class EmailCommunicationService {
 
                 loggerService.log("HR", emailCommunicationDto.getRecipientEmails(), emailCommunicationDto.getCcEmails(),
                         emailCommunicationDto.getBccEmails(), null, CommsType.EMAIL,
-                        objectMapper.writeValueAsString(emailCommunicationDto.getPlaceholders()),
+                        objectMapper.writeValueAsString(emailCommunicationDto.getTemplateParams()),
                         kafkaContent.get("uuid").toString(), CommsStatus.SENT);
 
                 long duration = System.currentTimeMillis() - startTime;
@@ -104,14 +151,14 @@ public class EmailCommunicationService {
                 assert emailCommunicationDto != null;
                 loggerService.log("HR", emailCommunicationDto.getRecipientEmails(), emailCommunicationDto.getCcEmails(),
                         emailCommunicationDto.getBccEmails(), null, CommsType.EMAIL,
-                        objectMapper.writeValueAsString(emailCommunicationDto.getPlaceholders()),
+                        objectMapper.writeValueAsString(emailCommunicationDto.getTemplateParams()),
                         kafkaContent.get("uuid").toString(), CommsStatus.FAILED);
                 log.error("Error sending email communication: {}", e.getMessage(), e);
             } catch (Exception e) {
                 assert emailCommunicationDto != null;
                 loggerService.log("HR", emailCommunicationDto.getRecipientEmails(), emailCommunicationDto.getCcEmails(),
                         emailCommunicationDto.getBccEmails(), null, CommsType.EMAIL,
-                        objectMapper.writeValueAsString(emailCommunicationDto.getPlaceholders()),
+                        objectMapper.writeValueAsString(emailCommunicationDto.getTemplateParams()),
                         kafkaContent.get("uuid").toString(), CommsStatus.FAILED);
                 log.error("Unexpected error while processing email communication: {}", e.getMessage(), e);
             }
@@ -133,10 +180,6 @@ public class EmailCommunicationService {
 
         if (CollectionUtils.isEmpty(dto.getRecipientEmails())) {
             throw new IllegalArgumentException("At least one recipient email is required");
-        }
-
-        if (ObjectUtils.isEmpty(dto.getSubject()) || dto.getSubject().trim().isEmpty()) {
-            throw new IllegalArgumentException("Email subject cannot be empty");
         }
 
         if (dto.getRecipientEmails().size() > webConstants.getMaxRecipients()) {
@@ -309,14 +352,9 @@ public class EmailCommunicationService {
     }
 
     /**
-     * Renders Thymeleaf template with provided placeholders/context variables
-     * Templates should be placed in src/main/resources/templates/emails/
-     *
-     * @param templateFileName The name of the template file (e.g., "hr-init-email")
-     * @param placeholders     Map containing context variables for template
-     *                         rendering
-     * @return The rendered HTML content
+     * @deprecated This method is deprecated in favor of fetching pre-rendered HTML templates from DMS based on template name and org ID. The new approach allows non-developers to create and manage email templates without code changes, providing greater flexibility and faster iterations.
      */
+    @Deprecated
     private String renderThymeleafTemplate(String templateFileName, Map<String, Object> placeholders) {
         if (ObjectUtils.isEmpty(templateFileName)) {
             log.warn("No template file name provided, returning empty string");
