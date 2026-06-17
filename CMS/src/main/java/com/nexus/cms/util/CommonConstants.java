@@ -39,4 +39,5 @@ public class CommonConstants {
             AttachmentType.ZIP,
             AttachmentType.OTHER
     );
+    public static final String HR_KAFKA_MAIL_TOPIC = "hr-kafka-mail-topic";
 }

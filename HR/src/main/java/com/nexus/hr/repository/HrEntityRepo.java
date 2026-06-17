@@ -3,6 +3,7 @@ package com.nexus.hr.repository;
 import com.nexus.hr.model.entities.HrEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
@@ -33,5 +34,6 @@ public interface HrEntityRepo extends JpaRepository<HrEntity, Long> {
     @Query(value = "select count(*) from hr.t_hr_entity t, hr.t_time_management tm where t.org =:orgId and t.hr_id = tm.hr_entity_hr_id and tm.is_on_leave =true and tm.\"day\" =:day-1 and tm.\"month\" = :month and tm.\"year\" =:year;", nativeQuery = true)
     Integer getPreviousDayOnLeaveEmployeesCount(Long orgId, Integer day, Integer month, Integer year);
 
-    Long org(Long org);
+    @Query("SELECT h FROM HrEntity h LEFT JOIN FETCH h.leaveAllocations WHERE h.hrId = :hrId")
+    Optional<HrEntity> findByHrIdWithLeaveAllocations(@Param("hrId") Long hrId);
 }

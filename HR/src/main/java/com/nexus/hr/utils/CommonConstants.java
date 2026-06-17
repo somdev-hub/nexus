@@ -15,7 +15,8 @@ public class CommonConstants {
     public static final String PAYMENT_TYPE_NET_BANKING = "NET_BANKING";
     public static final String HR_KAFKA_MAIL_TOPIC = "hr-kafka-mail-topic";
     public enum CommsTriggerPoint {
-        CANDIDATE_SELECTION_MAIL
+        CANDIDATE_SELECTION_MAIL,
+        PAYROLL_MONTHLY
     }
 
 

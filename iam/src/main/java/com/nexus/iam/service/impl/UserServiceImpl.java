@@ -1,5 +1,7 @@
 package com.nexus.iam.service.impl;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nexus.iam.dto.*;
 import com.nexus.iam.entities.Department;
 import com.nexus.iam.entities.Role;
@@ -356,6 +358,7 @@ public class UserServiceImpl implements UserService {
             payload.put("fullName", user.getName());
             payload.put("email", user.getEmail());
             payload.put("orgId", user.getOrganization().getId());
+            payload.put("orgName", user.getOrganization().getOrgName());
             payload.put("department", department.getDepartmentName());
             payload.put("title", userDto.getTitle());
             payload.put("remarks", userDto.getRemarks());
@@ -459,8 +462,12 @@ public class UserServiceImpl implements UserService {
 
             Map<String, String> response = new HashMap<>();
             if (hrResponse.getStatusCode().is2xxSuccessful()) {
-                @SuppressWarnings("unchecked")
-                Map<String, String> respBody = (Map<String, String>) hrResponse.getBody();
+                ObjectMapper objectMapper = new ObjectMapper();
+                Map<String, String> respBody = objectMapper.readValue(
+                        (String) hrResponse.getBody(),
+                        new TypeReference<>() {
+                        }
+                );
                 if (respBody != null) {
                     response.put("email", user.getEmail());
                     response.put("userId", user.getId().toString());

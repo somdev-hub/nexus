@@ -263,4 +263,16 @@ public class KafkaConfig {
                 .config("compression.type", "snappy")
                 .build();
     }
+
+    @Bean
+    @ConditionalOnProperty(name = "kafka.topic.auto-create", havingValue = "true", matchIfMissing = false)
+    public Object hrKafkaMailTopic() {
+        log.info("Creating topic: {}", CommonConstants.HR_KAFKA_MAIL_TOPIC);
+        return TopicBuilder.name(CommonConstants.HR_KAFKA_MAIL_TOPIC)
+                .partitions(3)
+                .replicas(1)
+                .config("retention.ms", "1209600000")
+                .config("compression.type", "snappy")
+                .build();
+    }
 }

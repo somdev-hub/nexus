@@ -4,7 +4,6 @@ import com.nexus.hr.exception.ResourceNotFoundException;
 import com.nexus.hr.exception.ServiceLevelException;
 import com.nexus.hr.model.entities.*;
 import com.nexus.hr.model.enums.AttendanceStatus;
-import com.nexus.hr.model.enums.HrRequestStatus;
 import com.nexus.hr.model.enums.PaymentStatus;
 import com.nexus.hr.payload.*;
 import com.nexus.hr.payload.response.EmployeeDetailsResponse;
@@ -19,7 +18,6 @@ import com.nexus.hr.service.interfaces.CommunicationService;
 import com.nexus.hr.service.interfaces.HrService;
 import com.nexus.hr.utils.*;
 import com.nexus.hr.views.CommunicationTemplateBuilder;
-import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.NonNull;
@@ -32,6 +30,7 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.ObjectUtils;
 
 import java.sql.Date;
@@ -172,6 +171,7 @@ public class HrServiceImpl implements HrService {
         HrEntity hrEntity = new HrEntity();
         hrEntity.setEmployeeId(hrInitRequestDto.getEmployeeId());
         hrEntity.setOrg(hrInitRequestDto.getOrgId());
+        hrEntity.setOrgName(hrInitRequestDto.getOrgName());
         hrEntity.setDepartment(hrInitRequestDto.getDepartment());
         hrEntity.setDateOfJoining(Date.valueOf(LocalDate.now()));
         hrEntity.setIsActive(Boolean.TRUE);
@@ -240,8 +240,9 @@ public class HrServiceImpl implements HrService {
      * This runs AFTER the database transaction commits
      * Prevents connection leaks and allows Kafka publishing to complete
      */
-    private void processAsyncHrOperations(HrInitRequestDto hrInitRequestDto, HrEntity savedHrEntity,
-                                          DocumentUrls documentUrls) {
+    @Transactional
+    protected void processAsyncHrOperations(HrInitRequestDto hrInitRequestDto, HrEntity savedHrEntity,
+                                            DocumentUrls documentUrls) {
         // Get extracted URLs
         String joiningLetterUrl = documentUrls.joiningLetterUrl();
         String letterOfIntentUrl = documentUrls.letterOfIntentUrl();
@@ -301,33 +302,6 @@ public class HrServiceImpl implements HrService {
 
             // Send communication email and Kafka message
             try {
-//                EmailCommunicationDto emailCommunicationDto = new EmailCommunicationDto();
-//                emailCommunicationDto.setSenderEmail("hr@nexus.com");
-//                emailCommunicationDto.setRecipientEmails(List.of(hrInitRequestDto.getPersonalEmail()));
-//                emailCommunicationDto.setSubject("Update on your application");
-//                emailCommunicationDto.setBody(communicationTemplateBuilder.buildHrInitEmailTemplate());
-//
-//                Map<String, Object> placeholders = new HashMap<>();
-//                placeholders.put("name", hrInitRequestDto.getFullName());
-//                placeholders.put("employeeId", savedHrEntity.getEmployeeId());
-//                placeholders.put("department", hrInitRequestDto.getDepartment());
-//                placeholders.put("position", hrInitRequestDto.getTitle());
-//                placeholders.put("dateOfJoining", savedHrEntity.getDateOfJoining().toString());
-//                placeholders.put("organizationName", "Nexus Corporation");
-//                emailCommunicationDto.setPlaceholders(placeholders);
-//
-//                emailCommunicationDto.setAttachments(List.of(
-//                        new EmailAttachmentDto("Joining_Letter_" + savedHrEntity.getEmployeeId() + ".pdf",
-//                                "application/pdf", joiningLetterUrl),
-//                        new EmailAttachmentDto("Letter_Of_Intent_" + savedHrEntity.getEmployeeId() + ".pdf",
-//                                "application/pdf", letterOfIntentUrl),
-//                        new EmailAttachmentDto("Compensation_Card_" + savedHrEntity.getEmployeeId() + ".pdf",
-//                                "application/pdf", compensationCardUrl)));
-//
-//                // CRITICAL: Publish to Kafka (now outside transaction)
-//                communicationService.sendCommunicationOverKafkaForCandidateSelection(emailCommunicationDto);
-
-
                 List<EmailAttachmentDto> emailAttachmentDtos = List.of(
                         new EmailAttachmentDto("Joining_Letter_" + savedHrEntity.getEmployeeId() + ".pdf",
                                 "application/pdf", joiningLetterUrl),
@@ -347,7 +321,7 @@ public class HrServiceImpl implements HrService {
             // Reload entity from database to ensure we have the latest state and avoid
             // detached entity issues
             log.info("=== Reloading HrEntity from database before leave allocation ===");
-            HrEntity refreshedHrEntity = hrEntityRepo.findById(savedHrEntity.getHrId())
+            HrEntity refreshedHrEntity = hrEntityRepo.findByHrIdWithLeaveAllocations(savedHrEntity.getHrId())
                     .orElseThrow(() -> new ResourceNotFoundException("HrEntity", "hrId", savedHrEntity.getHrId()));
 
             // Initialize leave allocations
@@ -1109,6 +1083,6 @@ public class HrServiceImpl implements HrService {
     /**
      * Helper class to hold document URLs
      */
-    private record DocumentUrls(String joiningLetterUrl, String letterOfIntentUrl, String compensationCardUrl) {
+    protected record DocumentUrls(String joiningLetterUrl, String letterOfIntentUrl, String compensationCardUrl) {
     }
 }

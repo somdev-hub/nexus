@@ -22,6 +22,8 @@ public class HrInitRequestDto {
 
     private Long orgId;
 
+    private String orgName;
+
     private String department;
 
     private String title;
