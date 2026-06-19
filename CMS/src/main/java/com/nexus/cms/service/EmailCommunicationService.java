@@ -14,6 +14,7 @@ import com.nexus.cms.util.WebConstants;
 import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.json.JSONObject;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.messaging.MessagingException;
@@ -44,18 +45,18 @@ public class EmailCommunicationService {
 
     @SuppressWarnings("unchecked")
     public void handleEmailCommunication(String message) {
-        Map<String, Object> kafkaContent = null;
+        JSONObject kafkaContent = null;
         EmailCommunicationDto emailCommunicationDto = null;
         String uuid;
         try {
-            kafkaContent = objectMapper.readValue(message, Map.class);
-            if (kafkaContent.containsKey("message")) {
+            kafkaContent = new JSONObject(message);
+            if (kafkaContent.has("message")) {
                 // The message field contains a JSON string, so we need to parse it with
                 // readValue
                 String emailDtoJson = kafkaContent.get("message").toString();
                 emailCommunicationDto = objectMapper.readValue(emailDtoJson, EmailCommunicationDto.class);
             }
-            if (!kafkaContent.containsKey("uuid")) {
+            if (!kafkaContent.has("uuid")) {
                 throw new IllegalArgumentException("UUID is missing in the Kafka message");
             }
             uuid = kafkaContent.get("uuid").toString();

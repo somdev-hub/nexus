@@ -172,6 +172,9 @@ public class HrServiceImpl implements HrService {
         hrEntity.setEmployeeId(hrInitRequestDto.getEmployeeId());
         hrEntity.setOrg(hrInitRequestDto.getOrgId());
         hrEntity.setOrgName(hrInitRequestDto.getOrgName());
+        hrEntity.setEmployeeName(hrInitRequestDto.getEmployeeName());
+        hrEntity.setEmployeeEmail(hrInitRequestDto.getEmployeeEmail());
+        hrEntity.setEmployeePersonalEmail(hrInitRequestDto.getEmployeePersonalEmail());
         hrEntity.setDepartment(hrInitRequestDto.getDepartment());
         hrEntity.setDateOfJoining(Date.valueOf(LocalDate.now()));
         hrEntity.setIsActive(Boolean.TRUE);
@@ -309,7 +312,7 @@ public class HrServiceImpl implements HrService {
                                 "application/pdf", letterOfIntentUrl),
                         new EmailAttachmentDto("Compensation_Card_" + savedHrEntity.getEmployeeId() + ".pdf",
                                 "application/pdf", compensationCardUrl));
-                commsService.sendCommunication(CommonConstants.CommsTriggerPoint.CANDIDATE_SELECTION_MAIL, savedHrEntity.getHrId(), emailAttachmentDtos);
+                commsService.sendCommunication(CommonConstants.CommsTriggerPoint.CANDIDATE_SELECTION_MAIL, savedHrEntity.getHrId(), emailAttachmentDtos, null);
 
                 log.info("Welcome email published to Kafka successfully for employee ID: {}",
                         savedHrEntity.getEmployeeId());

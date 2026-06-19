@@ -24,6 +24,12 @@ public class HrEntity {
 
     private Long employeeId;
 
+    private String employeeName;
+
+    private String employeeEmail;
+
+    private String employeePersonalEmail;
+
     private String department;
 
     private Long org;

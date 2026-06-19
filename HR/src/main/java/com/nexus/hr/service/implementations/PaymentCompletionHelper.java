@@ -40,24 +40,10 @@ public class PaymentCompletionHelper {
     private final ObjectMapper objectMapper;
 
     /**
-         * Helper class to hold payment completion data
-         * Extracted from entities to avoid passing proxies across transaction
-         * boundaries
-         */
-        public record PaymentCompletionData(Long payrollId, Long employeeId, Long hrId, Double basePay, Double hra,
-                                            Double totalBonuses, Double totalDeductions, Double grossPay, Double netPay,
-                                            String month, Integer year, Map<String, Double> bonuses,
-                                            Map<String, Double> deductions, String bankName, String accountHolderName,
-                                            String ifscCode, String maskedAccountNumber, String paymentReferenceId,
-                                            String paymentDate, String department, String position, String organization,
-                                            String orgAddress) {
-    }
-
-    /**
      * TRANSACTIONAL: Fetch payment completion data in a dedicated transaction
      * Extracts only the data we need, avoiding passing entity proxies across
      * boundaries
-     * 
+     * <p>
      * This is in a separate @Service component so Spring proxy correctly
      * applies @Transactional
      * Calling from async context will properly establish a new transaction
@@ -95,8 +81,8 @@ public class PaymentCompletionHelper {
                     HttpMethod.GET,
                     hrEntity.getHrId()
             );
-            String orgName="";
-            String orgAddress="";
+            String orgName = "";
+            String orgAddress = "";
             if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
 
                 JSONObject jsonObject = new JSONObject(response.getBody());
@@ -108,11 +94,11 @@ public class PaymentCompletionHelper {
                 String country = jsonObject.optString("country");
                 orgName = jsonObject.optString("orgName");
                 orgAddress = (line1 != null ? line1 : "") +
-                             (line2 != null ? line2 : "") +
-                             (city != null ? city : "") +
-                             (state != null ? state : "") +
-                             (country != null ? country : "") +
-                             (pinCode != null ? pinCode : "");
+                        (line2 != null ? line2 : "") +
+                        (city != null ? city : "") +
+                        (state != null ? state : "") +
+                        (country != null ? country : "") +
+                        (pinCode != null ? pinCode : "");
             } else {
                 log.warn("Failed to fetch organization details for HR ID: {} - Status Code: {}", hrEntity.getHrId(), response.getStatusCode());
             }
@@ -184,7 +170,7 @@ public class PaymentCompletionHelper {
                     position,
                     orgName,
                     orgAddress
-                    );
+            );
 
         } catch (Exception e) {
             log.error("Error fetching payment completion data for payroll ID: {}", payrollId, e);
@@ -195,7 +181,7 @@ public class PaymentCompletionHelper {
     /**
      * TRANSACTIONAL: Link payslip document to payroll record
      * Called from async method; ensures DB update happens in proper transaction
-     * 
+     * <p>
      * This is in a separate @Service component so Spring proxy correctly
      * applies @Transactional
      */
@@ -223,5 +209,19 @@ public class PaymentCompletionHelper {
             log.error("Error linking payslip to payroll ID: {}", payrollId, e);
             // Don't rethrow - email notification should not fail if payslip link fails
         }
+    }
+
+    /**
+     * Helper class to hold payment completion data
+     * Extracted from entities to avoid passing proxies across transaction
+     * boundaries
+     */
+    public record PaymentCompletionData(Long payrollId, Long employeeId, Long hrId, Double basePay, Double hra,
+                                        Double totalBonuses, Double totalDeductions, Double grossPay, Double netPay,
+                                        String month, Integer year, Map<String, Double> bonuses,
+                                        Map<String, Double> deductions, String bankName, String accountHolderName,
+                                        String ifscCode, String maskedAccountNumber, String paymentReferenceId,
+                                        String paymentDate, String department, String position, String organization,
+                                        String orgAddress) {
     }
 }

@@ -242,10 +242,6 @@ public class CommunicationServiceImpl implements CommunicationService {
             throw new IllegalArgumentException("At least one recipient email is required");
         }
 
-        if (ObjectUtils.isEmpty(dto.getSubject()) || dto.getSubject().trim().isEmpty()) {
-            throw new IllegalArgumentException("Email subject cannot be empty");
-        }
-
         if (dto.getRecipientEmails().size() > webConstants.getMaxRecipients()) {
             throw new IllegalArgumentException(
                     String.format("Number of recipients exceeds maximum limit of %d", webConstants.getMaxRecipients()));

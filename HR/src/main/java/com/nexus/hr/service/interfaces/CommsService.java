@@ -7,5 +7,5 @@ import org.springframework.http.ResponseEntity;
 import java.util.List;
 
 public interface CommsService {
-    ResponseEntity<?> sendCommunication(CommonConstants.CommsTriggerPoint triggerPoint, Long hrId, List<EmailAttachmentDto> attachments);
+    ResponseEntity<?> sendCommunication(CommonConstants.CommsTriggerPoint triggerPoint, Long hrId, List<EmailAttachmentDto> attachments, Long payrollId);
 }

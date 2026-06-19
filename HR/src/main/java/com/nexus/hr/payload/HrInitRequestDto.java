@@ -37,4 +37,10 @@ public class HrInitRequestDto {
     private CompensationDto compensation;
 
     private String personalEmail;
+
+    private String employeeName;
+
+    private String employeeEmail;
+
+    private String employeePersonalEmail;
 }

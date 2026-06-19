@@ -365,6 +365,9 @@ public class UserServiceImpl implements UserService {
             payload.put("timestamp", userDto.getEffectiveFrom());
             payload.put("personalEmail", userDto.getPersonalEmail());
             payload.put("compensation", userDto.getCompensation());
+            payload.put("employeeName", userDto.getName());
+            payload.put("employeeEmail", userDto.getEmail());
+            payload.put("employeePersonalEmail", userDto.getPersonalEmail());
 
             // Upload documents to DMS
             if (!ObjectUtils.isEmpty(files)) {

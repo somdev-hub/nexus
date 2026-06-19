@@ -12,6 +12,7 @@ import com.nexus.hr.payload.response.PayrollInsightsDto;
 import com.nexus.hr.repository.HrEntityRepo;
 import com.nexus.hr.repository.OrgAccountInfoRepo;
 import com.nexus.hr.repository.PayrollRepo;
+import com.nexus.hr.service.interfaces.CommsService;
 import com.nexus.hr.service.interfaces.CommunicationService;
 import com.nexus.hr.service.interfaces.PayrollService;
 import com.nexus.hr.utils.CommonConstants;
@@ -51,6 +52,7 @@ public class PayrollServiceImpl implements PayrollService {
     private final ObjectMapper objectMapper;
     private final RestServices restServices;
     private final PaymentCompletionHelper paymentCompletionHelper;
+    private final CommsService commsService;
 
     @Override
     @Transactional
@@ -972,7 +974,11 @@ public class PayrollServiceImpl implements PayrollService {
                 paymentCompletionHelper.linkPayslipToPayroll(payrollId, payslipResult);
 
                 // Send email notification with payslip
-                sendPayslipEmailNotificationAsync(completionData, payslipDto, payslipResult.getDocumentUrl());
+                commsService.sendCommunication(CommonConstants.CommsTriggerPoint.PAYROLL_MONTHLY, completionData.hrId(), List.of(new EmailAttachmentDto(
+                        "Payslip_" + completionData.month() + "_" + completionData.year() + ".pdf",
+                        "application/pdf",
+                        payslipResult.getDocumentUrl())), payrollId);
+//                sendPayslipEmailNotificationAsync(completionData, payslipDto, payslipResult.getDocumentUrl());
             } else {
                 log.error("Failed to generate payslip for employee: {}, error: {}",
                         completionData.employeeId(), payslipResult.getErrorMessage());
@@ -988,7 +994,9 @@ public class PayrollServiceImpl implements PayrollService {
      * Send payslip email notification via Kafka to CMS microservice
      * Works with PaymentCompletionData (POJOs, not entities)
      * This triggers email delivery to employee with payslip attachment
+     * @deprecated - This method is now deprecated in favor of using commsService.sendCommunication() directly with the appropriate trigger point and attachments. The logic for building the email communication has been moved to the commsService implementation to centralize email handling and leverage existing infrastructure.
      */
+    @Deprecated
     private void sendPayslipEmailNotificationAsync(PaymentCompletionHelper.PaymentCompletionData data,
             PayslipDto payslipDto, String payslipUrl) {
         try {
