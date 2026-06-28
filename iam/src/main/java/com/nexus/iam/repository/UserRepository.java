@@ -101,4 +101,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
             """, nativeQuery = true)
     @Transactional(readOnly = true)
     List<User> findByNameMatch(String name);
+
+    boolean existsByPersonalEmail(String personalEmail);
+
+    Optional<User> findByPersonalEmail(String email);
 }

@@ -4,6 +4,7 @@ import com.nexus.hr.model.entities.Applicant;
 import com.nexus.hr.model.enums.ApplicationStatus;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -28,12 +29,14 @@ public interface ApplicantService {
             Integer maxAge,
             LocalDate appliedFromDate,
             LocalDate appliedToDate,
-            Integer yearsOfExperience,
-            PageRequest pageRequest
+            Double yearsOfExperience,
+            Pageable pageRequest
     );
 
     ResponseEntity<?> updateApplicant(@Valid Applicant applicant);
 
     ResponseEntity<?> deleteApplicant(Long id);
+
+    ResponseEntity<?> createApplicantWithoutDocuments(@Valid Applicant applicant);
 }
 

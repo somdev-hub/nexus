@@ -37,11 +37,6 @@ public class Applicant {
     private LocalDate applicantDateOfBirth;
     private Character applicantGender;
 
-    @ManyToOne
-    @JoinColumn(name = "recruitment_id")
-    @JsonBackReference("recruitment-applicants")
-    private Recruitment recruitment;
-
     @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, mappedBy = "applicant")
     @JsonManagedReference("applicant-educations")
     private List<ApplicantEducation> applicantEducations = new ArrayList<>();
@@ -58,11 +53,12 @@ public class Applicant {
     @JsonManagedReference("applicant-skills")
     private List<ApplicantSkill> applicantSkills = new ArrayList<>();
 
-    @Enumerated(EnumType.STRING)
-    private ApplicationStatus applicationStatus;
+    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, mappedBy = "applicant")
+    @JsonManagedReference("applicant-recruitment-mappings")
+    private List<ApplicantRecruitmentMapping> applicantRecruitmentMappings = new ArrayList<>();
 
     @CreationTimestamp
-    private Timestamp appliedOn;
+    private Timestamp createdOn;
     @UpdateTimestamp
     private Timestamp updatedOn;
     private Boolean isActive;

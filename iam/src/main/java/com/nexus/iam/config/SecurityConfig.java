@@ -156,6 +156,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests((authz) -> authz
                         // Public authentication endpoints (Phase 1 & Phase 2 unified)
                         .requestMatchers("/iam/auth/register").permitAll()
+                        .requestMatchers("/iam/auth/register/applicant").permitAll()
                         .requestMatchers("/iam/auth/login").permitAll()
                         .requestMatchers("/iam/auth/refresh").permitAll()
                         .requestMatchers("/iam/auth/verify").permitAll()

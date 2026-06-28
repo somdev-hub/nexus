@@ -16,6 +16,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -96,10 +97,10 @@ public class ApplicantServiceImpl implements ApplicantService {
                     "id",
                     recruitmentId.toString()
             ));
-            applicant.setApplicationStatus(ApplicationStatus.APPLIED);
-            applicant.setRecruitment(recruitment);
+//            applicant.setApplicationStatus(ApplicationStatus.APPLIED);
+//            applicant.setRecruitment(recruitment);
             Applicant savedApplicant = applicantRepo.save(applicant);
-            recruitment.getApplicantsList().add(savedApplicant);
+//            recruitment.getApplicantsList().add(savedApplicant);
             recruitment.setTotalApplicants(recruitment.getTotalApplicants() != null ? recruitment.getTotalApplicants() + 1 : 1);
             recruitmentRepo.save(recruitment);
             log.info("Applicant saved with ID: {}", savedApplicant.getApplicantId());
@@ -204,8 +205,8 @@ public class ApplicantServiceImpl implements ApplicantService {
             Integer maxAge,
             LocalDate appliedFromDate,
             LocalDate appliedToDate,
-            Integer yearsOfExperience,
-            PageRequest pageRequest
+            Double yearsOfExperience,
+            Pageable pageRequest
     ) {
         try {
             // Validate pageRequest
@@ -393,9 +394,9 @@ public class ApplicantServiceImpl implements ApplicantService {
             if (!ObjectUtils.isEmpty(applicant.getApplicantGender())) {
                 existingApplicant.setApplicantGender(applicant.getApplicantGender());
             }
-            if (!ObjectUtils.isEmpty(applicant.getApplicationStatus())) {
-                existingApplicant.setApplicationStatus(applicant.getApplicationStatus());
-            }
+//            if (!ObjectUtils.isEmpty(applicant.getApplicationStatus())) {
+//                existingApplicant.setApplicationStatus(applicant.getApplicationStatus());
+//            }
             if (!ObjectUtils.isEmpty(applicant.getIsActive())) {
                 existingApplicant.setIsActive(applicant.getIsActive());
             }
@@ -441,6 +442,31 @@ public class ApplicantServiceImpl implements ApplicantService {
                     "ApplicantService",
                     "Error occurred while deleting applicant",
                     "deleteApplicant",
+                    "Service level exception",
+                    e.getMessage()
+            );
+        }
+    }
+
+    @Override
+    public ResponseEntity<?> createApplicantWithoutDocuments(Applicant applicant) {
+        if (ObjectUtils.isEmpty(applicant)) {
+            throw new ServiceLevelException(
+                    "ApplicantService",
+                    "Required applicant body missing",
+                    "createApplicantWithoutDocuments",
+                    "Missing required data exception",
+                    "Required data applicant is missing"
+            );
+        }
+        try {
+            Applicant savedApplicant = applicantRepo.save(applicant);
+            return ResponseEntity.ok(savedApplicant);
+        } catch (Exception e) {
+            throw new ServiceLevelException(
+                    "ApplicantService",
+                    "Error occurred while creating applicant without documents",
+                    "createApplicantWithoutDocuments",
                     "Service level exception",
                     e.getMessage()
             );

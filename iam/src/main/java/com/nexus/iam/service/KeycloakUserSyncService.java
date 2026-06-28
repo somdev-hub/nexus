@@ -3,6 +3,7 @@ package com.nexus.iam.service;
 import java.util.Set;
 
 import com.nexus.iam.dto.KeycloakUserDto;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Service for synchronizing Keycloak user data to IAM database
@@ -19,6 +20,9 @@ public interface KeycloakUserSyncService {
      * @return the synced/created user ID in IAM database
      */
     Long syncUserFromKeycloak(KeycloakUserDto keycloakUserDto, Set<String> roles);
+
+    @Transactional
+    Long syncApplicantUserFromKeycloak(KeycloakUserDto keycloakUserDto, Set<String> roles);
 
     /**
      * Extract user data from JWT token claims

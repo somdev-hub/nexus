@@ -46,4 +46,9 @@ public class HrDocument {
     @JoinColumn(name = "applicant_id")
     @JsonBackReference("applicant-documents")
     private Applicant applicant;
+
+    @ManyToOne
+    @JoinColumn(name = "applicant_recruitment_mapping_id")
+    @JsonBackReference("applicantRecruitmentMapping-applicationDocuments")
+    private ApplicantRecruitmentMapping applicantRecruitmentMapping;
 }

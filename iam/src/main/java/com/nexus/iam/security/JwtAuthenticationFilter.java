@@ -29,10 +29,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private static final List<String> PUBLIC_ENDPOINTS = Arrays.asList(
             "/iam/auth/login",
             "/iam/auth/register",
+            "/iam/auth/register/applicant",
             "/iam/auth/refresh",
             "/iam/public/",
             "/auth/login",
             "/auth/register",
+            "/auth/register/applicant",
             "/auth/refresh",
             "/public/");
 

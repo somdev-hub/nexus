@@ -1,11 +1,7 @@
 package com.nexus.iam.controller;
 
 import com.nexus.iam.annotation.LogActivity;
-import com.nexus.iam.dto.DecryptTokenRequest;
-import com.nexus.iam.dto.LoginRequest;
-import com.nexus.iam.dto.LoginResponse;
-import com.nexus.iam.dto.RefreshTokenRequest;
-import com.nexus.iam.dto.UserRegisterDto;
+import com.nexus.iam.dto.*;
 import com.nexus.iam.service.AuthenticationService;
 import com.nexus.iam.service.KeycloakAuthenticationService;
 import lombok.RequiredArgsConstructor;
@@ -225,5 +221,10 @@ public class UnifiedAuthController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(Map.of("error", "Token decryption failed: " + e.getMessage()));
         }
+    }
+
+    @PostMapping(value = "/register/applicant", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<?> registerApplicant(@RequestPart(name = "dto") ApplicantRegisterDto userRegisterDto, @RequestPart(name = "profilePicture", required = false) MultipartFile profilePicture){
+        return keycloakAuthenticationService.registerApplicant(userRegisterDto, profilePicture);
     }
 }

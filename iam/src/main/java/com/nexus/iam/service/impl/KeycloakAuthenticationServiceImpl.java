@@ -1,13 +1,8 @@
 package com.nexus.iam.service.impl;
 
-import com.nexus.iam.dto.KeycloakRoleDto;
-import com.nexus.iam.dto.KeycloakUserDto;
-import com.nexus.iam.dto.LoginResponse;
-import com.nexus.iam.dto.UserRegisterDto;
-import com.nexus.iam.entities.Department;
-import com.nexus.iam.entities.Organization;
-import com.nexus.iam.entities.Role;
-import com.nexus.iam.entities.User;
+import com.nexus.iam.dto.*;
+import com.nexus.iam.dto.response.ApplicantLoginResponse;
+import com.nexus.iam.entities.*;
 import com.nexus.iam.exception.ResourceNotFoundException;
 import com.nexus.iam.exception.ServiceLevelException;
 import com.nexus.iam.exception.UnauthorizedException;
@@ -19,11 +14,11 @@ import com.nexus.iam.service.KeycloakAdminService;
 import com.nexus.iam.service.KeycloakAuthenticationService;
 import com.nexus.iam.service.KeycloakUserSyncService;
 import com.nexus.iam.utils.CommonConstants;
+import com.nexus.iam.utils.CommonUtils;
 import com.nexus.iam.utils.RestService;
 import com.nexus.iam.utils.WebConstants;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import io.github.resilience4j.retry.annotation.Retry;
-import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
@@ -33,6 +28,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.util.ObjectUtils;
@@ -47,13 +43,13 @@ import java.util.Set;
 
 /**
  * Keycloak Authentication Service Implementation
- * 
+ * <p>
  * Handles all Keycloak-specific authentication operations including:
  * - Direct Access Grant (Resource Owner Password Credentials) flow
  * - User registration in Keycloak
  * - Token refresh
  * - User data extraction and sync to IAM database
- * 
+ * <p>
  * Features:
  * - Circuit breaker for fault tolerance
  * - Retry logic for transient failures
@@ -76,13 +72,14 @@ public class KeycloakAuthenticationServiceImpl implements KeycloakAuthentication
     private final RestService restService;
     private final ModelMapper modelMapper;
     private final RestClient restClient;
+    private final CommonUtils commonUtils;
 
     /**
      * Authenticate user with Keycloak using Direct Access Grant
-     * 
+     * <p>
      * This endpoint allows your frontend to authenticate directly with your API
      * without redirecting to Keycloak UI.
-     * 
+     *
      * @param email    User email (username in Keycloak)
      * @param password User password
      * @return LoginResponse with Keycloak tokens and user data
@@ -137,7 +134,7 @@ public class KeycloakAuthenticationServiceImpl implements KeycloakAuthentication
 
     /**
      * Register new user in Keycloak and sync to IAM database
-     * 
+     * <p>
      * This comprehensive registration process:
      * 1. Validates user registration data
      * 2. Creates user in Keycloak using Keycloak Admin API
@@ -148,7 +145,7 @@ public class KeycloakAuthenticationServiceImpl implements KeycloakAuthentication
      * 6. Uploads profile photo to DMS microservice
      * 7. Initializes HR employee record in HR microservice
      * 8. Automatically logs in the user and returns Keycloak tokens
-     * 
+     *
      * @param userRegisterDto User registration data including email, password,
      *                        name, organization, etc.
      * @param profilePhoto    Optional profile picture MultipartFile
@@ -157,6 +154,7 @@ public class KeycloakAuthenticationServiceImpl implements KeycloakAuthentication
     @Override
     @CircuitBreaker(name = "keycloak-auth", fallbackMethod = "registerFallback")
     @Retry(name = "keycloak-auth")
+    @Transactional
     public ResponseEntity<LoginResponse> register(UserRegisterDto userRegisterDto, MultipartFile profilePhoto) {
         try {
             // Step 1: VALIDATION
@@ -226,7 +224,7 @@ public class KeycloakAuthenticationServiceImpl implements KeycloakAuthentication
      * .body(Map.of("error", "Registration failed: " + e.getMessage()));
      * }
      * }
-     * 
+     * <p>
      * /**
      * Create user in database and related entities (in separate transaction)
      * This allows Keycloak user to persist even if database operations fail
@@ -337,8 +335,8 @@ public class KeycloakAuthenticationServiceImpl implements KeycloakAuthentication
             dmsDto.put("fileName", user.getId() + "_profile_pic");
             dmsDto.put("remarks", "Profile Photo Upload");
             dmsDto.put("documentType", "PROFILE_IMAGE");
-            dmsDto.put("orgId", org.getId());
-            dmsDto.put("orgType", org.getOrgType().toString());
+            dmsDto.put("orgId", org != null ? org.getId() : null);
+            dmsDto.put("orgType", org != null ? org.getOrgType().toString() : null);
 
             Map<String, Object> docPayload = new HashMap<>();
             docPayload.put("dto", dmsDto);
@@ -435,21 +433,22 @@ public class KeycloakAuthenticationServiceImpl implements KeycloakAuthentication
     /**
      * Register endpoint for JSON requests (without file upload)
      * Routes to the main register method with null profile photo
-     * 
+     *
      * @param userRegisterDto User registration data
      * @return LoginResponse or error
      */
     @Override
+    @Transactional
     public ResponseEntity<LoginResponse> register(UserRegisterDto userRegisterDto) {
         return register(userRegisterDto, null);
     }
 
     /**
      * Refresh access token using refresh token from Keycloak
-     * 
+     * <p>
      * Returns the same full LoginResponse as the login endpoint with user data,
      * org, and role information.
-     * 
+     *
      * @param refreshToken Keycloak refresh token
      * @return LoginResponse with new tokens, user data, org, and role
      */
@@ -517,16 +516,16 @@ public class KeycloakAuthenticationServiceImpl implements KeycloakAuthentication
     /**
      * Authenticate with Keycloak using Direct Access Grant (Resource Owner Password
      * Credentials)
-     * 
+     * <p>
      * This is the key method that exchanges email/password for Keycloak tokens
      * without requiring the user to visit Keycloak UI.
-     * 
+     * <p>
      * Request to Keycloak:
      * - grant_type=password
      * - client_id, client_secret
      * - username (email), password
      * - scope (openid profile email)
-     * 
+     *
      * @param username Email (Keycloak username)
      * @param password Password
      * @return Token response from Keycloak or null if failed
@@ -582,14 +581,14 @@ public class KeycloakAuthenticationServiceImpl implements KeycloakAuthentication
 
     /**
      * Validate JWT token and sync user to IAM database (lazy-load pattern)
-     * 
+     * <p>
      * Process:
      * 1. Decode and validate JWT signature using Keycloak's public key
      * 2. Extract user data from JWT claims
      * 3. Extract roles from JWT
      * 4. Sync user to IAM database (create if new, update if exists)
      * 5. Return LoginResponse with synced user data
-     * 
+     *
      * @param accessToken  Keycloak access token
      * @param refreshToken Keycloak refresh token
      * @param expiresIn    Token expiration in seconds
@@ -677,7 +676,7 @@ public class KeycloakAuthenticationServiceImpl implements KeycloakAuthentication
     }
 
     public ResponseEntity<?> registerFallback(UserRegisterDto userRegisterDto, MultipartFile profilePhoto,
-            Throwable e) {
+                                              Throwable e) {
         log.error("Circuit breaker fallback for register: {}", e.getMessage());
         return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
                 .body(Map.of("error", "Keycloak registration service temporarily unavailable"));
@@ -691,7 +690,7 @@ public class KeycloakAuthenticationServiceImpl implements KeycloakAuthentication
 
     /**
      * Verify Keycloak JWT token validity and extract claims
-     * 
+     *
      * @param token Keycloak JWT token
      * @return Token claims and validity information with "isValid" key
      */
@@ -743,7 +742,7 @@ public class KeycloakAuthenticationServiceImpl implements KeycloakAuthentication
 
     /**
      * Decrypt/Extract all claims from Keycloak JWT token
-     * 
+     *
      * @param token Keycloak JWT token
      * @return All token claims
      */
@@ -807,6 +806,208 @@ public class KeycloakAuthenticationServiceImpl implements KeycloakAuthentication
         } catch (Exception e) {
             log.error("Error decrypting Keycloak token: {}", e.getMessage(), e);
             return Map.of("error", "Token decryption failed: " + e.getMessage());
+        }
+    }
+
+    @Override
+    @Transactional
+    public ResponseEntity<?> registerApplicant(ApplicantRegisterDto userRegisterDto, MultipartFile profilePicture) {
+        try {
+            // Step 1: VALIDATION
+            if (ObjectUtils.isEmpty(userRegisterDto)) {
+                return ResponseEntity.badRequest().body(Map.of("error", "User registration data cannot be null or empty"));
+            }
+
+            if (ObjectUtils.isEmpty(userRegisterDto.getFirstName()) ||
+                    ObjectUtils.isEmpty(userRegisterDto.getPersonalEmail()) ||
+                    ObjectUtils.isEmpty(userRegisterDto.getPassword())) {
+                return ResponseEntity.badRequest().body(Map.of("error", "First name, personal email, and password are required"));
+            }
+
+            // Check if email already exists in database
+            if (userRepository.existsByPersonalEmail(userRegisterDto.getPersonalEmail())) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Email already exists in the system"));
+            }
+
+            // Step 2: CREATE USER IN KEYCLOAK (Outside transaction to prevent rollback)
+            KeycloakUserDto keycloakUserDto = KeycloakUserDto.builder()
+                    .username(userRegisterDto.getPersonalEmail())
+                    .email(userRegisterDto.getPersonalEmail())
+                    .firstName(userRegisterDto.getFirstName())
+                    .lastName(userRegisterDto.getLastName() != null ? userRegisterDto.getLastName() : "")
+                    .password(userRegisterDto.getPassword())
+                    .enabled(true)
+                    .emailVerified(false)
+                    .build();
+
+            String keycloakUserId;
+            try {
+                keycloakUserId = keycloakAdminService.createUserInKeycloak(keycloakUserDto);
+            } catch (RuntimeException runtimeEx) {
+                // Check if it's a 409 Conflict (user already exists)
+                if (runtimeEx.getCause() instanceof org.springframework.web.client.HttpClientErrorException.Conflict) {
+                    throw new UnauthorizedException("Unauthorized", "User with this email already exists in Keycloak");
+                }
+                throw runtimeEx;
+            }
+
+            // Step 3: CREATE USER IN DATABASE (Transactional)
+            User user = new User();
+            user.setAge(userRegisterDto.getAge());
+            user.setGender(userRegisterDto.getGender());
+            user.setPersonalEmail(userRegisterDto.getPersonalEmail());
+            user.setPhone(userRegisterDto.getPhone());
+            user.setAddress(userRegisterDto.getAddress());
+            user.setDateOfBirth(userRegisterDto.getDateOfBirth());
+            user.setName(userRegisterDto.getFirstName() + " " + (userRegisterDto.getLastName() != null ? userRegisterDto.getLastName() : ""));
+            user.setCreatedAt(Timestamp.valueOf(java.time.LocalDateTime.now()));
+            user.setKeycloakId(keycloakUserId); // Store Keycloak user ID for sync
+            user.setEnabled(true);
+            user.setAccountNonExpired(true);
+            user.setAccountNonLocked(true);
+            user.setCredentialsNonExpired(true);
+            user.setPassword("keycloak-managed"); // Password is managed by Keycloak
+            String roleName = CommonConstants.ROLE_APPLICANT;
+
+            // Create role in Keycloak if it doesn't exist
+            KeycloakRoleDto keycloakRole = keycloakAdminService.getRoleByName(roleName);
+            String keycloakRoleId;
+            if (keycloakRole == null) {
+                keycloakRoleId = keycloakAdminService.createRoleInKeycloak(roleName);
+            } else {
+                keycloakRoleId = keycloakRole.getId();
+            }
+
+            // Assign role to user in Keycloak
+            keycloakAdminService.assignRoleToUser(keycloakUserId, keycloakRoleId, roleName);
+
+            // Create or get role in database
+            Role dbRole;
+            if (roleRepository.existsByName(roleName)) {
+                dbRole = roleRepository.findByName(roleName).get();
+            } else {
+                Role newRole = new Role();
+                newRole.setName(roleName);
+                dbRole = roleRepository.save(newRole);
+            }
+            user.getRoles().add(dbRole);
+
+            // handle profilepicture upload
+            if (!ObjectUtils.isEmpty(profilePicture)) {
+                handleProfilePhotoUpload(user, null, profilePicture);
+            }
+
+            // Save user to database
+            User savedUser = userRepository.save(user);
+            handleHRApplicantCreation(userRegisterDto, savedUser.getId());
+
+            return handleLoginForApplicantUser(user.getPersonalEmail(), userRegisterDto.getPassword());
+        } catch (Exception e) {
+            log.error("Error registering applicant: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Applicant registration failed: " + e.getMessage()));
+        }
+    }
+
+    private ResponseEntity<?> handleLoginForApplicantUser(String personalEmail, String password) {
+        try{
+            if (personalEmail == null || personalEmail.isEmpty() || password == null || password.isEmpty()) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(LoginResponse.builder()
+                                .build());
+            }
+
+            // Step 1: Authenticate with Keycloak using Direct Access Grant
+            Map<String, Object> tokenResponse = authenticateWithKeycloak(personalEmail, password);
+
+            if (tokenResponse == null || !tokenResponse.containsKey("access_token")) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(LoginResponse.builder()
+                                .build());
+            }
+
+            String accessToken = (String) tokenResponse.get("access_token");
+            String refreshToken = (String) tokenResponse.get("refresh_token");
+            long expiresIn = ((Number) tokenResponse.getOrDefault("expires_in", 300L)).longValue();
+
+            var userDto = keycloakUserSyncService.extractUserFromToken(accessToken);
+            if (userDto == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(LoginResponse.builder()
+                                .build());
+            }
+
+            // Step 3: Extract roles from JWT
+            Set<String> roles = keycloakUserSyncService.extractRolesFromToken(accessToken);
+
+            // Step 4: Sync user to IAM database (lazy-load on first login)
+            Long userId = keycloakUserSyncService.syncApplicantUserFromKeycloak(userDto, roles);
+
+            // Step 5: Load user and organization from database
+            User syncedUser = userRepository.findById(userId)
+                    .orElseThrow(() -> new RuntimeException("User not found after sync"));
+
+            // Get the primary application role (first non-system role, or ADMIN/USER based
+            // on what's in DB)
+            String primaryRole = "ROLE_USER";
+            if (!syncedUser.getRoles().isEmpty()) {
+                primaryRole = syncedUser.getRoles().stream()
+                        .map(role -> "ROLE_" + role.getName())
+                        .filter(role -> !role.contains("offline") && !role.contains("default-roles")
+                                && !role.contains("uma_"))
+                        .findFirst()
+                        .orElse("ROLE_USER");
+            }
+            // Step 6: Build response
+            ApplicantLoginResponse response = ApplicantLoginResponse.builder()
+                    .accessToken(accessToken)
+                    .refreshToken(refreshToken != null ? refreshToken : accessToken)
+                    .tokenType("Bearer")
+                    .expiresIn(expiresIn)
+                    .personalEmail(userDto.getEmail())
+                    .phone(syncedUser.getPhone())
+                    .name(userDto.getFirstName() + " " + userDto.getLastName())
+                    .userId(userId)
+                    .role(primaryRole)
+                    .profilePhoto(syncedUser.getProfilePhoto())
+                    .build();
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("Error during auto-login for applicant: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Auto-login failed: " + e.getMessage()));
+        }
+    }
+
+    private void handleHRApplicantCreation(ApplicantRegisterDto userRegisterDto, Long userId) {
+        try {
+            Map<String, Object> payload = new HashMap<>();
+
+            payload.put("applicantFirstName", userRegisterDto.getFirstName());
+            payload.put("applicantLastName", userRegisterDto.getLastName());
+            payload.put("applicantEmail", userRegisterDto.getPersonalEmail());
+            payload.put("applicantPhone", userRegisterDto.getPhone());
+            payload.put("applicantAddress", userRegisterDto.getAddress());
+            payload.put("applicantCity", userRegisterDto.getCity());
+            payload.put("applicantState", userRegisterDto.getState());
+            payload.put("applicantPinCode", userRegisterDto.getPincode());
+            payload.put("applicantCountry", userRegisterDto.getCountry());
+            payload.put("applicantAge", userRegisterDto.getAge());
+            payload.put("applicantDateOfBirth", userRegisterDto.getDateOfBirth());
+            payload.put("applicantGender", userRegisterDto.getGender().equals(Gender.MALE) ? 'M' : userRegisterDto.getGender().equals(Gender.FEMALE) ? 'F' : 'O');
+
+            Map<String, String> headers = commonUtils.buildJsonHeaders(null);
+            UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getCreateApplicantWithoutDocumentUrl());
+            ResponseEntity<?> response = restService.iamRestCall(builder.toUriString(), payload, headers, HttpMethod.POST, userId);
+            if (response.getStatusCode().is2xxSuccessful()) {
+                log.debug("HR applicant record created successfully for userId: {}", userId);
+            } else {
+                log.warn("HR applicant creation returned status: {} for userId: {}", response.getStatusCode(), userId);
+            }
+        } catch (Exception e) {
+            log.warn("Failed to initialize HR applicant record: {}", e.getMessage());
+            // Non-blocking - registration continues even if HR init fails
         }
     }
 }

@@ -4,10 +4,13 @@ import com.nexus.iam.dto.LoginRequest;
 import com.nexus.iam.dto.LoginResponse;
 import com.nexus.iam.security.JwtUtil;
 import com.nexus.iam.service.AuthenticationService;
+import com.nexus.iam.service.KeycloakAuthenticationService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.util.ObjectUtils;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -17,6 +20,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class CommonUtils {
@@ -25,6 +29,7 @@ public class CommonUtils {
     private final ObjectProvider<AuthenticationService> authenticationServiceProvider;
     private final ObjectMapper objectMapper;
     private final WebConstants webConstants;
+    private final ObjectProvider<KeycloakAuthenticationService> keycloakAuthenticationServices;
 
     public String jsonValidator(String jsonString) {
         if (ObjectUtils.isEmpty(jsonString)) {
@@ -50,12 +55,17 @@ public class CommonUtils {
         if (!ObjectUtils.isEmpty(authToken)) {
             headers.put(HttpHeaders.AUTHORIZATION, authToken);
         } else {
-            AuthenticationService authenticationService = authenticationServiceProvider.getIfAvailable();
+//            AuthenticationService authenticationService = authenticationServiceProvider.getIfAvailable();
+            KeycloakAuthenticationService authenticationService = keycloakAuthenticationServices.getIfAvailable();
             if (authenticationService != null) {
-                LoginResponse loginResponse = authenticationService
-                        .authenticate(new LoginRequest(webConstants.getGenericUserId(),
-                                webConstants.getGenericPassword()));
-                headers.put(HttpHeaders.AUTHORIZATION, "Bearer " + loginResponse.getAccessToken());
+                ResponseEntity<LoginResponse> loginResponse = authenticationService
+                        .login(webConstants.getGenericUserId(),
+                                webConstants.getGenericPassword());
+                if (loginResponse.getStatusCode().is2xxSuccessful() && loginResponse.getBody() != null) {
+                    headers.put(HttpHeaders.AUTHORIZATION, "Bearer " + loginResponse.getBody().getAccessToken());
+                }else{
+                    log.error("Failed to obtain generic user token. Status: {}, Body: {}", loginResponse.getStatusCode(), loginResponse.getBody());
+                }
             }
         }
 

@@ -131,6 +131,68 @@ public class KeycloakUserSyncServiceImpl implements KeycloakUserSyncService {
         }
     }
 
+    @Transactional
+    @Override
+    public Long syncApplicantUserFromKeycloak(KeycloakUserDto keycloakUserDto, Set<String> roles) {
+        try {
+            // Step 1: Check if user exists in IAM database by email
+            var existingUser = userRepository.findByPersonalEmail(keycloakUserDto.getEmail());
+
+            User user;
+            boolean isNewUser = false;
+
+            if (existingUser.isPresent()) {
+                // Step 2a: User exists - only update keycloak_id if missing (no role
+                // reassignment)
+                user = existingUser.get();
+                if (user.getKeycloakId() == null || user.getKeycloakId().isEmpty()) {
+                    user.setKeycloakId(keycloakUserDto.getId());
+                }
+            } else {
+                // Step 2b: User doesn't exist - create new user record
+                user = new User();
+                user.setKeycloakId(keycloakUserDto.getId());
+                user.setPersonalEmail(keycloakUserDto.getEmail());
+                user.setName(buildUserName(keycloakUserDto));
+                user.setCreatedAt(new Timestamp(System.currentTimeMillis()));
+                user.setEnabled(keycloakUserDto.getEnabled() != null ? keycloakUserDto.getEnabled() : true);
+                user.setAccountNonExpired(true);
+                user.setAccountNonLocked(true);
+                user.setCredentialsNonExpired(true);
+
+                // Extract organization ID from attributes if present
+                if (keycloakUserDto.getAttributes() != null) {
+                    Map<String, Object> attrs = keycloakUserDto.getAttributes();
+                    if (attrs.containsKey("organizationId")) {
+                        Long orgId = Long.valueOf(attrs.get("organizationId").toString());
+                        // Organization will be lazy-loaded if needed
+                    }
+                }
+
+                isNewUser = true;
+            }
+
+            // Step 3: Only assign roles for NEW users (avoid duplicate key violations on
+            // subsequent syncs)
+            if (isNewUser) {
+                assignRolesToUser(user, roles);
+            }
+
+            // Step 4: Save user
+            User savedUser = userRepository.save(user);
+            return savedUser.getId();
+
+        } catch (Exception e) {
+            log.error("Error syncing user from Keycloak: {}", e.getMessage(), e);
+            throw new ServiceLevelException(
+                    "KeycloakUserSyncServiceImpl",
+                    "Failed to sync user from Keycloak",
+                    "syncUserFromKeycloak",
+                    e.getClass().getSimpleName(),
+                    e.getMessage());
+        }
+    }
+
     /**
      * Assign roles to user based on Keycloak JWT claims
      */
@@ -169,12 +231,12 @@ public class KeycloakUserSyncServiceImpl implements KeycloakUserSyncService {
             name.append(userDto.getFirstName());
         }
         if (userDto.getLastName() != null && !userDto.getLastName().isEmpty()) {
-            if (name.length() > 0) {
+            if (!name.isEmpty()) {
                 name.append(" ");
             }
             name.append(userDto.getLastName());
         }
-        return name.length() > 0 ? name.toString() : userDto.getEmail();
+        return !name.isEmpty() ? name.toString() : userDto.getEmail();
     }
 
     /**

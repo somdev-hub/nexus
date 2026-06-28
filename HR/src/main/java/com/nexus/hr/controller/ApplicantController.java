@@ -21,6 +21,13 @@ public class ApplicantController {
 
     private final ApplicantService applicantService;
 
+
+    @PostMapping("/without-documents")
+    public ResponseEntity<?> createApplicantWithoutDocuments(
+            @Valid @RequestBody Applicant applicant) {
+        return applicantService.createApplicantWithoutDocuments(applicant);
+    }
+
     /**
      * Create a new applicant
      *
@@ -73,7 +80,7 @@ public class ApplicantController {
             @RequestParam(required = false) Integer maxAge,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate appliedFromDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate appliedToDate,
-            @RequestParam(required = false) Integer yearsOfExperience,
+            @RequestParam(required = false) Double yearsOfExperience,
             @RequestParam(required = false, defaultValue = "0") Integer pageNo,
             @RequestParam(required = false, defaultValue = "10") Integer pageSize
     ) {

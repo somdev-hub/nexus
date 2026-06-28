@@ -214,6 +214,9 @@ public class WebConstants {
     @Value("${event.onboarding.event.status.breakdown.url}")
     private String eventStatusBreakdownUrl;
 
+    @Value("${create.applicant.without.document.url}")
+    private String createApplicantWithoutDocumentUrl;
+
     // Keycloak URLs
     public String getKeycloakAdminUrl() {
         return keycloakServerUrl + "/admin/realms/" + keycloakRealm;
