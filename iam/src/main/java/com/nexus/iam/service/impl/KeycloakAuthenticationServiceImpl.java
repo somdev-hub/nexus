@@ -909,6 +909,21 @@ public class KeycloakAuthenticationServiceImpl implements KeycloakAuthentication
         }
     }
 
+    @Override
+    public ResponseEntity<?> loginApplicant(LoginRequest.ApplicantLoginRequest request) {
+        try {
+            if (request == null || ObjectUtils.isEmpty(request.getPersonalEmail()) || ObjectUtils.isEmpty(request.getPassword())) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Email and password are required"));
+            }
+
+            return handleLoginForApplicantUser(request.getPersonalEmail(), request.getPassword());
+        } catch (Exception e) {
+            log.error("Error during applicant login: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Applicant login failed: " + e.getMessage()));
+        }
+    }
+
     private ResponseEntity<?> handleLoginForApplicantUser(String personalEmail, String password) {
         try{
             if (personalEmail == null || personalEmail.isEmpty() || password == null || password.isEmpty()) {

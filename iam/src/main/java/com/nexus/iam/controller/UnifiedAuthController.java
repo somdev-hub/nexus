@@ -227,4 +227,9 @@ public class UnifiedAuthController {
     public ResponseEntity<?> registerApplicant(@RequestPart(name = "dto") ApplicantRegisterDto userRegisterDto, @RequestPart(name = "profilePicture", required = false) MultipartFile profilePicture){
         return keycloakAuthenticationService.registerApplicant(userRegisterDto, profilePicture);
     }
+
+    @PostMapping(value = "/login/applicant")
+    public ResponseEntity<?> loginApplicant(@RequestBody LoginRequest.ApplicantLoginRequest request) {
+        return keycloakAuthenticationService.loginApplicant(request);
+    }
 }
