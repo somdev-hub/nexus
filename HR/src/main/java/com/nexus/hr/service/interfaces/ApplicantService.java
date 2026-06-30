@@ -1,6 +1,9 @@
 package com.nexus.hr.service.interfaces;
 
 import com.nexus.hr.model.entities.Applicant;
+import com.nexus.hr.model.entities.ApplicantEducation;
+import com.nexus.hr.model.entities.ApplicantExperience;
+import com.nexus.hr.model.entities.ApplicantSkill;
 import com.nexus.hr.model.enums.ApplicationStatus;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.PageRequest;
@@ -38,5 +41,11 @@ public interface ApplicantService {
     ResponseEntity<?> deleteApplicant(Long id);
 
     ResponseEntity<?> createApplicantWithoutDocuments(@Valid Applicant applicant);
+
+    ResponseEntity<?> createApplicantEducation(@Valid ApplicantEducation applicantEducation, Long userId);
+
+    ResponseEntity<?> createApplicantExperience(@Valid ApplicantExperience applicantExperience, Long userId);
+
+    ResponseEntity<?> createApplicantSkill(@Valid ApplicantSkill applicantSkill, Long userId);
 }
 

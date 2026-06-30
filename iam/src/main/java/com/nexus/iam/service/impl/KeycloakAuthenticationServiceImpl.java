@@ -1011,6 +1011,7 @@ public class KeycloakAuthenticationServiceImpl implements KeycloakAuthentication
             payload.put("applicantAge", userRegisterDto.getAge());
             payload.put("applicantDateOfBirth", userRegisterDto.getDateOfBirth());
             payload.put("applicantGender", userRegisterDto.getGender().equals(Gender.MALE) ? 'M' : userRegisterDto.getGender().equals(Gender.FEMALE) ? 'F' : 'O');
+            payload.put("userId", userId);
 
             Map<String, String> headers = commonUtils.buildJsonHeaders(null);
             UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getCreateApplicantWithoutDocumentUrl());

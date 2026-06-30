@@ -10,6 +10,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDate;
+import java.util.Optional;
 
 public interface ApplicantRepo extends JpaRepository<Applicant, Long>, JpaSpecificationExecutor<Applicant> {
 
@@ -295,4 +296,6 @@ public interface ApplicantRepo extends JpaRepository<Applicant, Long>, JpaSpecif
             """)
     Page<Applicant> findByRecruitment_RecruitmentIdAndAppliedBetweenDatesAndYearsOfExperience(Long recruitmentId,
                                                                                               LocalDate appliedFromDate, LocalDate appliedToDate, Double yearsOfExperience, Pageable pageRequest);
+
+    Optional<Applicant> findByUserId(Long userId);
 }

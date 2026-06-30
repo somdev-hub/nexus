@@ -94,4 +94,22 @@ public class RecruitmentController {
     public ResponseEntity<?> getRecruitmentAnalytics(@RequestParam Long orgId) {
         return recruitmentService.getRecruitmentAnalytics(orgId);
     }
+
+    @PostMapping("/applicant/education")
+    public ResponseEntity<?> addApplicantEducation(@RequestBody String education, @RequestParam Long applicantId)
+    {
+        return recruitmentService.addApplicantEducation(education, applicantId);
+    }
+
+    @PostMapping("/applicant/experience")
+    public ResponseEntity<?> addApplicantExperience(@RequestBody String experience, @RequestParam Long applicantId)
+    {
+        return recruitmentService.addApplicantExperience(experience, applicantId);
+    }
+
+    @PostMapping("/applicant//skill")
+    public ResponseEntity<?> addApplicantSkill(@RequestBody String skill, @RequestParam Long applicantId)
+    {
+        return recruitmentService.addApplicantSkill(skill, applicantId);
+    }
 }

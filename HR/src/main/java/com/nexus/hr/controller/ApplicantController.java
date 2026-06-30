@@ -1,6 +1,9 @@
 package com.nexus.hr.controller;
 
 import com.nexus.hr.model.entities.Applicant;
+import com.nexus.hr.model.entities.ApplicantEducation;
+import com.nexus.hr.model.entities.ApplicantExperience;
+import com.nexus.hr.model.entities.ApplicantSkill;
 import com.nexus.hr.model.enums.ApplicationStatus;
 import com.nexus.hr.service.interfaces.ApplicantService;
 import jakarta.validation.Valid;
@@ -119,5 +122,21 @@ public class ApplicantController {
     public ResponseEntity<?> deleteApplicant(@PathVariable Long id) {
         return applicantService.deleteApplicant(id);
     }
+
+    @PostMapping("/education")
+    public ResponseEntity<?> createApplicantEducation(@Valid @RequestBody ApplicantEducation applicantEducation, @RequestParam Long userId) {
+        return applicantService.createApplicantEducation(applicantEducation, userId);
+    }
+
+    @PostMapping("/experience")
+    public ResponseEntity<?> createApplicantExperience(@Valid @RequestBody ApplicantExperience applicantExperience, @RequestParam Long userId) {
+        return applicantService.createApplicantExperience(applicantExperience, userId);
+    }
+
+    @PostMapping("/skill")
+    public ResponseEntity<?> createApplicantSkill(@Valid @RequestBody ApplicantSkill applicantSkill, @RequestParam Long userId) {
+        return applicantService.createApplicantSkill(applicantSkill, userId);
+    }
+
 }
 

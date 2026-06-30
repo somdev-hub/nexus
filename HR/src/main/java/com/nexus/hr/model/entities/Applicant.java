@@ -36,6 +36,8 @@ public class Applicant {
     private Integer applicantAge;
     private LocalDate applicantDateOfBirth;
     private Character applicantGender;
+    @Column(unique = true)
+    private Long userId;
 
     @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, mappedBy = "applicant")
     @JsonManagedReference("applicant-educations")

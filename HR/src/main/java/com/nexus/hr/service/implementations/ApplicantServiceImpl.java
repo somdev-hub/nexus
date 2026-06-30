@@ -2,10 +2,7 @@ package com.nexus.hr.service.implementations;
 
 import com.nexus.hr.exception.ResourceNotFoundException;
 import com.nexus.hr.exception.ServiceLevelException;
-import com.nexus.hr.model.entities.Applicant;
-import com.nexus.hr.model.entities.ApplicantExperience;
-import com.nexus.hr.model.entities.HrDocument;
-import com.nexus.hr.model.entities.Recruitment;
+import com.nexus.hr.model.entities.*;
 import com.nexus.hr.model.enums.ApplicationStatus;
 import com.nexus.hr.payload.response.ApplicantTableResponse;
 import com.nexus.hr.repository.ApplicantRepo;
@@ -467,6 +464,108 @@ public class ApplicantServiceImpl implements ApplicantService {
                     "ApplicantService",
                     "Error occurred while creating applicant without documents",
                     "createApplicantWithoutDocuments",
+                    "Service level exception",
+                    e.getMessage()
+            );
+        }
+    }
+
+    @Override
+    public ResponseEntity<?> createApplicantEducation(ApplicantEducation applicantEducation, Long userId) {
+        if (ObjectUtils.isEmpty(applicantEducation) || ObjectUtils.isEmpty(userId)) {
+            throw new ServiceLevelException(
+                    "ApplicantService",
+                    "Required applicant education body or user id missing",
+                    "createApplicantEducation",
+                    "Missing required data exception",
+                    "Required data applicant education or user id is missing"
+            );
+        }
+        try {
+            Applicant applicant = applicantRepo.findByUserId(userId).orElseThrow(() -> new ResourceNotFoundException(
+                    "Applicant",
+                    "userId",
+                    userId.toString()
+            ));
+            applicantEducation.setApplicant(applicant);
+            applicant.getApplicantEducations().add(applicantEducation);
+            Applicant updatedApplicant = applicantRepo.save(applicant);
+            return ResponseEntity.ok(updatedApplicant);
+        } catch (ServiceLevelException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new ServiceLevelException(
+                    "ApplicantService",
+                    "Error occurred while creating applicant education",
+                    "createApplicantEducation",
+                    "Service level exception",
+                    e.getMessage()
+            );
+        }
+    }
+
+    @Override
+    public ResponseEntity<?> createApplicantExperience(ApplicantExperience applicantExperience, Long userId) {
+        if (ObjectUtils.isEmpty(applicantExperience) || ObjectUtils.isEmpty(userId)) {
+            throw new ServiceLevelException(
+                    "ApplicantService",
+                    "Required applicant experience body or user id missing",
+                    "createApplicantExperience",
+                    "Missing required data exception",
+                    "Required data applicant experience or user id is missing"
+            );
+        }
+        try {
+            Applicant applicant = applicantRepo.findByUserId(userId).orElseThrow(() -> new ResourceNotFoundException(
+                    "Applicant",
+                    "userId",
+                    userId.toString()
+            ));
+            applicantExperience.setApplicant(applicant);
+            applicant.getApplicantExperiences().add(applicantExperience);
+            Applicant updatedApplicant = applicantRepo.save(applicant);
+            return ResponseEntity.ok(updatedApplicant);
+        } catch (ServiceLevelException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new ServiceLevelException(
+                    "ApplicantService",
+                    "Error occurred while creating applicant experience",
+                    "createApplicantExperience",
+                    "Service level exception",
+                    e.getMessage()
+            );
+        }
+    }
+
+    @Override
+    public ResponseEntity<?> createApplicantSkill(ApplicantSkill applicantSkill, Long userId) {
+        if (ObjectUtils.isEmpty(applicantSkill) || ObjectUtils.isEmpty(userId)) {
+            throw new ServiceLevelException(
+                    "ApplicantService",
+                    "Required applicant skill body or user id missing",
+                    "createApplicantSkill",
+                    "Missing required data exception",
+                    "Required data applicant skill or user id is missing"
+            );
+        }
+        try {
+            Applicant applicant = applicantRepo.findByUserId(userId).orElseThrow(() -> new ResourceNotFoundException(
+                    "Applicant",
+                    "userId",
+                    userId.toString()
+            ));
+            applicantSkill.setApplicant(applicant);
+            applicant.getApplicantSkills().add(applicantSkill);
+            Applicant updatedApplicant = applicantRepo.save(applicant);
+            return ResponseEntity.ok(updatedApplicant);
+        } catch (ServiceLevelException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new ServiceLevelException(
+                    "ApplicantService",
+                    "Error occurred while creating applicant skill",
+                    "createApplicantSkill",
                     "Service level exception",
                     e.getMessage()
             );

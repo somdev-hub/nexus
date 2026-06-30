@@ -24,4 +24,10 @@ public interface RecruitmentService {
     ResponseEntity<?> getApplicantById(Long id);
 
     ResponseEntity<?> getRecruitmentAnalytics(Long orgId);
+
+    ResponseEntity<?> addApplicantEducation(String education, Long applicantId);
+
+    ResponseEntity<?> addApplicantExperience(String experience, Long applicantId);
+
+    ResponseEntity<?> addApplicantSkill(String skill, Long applicantId);
 }

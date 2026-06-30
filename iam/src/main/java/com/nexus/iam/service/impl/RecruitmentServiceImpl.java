@@ -2,6 +2,7 @@ package com.nexus.iam.service.impl;
 
 import com.nexus.iam.exception.ServiceLevelException;
 import com.nexus.iam.service.RecruitmentService;
+import com.nexus.iam.utils.CommonUtils;
 import com.nexus.iam.utils.RestService;
 import com.nexus.iam.utils.WebConstants;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +26,7 @@ public class RecruitmentServiceImpl implements RecruitmentService {
 
     private final WebConstants webConstants;
     private final RestService restService;
+    private final CommonUtils commonUtils;
 
     @Override
     public ResponseEntity<?> createRecruitment(String recruitment, Long empId) {
@@ -355,6 +357,117 @@ public class RecruitmentServiceImpl implements RecruitmentService {
                     "RecruitmentService",
                     "Exception occurred while fetching recruitment analytics",
                     "getRecruitmentAnalytics",
+                    "INTERNAL_SERVER_ERROR",
+                    e.getMessage()
+            );
+        }
+    }
+
+    @Override
+    public ResponseEntity<?> addApplicantEducation(String education, Long applicantId) {
+        if (ObjectUtils.isEmpty(education) || ObjectUtils.isEmpty(applicantId)) {
+            throw new ServiceLevelException(
+                    "RecruitmentService",
+                    "Required params missing",
+                    "addApplicantEducation",
+                    "BAD_REQUEST",
+                    "Please provide required params"
+            );
+        }
+        try {
+            UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getApplicantUrl() + "/education")
+                    .queryParam("applicantId", applicantId);
+            Map<String, String> headers = commonUtils.buildJsonHeaders(null);
+            ResponseEntity<?> response = restService.iamRestCall(builder.toUriString(), education, headers, HttpMethod.POST, null);
+            if (!response.getStatusCode().is2xxSuccessful()) {
+                throw new ServiceLevelException(
+                        "RecruitmentService",
+                        "Failed to add applicant education",
+                        "addApplicantEducation",
+                        response.getStatusCode().toString(),
+                        response.getBody() != null ? response.getBody().toString() : "No response body"
+                );
+            }
+            return response;
+        } catch (RuntimeException e) {
+            throw new ServiceLevelException(
+                    "RecruitmentService",
+                    "Exception occurred while adding applicant education",
+                    "addApplicantEducation",
+                    "INTERNAL_SERVER_ERROR",
+                    e.getMessage()
+            );
+        }
+    }
+
+    @Override
+    public ResponseEntity<?> addApplicantExperience(String experience, Long applicantId) {
+        if (ObjectUtils.isEmpty(experience) || ObjectUtils.isEmpty(applicantId)) {
+            throw new ServiceLevelException(
+                    "RecruitmentService",
+                    "Required params missing",
+                    "addApplicantExperience",
+                    "BAD_REQUEST",
+                    "Please provide required params"
+            );
+        }
+        try {
+            UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getApplicantUrl() + "/experience")
+                    .queryParam("applicantId", applicantId);
+            Map<String, String> headers = commonUtils.buildJsonHeaders(null);
+            ResponseEntity<?> response = restService.iamRestCall(builder.toUriString(), experience, headers, HttpMethod.POST, null);
+            if (!response.getStatusCode().is2xxSuccessful()) {
+                throw new ServiceLevelException(
+                        "RecruitmentService",
+                        "Failed to add applicant experience",
+                        "addApplicantExperience",
+                        response.getStatusCode().toString(),
+                        response.getBody() != null ? response.getBody().toString() : "No response body"
+                );
+            }
+            return response;
+        } catch (RuntimeException e) {
+            throw new ServiceLevelException(
+                    "RecruitmentService",
+                    "Exception occurred while adding applicant experience",
+                    "addApplicantExperience",
+                    "INTERNAL_SERVER_ERROR",
+                    e.getMessage()
+            );
+        }
+    }
+
+    @Override
+    public ResponseEntity<?> addApplicantSkill(String skill, Long applicantId) {
+        if (ObjectUtils.isEmpty(skill) || ObjectUtils.isEmpty(applicantId)) {
+            throw new ServiceLevelException(
+                    "RecruitmentService",
+                    "Required params missing",
+                    "addApplicantSkill",
+                    "BAD_REQUEST",
+                    "Please provide required params"
+            );
+        }
+        try {
+            UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getApplicantUrl() + "/skill")
+                    .queryParam("applicantId", applicantId);
+            Map<String, String> headers = commonUtils.buildJsonHeaders(null);
+            ResponseEntity<?> response = restService.iamRestCall(builder.toUriString(), skill, headers, HttpMethod.POST, null);
+            if (!response.getStatusCode().is2xxSuccessful()) {
+                throw new ServiceLevelException(
+                        "RecruitmentService",
+                        "Failed to add applicant skill",
+                        "addApplicantSkill",
+                        response.getStatusCode().toString(),
+                        response.getBody() != null ? response.getBody().toString() : "No response body"
+                );
+            }
+            return response;
+        } catch (RuntimeException e) {
+            throw new ServiceLevelException(
+                    "RecruitmentService",
+                    "Exception occurred while adding applicant skill",
+                    "addApplicantSkill",
                     "INTERNAL_SERVER_ERROR",
                     e.getMessage()
             );
