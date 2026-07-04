@@ -96,20 +96,20 @@ public class RecruitmentController {
     }
 
     @PostMapping("/applicant/education")
-    public ResponseEntity<?> addApplicantEducation(@RequestBody String education, @RequestParam Long applicantId)
+    public ResponseEntity<?> addApplicantEducation(@RequestBody String education, @RequestParam Long userId)
     {
-        return recruitmentService.addApplicantEducation(education, applicantId);
+        return recruitmentService.addApplicantEducation(education, userId);
     }
 
     @PostMapping("/applicant/experience")
-    public ResponseEntity<?> addApplicantExperience(@RequestBody String experience, @RequestParam Long applicantId)
+    public ResponseEntity<?> addApplicantExperience(@RequestBody String experience, @RequestParam Long userId)
     {
-        return recruitmentService.addApplicantExperience(experience, applicantId);
+        return recruitmentService.addApplicantExperience(experience, userId);
     }
 
-    @PostMapping("/applicant//skill")
-    public ResponseEntity<?> addApplicantSkill(@RequestBody String skill, @RequestParam Long applicantId)
+    @PostMapping("/applicant/skill")
+    public ResponseEntity<?> addApplicantSkill(@RequestBody String skill, @RequestParam Long userId)
     {
-        return recruitmentService.addApplicantSkill(skill, applicantId);
+        return recruitmentService.addApplicantSkill(skill, userId);
     }
 }

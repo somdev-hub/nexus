@@ -24,7 +24,6 @@ public class ApplicantController {
 
     private final ApplicantService applicantService;
 
-
     @PostMapping("/without-documents")
     public ResponseEntity<?> createApplicantWithoutDocuments(
             @Valid @RequestBody Applicant applicant) {
@@ -61,8 +60,10 @@ public class ApplicantController {
      * Get all applicants with optional filters and pagination
      * All filter parameters are optional and can be combined
      *
-     * @param status            Application status (e.g., APPLIED, REJECTED, ACCEPTED)
-     * @param name              Search by applicant first or last name (case-insensitive, partial match)
+     * @param status            Application status (e.g., APPLIED, REJECTED,
+     *                          ACCEPTED)
+     * @param name              Search by applicant first or last name
+     *                          (case-insensitive, partial match)
      * @param gender            Applicant gender (M, F, etc.)
      * @param minAge            Minimum age for filtering
      * @param maxAge            Maximum age for filtering
@@ -85,8 +86,7 @@ public class ApplicantController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate appliedToDate,
             @RequestParam(required = false) Double yearsOfExperience,
             @RequestParam(required = false, defaultValue = "0") Integer pageNo,
-            @RequestParam(required = false, defaultValue = "10") Integer pageSize
-    ) {
+            @RequestParam(required = false, defaultValue = "10") Integer pageSize) {
         return applicantService.getAllApplicants(
                 recruitmentId,
                 status,
@@ -97,14 +97,14 @@ public class ApplicantController {
                 appliedFromDate,
                 appliedToDate,
                 yearsOfExperience,
-                PageRequest.of(pageNo, pageSize)
-        );
+                PageRequest.of(pageNo, pageSize));
     }
 
     /**
      * Update an existing applicant
      *
-     * @param applicant Applicant entity with updated fields (applicantId is required)
+     * @param applicant Applicant entity with updated fields (applicantId is
+     *                  required)
      * @return Updated applicant
      */
     @PutMapping("/")
@@ -124,19 +124,26 @@ public class ApplicantController {
     }
 
     @PostMapping("/education")
-    public ResponseEntity<?> createApplicantEducation(@Valid @RequestBody ApplicantEducation applicantEducation, @RequestParam Long userId) {
+    public ResponseEntity<?> createApplicantEducation(@Valid @RequestBody ApplicantEducation applicantEducation,
+            @RequestParam Long userId) {
         return applicantService.createApplicantEducation(applicantEducation, userId);
     }
 
     @PostMapping("/experience")
-    public ResponseEntity<?> createApplicantExperience(@Valid @RequestBody ApplicantExperience applicantExperience, @RequestParam Long userId) {
+    public ResponseEntity<?> createApplicantExperience(@Valid @RequestBody ApplicantExperience applicantExperience,
+            @RequestParam Long userId) {
         return applicantService.createApplicantExperience(applicantExperience, userId);
     }
 
     @PostMapping("/skill")
-    public ResponseEntity<?> createApplicantSkill(@Valid @RequestBody ApplicantSkill applicantSkill, @RequestParam Long userId) {
+    public ResponseEntity<?> createApplicantSkill(@Valid @RequestBody ApplicantSkill applicantSkill,
+            @RequestParam Long userId) {
         return applicantService.createApplicantSkill(applicantSkill, userId);
     }
 
-}
+    @GetMapping("/userId/{userId}")
+    public ResponseEntity<?> getApplicantByUserId(@PathVariable Long userId) {
+        return applicantService.getApplicantByUserId(userId);
+    }
 
+}

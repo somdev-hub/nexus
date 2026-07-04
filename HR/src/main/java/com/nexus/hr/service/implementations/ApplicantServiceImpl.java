@@ -571,5 +571,36 @@ public class ApplicantServiceImpl implements ApplicantService {
             );
         }
     }
+
+    @Override
+    public ResponseEntity<?> getApplicantByUserId(Long userId) {
+        if (ObjectUtils.isEmpty(userId)) {
+            throw new ServiceLevelException(
+                    "ApplicantService",
+                    "Required user id missing",
+                    "getApplicantByUserId",
+                    "Missing required data exception",
+                    "Required data user id is missing"
+            );
+        }
+        try {
+            Applicant applicant = applicantRepo.findByUserId(userId).orElseThrow(() -> new ResourceNotFoundException(
+                    "Applicant",
+                    "userId",
+                    userId.toString()
+            ));
+            return ResponseEntity.ok(applicant);
+        } catch (ServiceLevelException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new ServiceLevelException(
+                    "ApplicantService",
+                    "Error occurred while fetching applicant by user id",
+                    "getApplicantByUserId",
+                    "Service level exception",
+                    e.getMessage()
+            );
+        }
+    }
 }
 

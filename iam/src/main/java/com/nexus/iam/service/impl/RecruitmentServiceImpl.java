@@ -298,7 +298,7 @@ public class RecruitmentServiceImpl implements RecruitmentService {
             );
         }
         try {
-            UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getApplicantUrl() + id);
+            UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getApplicantUrl() + "userId/" + id);
             Map<String, String> headers = new HashMap<>();
             headers.put(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
             ResponseEntity<?> response = restService.iamRestCall(builder.toUriString(), null, headers, HttpMethod.GET, null);
@@ -376,7 +376,7 @@ public class RecruitmentServiceImpl implements RecruitmentService {
         }
         try {
             UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getApplicantUrl() + "/education")
-                    .queryParam("applicantId", applicantId);
+                    .queryParam("userId", applicantId);
             Map<String, String> headers = commonUtils.buildJsonHeaders(null);
             ResponseEntity<?> response = restService.iamRestCall(builder.toUriString(), education, headers, HttpMethod.POST, null);
             if (!response.getStatusCode().is2xxSuccessful()) {
@@ -413,7 +413,7 @@ public class RecruitmentServiceImpl implements RecruitmentService {
         }
         try {
             UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getApplicantUrl() + "/experience")
-                    .queryParam("applicantId", applicantId);
+                    .queryParam("userId", applicantId);
             Map<String, String> headers = commonUtils.buildJsonHeaders(null);
             ResponseEntity<?> response = restService.iamRestCall(builder.toUriString(), experience, headers, HttpMethod.POST, null);
             if (!response.getStatusCode().is2xxSuccessful()) {
@@ -450,7 +450,7 @@ public class RecruitmentServiceImpl implements RecruitmentService {
         }
         try {
             UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getApplicantUrl() + "/skill")
-                    .queryParam("applicantId", applicantId);
+                    .queryParam("userId", applicantId);
             Map<String, String> headers = commonUtils.buildJsonHeaders(null);
             ResponseEntity<?> response = restService.iamRestCall(builder.toUriString(), skill, headers, HttpMethod.POST, null);
             if (!response.getStatusCode().is2xxSuccessful()) {

@@ -232,4 +232,9 @@ public class UnifiedAuthController {
     public ResponseEntity<?> loginApplicant(@RequestBody LoginRequest.ApplicantLoginRequest request) {
         return keycloakAuthenticationService.loginApplicant(request);
     }
+
+    @PostMapping(value = "/refresh/applicant")
+    public ResponseEntity<?> refreshApplicantToken(@RequestBody RefreshTokenRequest request) {
+        return keycloakAuthenticationService.refreshApplicantToken(request);
+    }
 }

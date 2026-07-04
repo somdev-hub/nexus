@@ -1,7 +1,6 @@
 package com.nexus.iam.service.impl;
 
 import com.nexus.iam.dto.*;
-import com.nexus.iam.dto.response.ApplicantLoginResponse;
 import com.nexus.iam.entities.*;
 import com.nexus.iam.exception.ResourceNotFoundException;
 import com.nexus.iam.exception.ServiceLevelException;
@@ -924,8 +923,58 @@ public class KeycloakAuthenticationServiceImpl implements KeycloakAuthentication
         }
     }
 
+    @Override
+    public ResponseEntity<?> refreshApplicantToken(RefreshTokenRequest request) {
+        try {
+            if (request == null || ObjectUtils.isEmpty(request.getRefreshToken())) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(LoginResponse.builder()
+                                .build());
+            }
+
+            String tokenUrl = webConstants.getKeycloakTokenUrl();
+
+            // Build the request body for form-encoded data using MultiValueMap
+            MultiValueMap<String, String> body = new LinkedMultiValueMap<>();
+            body.add("grant_type", "refresh_token");
+            body.add("refresh_token", request.getRefreshToken());
+            body.add("client_id", webConstants.getKeycloakClientId());
+            body.add("client_secret", webConstants.getKeycloakClientSecret());
+
+            ResponseEntity<Map> response = restClient.post()
+                    .uri(tokenUrl)
+                    .header("Content-Type", "application/x-www-form-urlencoded")
+                    .body(body)
+                    .retrieve()
+                    .toEntity(Map.class);
+
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                Map<String, Object> tokens = response.getBody();
+                String newAccessToken = (String) tokens.get("access_token");
+                String newRefreshToken = (String) tokens.getOrDefault("refresh_token", request.getRefreshToken());
+                Long expiresIn = ((Number) tokens.getOrDefault("expires_in", 300L)).longValue();
+
+                // Return the same full LoginResponse as login endpoint
+                // This includes user data, org, and role information
+                return validateAndSyncApplicantUser(newAccessToken, newRefreshToken, expiresIn);
+            }
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(LoginResponse.builder()
+                            .build());
+        } catch (UnauthorizedException e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(LoginResponse.builder()
+                            .build());
+        } catch (Exception e) {
+            // Service-level exception - let circuit breaker handle it
+            log.error("Error refreshing token: {}", e.getMessage(), e);
+            throw new ServiceLevelException("KeycloakAuthenticationService", e.getLocalizedMessage(), "refreshToken",
+                    new Timestamp(System.currentTimeMillis()), e.getCause().toString(), e.getMessage());
+        }
+    }
+
     private ResponseEntity<?> handleLoginForApplicantUser(String personalEmail, String password) {
-        try{
+        try {
             if (personalEmail == null || personalEmail.isEmpty() || password == null || password.isEmpty()) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                         .body(LoginResponse.builder()
@@ -945,6 +994,16 @@ public class KeycloakAuthenticationServiceImpl implements KeycloakAuthentication
             String refreshToken = (String) tokenResponse.get("refresh_token");
             long expiresIn = ((Number) tokenResponse.getOrDefault("expires_in", 300L)).longValue();
 
+            return validateAndSyncApplicantUser(accessToken, refreshToken, expiresIn);
+        } catch (Exception e) {
+            log.error("Error during auto-login for applicant: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Auto-login failed: " + e.getMessage()));
+        }
+    }
+
+    private ResponseEntity<LoginResponse> validateAndSyncApplicantUser(String accessToken, String refreshToken, Long expiresIn) {
+        try {
             var userDto = keycloakUserSyncService.extractUserFromToken(accessToken);
             if (userDto == null) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
@@ -974,24 +1033,24 @@ public class KeycloakAuthenticationServiceImpl implements KeycloakAuthentication
                         .orElse("ROLE_USER");
             }
             // Step 6: Build response
-            ApplicantLoginResponse response = ApplicantLoginResponse.builder()
+            LoginResponse response = LoginResponse.builder()
                     .accessToken(accessToken)
                     .refreshToken(refreshToken != null ? refreshToken : accessToken)
                     .tokenType("Bearer")
                     .expiresIn(expiresIn)
-                    .personalEmail(userDto.getEmail())
+                    .email(userDto.getEmail())
                     .phone(syncedUser.getPhone())
                     .name(userDto.getFirstName() + " " + userDto.getLastName())
                     .userId(userId)
                     .role(primaryRole)
-                    .profilePhoto(syncedUser.getProfilePhoto())
                     .build();
 
             return ResponseEntity.ok(response);
         } catch (Exception e) {
-            log.error("Error during auto-login for applicant: {}", e.getMessage(), e);
+            log.error("Error validating and syncing applicant user: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("error", "Auto-login failed: " + e.getMessage()));
+                    .body(LoginResponse.builder()
+                            .build());
         }
     }
 

@@ -158,6 +158,7 @@ public class SecurityConfig {
                         .requestMatchers("/iam/auth/register").permitAll()
                         .requestMatchers("/iam/auth/register/applicant").permitAll()
                         .requestMatchers("/iam/auth/login/applicant").permitAll()
+                        .requestMatchers("/iam/auth/refresh/applicant").permitAll()
                         .requestMatchers("/iam/auth/login").permitAll()
                         .requestMatchers("/iam/auth/refresh").permitAll()
                         .requestMatchers("/iam/auth/verify").permitAll()

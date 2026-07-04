@@ -47,5 +47,7 @@ public interface ApplicantService {
     ResponseEntity<?> createApplicantExperience(@Valid ApplicantExperience applicantExperience, Long userId);
 
     ResponseEntity<?> createApplicantSkill(@Valid ApplicantSkill applicantSkill, Long userId);
+
+    ResponseEntity<?> getApplicantByUserId(Long userId);
 }
 

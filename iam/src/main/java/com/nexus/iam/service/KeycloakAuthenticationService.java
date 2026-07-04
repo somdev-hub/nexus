@@ -1,9 +1,6 @@
 package com.nexus.iam.service;
 
-import com.nexus.iam.dto.ApplicantRegisterDto;
-import com.nexus.iam.dto.LoginRequest;
-import com.nexus.iam.dto.LoginResponse;
-import com.nexus.iam.dto.UserRegisterDto;
+import com.nexus.iam.dto.*;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -91,4 +88,6 @@ public interface KeycloakAuthenticationService {
     ResponseEntity<?> registerApplicant(ApplicantRegisterDto userRegisterDto, MultipartFile profilePicture);
 
     ResponseEntity<?> loginApplicant(LoginRequest.ApplicantLoginRequest request);
+
+    ResponseEntity<?> refreshApplicantToken(RefreshTokenRequest request);
 }

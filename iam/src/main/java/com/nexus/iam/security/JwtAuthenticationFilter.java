@@ -31,12 +31,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             "/iam/auth/register",
             "/iam/auth/register/applicant",
             "/iam/auth/login/applicant",
+            "/iam/auth/refresh/applicant",
             "/iam/auth/refresh",
             "/iam/public/",
             "/auth/login",
             "/auth/register",
             "/auth/register/applicant",
             "/auth/login/applicant",
+            "/auth/refresh/applicant",
             "/auth/refresh",
             "/public/");
 
