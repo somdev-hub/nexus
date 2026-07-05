@@ -4,7 +4,6 @@ import com.nexus.hr.model.entities.Recruitment;
 import com.nexus.hr.model.enums.HiringStatus;
 import com.nexus.hr.model.enums.HiringType;
 import jakarta.validation.Valid;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 
@@ -20,4 +19,14 @@ public interface RecruitmentService {
     ResponseEntity<?> getClosedRecruitments(Long orgId, Pageable of);
 
     ResponseEntity<?> getRecruitmentAnalytics(Long orgId);
+
+    ResponseEntity<?> getOpeningsToday(Integer pageNo, Integer pageOffset, HiringStatus status, String orgName, String location);
+
+    ResponseEntity<?> getOpeningsBeforeToday(Integer pageNo, Integer pageOffset, HiringStatus status, String orgName, String location);
+
+    ResponseEntity<?> getPositionPieGraph();
+
+    ResponseEntity<?> getExperienceWiseOpenings();
+
+    ResponseEntity<?> getCompanyWiseOpeningCount(Integer pageNo, Integer pageOffset);
 }

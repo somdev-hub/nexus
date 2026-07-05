@@ -112,4 +112,34 @@ public class RecruitmentController {
     {
         return recruitmentService.addApplicantSkill(skill, userId);
     }
+
+    @PutMapping("/applicant")
+    public ResponseEntity<?> updateApplicant(@RequestBody String payload, @RequestParam Long userId){
+        return recruitmentService.updateApplicant(payload, userId);
+    }
+
+    @GetMapping("/openings-today")
+    public ResponseEntity<?> getOpeningsToday(@RequestParam(required = false, defaultValue = "0") Integer pageNo, @RequestParam(required = false, defaultValue = "10") Integer pageOffset, @RequestParam(required = false) String status, @RequestParam(required = false) String orgName, @RequestParam(required = false) String location) {
+        return recruitmentService.getOpeningsToday(pageNo, pageOffset, status, orgName, location);
+    }
+
+    @GetMapping("/openings-before-today")
+    public ResponseEntity<?> getOpeningsBeforeToday(@RequestParam(required = false, defaultValue = "0") Integer pageNo, @RequestParam(required = false, defaultValue = "10") Integer pageOffset, @RequestParam(required = false) String status, @RequestParam(required = false) String orgName, @RequestParam(required = false) String location) {
+        return recruitmentService.getOpeningsBeforeToday(pageNo, pageOffset, status, orgName, location);
+    }
+
+    @GetMapping("/position-pie-graph")
+    public ResponseEntity<?> getPositionPieGraph() {
+        return recruitmentService.getPositionPieGraph();
+    }
+
+    @GetMapping("/openings-experience-wise")
+    public ResponseEntity<?> getExperienceWiseOpenings(){
+        return recruitmentService.getExperienceWiseOpenings();
+    }
+
+    @GetMapping("/company-wise-opening-count")
+    public ResponseEntity<?> getCompanyWiseOpeningCount(@RequestParam(required = false, defaultValue = "0") Integer pageNo, @RequestParam(required = false, defaultValue = "10") Integer pageOffset){
+        return recruitmentService.getCompanyWiseOpeningCount(pageNo, pageOffset);
+    }
 }

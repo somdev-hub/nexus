@@ -12,7 +12,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -337,7 +336,7 @@ public class ApplicantServiceImpl implements ApplicantService {
     }
 
     @Override
-    public ResponseEntity<?> updateApplicant(Applicant applicant) {
+    public ResponseEntity<?> updateApplicant(Applicant applicant, Long userId) {
         if (ObjectUtils.isEmpty(applicant) || ObjectUtils.isEmpty(applicant.getApplicantId())) {
             throw new ServiceLevelException(
                     "ApplicantService",
@@ -348,11 +347,20 @@ public class ApplicantServiceImpl implements ApplicantService {
             );
         }
         try {
-            Applicant existingApplicant = applicantRepo.findById(applicant.getApplicantId()).orElseThrow(() -> new ResourceNotFoundException(
-                    "Applicant",
-                    "id",
-                    applicant.getApplicantId().toString()
-            ));
+            Applicant existingApplicant;
+            if (!ObjectUtils.isEmpty(userId)) {
+                existingApplicant = applicantRepo.findByUserId(userId).orElseThrow(() -> new ResourceNotFoundException(
+                        "Applicant",
+                        "userId",
+                        userId.toString()
+                ));
+            } else {
+                existingApplicant = applicantRepo.findById(applicant.getApplicantId()).orElseThrow(() -> new ResourceNotFoundException(
+                        "Applicant",
+                        "id",
+                        applicant.getApplicantId().toString()
+                ));
+            }
 
             // Update fields if provided
             if (!ObjectUtils.isEmpty(applicant.getApplicantFirstName())) {
@@ -396,6 +404,25 @@ public class ApplicantServiceImpl implements ApplicantService {
 //            }
             if (!ObjectUtils.isEmpty(applicant.getIsActive())) {
                 existingApplicant.setIsActive(applicant.getIsActive());
+            }
+
+            if (!ObjectUtils.isEmpty(applicant.getApplicantEducations())) {
+                // Merge into existing collection to avoid orphanRemoval issues:
+                // replacing the entire collection reference causes Hibernate to
+                // detect the old collection as orphaned, triggering deletion conflicts.
+                existingApplicant.getApplicantEducations().clear();
+                applicant.getApplicantEducations().forEach(edu -> edu.setApplicant(existingApplicant));
+                existingApplicant.getApplicantEducations().addAll(applicant.getApplicantEducations());
+            }
+            if (!ObjectUtils.isEmpty(applicant.getApplicantExperiences())) {
+                existingApplicant.getApplicantExperiences().clear();
+                applicant.getApplicantExperiences().forEach(exp -> exp.setApplicant(existingApplicant));
+                existingApplicant.getApplicantExperiences().addAll(applicant.getApplicantExperiences());
+            }
+            if (!ObjectUtils.isEmpty(applicant.getApplicantSkills())) {
+                existingApplicant.getApplicantSkills().clear();
+                applicant.getApplicantSkills().forEach(skill -> skill.setApplicant(existingApplicant));
+                existingApplicant.getApplicantSkills().addAll(applicant.getApplicantSkills());
             }
 
             Applicant updatedApplicant = applicantRepo.save(existingApplicant);
@@ -589,6 +616,9 @@ public class ApplicantServiceImpl implements ApplicantService {
                     "userId",
                     userId.toString()
             ));
+            applicant.setApplicantEducations(applicantRepo.findApplicantEducationByApplicant_ApplicantIdAndIsActiveTrue(applicant.getApplicantId()));
+            applicant.setApplicantExperiences(applicantRepo.findApplicantExperienceByApplicant_ApplicantIdAndIsActiveTrue(applicant.getApplicantId()));
+            applicant.setApplicantSkills(applicantRepo.findApplicantSkillByApplicant_ApplicantIdAndIsActiveTrue(applicant.getApplicantId()));
             return ResponseEntity.ok(applicant);
         } catch (ServiceLevelException e) {
             throw e;

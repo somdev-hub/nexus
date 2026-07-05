@@ -30,4 +30,16 @@ public interface RecruitmentService {
     ResponseEntity<?> addApplicantExperience(String experience, Long applicantId);
 
     ResponseEntity<?> addApplicantSkill(String skill, Long applicantId);
+
+    ResponseEntity<?> updateApplicant(String payload, Long userId);
+
+    ResponseEntity<?> getOpeningsToday(Integer pageNo, Integer pageOffset, String status, String orgName, String location);
+
+    ResponseEntity<?> getOpeningsBeforeToday(Integer pageNo, Integer pageOffset, String status, String orgName, String location);
+
+    ResponseEntity<?> getPositionPieGraph();
+
+    ResponseEntity<?> getExperienceWiseOpenings();
+
+    ResponseEntity<?> getCompanyWiseOpeningCount(Integer pageNo, Integer pageOffset);
 }

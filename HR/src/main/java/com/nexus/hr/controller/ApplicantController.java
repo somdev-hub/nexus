@@ -108,8 +108,8 @@ public class ApplicantController {
      * @return Updated applicant
      */
     @PutMapping("/")
-    public ResponseEntity<?> updateApplicant(@Valid @RequestBody Applicant applicant) {
-        return applicantService.updateApplicant(applicant);
+    public ResponseEntity<?> updateApplicant(@Valid @RequestBody Applicant applicant, @RequestParam Long userId) {
+        return applicantService.updateApplicant(applicant, userId);
     }
 
     /**

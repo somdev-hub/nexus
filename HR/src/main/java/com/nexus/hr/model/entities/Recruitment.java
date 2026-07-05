@@ -54,6 +54,14 @@ public class Recruitment {
     @NotNull
     private String totalCompensation;
 
+    private String location;
+
+    private Integer minYearsOfExperience;
+
+    private Integer maxYearsOfExperience;
+
+    private String orgName;
+
     @OneToMany(cascade = CascadeType.ALL, mappedBy = "recruitment", orphanRemoval = true)
     @JsonManagedReference("recruitment-applicantRecruitmentMappings")
     private List<ApplicantRecruitmentMapping> applicantRecruitmentMappings= new ArrayList<>();

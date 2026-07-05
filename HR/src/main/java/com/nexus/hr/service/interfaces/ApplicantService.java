@@ -6,7 +6,6 @@ import com.nexus.hr.model.entities.ApplicantExperience;
 import com.nexus.hr.model.entities.ApplicantSkill;
 import com.nexus.hr.model.enums.ApplicationStatus;
 import jakarta.validation.Valid;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.multipart.MultipartFile;
@@ -36,7 +35,7 @@ public interface ApplicantService {
             Pageable pageRequest
     );
 
-    ResponseEntity<?> updateApplicant(@Valid Applicant applicant);
+    ResponseEntity<?> updateApplicant(@Valid Applicant applicant, Long userId);
 
     ResponseEntity<?> deleteApplicant(Long id);
 

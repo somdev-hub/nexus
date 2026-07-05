@@ -1,6 +1,9 @@
 package com.nexus.hr.repository;
 
 import com.nexus.hr.model.entities.Applicant;
+import com.nexus.hr.model.entities.ApplicantEducation;
+import com.nexus.hr.model.entities.ApplicantExperience;
+import com.nexus.hr.model.entities.ApplicantSkill;
 import com.nexus.hr.model.enums.ApplicationStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -10,6 +13,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 
 public interface ApplicantRepo extends JpaRepository<Applicant, Long>, JpaSpecificationExecutor<Applicant> {
@@ -298,4 +302,23 @@ public interface ApplicantRepo extends JpaRepository<Applicant, Long>, JpaSpecif
                                                                                               LocalDate appliedFromDate, LocalDate appliedToDate, Double yearsOfExperience, Pageable pageRequest);
 
     Optional<Applicant> findByUserId(Long userId);
+
+    @Query("""
+            SELECT e FROM ApplicantEducation e
+                WHERE e.applicant.applicantId = :applicantId
+                AND e.isActive = true
+    """)
+    List<ApplicantEducation> findApplicantEducationByApplicant_ApplicantIdAndIsActiveTrue(Long applicantId);
+    @Query("""
+            SELECT e FROM ApplicantExperience e
+                WHERE e.applicant.applicantId = :applicantId
+                AND e.isActive = true
+    """)
+    List<ApplicantExperience> findApplicantExperienceByApplicant_ApplicantIdAndIsActiveTrue(Long applicantId);
+    @Query("""
+            SELECT e FROM ApplicantSkill e
+                WHERE e.applicant.applicantId = :applicantId
+                AND e.isActive = true
+    """)
+    List<ApplicantSkill> findApplicantSkillByApplicant_ApplicantIdAndIsActiveTrue(Long applicantId);
 }

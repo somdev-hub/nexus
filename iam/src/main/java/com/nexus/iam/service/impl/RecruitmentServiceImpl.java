@@ -473,4 +473,192 @@ public class RecruitmentServiceImpl implements RecruitmentService {
             );
         }
     }
+
+    @Override
+    public ResponseEntity<?> updateApplicant(String payload, Long userId) {
+        if (ObjectUtils.isEmpty(payload) || ObjectUtils.isEmpty(userId)) {
+            throw new ServiceLevelException(
+                    "RecruitmentService",
+                    "Required params missing",
+                    "updateApplicant",
+                    "BAD_REQUEST",
+                    "Please provide required params"
+            );
+        }
+        try {
+            UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getApplicantUrl()).queryParam("userId", userId);
+            Map<String, String> headers = commonUtils.buildJsonHeaders(null);
+            ResponseEntity<?> response = restService.iamRestCall(builder.toUriString(), payload, headers, HttpMethod.PUT, userId);
+            if (!response.getStatusCode().is2xxSuccessful()) {
+                throw new ServiceLevelException(
+                        "RecruitmentService",
+                        "Failed to update applicant",
+                        "updateApplicant",
+                        response.getStatusCode().toString(),
+                        response.getBody() != null ? response.getBody().toString() : "No response body"
+                );
+            }
+            return response;
+        } catch (RuntimeException e) {
+            throw new ServiceLevelException(
+                    "RecruitmentService",
+                    "Exception occurred while updating applicant",
+                    "updateApplicant",
+                    "INTERNAL_SERVER_ERROR",
+                    e.getMessage()
+            );
+        }
+    }
+
+    @Override
+    public ResponseEntity<?> getOpeningsToday(Integer pageNo, Integer pageOffset, String status, String orgName, String location) {
+        try {
+            UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getHrRecruitmentUrl() + "/openings-today")
+                    .queryParam("pageNo", pageNo)
+                    .queryParam("pageOffset", pageOffset)
+                    .queryParam("status", status)
+                    .queryParam("orgName", orgName)
+                    .queryParam("location", location);
+            Map<String, String> headers = new HashMap<>();
+            headers.put(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
+            ResponseEntity<?> response = restService.iamRestCall(builder.toUriString(), null, headers, HttpMethod.GET, null);
+            if (!response.getStatusCode().is2xxSuccessful()) {
+                throw new ServiceLevelException(
+                        "RecruitmentService",
+                        "Failed to fetch today's openings",
+                        "getOpeningsToday",
+                        response.getStatusCode().toString(),
+                        response.getBody() != null ? response.getBody().toString() : "No response body"
+                );
+            }
+            return response;
+        } catch (Exception e) {
+            throw new ServiceLevelException(
+                    "RecruitmentService",
+                    "Exception occurred while fetching today's openings",
+                    "getOpeningsToday",
+                    "INTERNAL_SERVER_ERROR",
+                    e.getMessage()
+            );
+        }
+    }
+
+    @Override
+    public ResponseEntity<?> getOpeningsBeforeToday(Integer pageNo, Integer pageOffset, String status, String orgName, String location) {
+        try {
+            UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getHrRecruitmentUrl() + "/openings-before-today")
+                    .queryParam("pageNo", pageNo)
+                    .queryParam("pageOffset", pageOffset)
+                    .queryParam("status", status)
+                    .queryParam("orgName", orgName)
+                    .queryParam("location", location);
+            Map<String, String> headers = new HashMap<>();
+            headers.put(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
+            ResponseEntity<?> response = restService.iamRestCall(builder.toUriString(), null, headers, HttpMethod.GET, null);
+            if (!response.getStatusCode().is2xxSuccessful()) {
+                throw new ServiceLevelException(
+                        "RecruitmentService",
+                        "Failed to fetch openings before today",
+                        "getOpeningsBeforeToday",
+                        response.getStatusCode().toString(),
+                        response.getBody() != null ? response.getBody().toString() : "No response body"
+                );
+            }
+            return response;
+        } catch (Exception e) {
+            throw new ServiceLevelException(
+                    "RecruitmentService",
+                    "Exception occurred while fetching openings before today",
+                    "getOpeningsBeforeToday",
+                    "INTERNAL_SERVER_ERROR",
+                    e.getMessage()
+            );
+        }
+    }
+
+    @Override
+    public ResponseEntity<?> getPositionPieGraph() {
+        try {
+            UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getHrRecruitmentUrl() + "/position-pie-graph");
+            Map<String, String> headers = new HashMap<>();
+            headers.put(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
+            ResponseEntity<?> response = restService.iamRestCall(builder.toUriString(), null, headers, HttpMethod.GET, null);
+            if (!response.getStatusCode().is2xxSuccessful()) {
+                throw new ServiceLevelException(
+                        "RecruitmentService",
+                        "Failed to fetch position pie graph",
+                        "getPositionPieGraph",
+                        response.getStatusCode().toString(),
+                        response.getBody() != null ? response.getBody().toString() : "No response body"
+                );
+            }
+            return response;
+        } catch (Exception e) {
+            throw new ServiceLevelException(
+                    "RecruitmentService",
+                    "Exception occurred while fetching position pie graph",
+                    "getPositionPieGraph",
+                    "INTERNAL_SERVER_ERROR",
+                    e.getMessage()
+            );
+        }
+    }
+
+    @Override
+    public ResponseEntity<?> getExperienceWiseOpenings() {
+        try {
+            UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getHrRecruitmentUrl() + "/openings-experience-wise");
+            Map<String, String> headers = new HashMap<>();
+            headers.put(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
+            ResponseEntity<?> response = restService.iamRestCall(builder.toUriString(), null, headers, HttpMethod.GET, null);
+            if (!response.getStatusCode().is2xxSuccessful()) {
+                throw new ServiceLevelException(
+                        "RecruitmentService",
+                        "Failed to fetch experience-wise openings",
+                        "getExperienceWiseOpenings",
+                        response.getStatusCode().toString(),
+                        response.getBody() != null ? response.getBody().toString() : "No response body"
+                );
+            }
+            return response;
+        } catch (Exception e) {
+            throw new ServiceLevelException(
+                    "RecruitmentService",
+                    "Exception occurred while fetching experience-wise openings",
+                    "getExperienceWiseOpenings",
+                    "INTERNAL_SERVER_ERROR",
+                    e.getMessage()
+            );
+        }
+    }
+
+    @Override
+    public ResponseEntity<?> getCompanyWiseOpeningCount(Integer pageNo, Integer pageOffset) {
+        try {
+            UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getHrRecruitmentUrl() + "/company-wise-opening-count")
+                    .queryParam("pageNo", pageNo)
+                    .queryParam("pageOffset", pageOffset);
+            Map<String, String> headers = new HashMap<>();
+            headers.put(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
+            ResponseEntity<?> response = restService.iamRestCall(builder.toUriString(), null, headers, HttpMethod.GET, null);
+            if (!response.getStatusCode().is2xxSuccessful()) {
+                throw new ServiceLevelException(
+                        "RecruitmentService",
+                        "Failed to fetch company-wise opening count",
+                        "getCompanyWiseOpeningCount",
+                        response.getStatusCode().toString(),
+                        response.getBody() != null ? response.getBody().toString() : "No response body"
+                );
+            }
+            return response;
+        } catch (Exception e) {
+            throw new ServiceLevelException(
+                    "RecruitmentService",
+                    "Exception occurred while fetching company-wise opening count",
+                    "getCompanyWiseOpeningCount",
+                    "INTERNAL_SERVER_ERROR",
+                    e.getMessage()
+            );
+        }
+    }
 }

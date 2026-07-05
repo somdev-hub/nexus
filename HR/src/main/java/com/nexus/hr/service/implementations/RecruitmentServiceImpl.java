@@ -7,7 +7,11 @@ import com.nexus.hr.model.entities.Recruitment;
 import com.nexus.hr.model.enums.ApplicationStatus;
 import com.nexus.hr.model.enums.HiringStatus;
 import com.nexus.hr.model.enums.HiringType;
+import com.nexus.hr.payload.reflections.ExperienceBucketCount;
+import com.nexus.hr.payload.reflections.OrgOpeningCount;
+import com.nexus.hr.payload.response.CompanyOpeningsCardDto;
 import com.nexus.hr.payload.response.RecruitmentAnalyticsResponseDto;
+import com.nexus.hr.payload.response.RecruitmentApplicantTableResponse;
 import com.nexus.hr.payload.response.RecruitmentTableResponse;
 import com.nexus.hr.repository.ApplicantRepo;
 import com.nexus.hr.repository.HrEntityRepo;
@@ -16,13 +20,20 @@ import com.nexus.hr.service.interfaces.RecruitmentService;
 import lombok.RequiredArgsConstructor;
 import org.modelmapper.ModelMapper;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.util.ObjectUtils;
 
+import java.sql.Timestamp;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @RequiredArgsConstructor
 @Service
@@ -399,12 +410,12 @@ public class RecruitmentServiceImpl implements RecruitmentService {
             Long currentOfferAccepted = applicantRepo.countOfferAccepted(orgId);
             Long currentSelected = applicantRepo.countSelected(orgId);
             Integer currentOfferAcceptanceRate = (currentSelected != null && currentSelected > 0) ?
-                    (int)((currentOfferAccepted != null ? currentOfferAccepted : 0) * 100 / currentSelected) : 0;
+                    (int) ((currentOfferAccepted != null ? currentOfferAccepted : 0) * 100 / currentSelected) : 0;
 
             Long previousQuarterOfferAccepted = applicantRepo.countOfferAcceptedPreviousQuarter(orgId);
             Long previousQuarterSelected = applicantRepo.countSelectedPreviousQuarter(orgId);
             Integer previousQuarterOfferAcceptanceRate = (previousQuarterSelected != null && previousQuarterSelected > 0) ?
-                    (int)((previousQuarterOfferAccepted != null ? previousQuarterOfferAccepted : 0) * 100 / previousQuarterSelected) : 0;
+                    (int) ((previousQuarterOfferAccepted != null ? previousQuarterOfferAccepted : 0) * 100 / previousQuarterSelected) : 0;
 
             Integer offerAcceptanceRateDifference = currentOfferAcceptanceRate - previousQuarterOfferAcceptanceRate;
             RecruitmentAnalyticsResponseDto.Trend offerAcceptanceTrend = offerAcceptanceRateDifference > 0 ?
@@ -428,6 +439,140 @@ public class RecruitmentServiceImpl implements RecruitmentService {
                     "RecruimentService",
                     "Error occurred while fetching recruitment analytics",
                     "getRecruitmentAnalytics",
+                    "Service level exception",
+                    e.getMessage()
+            );
+        }
+    }
+
+    @Override
+    public ResponseEntity<?> getOpeningsToday(Integer pageNo, Integer pageOffset, HiringStatus status, String orgName, String location) {
+        try {
+            PageRequest pageRequest = PageRequest.of(pageNo, pageOffset);
+            Page<Recruitment> openingsToday = recruitmentRepo.findOpeningsToday(pageRequest, status.name(), orgName, location);
+            Page<RecruitmentApplicantTableResponse> mappedResults = openingsToday.map(recruitment -> modelMapper.map(recruitment, RecruitmentApplicantTableResponse.class));
+            return ResponseEntity.ok(mappedResults);
+        } catch (Exception e) {
+            throw new ServiceLevelException(
+                    "RecruimentService",
+                    "Error occurred while fetching today's openings",
+                    "getOpeningsToday",
+                    "Service level exception",
+                    e.getMessage()
+            );
+        }
+    }
+
+    @Override
+    public ResponseEntity<?> getOpeningsBeforeToday(Integer pageNo, Integer pageOffset, HiringStatus status, String orgName, String location) {
+        try {
+            PageRequest pageRequest = PageRequest.of(pageNo, pageOffset);
+            Page<Recruitment> openingsBeforeToday = recruitmentRepo.findOpeningsBeforeToday(pageRequest, status.name(), orgName, location);
+            Page<RecruitmentApplicantTableResponse> mappedResults = openingsBeforeToday.map(recruitment -> modelMapper.map(recruitment, RecruitmentApplicantTableResponse.class));
+            return ResponseEntity.ok(mappedResults);
+        } catch (Exception e) {
+            throw new ServiceLevelException(
+                    "RecruimentService",
+                    "Error occurred while fetching openings before today",
+                    "getOpeningsBeforeToday",
+                    "Service level exception",
+                    e.getMessage()
+            );
+        }
+    }
+
+    @Override
+    public ResponseEntity<?> getPositionPieGraph() {
+        try {
+            Map<String, Long> graphMap = recruitmentRepo.countOpeningsByDepartmentRaw().stream()
+                    .collect(Collectors.toMap(
+                            row -> (String) row[0],
+                            row -> (Long) row[1]
+                    ));
+
+            return ResponseEntity.ok(graphMap);
+        } catch (Exception e) {
+            throw new ServiceLevelException(
+                    "RecruimentService",
+                    "Error occurred while fetching position pie graph data",
+                    "getPositionPieGraph",
+                    "Service level exception",
+                    e.getMessage()
+            );
+        }
+    }
+
+    @Override
+    public ResponseEntity<?> getExperienceWiseOpenings() {
+        try {
+            List<ExperienceBucketCount> rows =
+                    recruitmentRepo.countOpeningsByExperienceBucket(HiringStatus.OPEN);
+
+            Map<String, Long> raw = rows.stream()
+                    .collect(Collectors.toMap(
+                            ExperienceBucketCount::getBucket,
+                            ExperienceBucketCount::getOpeningCount
+                    ));
+
+            Map<String, Long> ordered = new LinkedHashMap<>();
+            ordered.put("Junior Roles", raw.getOrDefault("Junior Roles", 0L));
+            ordered.put("Mid-Level Roles", raw.getOrDefault("Mid-Level Roles", 0L));
+            ordered.put("Senior Roles", raw.getOrDefault("Senior Roles", 0L));
+            ordered.put("Executive Roles", raw.getOrDefault("Executive Roles", 0L));
+
+            return ResponseEntity.ok(ordered);
+        } catch (Exception e) {
+            throw new ServiceLevelException(
+                    "RecruimentService",
+                    "Error occurred while fetching experience-wise openings",
+                    "getExperienceWiseOpenings",
+                    "Service level exception",
+                    e.getMessage()
+            );
+        }
+    }
+
+    @Override
+    public ResponseEntity<?> getCompanyWiseOpeningCount(Integer pageNo, Integer pageOffset) {
+        try {
+            Page<OrgOpeningCount> currentPage =
+                    recruitmentRepo.findCurrentOpeningsGroupedByOrg(HiringStatus.OPEN, PageRequest.of(pageNo, pageOffset));
+
+            // Start of current month, for the "last month" comparison baseline
+            LocalDateTime startOfThisMonth = LocalDate.now()
+                    .withDayOfMonth(1)
+                    .atStartOfDay();
+            Timestamp monthStart = Timestamp.valueOf(startOfThisMonth);
+
+            // Openings that already existed before this month started, per org
+            Map<Long, Long> openingsBeforeThisMonth =
+                    recruitmentRepo.findOpeningsGroupedByOrgBefore(HiringStatus.OPEN, monthStart).stream()
+                            .collect(Collectors.toMap(
+                                    OrgOpeningCount::getOrgId,
+                                    OrgOpeningCount::getOpeningCount
+                            ));
+
+            // Combine into DTOs, computing the delta
+            List<CompanyOpeningsCardDto> cards = currentPage.getContent().stream()
+                    .map(row -> {
+                        long current = row.getOpeningCount();
+                        long before = openingsBeforeThisMonth.getOrDefault(row.getOrgId(), 0L);
+                        long change = current - before;
+                        return new CompanyOpeningsCardDto(
+                                row.getOrgId(),
+                                row.getOrgName(),
+                                current,
+                                change
+                        );
+                    })
+                    .toList();
+
+            return ResponseEntity.ok(new PageImpl<>(cards, PageRequest.of(pageNo, pageOffset), currentPage.getTotalElements()));
+        } catch (Exception e) {
+            throw new ServiceLevelException(
+                    "RecruimentService",
+                    "Error occurred while fetching company-wise opening count",
+                    "getCompanyWiseOpeningCount",
                     "Service level exception",
                     e.getMessage()
             );
