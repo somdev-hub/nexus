@@ -661,4 +661,42 @@ public class RecruitmentServiceImpl implements RecruitmentService {
             );
         }
     }
+
+    @Override
+    public ResponseEntity<?> getRecruitmentApplicantView(Long id) {
+        if (ObjectUtils.isEmpty(id)) {
+            throw new ServiceLevelException(
+                    "RecruitmentService",
+                    "Required params missing",
+                    "getRecruitmentApplicantView",
+                    "BAD_REQUEST",
+                    "Please provide required params"
+            );
+        }
+        try {
+            UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getHrRecruitmentUrl() + "/applicant-view/" + id);
+            Map<String, String> headers = new HashMap<>();
+            headers.put(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
+            ResponseEntity<?> response = restService.iamRestCall(builder.toUriString(), null, headers, HttpMethod.GET, null);
+            if (!response.getStatusCode().is2xxSuccessful()) {
+                throw new ServiceLevelException(
+                        "RecruitmentService",
+                        "Failed to fetch recruitment applicant view",
+                        "getRecruitmentApplicantView",
+                        response.getStatusCode().toString(),
+                        response.getBody() != null ? response.getBody().toString() : "No response body"
+                );
+            }
+            return response;
+
+        } catch (RuntimeException e) {
+            throw new ServiceLevelException(
+                    "RecruitmentService",
+                    "Exception occurred while fetching recruitment applicant view",
+                    "getRecruitmentApplicantView",
+                    "INTERNAL_SERVER_ERROR",
+                    e.getMessage()
+            );
+        }
+    }
 }

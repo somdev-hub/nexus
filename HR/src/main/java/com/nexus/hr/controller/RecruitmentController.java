@@ -54,7 +54,7 @@ public class RecruitmentController {
         return recruitmentService.getOpeningsToday(pageNo, pageOffset, status, orgName, location);
     }
 
-    @GetMapping("/openings-defore-today")
+    @GetMapping("/openings-before-today")
     public ResponseEntity<?> getOpeningsBeforeToday(@RequestParam(required = false, defaultValue = "0") Integer pageNo, @RequestParam(required = false, defaultValue = "10") Integer pageOffset, @RequestParam(required = false) HiringStatus status, @RequestParam(required = false) String orgName, @RequestParam(required = false) String location) {
         return recruitmentService.getOpeningsBeforeToday(pageNo, pageOffset, status, orgName, location);
     }
@@ -72,5 +72,10 @@ public class RecruitmentController {
     @GetMapping("/company-wise-opening-count")
     public ResponseEntity<?> getCompanyWiseOpeningCount(@RequestParam(required = false, defaultValue = "0") Integer pageNo, @RequestParam(required = false, defaultValue = "10") Integer pageOffset){
         return recruitmentService.getCompanyWiseOpeningCount(pageNo, pageOffset);
+    }
+
+    @GetMapping("/applicant-view/{id}")
+    public ResponseEntity<?> getRecruitmentApplicantView(@PathVariable Long id) {
+        return recruitmentService.getRecruitmentApplicantView(id);
     }
 }

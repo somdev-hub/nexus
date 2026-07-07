@@ -7,6 +7,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import com.nexus.iam.utils.CommonConstants;
 import jakarta.persistence.*;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -114,6 +115,12 @@ public class User implements UserDetails {
 
     @Override
     public String getUsername() {
+        // check if role has ROLE_APPLICANT and if so return personalEmail
+        for (Role role : roles) {
+            if (role.getName().equals(CommonConstants.ROLE_APPLICANT)) {
+                return this.personalEmail;
+            }
+        }
         return this.email;
     }
 }

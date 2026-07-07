@@ -96,7 +96,7 @@ public interface RecruitmentRepo extends JpaRepository<Recruitment, Long>, JpaSp
     Long countOpenRecruitmentsPreviousQuarter(@Param("orgId") Long orgId);
 
     @Query(value = """
-            SELECT * FROM t_hr_recruitments r
+            SELECT * FROM hr.t_hr_recruitments r
             WHERE r.created_at >= CURRENT_DATE
               AND r.created_at < CURRENT_DATE + INTERVAL '1 day'
               AND (:status IS NULL OR r.hiring_status = :status)
@@ -119,7 +119,7 @@ public interface RecruitmentRepo extends JpaRepository<Recruitment, Long>, JpaSp
             @Param("location") String location);
 
     @Query(value = """
-            SELECT * FROM t_hr_recruitments r
+            SELECT * FROM hr.t_hr_recruitments r
                         WHERE r.created_at < CURRENT_DATE
                         AND (:status IS NULL OR r.hiring_status = :status)
                         AND (:orgName IS NULL OR r.org_name ILIKE CONCAT('%', :orgName, '%'))
@@ -176,11 +176,6 @@ public interface RecruitmentRepo extends JpaRepository<Recruitment, Long>, JpaSp
         WHERE r.isActive = true AND r.hiringStatus = :status
         GROUP BY r.orgId, r.orgName
         ORDER BY r.orgName
-        """,
-            countQuery = """
-        SELECT COUNT(DISTINCT r.orgId)
-        FROM Recruitment r
-        WHERE r.isActive = true AND r.hiringStatus = :status
         """)
     Page<OrgOpeningCount> findCurrentOpeningsGroupedByOrg(
             @Param("status") HiringStatus status,

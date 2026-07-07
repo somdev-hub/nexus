@@ -13,10 +13,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import javax.crypto.SecretKey;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Component
@@ -145,6 +144,39 @@ public class JwtUtil {
             log.error("Error extracting username from token: {}", e.getMessage());
             return null;
         }
+    }
+
+    public List<String> extractRolesFromToken(String token) {
+        try {
+            if (keycloakEnabled) {
+                // For Keycloak tokens (RS256), extract from JwtDecoder
+                if (jwtDecoder == null) {
+                    return Collections.emptyList();
+                }
+                Jwt jwt = jwtDecoder.decode(token);
+                Object rolesObj = jwt.getClaims().get("roles");
+                if (rolesObj instanceof List<?>) {
+                    return ((List<?>) rolesObj).stream()
+                            .filter(role -> role instanceof String)
+                            .map(role -> (String) role)
+                            .collect(Collectors.toList());
+                }
+                return Collections.emptyList();
+            } else {
+                // For traditional JWT (HMAC-SHA256), use standard extraction
+                Claims claims = extractAllClaims(token);
+                Object rolesObj = claims.get("roles");
+                if (rolesObj instanceof List<?>) {
+                    return ((List<?>) rolesObj).stream()
+                            .filter(role -> role instanceof String)
+                            .map(role -> (String) role)
+                            .collect(Collectors.toList());
+                }
+            }
+        } catch (Exception e) {
+            log.error("Error extracting roles from token: {}", e.getMessage());
+        }
+        return Collections.emptyList();
     }
 
     public Long extractUserIdFromToken(String token) {

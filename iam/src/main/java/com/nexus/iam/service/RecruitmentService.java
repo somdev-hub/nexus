@@ -42,4 +42,6 @@ public interface RecruitmentService {
     ResponseEntity<?> getExperienceWiseOpenings();
 
     ResponseEntity<?> getCompanyWiseOpeningCount(Integer pageNo, Integer pageOffset);
+
+    ResponseEntity<?> getRecruitmentApplicantView(Long id);
 }

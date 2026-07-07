@@ -9,10 +9,7 @@ import com.nexus.hr.model.enums.HiringStatus;
 import com.nexus.hr.model.enums.HiringType;
 import com.nexus.hr.payload.reflections.ExperienceBucketCount;
 import com.nexus.hr.payload.reflections.OrgOpeningCount;
-import com.nexus.hr.payload.response.CompanyOpeningsCardDto;
-import com.nexus.hr.payload.response.RecruitmentAnalyticsResponseDto;
-import com.nexus.hr.payload.response.RecruitmentApplicantTableResponse;
-import com.nexus.hr.payload.response.RecruitmentTableResponse;
+import com.nexus.hr.payload.response.*;
 import com.nexus.hr.repository.ApplicantRepo;
 import com.nexus.hr.repository.HrEntityRepo;
 import com.nexus.hr.repository.RecruitmentRepo;
@@ -449,7 +446,7 @@ public class RecruitmentServiceImpl implements RecruitmentService {
     public ResponseEntity<?> getOpeningsToday(Integer pageNo, Integer pageOffset, HiringStatus status, String orgName, String location) {
         try {
             PageRequest pageRequest = PageRequest.of(pageNo, pageOffset);
-            Page<Recruitment> openingsToday = recruitmentRepo.findOpeningsToday(pageRequest, status.name(), orgName, location);
+            Page<Recruitment> openingsToday = recruitmentRepo.findOpeningsToday(pageRequest, status != null ? status.name() : null, orgName, location);
             Page<RecruitmentApplicantTableResponse> mappedResults = openingsToday.map(recruitment -> modelMapper.map(recruitment, RecruitmentApplicantTableResponse.class));
             return ResponseEntity.ok(mappedResults);
         } catch (Exception e) {
@@ -467,7 +464,7 @@ public class RecruitmentServiceImpl implements RecruitmentService {
     public ResponseEntity<?> getOpeningsBeforeToday(Integer pageNo, Integer pageOffset, HiringStatus status, String orgName, String location) {
         try {
             PageRequest pageRequest = PageRequest.of(pageNo, pageOffset);
-            Page<Recruitment> openingsBeforeToday = recruitmentRepo.findOpeningsBeforeToday(pageRequest, status.name(), orgName, location);
+            Page<Recruitment> openingsBeforeToday = recruitmentRepo.findOpeningsBeforeToday(pageRequest, status != null ? status.name() : null, orgName, location);
             Page<RecruitmentApplicantTableResponse> mappedResults = openingsBeforeToday.map(recruitment -> modelMapper.map(recruitment, RecruitmentApplicantTableResponse.class));
             return ResponseEntity.ok(mappedResults);
         } catch (Exception e) {
@@ -481,6 +478,8 @@ public class RecruitmentServiceImpl implements RecruitmentService {
         }
     }
 
+    private record PositionPieGraphResponse(String position, Long openings){}
+
     @Override
     public ResponseEntity<?> getPositionPieGraph() {
         try {
@@ -489,8 +488,12 @@ public class RecruitmentServiceImpl implements RecruitmentService {
                             row -> (String) row[0],
                             row -> (Long) row[1]
                     ));
+            List<PositionPieGraphResponse> positionPieGraphResponses = graphMap.entrySet()
+                    .stream()
+                    .map(entry -> new PositionPieGraphResponse(entry.getKey(), entry.getValue()))
+                    .toList();
 
-            return ResponseEntity.ok(graphMap);
+            return ResponseEntity.ok(positionPieGraphResponses);
         } catch (Exception e) {
             throw new ServiceLevelException(
                     "RecruimentService",
@@ -573,6 +576,36 @@ public class RecruitmentServiceImpl implements RecruitmentService {
                     "RecruimentService",
                     "Error occurred while fetching company-wise opening count",
                     "getCompanyWiseOpeningCount",
+                    "Service level exception",
+                    e.getMessage()
+            );
+        }
+    }
+
+    @Override
+    public ResponseEntity<?> getRecruitmentApplicantView(Long id) {
+        if (ObjectUtils.isEmpty(id)) {
+            throw new ServiceLevelException(
+                    "RecruimentService",
+                    "Recruitment id is missing",
+                    "getRecruitmentApplicantView",
+                    "Missing required data exception",
+                    "Required data recruitment id is missing"
+            );
+        }
+        try {
+            Recruitment recruitment = recruitmentRepo.findById(id).orElseThrow(() -> new ResourceNotFoundException(
+                    "Recruitment",
+                    "id",
+                    id.toString()
+            ));
+            RecruitmentApplicantViewDto recruitmentApplicantViewDto = modelMapper.map(recruitment, RecruitmentApplicantViewDto.class);
+            return ResponseEntity.ok(recruitmentApplicantViewDto);
+        } catch (Exception e) {
+            throw new ServiceLevelException(
+                    "RecruimentService",
+                    "Error occurred while fetching recruitment applicant view",
+                    "getRecruitmentApplicantView",
                     "Service level exception",
                     e.getMessage()
             );

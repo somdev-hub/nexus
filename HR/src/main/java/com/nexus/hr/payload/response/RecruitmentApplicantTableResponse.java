@@ -8,7 +8,7 @@ import java.sql.Timestamp;
 @Data
 public class RecruitmentApplicantTableResponse {
     private Long recruitmentId;
-    private String position;
+    private String roleName;
     private String orgName;
     private String location;
     private Timestamp createdAt;
