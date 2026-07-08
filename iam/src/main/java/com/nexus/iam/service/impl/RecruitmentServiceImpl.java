@@ -511,14 +511,15 @@ public class RecruitmentServiceImpl implements RecruitmentService {
     }
 
     @Override
-    public ResponseEntity<?> getOpeningsToday(Integer pageNo, Integer pageOffset, String status, String orgName, String location) {
+    public ResponseEntity<?> getOpeningsToday(Integer pageNo, Integer pageOffset, String status, String orgName, String location, String query) {
         try {
             UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getHrRecruitmentUrl() + "/openings-today")
                     .queryParam("pageNo", pageNo)
                     .queryParam("pageOffset", pageOffset)
                     .queryParam("status", status)
                     .queryParam("orgName", orgName)
-                    .queryParam("location", location);
+                    .queryParam("location", location)
+                    .queryParam("query", query);
             Map<String, String> headers = new HashMap<>();
             headers.put(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
             ResponseEntity<?> response = restService.iamRestCall(builder.toUriString(), null, headers, HttpMethod.GET, null);
@@ -544,14 +545,15 @@ public class RecruitmentServiceImpl implements RecruitmentService {
     }
 
     @Override
-    public ResponseEntity<?> getOpeningsBeforeToday(Integer pageNo, Integer pageOffset, String status, String orgName, String location) {
+    public ResponseEntity<?> getOpeningsBeforeToday(Integer pageNo, Integer pageOffset, String status, String orgName, String location, String query) {
         try {
             UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getHrRecruitmentUrl() + "/openings-before-today")
                     .queryParam("pageNo", pageNo)
                     .queryParam("pageOffset", pageOffset)
                     .queryParam("status", status)
                     .queryParam("orgName", orgName)
-                    .queryParam("location", location);
+                    .queryParam("location", location)
+                    .queryParam("query", query);
             Map<String, String> headers = new HashMap<>();
             headers.put(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
             ResponseEntity<?> response = restService.iamRestCall(builder.toUriString(), null, headers, HttpMethod.GET, null);
@@ -694,6 +696,67 @@ public class RecruitmentServiceImpl implements RecruitmentService {
                     "RecruitmentService",
                     "Exception occurred while fetching recruitment applicant view",
                     "getRecruitmentApplicantView",
+                    "INTERNAL_SERVER_ERROR",
+                    e.getMessage()
+            );
+        }
+    }
+
+    @Override
+    public ResponseEntity<?> getRecruitmentFilters() {
+        try {
+            UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getHrRecruitmentUrl() + "/filter");
+            Map<String, String> headers = new HashMap<>();
+            headers.put(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
+            ResponseEntity<?> response = restService.iamRestCall(builder.toUriString(), null, headers, HttpMethod.GET, null);
+            if (!response.getStatusCode().is2xxSuccessful()) {
+                throw new ServiceLevelException(
+                        "RecruitmentService",
+                        "Failed to fetch recruitment filters",
+                        "getRecruitmentFilters",
+                        response.getStatusCode().toString(),
+                        response.getBody() != null ? response.getBody().toString() : "No response body"
+                );
+            }
+            return response;
+
+        } catch (RuntimeException e) {
+            throw new ServiceLevelException(
+                    "RecruitmentService",
+                    "Exception occurred while fetching recruitment filters",
+                    "getRecruitmentFilters",
+                    "INTERNAL_SERVER_ERROR",
+                    e.getMessage()
+            );
+        }
+    }
+
+    @Override
+    public ResponseEntity<?> getRecruitmentByName(String name, Integer pageNo, Integer pageOffset) {
+        try {
+            UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getHrRecruitmentUrl() + "/name")
+                    .queryParam("name", name)
+                    .queryParam("pageNo", pageNo)
+                    .queryParam("pageOffset", pageOffset);
+            Map<String, String> headers = new HashMap<>();
+            headers.put(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
+            ResponseEntity<?> response = restService.iamRestCall(builder.toUriString(), null, headers, HttpMethod.GET, null);
+            if (!response.getStatusCode().is2xxSuccessful()) {
+                throw new ServiceLevelException(
+                        "RecruitmentService",
+                        "Failed to fetch recruitment by name",
+                        "getRecruitmentByName",
+                        response.getStatusCode().toString(),
+                        response.getBody() != null ? response.getBody().toString() : "No response body"
+                );
+            }
+            return response;
+
+        } catch (RuntimeException e) {
+            throw new ServiceLevelException(
+                    "RecruitmentService",
+                    "Exception occurred while fetching recruitment by name",
+                    "getRecruitmentByName",
                     "INTERNAL_SERVER_ERROR",
                     e.getMessage()
             );

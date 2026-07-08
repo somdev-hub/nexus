@@ -146,4 +146,9 @@ public class ApplicantController {
         return applicantService.getApplicantByUserId(userId);
     }
 
+    @PostMapping("/document")
+    public ResponseEntity<?> addApplicantDocument(@RequestParam MultipartFile document, @RequestParam Long userId) {
+        return applicantService.addApplicantDocument(document, userId);
+    }
+
 }

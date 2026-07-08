@@ -1,6 +1,5 @@
 package com.nexus.iam.service;
 
-import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -33,9 +32,9 @@ public interface RecruitmentService {
 
     ResponseEntity<?> updateApplicant(String payload, Long userId);
 
-    ResponseEntity<?> getOpeningsToday(Integer pageNo, Integer pageOffset, String status, String orgName, String location);
+    ResponseEntity<?> getOpeningsToday(Integer pageNo, Integer pageOffset, String status, String orgName, String location, String query);
 
-    ResponseEntity<?> getOpeningsBeforeToday(Integer pageNo, Integer pageOffset, String status, String orgName, String location);
+    ResponseEntity<?> getOpeningsBeforeToday(Integer pageNo, Integer pageOffset, String status, String orgName, String location, String query);
 
     ResponseEntity<?> getPositionPieGraph();
 
@@ -44,4 +43,8 @@ public interface RecruitmentService {
     ResponseEntity<?> getCompanyWiseOpeningCount(Integer pageNo, Integer pageOffset);
 
     ResponseEntity<?> getRecruitmentApplicantView(Long id);
+
+    ResponseEntity<?> getRecruitmentFilters();
+
+    ResponseEntity<?> getRecruitmentByName(String name, Integer pageNo, Integer pageOffset);
 }

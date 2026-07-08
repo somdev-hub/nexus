@@ -50,13 +50,13 @@ public class RecruitmentController {
     // nexus-direct applicant level apis
 
     @GetMapping("/openings-today")
-    public ResponseEntity<?> getOpeningsToday(@RequestParam(required = false, defaultValue = "0") Integer pageNo, @RequestParam(required = false, defaultValue = "10") Integer pageOffset, @RequestParam(required = false) HiringStatus status, @RequestParam(required = false) String orgName, @RequestParam(required = false) String location) {
-        return recruitmentService.getOpeningsToday(pageNo, pageOffset, status, orgName, location);
+    public ResponseEntity<?> getOpeningsToday(@RequestParam(required = false, defaultValue = "0") Integer pageNo, @RequestParam(required = false, defaultValue = "10") Integer pageOffset, @RequestParam(required = false) HiringStatus status, @RequestParam(required = false) String orgName, @RequestParam(required = false) String location, @RequestParam(required = false) String query) {
+        return recruitmentService.getOpeningsToday(pageNo, pageOffset, status, orgName, location, query);
     }
 
     @GetMapping("/openings-before-today")
-    public ResponseEntity<?> getOpeningsBeforeToday(@RequestParam(required = false, defaultValue = "0") Integer pageNo, @RequestParam(required = false, defaultValue = "10") Integer pageOffset, @RequestParam(required = false) HiringStatus status, @RequestParam(required = false) String orgName, @RequestParam(required = false) String location) {
-        return recruitmentService.getOpeningsBeforeToday(pageNo, pageOffset, status, orgName, location);
+    public ResponseEntity<?> getOpeningsBeforeToday(@RequestParam(required = false, defaultValue = "0") Integer pageNo, @RequestParam(required = false, defaultValue = "10") Integer pageOffset, @RequestParam(required = false) HiringStatus status, @RequestParam(required = false) String orgName, @RequestParam(required = false) String location, @RequestParam(required = false) String query) {
+        return recruitmentService.getOpeningsBeforeToday(pageNo, pageOffset, status, orgName, location, query);
     }
 
     @GetMapping("/position-pie-graph")
@@ -77,5 +77,15 @@ public class RecruitmentController {
     @GetMapping("/applicant-view/{id}")
     public ResponseEntity<?> getRecruitmentApplicantView(@PathVariable Long id) {
         return recruitmentService.getRecruitmentApplicantView(id);
+    }
+
+    @GetMapping("/filter")
+    public ResponseEntity<?> getRecruitmentFilters(){
+        return recruitmentService.getRecruitmentFilters();
+    }
+
+    @GetMapping("/name")
+    public ResponseEntity<?> getRecruitmentByName(@RequestParam String name, @RequestParam(required = false, defaultValue = "0") Integer pageNo, @RequestParam(required = false, defaultValue = "10") Integer pageOffset) {
+        return recruitmentService.getRecruitmentByName(name, pageNo, pageOffset);
     }
 }

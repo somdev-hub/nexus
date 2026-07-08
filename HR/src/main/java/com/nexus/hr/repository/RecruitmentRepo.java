@@ -102,6 +102,8 @@ public interface RecruitmentRepo extends JpaRepository<Recruitment, Long>, JpaSp
               AND (:status IS NULL OR r.hiring_status = :status)
               AND (:orgName IS NULL OR r.org_name ILIKE CONCAT('%', :orgName, '%'))
               AND (:location IS NULL OR r.location ILIKE CONCAT('%', :location, '%'))
+              AND (:query IS NULL OR r.role_name ILIKE CONCAT('%', :query, '%'))
+            OR (:query IS NULL OR r.title ILIKE CONCAT('%', :query, '%'))
             """,
             countQuery = """
                     SELECT COUNT(*) FROM t_hr_recruitments r
@@ -110,32 +112,40 @@ public interface RecruitmentRepo extends JpaRepository<Recruitment, Long>, JpaSp
                       AND (:status IS NULL OR r.hiring_status = :status)
                       AND (:orgName IS NULL OR r.org_name ILIKE CONCAT('%', :orgName, '%'))
                       AND (:location IS NULL OR r.location ILIKE CONCAT('%', :location, '%'))
+                      AND (:query IS NULL OR r.role_name ILIKE CONCAT('%', :query, '%'))
+                        OR (:query IS NULL OR r.title ILIKE CONCAT('%', :query, '%'))
                     """,
             nativeQuery = true)
     Page<Recruitment> findOpeningsToday(
             Pageable pageable,
             @Param("status") String status,
             @Param("orgName") String orgName,
-            @Param("location") String location);
+            @Param("location") String location, @Param("query") String query);
 
     @Query(value = """
-            SELECT * FROM hr.t_hr_recruitments r
-                        WHERE r.created_at < CURRENT_DATE
-                        AND (:status IS NULL OR r.hiring_status = :status)
-                        AND (:orgName IS NULL OR r.org_name ILIKE CONCAT('%', :orgName, '%'))
-                        AND (:location IS NULL OR r.location ILIKE CONCAT('%', :location, '%'))
-            """, countQuery = """
-            SELECT COUNT(*) FROM t_hr_recruitments r
-            WHERE r.created_at < CURRENT_DATE
-                AND (:status IS NULL OR r.hiring_status = :status)
-                            AND (:orgName IS NULL OR r.org_name ILIKE CONCAT('%', :orgName, '%'))
-                            AND (:location IS NULL OR r.location ILIKE CONCAT('%', :location, '%'))
-            """,
+    SELECT * FROM hr.t_hr_recruitments r
+    WHERE r.created_at < CURRENT_DATE
+      AND (:status IS NULL OR r.hiring_status = :status)
+      AND (:orgName IS NULL OR r.org_name ILIKE CONCAT('%', :orgName, '%'))
+      AND (:location IS NULL OR r.location ILIKE CONCAT('%', :location, '%'))
+      AND (:query IS NULL OR r.role_name ILIKE CONCAT('%', :query, '%')
+                          OR r.title ILIKE CONCAT('%', :query, '%'))
+    """,
+            countQuery = """
+    SELECT COUNT(*) FROM hr.t_hr_recruitments r
+    WHERE r.created_at < CURRENT_DATE
+      AND (:status IS NULL OR r.hiring_status = :status)
+      AND (:orgName IS NULL OR r.org_name ILIKE CONCAT('%', :orgName, '%'))
+      AND (:location IS NULL OR r.location ILIKE CONCAT('%', :location, '%'))
+      AND (:query IS NULL OR r.role_name ILIKE CONCAT('%', :query, '%')
+                          OR r.title ILIKE CONCAT('%', :query, '%'))
+    """,
             nativeQuery = true)
     Page<Recruitment> findOpeningsBeforeToday(Pageable pageable,
                                               @Param("status") String status,
                                               @Param("orgName") String orgName,
-                                              @Param("location") String location);
+                                              @Param("location") String location,
+                                              @Param("query") String query);
 
     @Query("""
                 SELECT r.departmentName, COUNT(r)
@@ -192,4 +202,26 @@ public interface RecruitmentRepo extends JpaRepository<Recruitment, Long>, JpaSp
     List<OrgOpeningCount> findOpeningsGroupedByOrgBefore(
             @Param("status") HiringStatus status,
             @Param("monthStart") Timestamp monthStart);
+
+    @Query("""
+        SELECT DISTINCT r.location
+        FROM Recruitment r
+        WHERE r.location IS NOT NULL AND r.location <> ''
+    """)
+    List<String> findAllLocations();
+
+    @Query("""
+        SELECT DISTINCT r.orgName
+        FROM Recruitment r
+        WHERE r.orgName IS NOT NULL AND r.orgName <> ''
+    """)
+    List<String> findAllOrgNames();
+
+    @Query("""
+        SELECT r
+        FROM Recruitment r
+        WHERE LOWER(r.title) LIKE LOWER(CONCAT('%', :name, '%'))
+           OR LOWER(r.roleName) LIKE LOWER(CONCAT('%', :name, '%'))
+    """)
+    Page<Recruitment> findByTitleAndRoleNameContainingIgnoreCase(String name, Pageable pageRequest);
 }

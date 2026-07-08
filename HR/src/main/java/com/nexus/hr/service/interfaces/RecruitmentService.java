@@ -20,9 +20,9 @@ public interface RecruitmentService {
 
     ResponseEntity<?> getRecruitmentAnalytics(Long orgId);
 
-    ResponseEntity<?> getOpeningsToday(Integer pageNo, Integer pageOffset, HiringStatus status, String orgName, String location);
+    ResponseEntity<?> getOpeningsToday(Integer pageNo, Integer pageOffset, HiringStatus status, String orgName, String location, String query);
 
-    ResponseEntity<?> getOpeningsBeforeToday(Integer pageNo, Integer pageOffset, HiringStatus status, String orgName, String location);
+    ResponseEntity<?> getOpeningsBeforeToday(Integer pageNo, Integer pageOffset, HiringStatus status, String orgName, String location, String query);
 
     ResponseEntity<?> getPositionPieGraph();
 
@@ -31,4 +31,8 @@ public interface RecruitmentService {
     ResponseEntity<?> getCompanyWiseOpeningCount(Integer pageNo, Integer pageOffset);
 
     ResponseEntity<?> getRecruitmentApplicantView(Long id);
+
+    ResponseEntity<?> getRecruitmentFilters();
+
+    ResponseEntity<?> getRecruitmentByName(String name, Integer pageNo, Integer pageOffset);
 }

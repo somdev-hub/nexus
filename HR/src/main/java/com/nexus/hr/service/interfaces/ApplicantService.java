@@ -48,5 +48,7 @@ public interface ApplicantService {
     ResponseEntity<?> createApplicantSkill(@Valid ApplicantSkill applicantSkill, Long userId);
 
     ResponseEntity<?> getApplicantByUserId(Long userId);
+
+    ResponseEntity<?> addApplicantDocument(MultipartFile document, Long userId);
 }
 

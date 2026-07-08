@@ -27,6 +27,7 @@ import org.springframework.util.ObjectUtils;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -443,10 +444,10 @@ public class RecruitmentServiceImpl implements RecruitmentService {
     }
 
     @Override
-    public ResponseEntity<?> getOpeningsToday(Integer pageNo, Integer pageOffset, HiringStatus status, String orgName, String location) {
+    public ResponseEntity<?> getOpeningsToday(Integer pageNo, Integer pageOffset, HiringStatus status, String orgName, String location, String query) {
         try {
             PageRequest pageRequest = PageRequest.of(pageNo, pageOffset);
-            Page<Recruitment> openingsToday = recruitmentRepo.findOpeningsToday(pageRequest, status != null ? status.name() : null, orgName, location);
+            Page<Recruitment> openingsToday = recruitmentRepo.findOpeningsToday(pageRequest, status != null ? status.name() : null, orgName, location, query);
             Page<RecruitmentApplicantTableResponse> mappedResults = openingsToday.map(recruitment -> modelMapper.map(recruitment, RecruitmentApplicantTableResponse.class));
             return ResponseEntity.ok(mappedResults);
         } catch (Exception e) {
@@ -461,10 +462,10 @@ public class RecruitmentServiceImpl implements RecruitmentService {
     }
 
     @Override
-    public ResponseEntity<?> getOpeningsBeforeToday(Integer pageNo, Integer pageOffset, HiringStatus status, String orgName, String location) {
+    public ResponseEntity<?> getOpeningsBeforeToday(Integer pageNo, Integer pageOffset, HiringStatus status, String orgName, String location, String query) {
         try {
             PageRequest pageRequest = PageRequest.of(pageNo, pageOffset);
-            Page<Recruitment> openingsBeforeToday = recruitmentRepo.findOpeningsBeforeToday(pageRequest, status != null ? status.name() : null, orgName, location);
+            Page<Recruitment> openingsBeforeToday = recruitmentRepo.findOpeningsBeforeToday(pageRequest, status != null ? status.name() : null, orgName, location, query);
             Page<RecruitmentApplicantTableResponse> mappedResults = openingsBeforeToday.map(recruitment -> modelMapper.map(recruitment, RecruitmentApplicantTableResponse.class));
             return ResponseEntity.ok(mappedResults);
         } catch (Exception e) {
@@ -606,6 +607,52 @@ public class RecruitmentServiceImpl implements RecruitmentService {
                     "RecruimentService",
                     "Error occurred while fetching recruitment applicant view",
                     "getRecruitmentApplicantView",
+                    "Service level exception",
+                    e.getMessage()
+            );
+        }
+    }
+
+    @Override
+    public ResponseEntity<?> getRecruitmentFilters() {
+        try {
+            List<String> allLocations = recruitmentRepo.findAllLocations();
+            List<String> allOrgNames = recruitmentRepo.findAllOrgNames();
+            HiringType[] hiringTypes = HiringType.values();
+            HiringStatus[] hiringStatuses = HiringStatus.values();
+            // Initialize other lists as needed
+            return ResponseEntity.ok(new RecruitmentFilter(Arrays.stream(hiringTypes).toList(), Arrays.stream(hiringStatuses).toList(), allOrgNames, allLocations));
+        } catch (Exception e) {
+            throw new ServiceLevelException(
+                    "RecruimentService",
+                    "Error occurred while fetching recruitment filters",
+                    "getRecruitmentFilters",
+                    "Service level exception",
+                    e.getMessage()
+            );
+        }
+    }
+
+    @Override
+    public ResponseEntity<?> getRecruitmentByName(String name, Integer pageNo, Integer pageOffset) {
+        if (ObjectUtils.isEmpty(name)) {
+            throw new ServiceLevelException(
+                    "RecruimentService",
+                    "Recruitment name is missing",
+                    "getRecruitmentByName",
+                    "Missing required data exception",
+                    "Required data recruitment name is missing"
+            );
+        }
+        try {
+            Page<Recruitment> recruitments = recruitmentRepo.findByTitleAndRoleNameContainingIgnoreCase(name, PageRequest.of(pageNo, pageOffset));
+            Page<RecruitmentApplicantTableResponse> mappedResults = recruitments.map(recruitment -> modelMapper.map(recruitment, RecruitmentApplicantTableResponse.class));
+            return ResponseEntity.ok(mappedResults);
+        } catch (Exception e) {
+            throw new ServiceLevelException(
+                    "RecruimentService",
+                    "Error occurred while fetching recruitment by name",
+                    "getRecruitmentByName",
                     "Service level exception",
                     e.getMessage()
             );

@@ -20,6 +20,7 @@ import org.springframework.util.ObjectUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 @RequiredArgsConstructor
@@ -627,6 +628,70 @@ public class ApplicantServiceImpl implements ApplicantService {
                     "ApplicantService",
                     "Error occurred while fetching applicant by user id",
                     "getApplicantByUserId",
+                    "Service level exception",
+                    e.getMessage()
+            );
+        }
+    }
+
+    @Override
+    public ResponseEntity<?> addApplicantDocument(MultipartFile document, Long userId) {
+        if (ObjectUtils.isEmpty(document) || ObjectUtils.isEmpty(userId)) {
+            throw new ServiceLevelException(
+                    "ApplicantService",
+                    "Required document or user id missing",
+                    "addApplicantDocument",
+                    "Missing required data exception",
+                    "Required data document or user id is missing"
+            );
+        }
+        try {
+            Applicant applicant = applicantRepo.findByUserId(userId).orElseThrow(() -> new ResourceNotFoundException(
+                    "Applicant",
+                    "userId",
+                    userId.toString()
+            ));
+            ResponseEntity<?> response = asyncDocumentService.callDmsToUpload(document, userId, "Resume_Applicant_" + applicant.getApplicantId() + ".pdf", "RESUME", applicant.getApplicantId());
+            if (response.getStatusCode().is2xxSuccessful()) {
+                @SuppressWarnings("unchecked")
+                Map<String, String> responseBody = (Map<String, String>) response.getBody();
+                if (responseBody != null && responseBody.containsKey("documentUrl")) {
+                    HrDocument hrDocument = new HrDocument();
+                    hrDocument.setApplicant(applicant);
+                    hrDocument.setDocumentUrl(responseBody.get("documentUrl"));
+                    hrDocument.setDocumentName(responseBody.get("documentName"));
+                    hrDocument.setHrDocumentType(responseBody.get("documentType"));
+
+                    applicant.getApplicantDocuments().add(hrDocument);
+                    applicantRepo.save(applicant);
+                    return ResponseEntity.ok("Document uploaded and saved successfully");
+                } else {
+                    log.error("Error uploading Resume to DMS: {}", responseBody != null ? responseBody.get("errorMessage") : "Unknown error");
+                    throw new ServiceLevelException(
+                            "ApplicantService",
+                            "Error occurred while uploading document to DMS",
+                            "addApplicantDocument",
+                            "Service level exception",
+                            responseBody != null ? responseBody.get("errorMessage") : "Unknown error"
+                    );
+                }
+            } else {
+                log.error("Error uploading Resume to DMS: {}", response.getStatusCode());
+                throw new ServiceLevelException(
+                        "ApplicantService",
+                        "Error occurred while uploading document to DMS",
+                        "addApplicantDocument",
+                        "Service level exception",
+                        "DMS service returned status: " + response.getStatusCode()
+                );
+            }
+        } catch (ServiceLevelException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new ServiceLevelException(
+                    "ApplicantService",
+                    "Error occurred while adding applicant document",
+                    "addApplicantDocument",
                     "Service level exception",
                     e.getMessage()
             );

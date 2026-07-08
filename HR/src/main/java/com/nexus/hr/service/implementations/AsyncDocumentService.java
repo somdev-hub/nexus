@@ -488,7 +488,7 @@ public class AsyncDocumentService {
     /**
      * Upload document to DMS service
      */
-    private ResponseEntity<?> callDmsToUpload(MultipartFile file, Long userId, String fileName,
+    public ResponseEntity<?> callDmsToUpload(MultipartFile file, Long userId, String fileName,
                                              String fileType, Long hrId) {
         if (ObjectUtils.isEmpty(file)) {
             return ResponseEntity.badRequest().build();
