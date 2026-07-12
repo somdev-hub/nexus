@@ -181,6 +181,12 @@ public class ApplicantServiceImpl implements ApplicantService {
                     "id",
                     id.toString()
             ));
+            // filter applicantEducation, applicantExperience, applicantSkill, applicantDocument to include only isActive=true
+            applicant.setApplicantEducations(applicant.getApplicantEducations().stream().filter(ApplicantEducation::getIsActive).toList());
+            applicant.setApplicantExperiences(applicant.getApplicantExperiences().stream().filter(ApplicantExperience::getIsActive).toList());
+            applicant.setApplicantSkills(applicant.getApplicantSkills().stream().filter(ApplicantSkill::getIsActive).toList());
+            applicant.setApplicantDocuments(applicant.getApplicantDocuments().stream().filter(HrDocument::getIsActive).toList());
+
             return ResponseEntity.ok(applicant);
         } catch (Exception e) {
             throw new ServiceLevelException(
@@ -620,6 +626,7 @@ public class ApplicantServiceImpl implements ApplicantService {
             applicant.setApplicantEducations(applicantRepo.findApplicantEducationByApplicant_ApplicantIdAndIsActiveTrue(applicant.getApplicantId()));
             applicant.setApplicantExperiences(applicantRepo.findApplicantExperienceByApplicant_ApplicantIdAndIsActiveTrue(applicant.getApplicantId()));
             applicant.setApplicantSkills(applicantRepo.findApplicantSkillByApplicant_ApplicantIdAndIsActiveTrue(applicant.getApplicantId()));
+            applicant.setApplicantDocuments(applicantRepo.findApplicantDocumentsByApplicant_ApplicantIdAndIsActiveTrue(applicant.getApplicantId()));
             return ResponseEntity.ok(applicant);
         } catch (ServiceLevelException e) {
             throw e;
@@ -692,6 +699,49 @@ public class ApplicantServiceImpl implements ApplicantService {
                     "ApplicantService",
                     "Error occurred while adding applicant document",
                     "addApplicantDocument",
+                    "Service level exception",
+                    e.getMessage()
+            );
+        }
+    }
+
+    @Override
+    @Transactional
+    public ResponseEntity<?> deleteApplicantDocument(Long userId, Long hrDocumentId) {
+        if (ObjectUtils.isEmpty(userId) || ObjectUtils.isEmpty(hrDocumentId)) {
+            throw new ServiceLevelException(
+                    "ApplicantService",
+                    "Required user id or document id missing",
+                    "deleteApplicantDocument",
+                    "Missing required data exception",
+                    "Required data user id or document id is missing"
+            );
+        }
+        try {
+            Applicant applicant = applicantRepo.findByUserId(userId).orElseThrow(() -> new ResourceNotFoundException(
+                    "Applicant",
+                    "userId",
+                    userId.toString()
+            ));
+            // find and set isActive to false
+            HrDocument hrDocument = applicant.getApplicantDocuments().stream()
+                    .filter(doc -> doc.getHrDocumentId().equals(hrDocumentId))
+                    .findFirst()
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            "HrDocument",
+                            "hrDocumentId",
+                            hrDocumentId.toString()
+                    ));
+            hrDocument.setIsActive(false);
+            applicantRepo.save(applicant);
+            return ResponseEntity.ok("Document deleted successfully");
+        } catch (ServiceLevelException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new ServiceLevelException(
+                    "ApplicantService",
+                    "Error occurred while deleting applicant document",
+                    "deleteApplicantDocument",
                     "Service level exception",
                     e.getMessage()
             );

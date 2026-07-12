@@ -273,7 +273,7 @@ public class AuthenticationServiceImpl implements AuthenticationService {
                 LoginResponse loginResponse = authenticate(new LoginRequest(webConstants.getGenericUserId(),
                         webConstants.getGenericPassword()));
                 headers.put(CommonConstants.AUTHORIZATION, "Bearer " + loginResponse.getAccessToken());
-                ResponseEntity<?> response = restService.iamRestCall(
+                ResponseEntity<String> response = restService.iamRestCall(
                         builder.toUriString(),
                         docPayload,
                         headers,
@@ -281,11 +281,9 @@ public class AuthenticationServiceImpl implements AuthenticationService {
                         user.getId());
 
                 if (response.getStatusCode().is2xxSuccessful()) {
-                    @SuppressWarnings("unchecked")
-                    Map<String, String> respBody = (Map<String, String>) response.getBody();
-                    assert respBody != null;
-                    if (respBody.containsKey("documentUrl")) {
-                        user.setProfilePhoto(respBody.get("documentUrl"));
+                    Map<String, Object> respBody = restService.parseJsonResponse(response.getBody());
+                    if (respBody != null && respBody.containsKey("documentUrl")) {
+                        user.setProfilePhoto(respBody.get("documentUrl").toString());
                     }
                 }
             }

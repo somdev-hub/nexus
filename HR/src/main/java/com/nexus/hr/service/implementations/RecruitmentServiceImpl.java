@@ -2,14 +2,15 @@ package com.nexus.hr.service.implementations;
 
 import com.nexus.hr.exception.ResourceNotFoundException;
 import com.nexus.hr.exception.ServiceLevelException;
-import com.nexus.hr.model.entities.HrEntity;
-import com.nexus.hr.model.entities.Recruitment;
+import com.nexus.hr.model.entities.*;
 import com.nexus.hr.model.enums.ApplicationStatus;
 import com.nexus.hr.model.enums.HiringStatus;
 import com.nexus.hr.model.enums.HiringType;
+import com.nexus.hr.payload.ApplicantApplication;
 import com.nexus.hr.payload.reflections.ExperienceBucketCount;
 import com.nexus.hr.payload.reflections.OrgOpeningCount;
 import com.nexus.hr.payload.response.*;
+import com.nexus.hr.repository.ApplicantRecruitmentMappingRepo;
 import com.nexus.hr.repository.ApplicantRepo;
 import com.nexus.hr.repository.HrEntityRepo;
 import com.nexus.hr.repository.RecruitmentRepo;
@@ -27,10 +28,7 @@ import org.springframework.util.ObjectUtils;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.Arrays;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @RequiredArgsConstructor
@@ -41,6 +39,7 @@ public class RecruitmentServiceImpl implements RecruitmentService {
     private final ApplicantRepo applicantRepo;
     private final HrEntityRepo hrEntityRepo;
     private final ModelMapper modelMapper;
+    private final ApplicantRecruitmentMappingRepo applicantRecruitmentMappingRepo;
 
     @Override
     public ResponseEntity<?> createRecruitment(Recruitment recruitment, Long empId) {
@@ -653,6 +652,119 @@ public class RecruitmentServiceImpl implements RecruitmentService {
                     "RecruimentService",
                     "Error occurred while fetching recruitment by name",
                     "getRecruitmentByName",
+                    "Service level exception",
+                    e.getMessage()
+            );
+        }
+    }
+
+    @Override
+    public ResponseEntity<?> applyApplicantRecruitment(ApplicantApplication application) {
+        if (ObjectUtils.isEmpty(application)) {
+            throw new ServiceLevelException(
+                    "RecruimentService",
+                    "Applicant application data is missing",
+                    "applyApplicantRecruitment",
+                    "Missing required data exception",
+                    "Required data applicant application is missing"
+            );
+        }
+        try {
+            // Validate recruitment existence
+            Recruitment recruitment = recruitmentRepo.findById(application.getRecruitmentId()).orElseThrow(() -> new ResourceNotFoundException(
+                    "Recruitment",
+                    "id",
+                    application.getRecruitmentId().toString()
+            ));
+
+            // Create and save the applicant entity
+            Applicant applicant = applicantRepo.findByUserId(application.getUserId()).orElseThrow(() -> new ResourceNotFoundException(
+                    "Applicant",
+                    "userId",
+                    application.getUserId().toString()
+            ));
+            List<HrDocument> hrDocuments = applicant.getApplicantDocuments().stream().filter(document -> application.getHrDocumentIds().stream().anyMatch(document.getHrDocumentId()::equals)).toList();
+            ApplicantRecruitmentMapping mapping = new ApplicantRecruitmentMapping();
+            mapping.setApplicant(applicant);
+            mapping.setRecruitment(recruitment);
+            mapping.setApplicationDocuments(hrDocuments);
+            mapping.setStatus(ApplicationStatus.APPLIED);
+            ApplicantRecruitmentMapping applicantRecruitmentMapping = applicantRecruitmentMappingRepo.save(mapping);
+            return ResponseEntity.ok(applicantRecruitmentMapping);
+        } catch (Exception e) {
+            throw new ServiceLevelException(
+                    "RecruimentService",
+                    "Error occurred while applying for recruitment",
+                    "applyApplicantRecruitment",
+                    "Service level exception",
+                    e.getMessage()
+            );
+        }
+    }
+
+    @Override
+    public ResponseEntity<?> hasApplicantApplied(Long recruitmentId, Long userId) {
+        if (ObjectUtils.isEmpty(recruitmentId) || ObjectUtils.isEmpty(userId)) {
+            throw new ServiceLevelException(
+                    "RecruimentService",
+                    "Recruitment id or user id is missing",
+                    "hasApplicantApplied",
+                    "Missing required data exception",
+                    "Required data recruitment id or user id is missing"
+            );
+        }
+        try {
+            boolean hasApplied = applicantRecruitmentMappingRepo.existsByRecruitmentRecruitmentIdAndApplicantUserId(recruitmentId, userId);
+            Map<String, Boolean> response = new HashMap<>();
+            response.put("hasApplied", hasApplied);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            throw new ServiceLevelException(
+                    "RecruimentService",
+                    "Error occurred while checking if applicant has applied",
+                    "hasApplicantApplied",
+                    "Service level exception",
+                    e.getMessage()
+            );
+        }
+    }
+
+    @Override
+    public ResponseEntity<?> getApplicantApplications(Long userId, Integer pageNo, Integer pageOffset, ApplicationStatus status) {
+        if (ObjectUtils.isEmpty(userId)) {
+            throw new ServiceLevelException(
+                    "RecruimentService",
+                    "User id is missing",
+                    "getApplicantApplications",
+                    "Missing required data exception",
+                    "Required data user id is missing"
+            );
+        }
+        try {
+            Page<ApplicantRecruitmentMapping> applications=null;
+            if (status != null) {
+                applications = applicantRecruitmentMappingRepo.findByApplicantUserIsAndStatus(userId, status, PageRequest.of(pageNo, pageOffset));
+            } else {
+                applications = applicantRecruitmentMappingRepo.findByApplicantUserId(userId, PageRequest.of(pageNo, pageOffset));
+            }
+            Page<ApplicantApplicationResponseDto> responseDtos = applications.map(mapping -> {
+                        ApplicantApplicationResponseDto dto = new ApplicantApplicationResponseDto();
+                        dto.setApplicantId(mapping.getApplicant().getApplicantId());
+                        dto.setRecruitmentId(mapping.getRecruitment().getRecruitmentId());
+                        dto.setUserId(mapping.getApplicant().getUserId());
+                        dto.setRoleName(mapping.getRecruitment().getRoleName());
+                        dto.setStatus(mapping.getStatus());
+                        dto.setLocation(mapping.getRecruitment().getLocation());
+                        dto.setAppliedOn(mapping.getAppliedOn());
+                        dto.setOrgName(mapping.getRecruitment().getOrgName());
+                        return dto;
+                    });
+            return ResponseEntity.ok(responseDtos);
+        } catch (Exception e) {
+            throw new ServiceLevelException(
+                    "RecruitmentService",
+                    "Error occurred while fetching applicant applications",
+                    "getApplicantApplications",
                     "Service level exception",
                     e.getMessage()
             );

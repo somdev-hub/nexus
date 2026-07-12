@@ -352,7 +352,7 @@ public class KeycloakAuthenticationServiceImpl implements KeycloakAuthentication
             String genericAccessToken = (String) authenticateWithKeycloak.get("access_token");
             dmsHeaders.put(CommonConstants.AUTHORIZATION, "Bearer " + genericAccessToken);
 
-            ResponseEntity<?> dmsResponse = restService.iamRestCall(
+            ResponseEntity<String> dmsResponse = restService.iamRestCall(
                     builder.toUriString(),
                     docPayload,
                     dmsHeaders,
@@ -360,10 +360,9 @@ public class KeycloakAuthenticationServiceImpl implements KeycloakAuthentication
                     user.getId());
 
             if (dmsResponse.getStatusCode().is2xxSuccessful()) {
-                @SuppressWarnings("unchecked")
-                Map<String, String> respBody = (Map<String, String>) dmsResponse.getBody();
+                Map<String, Object> respBody = restService.parseJsonResponse(dmsResponse.getBody());
                 if (respBody != null && respBody.containsKey("documentUrl")) {
-                    user.setProfilePhoto(respBody.get("documentUrl"));
+                    user.setProfilePhoto(respBody.get("documentUrl").toString());
                     userRepository.save(user);
                     log.debug("Profile photo set for user");
                 }
@@ -411,7 +410,7 @@ public class KeycloakAuthenticationServiceImpl implements KeycloakAuthentication
             hrHeaders.put(CommonConstants.AUTHORIZATION, "Bearer " + genericAccessToken);
 
             UriComponentsBuilder hrBuilder = UriComponentsBuilder.fromUriString(webConstants.getHrInitUrl());
-            ResponseEntity<?> hrResponse = restService.iamRestCall(
+            ResponseEntity<String> hrResponse = restService.iamRestCall(
                     hrBuilder.toUriString(),
                     hrPayload,
                     hrHeaders,
@@ -1074,7 +1073,7 @@ public class KeycloakAuthenticationServiceImpl implements KeycloakAuthentication
 
             Map<String, String> headers = commonUtils.buildJsonHeaders(null);
             UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getCreateApplicantWithoutDocumentUrl());
-            ResponseEntity<?> response = restService.iamRestCall(builder.toUriString(), payload, headers, HttpMethod.POST, userId);
+            ResponseEntity<String> response = restService.iamRestCall(builder.toUriString(), payload, headers, HttpMethod.POST, userId);
             if (response.getStatusCode().is2xxSuccessful()) {
                 log.debug("HR applicant record created successfully for userId: {}", userId);
             } else {
@@ -1085,4 +1084,5 @@ public class KeycloakAuthenticationServiceImpl implements KeycloakAuthentication
             // Non-blocking - registration continues even if HR init fails
         }
     }
+
 }

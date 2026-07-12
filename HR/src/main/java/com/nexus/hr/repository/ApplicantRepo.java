@@ -1,9 +1,6 @@
 package com.nexus.hr.repository;
 
-import com.nexus.hr.model.entities.Applicant;
-import com.nexus.hr.model.entities.ApplicantEducation;
-import com.nexus.hr.model.entities.ApplicantExperience;
-import com.nexus.hr.model.entities.ApplicantSkill;
+import com.nexus.hr.model.entities.*;
 import com.nexus.hr.model.enums.ApplicationStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -321,4 +318,11 @@ public interface ApplicantRepo extends JpaRepository<Applicant, Long>, JpaSpecif
                 AND e.isActive = true
     """)
     List<ApplicantSkill> findApplicantSkillByApplicant_ApplicantIdAndIsActiveTrue(Long applicantId);
+
+    @Query("""
+            SELECT d FROM HrDocument d
+                WHERE d.applicant.applicantId = :applicantId
+                AND d.isActive = true
+    """)
+    List<HrDocument> findApplicantDocumentsByApplicant_ApplicantIdAndIsActiveTrue(Long applicantId);
 }

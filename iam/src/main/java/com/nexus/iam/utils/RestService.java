@@ -13,11 +13,12 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
-import org.springframework.web.client.RestTemplate;
+import org.springframework.web.client.RestClient;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.nexus.iam.entities.Logs;
 import com.nexus.iam.repository.LogsRepo;
 
@@ -27,15 +28,66 @@ public class RestService {
 
     private final CommonUtils commonUtils;
 
-    public RestService(LogsRepo logsRepo, CommonUtils commonUtils) {
+    private final RestClient restClient;
+
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
+    public RestService(LogsRepo logsRepo, CommonUtils commonUtils, RestClient restClient) {
         this.logsRepo = logsRepo;
         this.commonUtils = commonUtils;
+        this.restClient = restClient;
+    }
+
+    /**
+     * Parse JSON response body into a Map.
+     * Returns empty map if body is null, empty, or not valid JSON.
+     */
+    public Map<String, Object> parseJsonResponse(String responseBody) {
+        if (responseBody == null || responseBody.trim().isEmpty()) {
+            return Map.of();
+        }
+        try {
+            return objectMapper.readValue(responseBody, new TypeReference<Map<String, Object>>() {});
+        } catch (Exception e) {
+            // If not valid JSON, return empty map
+            return Map.of();
+        }
+    }
+
+    /**
+     * Parse JSON response body into a specific type.
+     * Returns null if body is null, empty, or not valid JSON for the target type.
+     */
+    public <T> T parseJsonResponse(String responseBody, Class<T> targetType) {
+        if (responseBody == null || responseBody.trim().isEmpty()) {
+            return null;
+        }
+        try {
+            return objectMapper.readValue(responseBody, targetType);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /**
+     * Parse JSON response body into a generic type using TypeReference.
+     * Returns null if body is null, empty, or not valid JSON for the target type.
+     */
+    public <T> T parseJsonResponse(String responseBody, TypeReference<T> typeReference) {
+        if (responseBody == null || responseBody.trim().isEmpty()) {
+            return null;
+        }
+        try {
+            return objectMapper.readValue(responseBody, typeReference);
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     @SuppressWarnings("unchecked")
-    public ResponseEntity<?> iamRestCall(String url, Object payload, Map<String, String> headers,
+    public ResponseEntity<String> iamRestCall(String url, Object payload, Map<String, String> headers,
             HttpMethod method, Long userId) {
-        ResponseEntity<?> responseEntity = null;
+        ResponseEntity<String> responseEntity = null;
         String requestLog = null;
         try {
             boolean isMultipartByHeader = headers != null
@@ -44,12 +96,30 @@ public class RestService {
                                     && e.getValue() != null
                                     && e.getValue().toLowerCase().contains(MediaType.MULTIPART_FORM_DATA_VALUE));
 
+            // Check if payload contains multipart files - handle any Map implementation
+            boolean hasMultipartFile = false;
+            if (payload instanceof Map) {
+                @SuppressWarnings("rawtypes")
+                Map payloadMap = (Map) payload;
+                System.out.println("DEBUG RestService: payloadMap size=" + payloadMap.size() + ", keys=" + payloadMap.keySet());
+                for (Object value : payloadMap.values()) {
+                    System.out.println("DEBUG RestService: iterating value=" + value + ", class=" + (value != null ? value.getClass().getName() : "null") + ", isMultipartFile=" + (value instanceof MultipartFile));
+                    if (value instanceof MultipartFile) {
+                        hasMultipartFile = true;
+                        break;
+                    }
+                }
+            }
+
+            System.out.println("DEBUG RestService: isMultipartByHeader=" + isMultipartByHeader + ", hasMultipartFile=" + hasMultipartFile + ", payloadClass=" + (payload != null ? payload.getClass().getName() : "null"));
+
             // Check if payload contains multipart files
-            if (payload instanceof Map
-                    && (containsMultipartFile((Map<String, Object>) payload) || isMultipartByHeader)) {
+            if (hasMultipartFile || isMultipartByHeader) {
+                System.out.println("DEBUG RestService: Using handleMultipartRequest");
                 responseEntity = handleMultipartRequest(url, (Map<String, Object>) payload, headers, method);
-                requestLog = serializePayload(payload); // Serialize to JSON even for multipart
+                requestLog = serializePayload(payload);
             } else {
+                System.out.println("DEBUG RestService: Using handleRegularRequest");
                 responseEntity = handleRegularRequest(url, payload, headers, method);
                 requestLog = payload != null ? serializePayload(payload) : null;
             }
@@ -63,8 +133,7 @@ public class RestService {
             log.setHttpMethod(method.name());
             log.setRequest(requestLog);
             if (responseEntity != null) {
-                Object respBody = responseEntity.getBody();
-                String responseString = respBody != null ? respBody.toString() : null;
+                String responseString = responseEntity.getBody();
                 if (responseString != null) {
                     log.setResponse(commonUtils.jsonValidator(responseString));
                 }
@@ -112,19 +181,18 @@ public class RestService {
         }
     }
 
-    private ResponseEntity<?> handleMultipartRequest(String url, Map<String, Object> payload,
+    private ResponseEntity<String> handleMultipartRequest(String url, Map<String, Object> payload,
             Map<String, String> headers, HttpMethod method) throws IOException {
-        RestTemplate restTemplate = new RestTemplate();
-
+        System.out.println("DEBUG handleMultipartRequest: payload keys=" + payload.keySet());
         // Create multipart body
         MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
 
         for (Map.Entry<String, Object> entry : payload.entrySet()) {
             Object value = entry.getValue();
+            System.out.println("DEBUG handleMultipartRequest: key=" + entry.getKey() + ", valueClass=" + (value != null ? value.getClass().getName() : "null"));
 
             if (value instanceof MultipartFile) {
                 MultipartFile file = (MultipartFile) value;
-                // Convert MultipartFile to ByteArrayResource and set per-part content type
                 ByteArrayResource fileResource = new ByteArrayResource(file.getBytes()) {
                     @Override
                     public String getFilename() {
@@ -138,20 +206,16 @@ public class RestService {
                 HttpEntity<ByteArrayResource> filePart = new HttpEntity<>(fileResource, fileHeaders);
                 body.add(entry.getKey(), filePart);
             } else {
-                // For non-file parts (DTOs / JSON) ensure the part has application/json
-                // If value is already a String, assume it's JSON; otherwise serialize it
                 String jsonPart;
                 ObjectMapper mapper = new ObjectMapper();
                 if (value instanceof String) {
                     String s = (String) value;
                     String current = s;
                     String normalized = null;
-                    // Try to unwrap quoted/escaped JSON up to several times
                     for (int i = 0; i < 5; i++) {
                         try {
                             JsonNode node = mapper.readTree(current);
                             if (node.isTextual()) {
-                                // unwrap one level
                                 current = node.textValue();
                                 continue;
                             } else {
@@ -159,7 +223,6 @@ public class RestService {
                                 break;
                             }
                         } catch (Exception ex) {
-                            // not parseable JSON at this level
                             break;
                         }
                     }
@@ -174,33 +237,46 @@ public class RestService {
             }
         }
 
-        // Create headers - DO NOT set Content-Type, RestTemplate will handle it
-        // automatically
+        // Build request headers — skip Content-Type (RestClient sets multipart boundary automatically)
         HttpHeaders httpHeaders = new HttpHeaders();
         if (headers != null) {
             headers.forEach((key, value) -> {
-                // Skip Content-Type - RestTemplate sets it automatically for multipart
                 if (!key.equalsIgnoreCase("Content-Type")) {
                     httpHeaders.set(key, value);
                 }
             });
         }
 
-        HttpEntity<MultiValueMap<String, Object>> httpEntity = new HttpEntity<>(body, httpHeaders);
-        return restTemplate.exchange(url, method, httpEntity, Object.class);
+        // Always read response as String to handle any content type
+        // (JSON, plain text, XML, etc.) without converter errors
+        return restClient.method(method)
+                .uri(url)
+                .headers(h -> h.addAll(httpHeaders))
+                .contentType(MediaType.MULTIPART_FORM_DATA)
+                .body(body)
+                .retrieve()
+                .toEntity(String.class);
     }
 
-    private ResponseEntity<?> handleRegularRequest(String url, Object payload, Map<String, String> headers,
+    private ResponseEntity<String> handleRegularRequest(String url, Object payload, Map<String, String> headers,
             HttpMethod method) {
-        RestTemplate restTemplate = new RestTemplate();
-
         HttpHeaders httpHeaders = new HttpHeaders();
         if (headers != null) {
             headers.forEach(httpHeaders::set);
         }
 
-        HttpEntity<Object> httpEntity = new HttpEntity<>(payload, httpHeaders);
-        return restTemplate.exchange(url, method, httpEntity, String.class);
+        // Always read response as String to handle any content type
+        // (JSON, plain text, XML, etc.) without converter errors
+        var requestSpec = restClient.method(method)
+                .uri(url)
+                .headers(h -> h.addAll(httpHeaders));
+
+        // Only add body for non-GET/HEAD requests with non-null payload
+        if (payload != null && method != HttpMethod.GET && method != HttpMethod.HEAD) {
+            requestSpec.body(payload);
+        }
+
+        return requestSpec.retrieve().toEntity(String.class);
     }
 
 }

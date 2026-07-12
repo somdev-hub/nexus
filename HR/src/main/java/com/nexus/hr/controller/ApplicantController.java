@@ -146,9 +146,13 @@ public class ApplicantController {
         return applicantService.getApplicantByUserId(userId);
     }
 
-    @PostMapping("/document")
-    public ResponseEntity<?> addApplicantDocument(@RequestParam MultipartFile document, @RequestParam Long userId) {
+    @PostMapping(value = "/document", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<?> addApplicantDocument(@RequestParam("document") MultipartFile document, @RequestParam Long userId) {
         return applicantService.addApplicantDocument(document, userId);
     }
 
+    @DeleteMapping("/document")
+    public ResponseEntity<?> deleteApplicantDocument(@RequestParam Long userId, @RequestParam Long hrDocumentId){
+        return applicantService.deleteApplicantDocument(userId, hrDocumentId);
+    }
 }

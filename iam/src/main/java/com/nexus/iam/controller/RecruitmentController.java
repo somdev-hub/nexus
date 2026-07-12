@@ -163,4 +163,29 @@ public class RecruitmentController {
     public ResponseEntity<?> getRecruitmentByName(@RequestParam String name, @RequestParam(required = false, defaultValue = "0") Integer pageNo, @RequestParam(required = false, defaultValue = "10") Integer pageOffset) {
         return recruitmentService.getRecruitmentByName(name, pageNo, pageOffset);
     }
+
+    @PostMapping(value = "/applicant/document", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<?> addApplicantDocument(@RequestParam("document") MultipartFile document, @RequestParam Long userId) {
+        return recruitmentService.addApplicantDocument(document, userId);
+    }
+
+    @DeleteMapping("/applicant/document")
+    public ResponseEntity<?> deleteApplicantDocument(@RequestParam Long userId, @RequestParam Long hrDocumentId) {
+        return recruitmentService.deleteApplicantDocument(userId, hrDocumentId);
+    }
+
+    @PostMapping("/applicant/apply")
+    public ResponseEntity<?> applyApplicantRecruitment(@RequestBody String application) {
+        return recruitmentService.applyApplicantRecruitment(application);
+    }
+
+    @GetMapping("/has-applied")
+    public ResponseEntity<?> hasApplicantApplied(@RequestParam Long recruitmentId, @RequestParam Long userId) {
+        return recruitmentService.hasApplicantApplied(recruitmentId, userId);
+    }
+
+    @GetMapping("/applicant/applications")
+    public ResponseEntity<?> getApplicantApplications(@RequestParam Long userId, @RequestParam(required = false, defaultValue = "0") Integer pageNo, @RequestParam(required = false, defaultValue = "10") Integer pageOffset, @RequestParam(required = false) String status) {
+        return recruitmentService.getApplicantApplications(userId, pageNo, pageOffset, status);
+    }
 }

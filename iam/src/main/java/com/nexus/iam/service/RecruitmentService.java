@@ -47,4 +47,14 @@ public interface RecruitmentService {
     ResponseEntity<?> getRecruitmentFilters();
 
     ResponseEntity<?> getRecruitmentByName(String name, Integer pageNo, Integer pageOffset);
+
+    ResponseEntity<?> addApplicantDocument(MultipartFile document, Long userId);
+
+    ResponseEntity<?> deleteApplicantDocument(Long userId, Long hrDocumentId);
+
+    ResponseEntity<?> applyApplicantRecruitment(String application);
+
+    ResponseEntity<?> hasApplicantApplied(Long recruitmentId, Long userId);
+
+    ResponseEntity<?> getApplicantApplications(Long userId, Integer pageNo, Integer pageOffset, String status);
 }

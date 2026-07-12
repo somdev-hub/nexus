@@ -49,4 +49,8 @@ public class ApplicantRecruitmentMapping {
     protected void onCreate() {
         isActive = true;
     }
+
+    @OneToMany(orphanRemoval = true, mappedBy = "applicantRecruitmentMapping", cascade = CascadeType.ALL)
+    @JsonManagedReference("applicantRecruitmentMapping-statusHistory")
+    private List<ApplicantRecruitmentMappingStatusHist> statusHistory;
 }

@@ -43,14 +43,14 @@ public class RecruitmentServiceImpl implements RecruitmentService {
             UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getHrRecruitmentUrl()).queryParam("empId", empId);
             Map<String, String> headers = new HashMap<>();
             headers.put(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
-            ResponseEntity<?> response = restService.iamRestCall(builder.toUriString(), recruitment, headers, HttpMethod.POST, empId);
+            ResponseEntity<String> response = restService.iamRestCall(builder.toUriString(), recruitment, headers, HttpMethod.POST, empId);
             if (!response.getStatusCode().is2xxSuccessful()) {
                 throw new ServiceLevelException(
                         "RecruitmentService",
                         "Failed to create recruitment",
                         "createRecruitment",
                         response.getStatusCode().toString(),
-                        response.getBody() != null ? response.getBody().toString() : "No response body"
+                        response.getBody() != null ? response.getBody() : "No response body"
                 );
             }
             return response;
@@ -156,14 +156,14 @@ public class RecruitmentServiceImpl implements RecruitmentService {
             UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getHrRecruitmentUrl() + id);
             Map<String, String> headers = new HashMap<>();
             headers.put(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
-            ResponseEntity<?> response = restService.iamRestCall(builder.toUriString(), null, headers, HttpMethod.GET, null);
+            ResponseEntity<String> response = restService.iamRestCall(builder.toUriString(), null, headers, HttpMethod.GET, null);
             if (!response.getStatusCode().is2xxSuccessful()) {
                 throw new ServiceLevelException(
                         "RecruitmentService",
                         "Failed to fetch recruitment",
                         "getRecruitment",
                         response.getStatusCode().toString(),
-                        response.getBody() != null ? response.getBody().toString() : "No response body"
+                        response.getBody() != null ? response.getBody() : "No response body"
                 );
             }
             return response;
@@ -189,14 +189,14 @@ public class RecruitmentServiceImpl implements RecruitmentService {
                     .queryParam("pageOffset", pageOffset);
             Map<String, String> headers = new HashMap<>();
             headers.put(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
-            ResponseEntity<?> response = restService.iamRestCall(builder.toUriString(), null, headers, HttpMethod.GET, null);
+            ResponseEntity<String> response = restService.iamRestCall(builder.toUriString(), null, headers, HttpMethod.GET, null);
             if (!response.getStatusCode().is2xxSuccessful()) {
                 throw new ServiceLevelException(
                         "RecruitmentService",
                         "Failed to fetch closed recruitments",
                         "getClosedRecruitments",
                         response.getStatusCode().toString(),
-                        response.getBody() != null ? response.getBody().toString() : "No response body"
+                        response.getBody() != null ? response.getBody() : "No response body"
                 );
             }
             return response;
@@ -224,14 +224,14 @@ public class RecruitmentServiceImpl implements RecruitmentService {
             payload.put("resume", resume);
             payload.put("coverLetter", coverLetter);
             payload.put("recruitmentId", recruitmentId);
-            ResponseEntity<?> response = restService.iamRestCall(builder.toUriString(), payload, headers, HttpMethod.POST, null);
+            ResponseEntity<String> response = restService.iamRestCall(builder.toUriString(), payload, headers, HttpMethod.POST, null);
             if (!response.getStatusCode().is2xxSuccessful()) {
                 throw new ServiceLevelException(
                         "RecruitmentService",
                         "Failed to create applicant with documents",
                         "createApplicantWithDocuments",
                         response.getStatusCode().toString(),
-                        response.getBody() != null ? response.getBody().toString() : "No response body"
+                        response.getBody() != null ? response.getBody() : "No response body"
                 );
             }
             return response;
@@ -264,14 +264,14 @@ public class RecruitmentServiceImpl implements RecruitmentService {
                     .queryParam("pageSize", pageSize);
             Map<String, String> headers = new HashMap<>();
             headers.put(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
-            ResponseEntity<?> response = restService.iamRestCall(builder.toUriString(), null, headers, HttpMethod.GET, null);
+            ResponseEntity<String> response = restService.iamRestCall(builder.toUriString(), null, headers, HttpMethod.GET, null);
             if (!response.getStatusCode().is2xxSuccessful()) {
                 throw new ServiceLevelException(
                         "RecruitmentService",
                         "Failed to fetch applicants",
                         "getAllApplicants",
                         response.getStatusCode().toString(),
-                        response.getBody() != null ? response.getBody().toString() : "No response body"
+                        response.getBody() != null ? response.getBody() : "No response body"
                 );
             }
             return response;
@@ -301,14 +301,14 @@ public class RecruitmentServiceImpl implements RecruitmentService {
             UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getApplicantUrl() + "userId/" + id);
             Map<String, String> headers = new HashMap<>();
             headers.put(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
-            ResponseEntity<?> response = restService.iamRestCall(builder.toUriString(), null, headers, HttpMethod.GET, null);
+            ResponseEntity<String> response = restService.iamRestCall(builder.toUriString(), null, headers, HttpMethod.GET, null);
             if (!response.getStatusCode().is2xxSuccessful()) {
                 throw new ServiceLevelException(
                         "RecruitmentService",
                         "Failed to fetch applicant",
                         "getApplicantById",
                         response.getStatusCode().toString(),
-                        response.getBody() != null ? response.getBody().toString() : "No response body"
+                        response.getBody() != null ? response.getBody() : "No response body"
                 );
             }
             return response;
@@ -340,14 +340,14 @@ public class RecruitmentServiceImpl implements RecruitmentService {
                     .queryParam("orgId", orgId);
             Map<String, String> headers = new HashMap<>();
             headers.put(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
-            ResponseEntity<?> response = restService.iamRestCall(builder.toUriString(), null, headers, HttpMethod.GET, null);
+            ResponseEntity<String> response = restService.iamRestCall(builder.toUriString(), null, headers, HttpMethod.GET, null);
             if (!response.getStatusCode().is2xxSuccessful()) {
                 throw new ServiceLevelException(
                         "RecruitmentService",
                         "Failed to fetch recruitment analytics",
                         "getRecruitmentAnalytics",
                         response.getStatusCode().toString(),
-                        response.getBody() != null ? response.getBody().toString() : "No response body"
+                        response.getBody() != null ? response.getBody() : "No response body"
                 );
             }
             return response;
@@ -378,14 +378,14 @@ public class RecruitmentServiceImpl implements RecruitmentService {
             UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getApplicantUrl() + "/education")
                     .queryParam("userId", applicantId);
             Map<String, String> headers = commonUtils.buildJsonHeaders(null);
-            ResponseEntity<?> response = restService.iamRestCall(builder.toUriString(), education, headers, HttpMethod.POST, null);
+            ResponseEntity<String> response = restService.iamRestCall(builder.toUriString(), education, headers, HttpMethod.POST, null);
             if (!response.getStatusCode().is2xxSuccessful()) {
                 throw new ServiceLevelException(
                         "RecruitmentService",
                         "Failed to add applicant education",
                         "addApplicantEducation",
                         response.getStatusCode().toString(),
-                        response.getBody() != null ? response.getBody().toString() : "No response body"
+                        response.getBody() != null ? response.getBody() : "No response body"
                 );
             }
             return response;
@@ -415,14 +415,14 @@ public class RecruitmentServiceImpl implements RecruitmentService {
             UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getApplicantUrl() + "/experience")
                     .queryParam("userId", applicantId);
             Map<String, String> headers = commonUtils.buildJsonHeaders(null);
-            ResponseEntity<?> response = restService.iamRestCall(builder.toUriString(), experience, headers, HttpMethod.POST, null);
+            ResponseEntity<String> response = restService.iamRestCall(builder.toUriString(), experience, headers, HttpMethod.POST, null);
             if (!response.getStatusCode().is2xxSuccessful()) {
                 throw new ServiceLevelException(
                         "RecruitmentService",
                         "Failed to add applicant experience",
                         "addApplicantExperience",
                         response.getStatusCode().toString(),
-                        response.getBody() != null ? response.getBody().toString() : "No response body"
+                        response.getBody() != null ? response.getBody() : "No response body"
                 );
             }
             return response;
@@ -452,14 +452,14 @@ public class RecruitmentServiceImpl implements RecruitmentService {
             UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getApplicantUrl() + "/skill")
                     .queryParam("userId", applicantId);
             Map<String, String> headers = commonUtils.buildJsonHeaders(null);
-            ResponseEntity<?> response = restService.iamRestCall(builder.toUriString(), skill, headers, HttpMethod.POST, null);
+            ResponseEntity<String> response = restService.iamRestCall(builder.toUriString(), skill, headers, HttpMethod.POST, null);
             if (!response.getStatusCode().is2xxSuccessful()) {
                 throw new ServiceLevelException(
                         "RecruitmentService",
                         "Failed to add applicant skill",
                         "addApplicantSkill",
                         response.getStatusCode().toString(),
-                        response.getBody() != null ? response.getBody().toString() : "No response body"
+                        response.getBody() != null ? response.getBody() : "No response body"
                 );
             }
             return response;
@@ -488,14 +488,14 @@ public class RecruitmentServiceImpl implements RecruitmentService {
         try {
             UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getApplicantUrl()).queryParam("userId", userId);
             Map<String, String> headers = commonUtils.buildJsonHeaders(null);
-            ResponseEntity<?> response = restService.iamRestCall(builder.toUriString(), payload, headers, HttpMethod.PUT, userId);
+            ResponseEntity<String> response = restService.iamRestCall(builder.toUriString(), payload, headers, HttpMethod.PUT, userId);
             if (!response.getStatusCode().is2xxSuccessful()) {
                 throw new ServiceLevelException(
                         "RecruitmentService",
                         "Failed to update applicant",
                         "updateApplicant",
                         response.getStatusCode().toString(),
-                        response.getBody() != null ? response.getBody().toString() : "No response body"
+                        response.getBody() != null ? response.getBody() : "No response body"
                 );
             }
             return response;
@@ -522,7 +522,7 @@ public class RecruitmentServiceImpl implements RecruitmentService {
                     .queryParam("query", query);
             Map<String, String> headers = new HashMap<>();
             headers.put(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
-            ResponseEntity<?> response = restService.iamRestCall(builder.toUriString(), null, headers, HttpMethod.GET, null);
+            ResponseEntity<String> response = restService.iamRestCall(builder.toUriString(), null, headers, HttpMethod.GET, null);
             if (!response.getStatusCode().is2xxSuccessful()) {
                 throw new ServiceLevelException(
                         "RecruitmentService",
@@ -556,14 +556,14 @@ public class RecruitmentServiceImpl implements RecruitmentService {
                     .queryParam("query", query);
             Map<String, String> headers = new HashMap<>();
             headers.put(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
-            ResponseEntity<?> response = restService.iamRestCall(builder.toUriString(), null, headers, HttpMethod.GET, null);
+            ResponseEntity<String> response = restService.iamRestCall(builder.toUriString(), null, headers, HttpMethod.GET, null);
             if (!response.getStatusCode().is2xxSuccessful()) {
                 throw new ServiceLevelException(
                         "RecruitmentService",
                         "Failed to fetch openings before today",
                         "getOpeningsBeforeToday",
                         response.getStatusCode().toString(),
-                        response.getBody() != null ? response.getBody().toString() : "No response body"
+                        response.getBody() != null ? response.getBody() : "No response body"
                 );
             }
             return response;
@@ -584,14 +584,14 @@ public class RecruitmentServiceImpl implements RecruitmentService {
             UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getHrRecruitmentUrl() + "/position-pie-graph");
             Map<String, String> headers = new HashMap<>();
             headers.put(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
-            ResponseEntity<?> response = restService.iamRestCall(builder.toUriString(), null, headers, HttpMethod.GET, null);
+            ResponseEntity<String> response = restService.iamRestCall(builder.toUriString(), null, headers, HttpMethod.GET, null);
             if (!response.getStatusCode().is2xxSuccessful()) {
                 throw new ServiceLevelException(
                         "RecruitmentService",
                         "Failed to fetch position pie graph",
                         "getPositionPieGraph",
                         response.getStatusCode().toString(),
-                        response.getBody() != null ? response.getBody().toString() : "No response body"
+                        response.getBody() != null ? response.getBody() : "No response body"
                 );
             }
             return response;
@@ -612,14 +612,14 @@ public class RecruitmentServiceImpl implements RecruitmentService {
             UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getHrRecruitmentUrl() + "/openings-experience-wise");
             Map<String, String> headers = new HashMap<>();
             headers.put(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
-            ResponseEntity<?> response = restService.iamRestCall(builder.toUriString(), null, headers, HttpMethod.GET, null);
+            ResponseEntity<String> response = restService.iamRestCall(builder.toUriString(), null, headers, HttpMethod.GET, null);
             if (!response.getStatusCode().is2xxSuccessful()) {
                 throw new ServiceLevelException(
                         "RecruitmentService",
                         "Failed to fetch experience-wise openings",
                         "getExperienceWiseOpenings",
                         response.getStatusCode().toString(),
-                        response.getBody() != null ? response.getBody().toString() : "No response body"
+                        response.getBody() != null ? response.getBody() : "No response body"
                 );
             }
             return response;
@@ -642,14 +642,14 @@ public class RecruitmentServiceImpl implements RecruitmentService {
                     .queryParam("pageOffset", pageOffset);
             Map<String, String> headers = new HashMap<>();
             headers.put(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
-            ResponseEntity<?> response = restService.iamRestCall(builder.toUriString(), null, headers, HttpMethod.GET, null);
+            ResponseEntity<String> response = restService.iamRestCall(builder.toUriString(), null, headers, HttpMethod.GET, null);
             if (!response.getStatusCode().is2xxSuccessful()) {
                 throw new ServiceLevelException(
                         "RecruitmentService",
                         "Failed to fetch company-wise opening count",
                         "getCompanyWiseOpeningCount",
                         response.getStatusCode().toString(),
-                        response.getBody() != null ? response.getBody().toString() : "No response body"
+                        response.getBody() != null ? response.getBody() : "No response body"
                 );
             }
             return response;
@@ -679,14 +679,14 @@ public class RecruitmentServiceImpl implements RecruitmentService {
             UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getHrRecruitmentUrl() + "/applicant-view/" + id);
             Map<String, String> headers = new HashMap<>();
             headers.put(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
-            ResponseEntity<?> response = restService.iamRestCall(builder.toUriString(), null, headers, HttpMethod.GET, null);
+            ResponseEntity<String> response = restService.iamRestCall(builder.toUriString(), null, headers, HttpMethod.GET, null);
             if (!response.getStatusCode().is2xxSuccessful()) {
                 throw new ServiceLevelException(
                         "RecruitmentService",
                         "Failed to fetch recruitment applicant view",
                         "getRecruitmentApplicantView",
                         response.getStatusCode().toString(),
-                        response.getBody() != null ? response.getBody().toString() : "No response body"
+                        response.getBody() != null ? response.getBody() : "No response body"
                 );
             }
             return response;
@@ -708,14 +708,14 @@ public class RecruitmentServiceImpl implements RecruitmentService {
             UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getHrRecruitmentUrl() + "/filter");
             Map<String, String> headers = new HashMap<>();
             headers.put(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
-            ResponseEntity<?> response = restService.iamRestCall(builder.toUriString(), null, headers, HttpMethod.GET, null);
+            ResponseEntity<String> response = restService.iamRestCall(builder.toUriString(), null, headers, HttpMethod.GET, null);
             if (!response.getStatusCode().is2xxSuccessful()) {
                 throw new ServiceLevelException(
                         "RecruitmentService",
                         "Failed to fetch recruitment filters",
                         "getRecruitmentFilters",
                         response.getStatusCode().toString(),
-                        response.getBody() != null ? response.getBody().toString() : "No response body"
+                        response.getBody() != null ? response.getBody() : "No response body"
                 );
             }
             return response;
@@ -740,14 +740,14 @@ public class RecruitmentServiceImpl implements RecruitmentService {
                     .queryParam("pageOffset", pageOffset);
             Map<String, String> headers = new HashMap<>();
             headers.put(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
-            ResponseEntity<?> response = restService.iamRestCall(builder.toUriString(), null, headers, HttpMethod.GET, null);
+            ResponseEntity<String> response = restService.iamRestCall(builder.toUriString(), null, headers, HttpMethod.GET, null);
             if (!response.getStatusCode().is2xxSuccessful()) {
                 throw new ServiceLevelException(
                         "RecruitmentService",
                         "Failed to fetch recruitment by name",
                         "getRecruitmentByName",
                         response.getStatusCode().toString(),
-                        response.getBody() != null ? response.getBody().toString() : "No response body"
+                        response.getBody() != null ? response.getBody() : "No response body"
                 );
             }
             return response;
@@ -757,6 +757,199 @@ public class RecruitmentServiceImpl implements RecruitmentService {
                     "RecruitmentService",
                     "Exception occurred while fetching recruitment by name",
                     "getRecruitmentByName",
+                    "INTERNAL_SERVER_ERROR",
+                    e.getMessage()
+            );
+        }
+    }
+
+    @Override
+    public ResponseEntity<?> addApplicantDocument(MultipartFile document, Long userId) {
+        if (ObjectUtils.isEmpty(document) || ObjectUtils.isEmpty(userId)) {
+            throw new ServiceLevelException(
+                    "RecruitmentService",
+                    "Required params missing",
+                    "addApplicantDocument",
+                    "BAD_REQUEST",
+                    "Please provide required params"
+            );
+        }
+        try {
+            UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getApplicantUrl() + "/document")
+                    .queryParam("userId", userId);
+            Map<String, String> headers = new HashMap<>();
+            Map<String, Object> payload = new ConcurrentHashMap<>();
+            payload.put("document", document);
+            ResponseEntity<String> response = restService.iamRestCall(builder.toUriString(), payload, headers, HttpMethod.POST, userId);
+            if (!response.getStatusCode().is2xxSuccessful()) {
+                throw new ServiceLevelException(
+                        "RecruitmentService",
+                        "Failed to add applicant document",
+                        "addApplicantDocument",
+                        response.getStatusCode().toString(),
+                        response.getBody() != null ? response.getBody() : "No response body"
+                );
+            }
+            return response;
+        } catch (RuntimeException e) {
+            throw new ServiceLevelException(
+                    "RecruitmentService",
+                    "Exception occurred while adding applicant document",
+                    "addApplicantDocument",
+                    "INTERNAL_SERVER_ERROR",
+                    e.getMessage()
+            );
+        }
+    }
+
+    @Override
+    public ResponseEntity<?> deleteApplicantDocument(Long userId, Long hrDocumentId) {
+        if (ObjectUtils.isEmpty(userId) || ObjectUtils.isEmpty(hrDocumentId)) {
+            throw new ServiceLevelException(
+                    "RecruitmentService",
+                    "Required params missing",
+                    "deleteApplicantDocument",
+                    "BAD_REQUEST",
+                    "Please provide required params"
+            );
+        }
+        try {
+            UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getApplicantUrl() + "/document")
+                    .queryParam("userId", userId)
+                    .queryParam("hrDocumentId", hrDocumentId);
+            Map<String, String> headers = new HashMap<>();
+            ResponseEntity<String> response = restService.iamRestCall(builder.toUriString(), null, headers, HttpMethod.DELETE, userId);
+            if (!response.getStatusCode().is2xxSuccessful()) {
+                throw new ServiceLevelException(
+                        "RecruitmentService",
+                        "Failed to delete applicant document",
+                        "deleteApplicantDocument",
+                        response.getStatusCode().toString(),
+                        response.getBody() != null ? response.getBody() : "No response body"
+                );
+            }
+            return response;
+        } catch (RuntimeException e) {
+            throw new ServiceLevelException(
+                    "RecruitmentService",
+                    "Exception occurred while deleting applicant document",
+                    "deleteApplicantDocument",
+                    "INTERNAL_SERVER_ERROR",
+                    e.getMessage()
+            );
+        }
+    }
+
+    @Override
+    public ResponseEntity<?> applyApplicantRecruitment(String application) {
+        if (ObjectUtils.isEmpty(application)) {
+            throw new ServiceLevelException(
+                    "RecruitmentService",
+                    "Required params missing",
+                    "applyApplicantRecruitment",
+                    "BAD_REQUEST",
+                    "Please provide required params"
+            );
+        }
+        try {
+            UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getHrRecruitmentUrl() + "/applicant/apply");
+            Map<String, String> headers = commonUtils.buildJsonHeaders(null);
+            ResponseEntity<String> response = restService.iamRestCall(builder.toUriString(), application, headers, HttpMethod.POST, null);
+            if (!response.getStatusCode().is2xxSuccessful()) {
+                throw new ServiceLevelException(
+                        "RecruitmentService",
+                        "Failed to apply applicant recruitment",
+                        "applyApplicantRecruitment",
+                        response.getStatusCode().toString(),
+                        response.getBody() != null ? response.getBody() : "No response body"
+                );
+            }
+            return response;
+        } catch (RuntimeException e) {
+            throw new ServiceLevelException(
+                    "RecruitmentService",
+                    "Exception occurred while applying applicant recruitment",
+                    "applyApplicantRecruitment",
+                    "INTERNAL_SERVER_ERROR",
+                    e.getMessage()
+            );
+        }
+    }
+
+    @Override
+    public ResponseEntity<?> hasApplicantApplied(Long recruitmentId, Long userId) {
+        if (ObjectUtils.isEmpty(recruitmentId) || ObjectUtils.isEmpty(userId)) {
+            throw new ServiceLevelException(
+                    "RecruitmentService",
+                    "Required params missing",
+                    "hasApplicantApplied",
+                    "BAD_REQUEST",
+                    "Please provide required params"
+            );
+        }
+        try {
+            UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getHrRecruitmentUrl() + "/has-applied")
+                    .queryParam("recruitmentId", recruitmentId)
+                    .queryParam("userId", userId);
+            Map<String, String> headers = new HashMap<>();
+            headers.put(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
+            ResponseEntity<String> response = restService.iamRestCall(builder.toUriString(), null, headers, HttpMethod.GET, null);
+            if (!response.getStatusCode().is2xxSuccessful()) {
+                throw new ServiceLevelException(
+                        "RecruitmentService",
+                        "Failed to check if applicant has applied",
+                        "hasApplicantApplied",
+                        response.getStatusCode().toString(),
+                        response.getBody() != null ? response.getBody() : "No response body"
+                );
+            }
+            return response;
+        } catch (RuntimeException e) {
+            throw new ServiceLevelException(
+                    "RecruitmentService",
+                    "Exception occurred while checking if applicant has applied",
+                    "hasApplicantApplied",
+                    "INTERNAL_SERVER_ERROR",
+                    e.getMessage()
+            );
+        }
+    }
+
+    @Override
+    public ResponseEntity<?> getApplicantApplications(Long userId, Integer pageNo, Integer pageOffset, String status) {
+        if (ObjectUtils.isEmpty(userId)) {
+            throw new ServiceLevelException(
+                    "RecruitmentService",
+                    "Required params missing",
+                    "getApplicantApplications",
+                    "BAD_REQUEST",
+                    "Please provide required params"
+            );
+        }
+        try {
+            UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getHrRecruitmentUrl() + "/applicant/applications")
+                    .queryParam("userId", userId)
+                    .queryParam("pageNo", pageNo)
+                    .queryParam("pageOffset", pageOffset)
+                    .queryParam("status", status);
+            Map<String, String> headers = new HashMap<>();
+            headers.put(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
+            ResponseEntity<String> response = restService.iamRestCall(builder.toUriString(), null, headers, HttpMethod.GET, null);
+            if (!response.getStatusCode().is2xxSuccessful()) {
+                throw new ServiceLevelException(
+                        "RecruitmentService",
+                        "Failed to fetch applicant applications",
+                        "getApplicantApplications",
+                        response.getStatusCode().toString(),
+                        response.getBody() != null ? response.getBody() : "No response body"
+                );
+            }
+            return response;
+        } catch (RuntimeException e) {
+            throw new ServiceLevelException(
+                    "RecruitmentService",
+                    "Exception occurred while fetching applicant applications",
+                    "getApplicantApplications",
                     "INTERNAL_SERVER_ERROR",
                     e.getMessage()
             );

@@ -50,5 +50,7 @@ public interface ApplicantService {
     ResponseEntity<?> getApplicantByUserId(Long userId);
 
     ResponseEntity<?> addApplicantDocument(MultipartFile document, Long userId);
+
+    ResponseEntity<?> deleteApplicantDocument(Long userId, Long hrDocumentId);
 }
 

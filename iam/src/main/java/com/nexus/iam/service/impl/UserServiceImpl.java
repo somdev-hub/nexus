@@ -1,7 +1,5 @@
 package com.nexus.iam.service.impl;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nexus.iam.dto.*;
 import com.nexus.iam.entities.Department;
 import com.nexus.iam.entities.Role;
@@ -215,7 +213,7 @@ public class UserServiceImpl implements UserService {
                 headers.put(CommonConstants.AUTHORIZATION, "Bearer " + loginResponse.getAccessToken());
                 headers.put(CommonConstants.CONTENT_TYPE, CommonConstants.APPLICATION_MULTIPART_FORMDATA);
 
-                ResponseEntity<?> dmsResponse = restService.iamRestCall(
+                ResponseEntity<String> dmsResponse = restService.iamRestCall(
                         builder.toUriString(),
                         payload,
                         headers,
@@ -223,11 +221,9 @@ public class UserServiceImpl implements UserService {
                         userId);
 
                 if (dmsResponse.getStatusCode().is2xxSuccessful()) {
-                    @SuppressWarnings("unchecked")
-                    Map<String, String> respBody = (Map<String, String>) dmsResponse.getBody();
-                    assert respBody != null;
-                    if (respBody.containsKey("documentUrl")) {
-                        user.setProfilePhoto(respBody.get("documentUrl"));
+                    Map<String, Object> respBody = restService.parseJsonResponse(dmsResponse.getBody());
+                    if (respBody != null && respBody.containsKey("documentUrl")) {
+                        user.setProfilePhoto(respBody.get("documentUrl").toString());
                         userRepository.save(user);
 
                         response = new ResponseEntity<>("Profile photo updated successfully", HttpStatus.OK);
@@ -399,7 +395,7 @@ public class UserServiceImpl implements UserService {
                         // Do NOT set Content-Type header - RestTemplate will automatically set it to
                         // multipart/form-data
 
-                        ResponseEntity<?> response = restService.iamRestCall(
+                        ResponseEntity<String> response = restService.iamRestCall(
                                 builder.toUriString(),
                                 docPayload,
                                 headers,
@@ -407,17 +403,17 @@ public class UserServiceImpl implements UserService {
                                 user.getId());
 
                         if (response.getStatusCode().is2xxSuccessful()) {
-                            @SuppressWarnings("unchecked")
-                            Map<String, String> respBody = (Map<String, String>) response.getBody();
+                            Map<String, Object> respBody = restService.parseJsonResponse(response.getBody());
                             if (respBody != null && respBody.containsKey("documentUrl")) {
+                                String documentUrl = respBody.get("documentUrl").toString();
                                 if (file.getOriginalFilename().contains("profile_photo")) {
-                                    user.setProfilePhoto(respBody.get("documentUrl"));
+                                    user.setProfilePhoto(documentUrl);
                                     userRepository.save(user);
                                 } else {
                                     Map<String, String> docInfo = new HashMap<>();
                                     docInfo.put("documentName", file.getOriginalFilename());
                                     docInfo.put("hrDocumentType", "OTHER_HR_DOCUMENTS");
-                                    docInfo.put("documentUrl", respBody.get("documentUrl"));
+                                    docInfo.put("documentUrl", documentUrl);
                                     hrDocumentsPayload.add(docInfo);
                                 }
                             } else {
@@ -456,28 +452,23 @@ public class UserServiceImpl implements UserService {
             headers.put(CommonConstants.CONTENT_TYPE, CommonConstants.APPLICATION_JSON);
 
             UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getHrInitUrl());
-            ResponseEntity<?> hrResponse = restService.iamRestCall(
+            ResponseEntity<String> hrResponse = restService.iamRestCall(
                     builder.toUriString(),
                     payload,
                     headers,
                     HttpMethod.POST,
                     user.getId());
 
-            Map<String, String> response = new HashMap<>();
+            Map<String, Object> response = new HashMap<>();
             if (hrResponse.getStatusCode().is2xxSuccessful()) {
-                ObjectMapper objectMapper = new ObjectMapper();
-                Map<String, String> respBody = objectMapper.readValue(
-                        (String) hrResponse.getBody(),
-                        new TypeReference<>() {
-                        }
-                );
+                Map<String, Object> respBody = restService.parseJsonResponse(hrResponse.getBody());
                 if (respBody != null) {
                     response.put("email", user.getEmail());
                     response.put("userId", user.getId().toString());
                     response.put("password", generatedPassword);
-                    response.put("joiningLetter", respBody.getOrDefault("joiningLetterUrl", ""));
-                    response.put("letterOfIntent", respBody.getOrDefault("letterOfIntentUrl", ""));
-                    response.put("compensationCard", respBody.getOrDefault("compensationCardUrl", ""));
+                    response.put("joiningLetter", respBody.getOrDefault("joiningLetterUrl", "").toString());
+                    response.put("letterOfIntent", respBody.getOrDefault("letterOfIntentUrl", "").toString());
+                    response.put("compensationCard", respBody.getOrDefault("compensationCardUrl", "").toString());
                 }
             } else {
                 throw new ServiceLevelException("UserService",
@@ -536,4 +527,5 @@ public class UserServiceImpl implements UserService {
 
         return String.join("", passwordArray);
     }
+
 }

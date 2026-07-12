@@ -1,8 +1,10 @@
 package com.nexus.hr.controller;
 
 import com.nexus.hr.model.entities.Recruitment;
+import com.nexus.hr.model.enums.ApplicationStatus;
 import com.nexus.hr.model.enums.HiringStatus;
 import com.nexus.hr.model.enums.HiringType;
+import com.nexus.hr.payload.ApplicantApplication;
 import com.nexus.hr.service.interfaces.RecruitmentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -88,4 +90,20 @@ public class RecruitmentController {
     public ResponseEntity<?> getRecruitmentByName(@RequestParam String name, @RequestParam(required = false, defaultValue = "0") Integer pageNo, @RequestParam(required = false, defaultValue = "10") Integer pageOffset) {
         return recruitmentService.getRecruitmentByName(name, pageNo, pageOffset);
     }
+
+    @PostMapping("/applicant/apply")
+    public ResponseEntity<?> applyApplicantRecruitment(@RequestBody ApplicantApplication application) {
+        return recruitmentService.applyApplicantRecruitment(application);
+    }
+
+    @GetMapping("/has-applied")
+    public ResponseEntity<?> hasApplicantApplied(@RequestParam Long recruitmentId, @RequestParam Long userId) {
+        return recruitmentService.hasApplicantApplied(recruitmentId, userId);
+    }
+
+    @GetMapping("/applicant/applications")
+    public ResponseEntity<?> getApplicantApplications(@RequestParam Long userId,  @RequestParam(required = false, defaultValue = "0") Integer pageNo, @RequestParam(required = false, defaultValue = "10") Integer pageOffset, @RequestParam(required = false) ApplicationStatus status) {
+        return recruitmentService.getApplicantApplications(userId, pageNo, pageOffset, status);
+    }
+
 }

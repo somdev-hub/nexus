@@ -34,11 +34,11 @@ public class AnalyticsServiceImpl implements AnalyticsService {
         }
         try {
             UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getEmployeeAveStrengthUrl()).queryParam("orgId", orgId);
-            ResponseEntity<?> response = restService.iamRestCall(builder.toUriString(), null, null, HttpMethod.GET, null);
+            ResponseEntity<String> response = restService.iamRestCall(builder.toUriString(), null, null, HttpMethod.GET, null);
             if (response.getStatusCode().is2xxSuccessful()) {
                 return ResponseEntity.ok(response.getBody());
             } else {
-                return ResponseEntity.status(response.getStatusCode()).body(response.getBody() != null ? response.getBody().toString() : "Failed to fetch employee average strength");
+                return ResponseEntity.status(response.getStatusCode()).body(response.getBody() != null ? response.getBody() : "Failed to fetch employee average strength");
             }
         } catch (RuntimeException e) {
             throw new ServiceLevelException(
@@ -59,11 +59,11 @@ public class AnalyticsServiceImpl implements AnalyticsService {
         try {
             UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getLeaveTypeDistributionUrl())
                     .queryParam("orgId", orgId).queryParam("monthYear", monthYear);
-            ResponseEntity<?> response = restService.iamRestCall(builder.toUriString(), null, null, HttpMethod.GET, null);
+            ResponseEntity<String> response = restService.iamRestCall(builder.toUriString(), null, null, HttpMethod.GET, null);
             if (response.getStatusCode().is2xxSuccessful()) {
                 return ResponseEntity.ok(response.getBody());
             } else {
-                return ResponseEntity.status(response.getStatusCode()).body(response.getBody() != null ? response.getBody().toString() : "Failed to fetch leave type distribution");
+                return ResponseEntity.status(response.getStatusCode()).body(response.getBody() != null ? response.getBody() : "Failed to fetch leave type distribution");
             }
         } catch (RuntimeException e) {
             throw new ServiceLevelException(
@@ -85,11 +85,11 @@ public class AnalyticsServiceImpl implements AnalyticsService {
         try {
             UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getEmployeeCheckInCheckOutUrl())
                     .queryParam("orgId", orgId).queryParam("monthYear", monthYear);
-            ResponseEntity<?> response = restService.iamRestCall(builder.toUriString(), null, null, HttpMethod.GET, null);
+            ResponseEntity<String> response = restService.iamRestCall(builder.toUriString(), null, null, HttpMethod.GET, null);
             if (response.getStatusCode().is2xxSuccessful()) {
                 return ResponseEntity.ok(response.getBody());
             } else {
-                return ResponseEntity.status(response.getStatusCode()).body(response.getBody() != null ? response.getBody().toString() : "Failed to fetch employee check-in/check-out data");
+                return ResponseEntity.status(response.getStatusCode()).body(response.getBody() != null ? response.getBody() : "Failed to fetch employee check-in/check-out data");
             }
         } catch (RuntimeException e) {
             throw new ServiceLevelException(
@@ -111,11 +111,11 @@ public class AnalyticsServiceImpl implements AnalyticsService {
         try {
             UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getEmployeeBreakStartEndUrl())
                     .queryParam("orgId", orgId).queryParam("monthYear", monthYear);
-            ResponseEntity<?> response = restService.iamRestCall(builder.toUriString(), null, null, HttpMethod.GET, null);
+            ResponseEntity<String> response = restService.iamRestCall(builder.toUriString(), null, null, HttpMethod.GET, null);
             if (response.getStatusCode().is2xxSuccessful()) {
                 return ResponseEntity.ok(response.getBody());
             } else {
-                return ResponseEntity.status(response.getStatusCode()).body(response.getBody() != null ? response.getBody().toString() : "Failed to fetch employee break start/end data");
+                return ResponseEntity.status(response.getStatusCode()).body(response.getBody() != null ? response.getBody() : "Failed to fetch employee break start/end data");
             }
         } catch (RuntimeException e) {
             throw new ServiceLevelException(
@@ -135,11 +135,11 @@ public class AnalyticsServiceImpl implements AnalyticsService {
         }
         try{
             UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getPayrollYearlyUrl()).queryParam("orgId", orgId);
-            ResponseEntity<?> response = restService.iamRestCall(builder.toUriString(), null, null, HttpMethod.GET, null);
+            ResponseEntity<String> response = restService.iamRestCall(builder.toUriString(), null, null, HttpMethod.GET, null);
             if (response.getStatusCode().is2xxSuccessful()) {
                 return ResponseEntity.ok(response.getBody());
             } else {
-                return ResponseEntity.status(response.getStatusCode()).body(response.getBody() != null ? response.getBody().toString() : "Failed to fetch payroll yearly data");
+                return ResponseEntity.status(response.getStatusCode()).body(response.getBody() != null ? response.getBody() : "Failed to fetch payroll yearly data");
             }
         } catch (RuntimeException e) {
             throw new ServiceLevelException(
@@ -171,11 +171,11 @@ public class AnalyticsServiceImpl implements AnalyticsService {
                 }
             }
             UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getPayrollRoleWiseUrl()).queryParam("orgId", orgId);
-            ResponseEntity<?> response = restService.iamRestCall(builder.toUriString(), roleEmpIdMap, null, HttpMethod.POST, null);
+            ResponseEntity<String> response = restService.iamRestCall(builder.toUriString(), roleEmpIdMap, null, HttpMethod.POST, null);
             if (response.getStatusCode().is2xxSuccessful()) {
                 return ResponseEntity.ok(response.getBody());
             } else {
-                return ResponseEntity.status(response.getStatusCode()).body(response.getBody() != null ? response.getBody().toString() : "Failed to fetch payroll role-wise data");
+                return ResponseEntity.status(response.getStatusCode()).body(response.getBody() != null ? response.getBody() : "Failed to fetch payroll role-wise data");
             }
         } catch (RuntimeException e) {
             throw new ServiceLevelException(
@@ -195,11 +195,11 @@ public class AnalyticsServiceImpl implements AnalyticsService {
         }
         try{
             UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getOvertimeAnomalyUrl()).queryParam("orgId", orgId);
-            ResponseEntity<?> response = restService.iamRestCall(builder.toUriString(), null, null, HttpMethod.GET, null);
+            ResponseEntity<String> response = restService.iamRestCall(builder.toUriString(), null, null, HttpMethod.GET, null);
             if (response.getStatusCode().is2xxSuccessful()) {
                 return ResponseEntity.ok(response.getBody());
             } else {
-                return ResponseEntity.status(response.getStatusCode()).body(response.getBody() != null ? response.getBody().toString() : "Failed to fetch overtime anomaly data");
+                return ResponseEntity.status(response.getStatusCode()).body(response.getBody() != null ? response.getBody() : "Failed to fetch overtime anomaly data");
             }
         } catch (RuntimeException e) {
             throw new ServiceLevelException(
@@ -220,11 +220,11 @@ public class AnalyticsServiceImpl implements AnalyticsService {
         try {
             UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getLeavesDepartmentWiseUrl())
                     .queryParam("orgId", orgId).queryParam("monthYear", monthYear);
-            ResponseEntity<?> response = restService.iamRestCall(builder.toUriString(), null, null, HttpMethod.GET, null);
+            ResponseEntity<String> response = restService.iamRestCall(builder.toUriString(), null, null, HttpMethod.GET, null);
             if (response.getStatusCode().is2xxSuccessful()) {
                 return ResponseEntity.ok(response.getBody());
             } else {
-                return ResponseEntity.status(response.getStatusCode()).body(response.getBody() != null ? response.getBody().toString() : "Failed to fetch leaves department-wise data");
+                return ResponseEntity.status(response.getStatusCode()).body(response.getBody() != null ? response.getBody() : "Failed to fetch leaves department-wise data");
             }
         } catch (RuntimeException e) {
             throw new ServiceLevelException(
@@ -257,11 +257,11 @@ public class AnalyticsServiceImpl implements AnalyticsService {
             }
             UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getLeavesRoleWiseUrl())
                     .queryParam("orgId", orgId).queryParam("monthYear", monthYear);
-            ResponseEntity<?> response = restService.iamRestCall(builder.toUriString(), roleEmpIdMap, null, HttpMethod.POST, null);
+            ResponseEntity<String> response = restService.iamRestCall(builder.toUriString(), roleEmpIdMap, null, HttpMethod.POST, null);
             if (response.getStatusCode().is2xxSuccessful()) {
                 return ResponseEntity.ok(response.getBody());
             } else {
-                return ResponseEntity.status(response.getStatusCode()).body(response.getBody() != null ? response.getBody().toString() : "Failed to fetch leaves role-wise data");
+                return ResponseEntity.status(response.getStatusCode()).body(response.getBody() != null ? response.getBody() : "Failed to fetch leaves role-wise data");
             }
         } catch (RuntimeException e) {
             throw new ServiceLevelException(
