@@ -15,6 +15,7 @@ import com.nexus.hr.repository.ApplicantRepo;
 import com.nexus.hr.repository.HrEntityRepo;
 import com.nexus.hr.repository.RecruitmentRepo;
 import com.nexus.hr.service.interfaces.RecruitmentService;
+import com.nexus.hr.utils.CommonConstants;
 import lombok.RequiredArgsConstructor;
 import org.modelmapper.ModelMapper;
 import org.springframework.data.domain.Page;
@@ -23,6 +24,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.ObjectUtils;
 
 import java.sql.Timestamp;
@@ -658,6 +660,7 @@ public class RecruitmentServiceImpl implements RecruitmentService {
         }
     }
 
+    @Transactional
     @Override
     public ResponseEntity<?> applyApplicantRecruitment(ApplicantApplication application) {
         if (ObjectUtils.isEmpty(application)) {
@@ -688,6 +691,7 @@ public class RecruitmentServiceImpl implements RecruitmentService {
             mapping.setApplicant(applicant);
             mapping.setRecruitment(recruitment);
             mapping.setApplicationDocuments(hrDocuments);
+            hrDocuments.forEach(doc -> doc.setApplicantRecruitmentMapping(mapping));
             mapping.setStatus(ApplicationStatus.APPLIED);
             ApplicantRecruitmentMapping applicantRecruitmentMapping = applicantRecruitmentMappingRepo.save(mapping);
             return ResponseEntity.ok(applicantRecruitmentMapping);
@@ -765,6 +769,55 @@ public class RecruitmentServiceImpl implements RecruitmentService {
                     "RecruitmentService",
                     "Error occurred while fetching applicant applications",
                     "getApplicantApplications",
+                    "Service level exception",
+                    e.getMessage()
+            );
+        }
+    }
+
+    @Override
+    public ResponseEntity<?> getApplicantApplicationWithStatus(Long userId, Long recruitmentId) {
+        if (ObjectUtils.isEmpty(userId) || ObjectUtils.isEmpty(recruitmentId)) {
+            throw new ServiceLevelException(
+                    "RecruitmentService",
+                    "User id or applicant recruitment mapping id is missing",
+                    "getApplicantApplicationWithStatus",
+                    "Missing required data exception",
+                    "Required data user id or applicant recruitment mapping id is missing"
+            );
+        }
+        try {
+            ApplicantRecruitmentMapping mapping = applicantRecruitmentMappingRepo.findByUserIdAndRecruitmentId(userId, recruitmentId)
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            "ApplicantRecruitmentMapping",
+                            "id",
+                            recruitmentId.toString()
+                    ));
+            if (!mapping.getApplicant().getUserId().equals(userId)) {
+                throw new ServiceLevelException(
+                        "RecruitmentService",
+                        "Unauthorized access attempt",
+                        "getApplicantApplicationWithStatus",
+                        "Unauthorized access exception",
+                        "User with id " + userId + " is not authorized to access this application"
+                );
+            }
+            ApplicationWithStatusResponseDto dto=new ApplicationWithStatusResponseDto();
+            dto.setApplicantRecruitmentMappingId(mapping.getApplicantRecruitmentMappingId());
+            dto.setRecruitmentId(mapping.getRecruitment().getRecruitmentId());
+            dto.setRoleName(mapping.getRecruitment().getRoleName());
+            dto.setLocation(mapping.getRecruitment().getLocation());
+            dto.setOrgName(mapping.getRecruitment().getOrgName());
+            dto.setAppliedOn(mapping.getAppliedOn());
+            dto.setResumeSubmitted(mapping.getApplicationDocuments().stream().filter(doc -> Objects.equals(doc.getHrDocumentType(), CommonConstants.RESUME)).findFirst().map(HrDocument::getDocumentName).orElse(null));
+            dto.setStatusHistList(mapping.getStatusHistory());
+
+            return ResponseEntity.ok(dto);
+        } catch (Exception e) {
+            throw new ServiceLevelException(
+                    "RecruitmentService",
+                    "Error occurred while fetching applicant application with status",
+                    "getApplicantApplicationWithStatus",
                     "Service level exception",
                     e.getMessage()
             );

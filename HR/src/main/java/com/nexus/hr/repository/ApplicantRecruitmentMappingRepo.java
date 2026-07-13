@@ -7,6 +7,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
+import java.util.Optional;
+
 public interface ApplicantRecruitmentMappingRepo extends JpaRepository<ApplicantRecruitmentMapping, Long> {
 
     @Query("""
@@ -31,4 +33,12 @@ public interface ApplicantRecruitmentMappingRepo extends JpaRepository<Applicant
                             AND arm.status = :status
             """)
     Page<ApplicantRecruitmentMapping> findByApplicantUserIsAndStatus(Long userId, ApplicationStatus status, Pageable pageable);
+
+    @Query("""
+                    SELECT arm FROM ApplicantRecruitmentMapping arm
+                            JOIN FETCH arm.recruitment r
+                            WHERE arm.applicant.userId = :userId
+                            AND arm.recruitment.recruitmentId = :recruitmentId
+    """)
+    Optional<ApplicantRecruitmentMapping> findByUserIdAndRecruitmentId(Long userId, Long recruitmentId);
 }

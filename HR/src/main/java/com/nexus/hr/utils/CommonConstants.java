@@ -14,6 +14,8 @@ public class CommonConstants {
     public static final Long CLIENT_MASTER_ID = 10L;
     public static final String PAYMENT_TYPE_NET_BANKING = "NET_BANKING";
     public static final String HR_KAFKA_MAIL_TOPIC = "hr-kafka-mail-topic";
+    public static final String RESUME = "RESUME";
+
     public enum CommsTriggerPoint {
         CANDIDATE_SELECTION_MAIL,
         PAYROLL_MONTHLY

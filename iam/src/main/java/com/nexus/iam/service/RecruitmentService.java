@@ -57,4 +57,6 @@ public interface RecruitmentService {
     ResponseEntity<?> hasApplicantApplied(Long recruitmentId, Long userId);
 
     ResponseEntity<?> getApplicantApplications(Long userId, Integer pageNo, Integer pageOffset, String status);
+
+    ResponseEntity<?> getApplicantApplicationWithStatus(Long userId, Long recruitmentId);
 }

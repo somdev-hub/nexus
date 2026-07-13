@@ -106,4 +106,9 @@ public class RecruitmentController {
         return recruitmentService.getApplicantApplications(userId, pageNo, pageOffset, status);
     }
 
+    @GetMapping("/applicant/application/with-status")
+    public ResponseEntity<?> getApplicantApplicationWithStatus(@RequestParam Long userId, @RequestParam Long recruitmentId){
+        return recruitmentService.getApplicantApplicationWithStatus(userId, recruitmentId);
+    }
+
 }

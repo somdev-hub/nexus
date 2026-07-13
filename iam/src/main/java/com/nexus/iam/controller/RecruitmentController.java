@@ -188,4 +188,9 @@ public class RecruitmentController {
     public ResponseEntity<?> getApplicantApplications(@RequestParam Long userId, @RequestParam(required = false, defaultValue = "0") Integer pageNo, @RequestParam(required = false, defaultValue = "10") Integer pageOffset, @RequestParam(required = false) String status) {
         return recruitmentService.getApplicantApplications(userId, pageNo, pageOffset, status);
     }
+
+    @GetMapping("/applicant/application/with-status")
+    public ResponseEntity<?> getApplicantApplicationWithStatus(@RequestParam Long userId, @RequestParam Long recruitmentId){
+        return recruitmentService.getApplicantApplicationWithStatus(userId, recruitmentId);
+    }
 }

@@ -955,4 +955,43 @@ public class RecruitmentServiceImpl implements RecruitmentService {
             );
         }
     }
+
+    @Override
+    public ResponseEntity<?> getApplicantApplicationWithStatus(Long userId, Long recruitmentId) {
+        if (ObjectUtils.isEmpty(userId) || ObjectUtils.isEmpty(recruitmentId)) {
+            throw new ServiceLevelException(
+                    "RecruitmentService",
+                    "Required params missing",
+                    "getApplicantApplicationWithStatus",
+                    "BAD_REQUEST",
+                    "Please provide required params"
+            );
+        }
+        try {
+            UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getHrRecruitmentUrl() + "/applicant/application/with-status")
+                    .queryParam("userId", userId)
+                    .queryParam("recruitmentId", recruitmentId);
+            Map<String, String> headers = new HashMap<>();
+            headers.put(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
+            ResponseEntity<String> response = restService.iamRestCall(builder.toUriString(), null, headers, HttpMethod.GET, null);
+            if (!response.getStatusCode().is2xxSuccessful()) {
+                throw new ServiceLevelException(
+                        "RecruitmentService",
+                        "Failed to fetch applicant application with status",
+                        "getApplicantApplicationWithStatus",
+                        response.getStatusCode().toString(),
+                        response.getBody() != null ? response.getBody() : "No response body"
+                );
+            }
+            return response;
+        } catch (RuntimeException e) {
+            throw new ServiceLevelException(
+                    "RecruitmentService",
+                    "Exception occurred while fetching applicant application with status",
+                    "getApplicantApplicationWithStatus",
+                    "INTERNAL_SERVER_ERROR",
+                    e.getMessage()
+            );
+        }
+    }
 }

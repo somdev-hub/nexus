@@ -5,6 +5,8 @@ import com.fasterxml.jackson.annotation.JsonManagedReference;
 import com.nexus.hr.model.enums.ApplicationStatus;
 import jakarta.persistence.*;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.ToString;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
@@ -23,11 +25,15 @@ public class ApplicantRecruitmentMapping {
     @ManyToOne
     @JoinColumn(name = "applicant_applicant_id")
     @JsonBackReference("applicant-recruitment-mappings")
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
     private Applicant applicant;
 
     @ManyToOne
     @JoinColumn(name = "recruitment_recruitment_id")
     @JsonBackReference("recruitment-applicantRecruitmentMappings")
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
     private Recruitment recruitment;
 
     @CreationTimestamp
@@ -40,6 +46,8 @@ public class ApplicantRecruitmentMapping {
 
     @OneToMany(orphanRemoval = true, mappedBy = "applicantRecruitmentMapping", cascade = CascadeType.ALL)
     @JsonManagedReference("applicantRecruitmentMapping-applicationDocuments")
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
     private List<HrDocument> applicationDocuments;
 
     @Enumerated(EnumType.STRING)
@@ -52,5 +60,7 @@ public class ApplicantRecruitmentMapping {
 
     @OneToMany(orphanRemoval = true, mappedBy = "applicantRecruitmentMapping", cascade = CascadeType.ALL)
     @JsonManagedReference("applicantRecruitmentMapping-statusHistory")
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
     private List<ApplicantRecruitmentMappingStatusHist> statusHistory;
 }
