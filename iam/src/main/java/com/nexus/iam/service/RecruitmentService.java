@@ -8,7 +8,8 @@ import java.time.LocalDate;
 public interface RecruitmentService {
     ResponseEntity<?> createRecruitment(String recruitment, Long empId);
 
-    ResponseEntity<?> getAllRecruitments(Long orgId, Boolean isActive, Long empId, String hiringType, String hiringStatus, Integer pageNo, Integer pageOffset);
+    ResponseEntity<?> getAllRecruitments(Long orgId, Boolean isActive, Long empId, String hiringType,
+            String hiringStatus, Integer pageNo, Integer pageOffset);
 
     ResponseEntity<?> updateRecruitment(String recruitment, Long empId);
 
@@ -16,9 +17,12 @@ public interface RecruitmentService {
 
     ResponseEntity<?> getClosedRecruitments(Long orgId, Integer pageNo, Integer pageOffset);
 
-    ResponseEntity<?> createApplicantWithDocuments(Long recruitmentId, String applicant, MultipartFile resume, MultipartFile coverLetter);
+    ResponseEntity<?> createApplicantWithDocuments(Long recruitmentId, String applicant, MultipartFile resume,
+            MultipartFile coverLetter);
 
-    ResponseEntity<?> getAllApplicants(Long recruitmentId, String status, String name, Character gender, Integer minAge, Integer maxAge, LocalDate appliedFromDate, LocalDate appliedToDate, Integer yearsOfExperience, Integer pageNo, Integer pageSize);
+    ResponseEntity<?> getAllApplicants(Long recruitmentId, String status, String name, Character gender, Integer minAge,
+            Integer maxAge, LocalDate appliedFromDate, LocalDate appliedToDate, Integer yearsOfExperience,
+            Integer pageNo, Integer pageSize);
 
     ResponseEntity<?> getApplicantById(Long id);
 
@@ -32,9 +36,11 @@ public interface RecruitmentService {
 
     ResponseEntity<?> updateApplicant(String payload, Long userId);
 
-    ResponseEntity<?> getOpeningsToday(Integer pageNo, Integer pageOffset, String status, String orgName, String location, String query);
+    ResponseEntity<?> getOpeningsToday(Integer pageNo, Integer pageOffset, String status, String orgName,
+            String location, String query);
 
-    ResponseEntity<?> getOpeningsBeforeToday(Integer pageNo, Integer pageOffset, String status, String orgName, String location, String query);
+    ResponseEntity<?> getOpeningsBeforeToday(Integer pageNo, Integer pageOffset, String status, String orgName,
+            String location, String query);
 
     ResponseEntity<?> getPositionPieGraph();
 
@@ -59,4 +65,9 @@ public interface RecruitmentService {
     ResponseEntity<?> getApplicantApplications(Long userId, Integer pageNo, Integer pageOffset, String status);
 
     ResponseEntity<?> getApplicantApplicationWithStatus(Long userId, Long recruitmentId);
+
+    // New dashboard endpoints
+    ResponseEntity<?> getCompanyInsights();
+
+    ResponseEntity<?> getDashboardStats();
 }

@@ -6,7 +6,10 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
+import java.util.List;
+import java.util.List;
 import java.util.Optional;
 
 public interface ApplicantRecruitmentMappingRepo extends JpaRepository<ApplicantRecruitmentMapping, Long> {
@@ -32,13 +35,24 @@ public interface ApplicantRecruitmentMappingRepo extends JpaRepository<Applicant
                             WHERE arm.applicant.userId = :userId
                             AND arm.status = :status
             """)
-    Page<ApplicantRecruitmentMapping> findByApplicantUserIsAndStatus(Long userId, ApplicationStatus status, Pageable pageable);
+    Page<ApplicantRecruitmentMapping> findByApplicantUserIsAndStatus(Long userId, ApplicationStatus status,
+            Pageable pageable);
 
     @Query("""
-                    SELECT arm FROM ApplicantRecruitmentMapping arm
-                            JOIN FETCH arm.recruitment r
-                            WHERE arm.applicant.userId = :userId
-                            AND arm.recruitment.recruitmentId = :recruitmentId
-    """)
+                            SELECT arm FROM ApplicantRecruitmentMapping arm
+                                    JOIN FETCH arm.recruitment r
+                                    WHERE arm.applicant.userId = :userId
+                                    AND arm.recruitment.recruitmentId = :recruitmentId
+            """)
     Optional<ApplicantRecruitmentMapping> findByUserIdAndRecruitmentId(Long userId, Long recruitmentId);
+
+    // New methods for dashboard
+    @Query("SELECT COUNT(arm) FROM ApplicantRecruitmentMapping arm")
+    Long countAllApplications();
+
+    @Query("SELECT COUNT(arm) FROM ApplicantRecruitmentMapping arm WHERE arm.recruitment.recruitmentId = :recruitmentId")
+    Long countByRecruitmentRecruitmentId(Long recruitmentId);
+
+    @Query("SELECT r.roleName, COUNT(arm) FROM ApplicantRecruitmentMapping arm JOIN arm.recruitment r WHERE r.orgId = :orgId GROUP BY r.roleName ORDER BY COUNT(arm) DESC")
+    List<Object[]> countApplicationsByRoleForOrg(@Param("orgId") Long orgId);
 }

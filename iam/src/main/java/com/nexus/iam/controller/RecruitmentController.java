@@ -27,8 +27,13 @@ public class RecruitmentController {
     }
 
     @GetMapping("/")
-    public ResponseEntity<?> getAllRecruitments(@RequestParam Long orgId, @RequestParam(required = false) Boolean isActive, @RequestParam(required = false) Long empId, @RequestParam(required = false) String hiringType, @RequestParam(required = false) String hiringStatus, @RequestParam(required = false, defaultValue = "0") Integer pageNo, @RequestParam(required = false, defaultValue = "10") Integer pageOffset) {
-        return recruitmentService.getAllRecruitments(orgId, isActive, empId, hiringType, hiringStatus, pageNo, pageOffset);
+    public ResponseEntity<?> getAllRecruitments(@RequestParam Long orgId,
+            @RequestParam(required = false) Boolean isActive, @RequestParam(required = false) Long empId,
+            @RequestParam(required = false) String hiringType, @RequestParam(required = false) String hiringStatus,
+            @RequestParam(required = false, defaultValue = "0") Integer pageNo,
+            @RequestParam(required = false, defaultValue = "10") Integer pageOffset) {
+        return recruitmentService.getAllRecruitments(orgId, isActive, empId, hiringType, hiringStatus, pageNo,
+                pageOffset);
     }
 
     @PutMapping("/")
@@ -37,7 +42,9 @@ public class RecruitmentController {
     }
 
     @GetMapping("/closed")
-    public ResponseEntity<?> closeRecruitment(@RequestParam Long orgId, @RequestParam(required = false, defaultValue = "0") Integer pageNo, @RequestParam(required = false, defaultValue = "10") Integer pageOffset) {
+    public ResponseEntity<?> closeRecruitment(@RequestParam Long orgId,
+            @RequestParam(required = false, defaultValue = "0") Integer pageNo,
+            @RequestParam(required = false, defaultValue = "10") Integer pageOffset) {
         return recruitmentService.getClosedRecruitments(orgId, pageNo, pageOffset);
     }
 
@@ -47,7 +54,7 @@ public class RecruitmentController {
             @RequestPart("applicant") String applicant,
             @RequestPart(value = "resume", required = false) MultipartFile resume,
             @RequestPart(value = "coverLetter", required = false) MultipartFile coverLetter) {
-        return recruitmentService.createApplicantWithDocuments(recruitmentId,applicant, resume, coverLetter);
+        return recruitmentService.createApplicantWithDocuments(recruitmentId, applicant, resume, coverLetter);
     }
 
     @GetMapping("/applicant")
@@ -62,8 +69,7 @@ public class RecruitmentController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate appliedToDate,
             @RequestParam(required = false) Integer yearsOfExperience,
             @RequestParam(required = false, defaultValue = "0") Integer pageNo,
-            @RequestParam(required = false, defaultValue = "10") Integer pageSize
-    ) {
+            @RequestParam(required = false, defaultValue = "10") Integer pageSize) {
         return recruitmentService.getAllApplicants(
                 recruitmentId,
                 status,
@@ -75,8 +81,7 @@ public class RecruitmentController {
                 appliedToDate,
                 yearsOfExperience,
                 pageNo,
-                pageSize
-        );
+                pageSize);
     }
 
     /**
@@ -96,41 +101,40 @@ public class RecruitmentController {
     }
 
     @PostMapping("/applicant/education")
-    public ResponseEntity<?> addApplicantEducation(@RequestBody String education, @RequestParam Long userId)
-    {
+    public ResponseEntity<?> addApplicantEducation(@RequestBody String education, @RequestParam Long userId) {
         return recruitmentService.addApplicantEducation(education, userId);
     }
 
     @PostMapping("/applicant/experience")
-    public ResponseEntity<?> addApplicantExperience(@RequestBody String experience, @RequestParam Long userId)
-    {
+    public ResponseEntity<?> addApplicantExperience(@RequestBody String experience, @RequestParam Long userId) {
         return recruitmentService.addApplicantExperience(experience, userId);
     }
 
     @PostMapping("/applicant/skill")
-    public ResponseEntity<?> addApplicantSkill(@RequestBody String skill, @RequestParam Long userId)
-    {
+    public ResponseEntity<?> addApplicantSkill(@RequestBody String skill, @RequestParam Long userId) {
         return recruitmentService.addApplicantSkill(skill, userId);
     }
 
     @PutMapping("/applicant")
-    public ResponseEntity<?> updateApplicant(@RequestBody String payload, @RequestParam Long userId){
+    public ResponseEntity<?> updateApplicant(@RequestBody String payload, @RequestParam Long userId) {
         return recruitmentService.updateApplicant(payload, userId);
     }
 
     @GetMapping("/openings-today")
     public ResponseEntity<?> getOpeningsToday(@RequestParam(required = false, defaultValue = "0") Integer pageNo,
-                                              @RequestParam(required = false, defaultValue = "10") Integer pageOffset,
-                                              @RequestParam(required = false) String status,
-                                              @RequestParam(required = false) String orgName,
-                                              @RequestParam(required = false) String location,
-                                              @RequestParam(required = false) String query
-    ) {
+            @RequestParam(required = false, defaultValue = "10") Integer pageOffset,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String orgName,
+            @RequestParam(required = false) String location,
+            @RequestParam(required = false) String query) {
         return recruitmentService.getOpeningsToday(pageNo, pageOffset, status, orgName, location, query);
     }
 
     @GetMapping("/openings-before-today")
-    public ResponseEntity<?> getOpeningsBeforeToday(@RequestParam(required = false, defaultValue = "0") Integer pageNo, @RequestParam(required = false, defaultValue = "10") Integer pageOffset, @RequestParam(required = false) String status, @RequestParam(required = false) String orgName, @RequestParam(required = false) String location, @RequestParam(required = false) String query) {
+    public ResponseEntity<?> getOpeningsBeforeToday(@RequestParam(required = false, defaultValue = "0") Integer pageNo,
+            @RequestParam(required = false, defaultValue = "10") Integer pageOffset,
+            @RequestParam(required = false) String status, @RequestParam(required = false) String orgName,
+            @RequestParam(required = false) String location, @RequestParam(required = false) String query) {
         return recruitmentService.getOpeningsBeforeToday(pageNo, pageOffset, status, orgName, location, query);
     }
 
@@ -140,12 +144,14 @@ public class RecruitmentController {
     }
 
     @GetMapping("/openings-experience-wise")
-    public ResponseEntity<?> getExperienceWiseOpenings(){
+    public ResponseEntity<?> getExperienceWiseOpenings() {
         return recruitmentService.getExperienceWiseOpenings();
     }
 
     @GetMapping("/company-wise-opening-count")
-    public ResponseEntity<?> getCompanyWiseOpeningCount(@RequestParam(required = false, defaultValue = "0") Integer pageNo, @RequestParam(required = false, defaultValue = "10") Integer pageOffset){
+    public ResponseEntity<?> getCompanyWiseOpeningCount(
+            @RequestParam(required = false, defaultValue = "0") Integer pageNo,
+            @RequestParam(required = false, defaultValue = "10") Integer pageOffset) {
         return recruitmentService.getCompanyWiseOpeningCount(pageNo, pageOffset);
     }
 
@@ -155,17 +161,20 @@ public class RecruitmentController {
     }
 
     @GetMapping("/filter")
-    public ResponseEntity<?> getRecruitmentFilters(){
+    public ResponseEntity<?> getRecruitmentFilters() {
         return recruitmentService.getRecruitmentFilters();
     }
 
     @GetMapping("/name")
-    public ResponseEntity<?> getRecruitmentByName(@RequestParam String name, @RequestParam(required = false, defaultValue = "0") Integer pageNo, @RequestParam(required = false, defaultValue = "10") Integer pageOffset) {
+    public ResponseEntity<?> getRecruitmentByName(@RequestParam String name,
+            @RequestParam(required = false, defaultValue = "0") Integer pageNo,
+            @RequestParam(required = false, defaultValue = "10") Integer pageOffset) {
         return recruitmentService.getRecruitmentByName(name, pageNo, pageOffset);
     }
 
     @PostMapping(value = "/applicant/document", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<?> addApplicantDocument(@RequestParam("document") MultipartFile document, @RequestParam Long userId) {
+    public ResponseEntity<?> addApplicantDocument(@RequestParam("document") MultipartFile document,
+            @RequestParam Long userId) {
         return recruitmentService.addApplicantDocument(document, userId);
     }
 
@@ -185,12 +194,27 @@ public class RecruitmentController {
     }
 
     @GetMapping("/applicant/applications")
-    public ResponseEntity<?> getApplicantApplications(@RequestParam Long userId, @RequestParam(required = false, defaultValue = "0") Integer pageNo, @RequestParam(required = false, defaultValue = "10") Integer pageOffset, @RequestParam(required = false) String status) {
+    public ResponseEntity<?> getApplicantApplications(@RequestParam Long userId,
+            @RequestParam(required = false, defaultValue = "0") Integer pageNo,
+            @RequestParam(required = false, defaultValue = "10") Integer pageOffset,
+            @RequestParam(required = false) String status) {
         return recruitmentService.getApplicantApplications(userId, pageNo, pageOffset, status);
     }
 
     @GetMapping("/applicant/application/with-status")
-    public ResponseEntity<?> getApplicantApplicationWithStatus(@RequestParam Long userId, @RequestParam Long recruitmentId){
+    public ResponseEntity<?> getApplicantApplicationWithStatus(@RequestParam Long userId,
+            @RequestParam Long recruitmentId) {
         return recruitmentService.getApplicantApplicationWithStatus(userId, recruitmentId);
+    }
+
+    // New dashboard endpoints
+    @GetMapping("/company-insights")
+    public ResponseEntity<?> getCompanyInsights() {
+        return recruitmentService.getCompanyInsights();
+    }
+
+    @GetMapping("/dashboard-stats")
+    public ResponseEntity<?> getDashboardStats() {
+        return recruitmentService.getDashboardStats();
     }
 }
