@@ -217,6 +217,15 @@ public class WebConstants {
     @Value("${create.applicant.without.document.url}")
     private String createApplicantWithoutDocumentUrl;
 
+    @Value("${nexus.buddy.client.config.url}")
+    private String nexusBuddyClientConfigUrl;
+
+    @Value("${nexus.buddy.tools.config.url}")
+    private String nexusBuddyToolsConfigUrl;
+
+    @Value("${nexus.buddy.tools.param.config.url}")
+    private String nexusBuddyToolsParamConfigUrl;
+
     // Keycloak URLs
     public String getKeycloakAdminUrl() {
         return keycloakServerUrl + "/admin/realms/" + keycloakRealm;

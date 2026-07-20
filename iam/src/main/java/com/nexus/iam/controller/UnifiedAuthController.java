@@ -237,4 +237,15 @@ public class UnifiedAuthController {
     public ResponseEntity<?> refreshApplicantToken(@RequestBody RefreshTokenRequest request) {
         return keycloakAuthenticationService.refreshApplicantToken(request);
     }
+
+    @PostMapping(value = "/register/admin")
+    public ResponseEntity<?> registerAdmin(@RequestBody AdminRegisterDto userRegisterDto) {
+        return keycloakAuthenticationService.registerAdmin(userRegisterDto);
+    }
+
+    @PostMapping(value = "/login/admin")
+    public ResponseEntity<?> loginAdmin(@RequestBody LoginRequest request) {
+        return keycloakAuthenticationService.loginAdmin(request);
+    }
+
 }

@@ -40,7 +40,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             "/auth/login/applicant",
             "/auth/refresh/applicant",
             "/auth/refresh",
-            "/public/");
+            "/public/",
+            "/iam/auth/register/admin",
+            "/iam/auth/login/admin"
+            );
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)

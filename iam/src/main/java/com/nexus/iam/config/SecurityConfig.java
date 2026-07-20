@@ -175,7 +175,7 @@ public class SecurityConfig {
                         .requestMatchers("/actuator/**").permitAll()
                         .requestMatchers("/swagger-ui/**").permitAll()
                         .requestMatchers("/v3/api-docs/**").permitAll()
-
+                        .requestMatchers("/iam/auth/**").permitAll()
                         // All other requests require authentication
                         .anyRequest().authenticated())
 

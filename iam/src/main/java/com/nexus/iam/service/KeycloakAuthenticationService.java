@@ -90,4 +90,8 @@ public interface KeycloakAuthenticationService {
     ResponseEntity<?> loginApplicant(LoginRequest.ApplicantLoginRequest request);
 
     ResponseEntity<?> refreshApplicantToken(RefreshTokenRequest request);
+
+    ResponseEntity<?> registerAdmin(AdminRegisterDto userRegisterDto);
+
+    ResponseEntity<?> loginAdmin(LoginRequest request);
 }

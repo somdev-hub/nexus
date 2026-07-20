@@ -972,6 +972,253 @@ public class KeycloakAuthenticationServiceImpl implements KeycloakAuthentication
         }
     }
 
+    @Override
+    @Transactional
+    public ResponseEntity<LoginResponse> registerAdmin(AdminRegisterDto userRegisterDto) {
+        try {
+            // Step 1: VALIDATION
+            if (ObjectUtils.isEmpty(userRegisterDto)) {
+                throw new UnauthorizedException("Unauthorized", "Admin registration data cannot be null or empty");
+            }
+
+            if (ObjectUtils.isEmpty(userRegisterDto.getFirstName()) ||
+                    ObjectUtils.isEmpty(userRegisterDto.getEmail()) ||
+                    ObjectUtils.isEmpty(userRegisterDto.getPassword())) {
+                throw new UnauthorizedException("Unauthorized", "First name, email, and password are required");
+            }
+
+            log.info("Starting admin registration process for user: {}", userRegisterDto.getEmail());
+
+            // Check if email already exists in database
+            if (userRepository.existsByEmail(userRegisterDto.getEmail())) {
+                log.warn("Registration attempt with existing email in IAM database: {}", userRegisterDto.getEmail());
+                throw new UnauthorizedException("Unauthorized", "Email already exists");
+            }
+
+            // Step 2: CREATE USER IN KEYCLOAK (Outside transaction to prevent rollback)
+            log.debug("Creating admin user in Keycloak: {}", userRegisterDto.getEmail());
+            KeycloakUserDto keycloakUserDto = KeycloakUserDto.builder()
+                    .username(userRegisterDto.getEmail())
+                    .email(userRegisterDto.getEmail())
+                    .firstName(userRegisterDto.getFirstName())
+                    .lastName(userRegisterDto.getLastName() != null ? userRegisterDto.getLastName() : "")
+                    .password(userRegisterDto.getPassword())
+                    .enabled(true)
+                    .emailVerified(false)
+                    .build();
+
+            String keycloakUserId;
+            try {
+                keycloakUserId = keycloakAdminService.createUserInKeycloak(keycloakUserDto);
+                log.info("Admin user created in Keycloak with ID: {}", keycloakUserId);
+            } catch (RuntimeException runtimeEx) {
+                // Check if it's a 409 Conflict (user already exists)
+                if (runtimeEx.getCause() instanceof org.springframework.web.client.HttpClientErrorException.Conflict) {
+                    log.warn("User already exists in Keycloak: {}", userRegisterDto.getEmail());
+                    throw new UnauthorizedException("Unauthorized", "User with this email already exists in Keycloak");
+                }
+                throw runtimeEx;
+            }
+
+            // Step 3: CREATE DATABASE USER IN TRANSACTION
+            return createAdminUserInDatabase(userRegisterDto, keycloakUserId);
+
+        } catch (Exception e) {
+            log.error("Error during admin registration: {}", e.getMessage(), e);
+            throw new ServiceLevelException("KeycloakAuthenticationService", e.getLocalizedMessage(), "registerAdmin",
+                    new Timestamp(System.currentTimeMillis()), e.getCause().toString(), e.getMessage());
+        }
+    }
+
+    /**
+     * Create admin user in database and related entities (in separate transaction)
+     * This allows Keycloak user to persist even if database operations fail
+     */
+    @Transactional
+    protected ResponseEntity<LoginResponse> createAdminUserInDatabase(AdminRegisterDto userRegisterDto,
+                                                                      String keycloakUserId) {
+        try {
+            // Step 1: CREATE USER IN DATABASE (no organization for admin)
+            log.debug("Creating admin user in IAM database");
+            User user = new User();
+            user.setName(userRegisterDto.getFirstName() + " " + (userRegisterDto.getLastName() != null ? userRegisterDto.getLastName() : ""));
+            user.setEmail(userRegisterDto.getEmail());
+            user.setPhone(userRegisterDto.getPhone());
+            user.setAddress(userRegisterDto.getAddress());
+            user.setCreatedAt(Timestamp.valueOf(java.time.LocalDateTime.now()));
+            user.setOrganization(null); // Admin users don't have an organization
+            user.setKeycloakId(keycloakUserId); // Store Keycloak user ID for sync
+            user.setEnabled(true);
+            user.setAccountNonExpired(true);
+            user.setAccountNonLocked(true);
+            user.setCredentialsNonExpired(true);
+            // Note: Password is managed by Keycloak, not stored in database
+            user.setPassword("keycloak-managed");
+            // Admin should NOT have profilePicture or personalEmail
+            user.setProfilePhoto(null);
+            user.setPersonalEmail(null);
+
+            // Step 2: HANDLE ROLES - Assign ADMIN role
+            log.debug("Handling admin user roles");
+            String roleName = "ADMIN";
+
+            // Create role in Keycloak if it doesn't exist
+            KeycloakRoleDto keycloakRole = keycloakAdminService.getRoleByName(roleName);
+            String keycloakRoleId;
+            if (keycloakRole == null) {
+                log.debug("Creating role in Keycloak: {}", roleName);
+                keycloakRoleId = keycloakAdminService.createRoleInKeycloak(roleName);
+            } else {
+                keycloakRoleId = keycloakRole.getId();
+            }
+
+            // Assign role to user in Keycloak
+            log.debug("Assigning admin role to user in Keycloak");
+            keycloakAdminService.assignRoleToUser(keycloakUserId, keycloakRoleId, roleName);
+
+            // Create or get role in database
+            Role dbRole;
+            if (roleRepository.existsByName(roleName)) {
+                dbRole = roleRepository.findByName(roleName).get();
+            } else {
+                Role newRole = new Role();
+                newRole.setName(roleName);
+                dbRole = roleRepository.save(newRole);
+            }
+            user.getRoles().add(dbRole);
+
+            // Save user to database
+            user = userRepository.save(user);
+            log.info("Admin user created in IAM database with ID: {}", user.getId());
+
+            // Step 4: AUTO-LOGIN - Authenticate user with Keycloak
+            log.debug("Auto-logging in admin user via Keycloak");
+            return login(userRegisterDto.getEmail(), userRegisterDto.getPassword());
+
+        } catch (Exception e) {
+            log.error("Error creating admin user in database: {}", e.getMessage(), e);
+            throw new ServiceLevelException("KeycloakAuthenticationService", e.getLocalizedMessage(), "registerAdmin",
+                    new Timestamp(System.currentTimeMillis()), e.getCause().toString(), e.getMessage());
+        }
+    }
+
+    @Override
+    public ResponseEntity<LoginResponse> loginAdmin(LoginRequest request) {
+        try {
+            if (request == null || ObjectUtils.isEmpty(request.getEmail()) || ObjectUtils.isEmpty(request.getPassword())) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(LoginResponse.builder()
+                                .build());
+            }
+
+            log.info("Admin login attempt for user: {}", request.getEmail());
+
+            // Step 1: Authenticate with Keycloak using Direct Access Grant
+            Map<String, Object> tokenResponse = authenticateWithKeycloak(request.getEmail(), request.getPassword());
+
+            if (tokenResponse == null || !tokenResponse.containsKey("access_token")) {
+                log.warn("Keycloak authentication failed for admin user: {}", request.getEmail());
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(LoginResponse.builder()
+                                .build());
+            }
+
+            String accessToken = (String) tokenResponse.get("access_token");
+            String refreshToken = (String) tokenResponse.get("refresh_token");
+            Long expiresIn = ((Number) tokenResponse.getOrDefault("expires_in", 300L)).longValue();
+
+            log.debug("Keycloak authentication successful for admin user: {}", request.getEmail());
+
+            // Step 2: Validate token and sync user to database
+            return validateAndSyncAdminUser(accessToken, refreshToken, expiresIn);
+
+        } catch (UnauthorizedException e) {
+            // Business logic exception - return 401 without triggering circuit breaker
+            log.error("Unauthorized admin login attempt: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(LoginResponse.builder()
+                            .build());
+        } catch (Exception e) {
+            // Service-level exception - let circuit breaker handle it
+            log.error("Error during admin login: {}", e.getMessage(), e);
+            throw new ServiceLevelException("KeycloakAuthenticationService", e.getLocalizedMessage(), "loginAdmin",
+                    new Timestamp(System.currentTimeMillis()), e.getCause().toString(), e.getMessage());
+        }
+    }
+
+    /**
+     * Validate JWT token and sync admin user to IAM database
+     * Returns the same full LoginResponse as the login endpoint with user data, org, and role information.
+     */
+    private ResponseEntity<LoginResponse> validateAndSyncAdminUser(String accessToken, String refreshToken, Long expiresIn) {
+        try {
+            log.debug("Validating and syncing admin user from Keycloak token");
+
+            // Step 1: Extract user data from JWT claims
+            var userDto = keycloakUserSyncService.extractUserFromToken(accessToken);
+            if (userDto == null) {
+                log.error("Failed to extract user data from Keycloak token");
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(LoginResponse.builder()
+                                .build());
+            }
+
+            // Step 2: Extract roles from JWT
+            Set<String> roles = keycloakUserSyncService.extractRolesFromToken(accessToken);
+            log.debug("Extracted roles from Keycloak token: {}", roles);
+
+            // Step 3: Sync user to IAM database (lazy-load on first login)
+            Long userId = keycloakUserSyncService.syncUserFromKeycloak(userDto, roles);
+            log.info("Admin user synced to IAM database: userId={}, email={}", userId, userDto.getEmail());
+
+            // Step 4: Load user and organization from database
+            User syncedUser = userRepository.findById(userId)
+                    .orElseThrow(() -> new RuntimeException("User not found after sync"));
+            Long orgId = syncedUser.getOrganization() != null ? syncedUser.getOrganization().getId() : null;
+
+            // Get the primary application role (first non-system role, or ADMIN/USER based on what's in DB)
+            String primaryRole = "ROLE_USER";
+            if (!syncedUser.getRoles().isEmpty()) {
+                primaryRole = syncedUser.getRoles().stream()
+                        .map(role -> "ROLE_" + role.getName())
+                        .filter(role -> !role.contains("offline") && !role.contains("default-roles")
+                                && !role.contains("uma_"))
+                        .findFirst()
+                        .orElse("ROLE_USER");
+            }
+            log.debug("Admin user org association: userId={}, orgId={}, primaryRole={}", userId, orgId, primaryRole);
+
+            // Step 5: Build response - same format as other login endpoints
+            LoginResponse response = LoginResponse.builder()
+                    .accessToken(accessToken)
+                    .refreshToken(refreshToken != null ? refreshToken : accessToken)
+                    .tokenType("Bearer")
+                    .expiresIn(expiresIn)
+                    .email(userDto.getEmail())
+                    .phone(syncedUser.getPhone())
+                    .name(userDto.getFirstName() + " " + userDto.getLastName())
+                    .userId(userId)
+                    .orgId(orgId)
+                    .role(primaryRole)
+                    .build();
+
+            log.info("Keycloak admin authentication completed successfully for user: {}", userDto.getEmail());
+            return ResponseEntity.ok(response);
+
+        } catch (UnauthorizedException e) {
+            // Business logic exception - return 401 without triggering circuit breaker
+            log.error("Unauthorized token validation: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(LoginResponse.builder()
+                            .build());
+        } catch (Exception e) {
+            // Service-level exception - let circuit breaker handle it
+            log.error("Error validating and syncing admin user: {}", e.getMessage(), e);
+            throw new ServiceLevelException("KeycloakAuthenticationService", e.getLocalizedMessage(), "validateAndSyncAdminUser",
+                    new Timestamp(System.currentTimeMillis()), e.getCause().toString(), e.getMessage());
+        }
+    }
+
     private ResponseEntity<?> handleLoginForApplicantUser(String personalEmail, String password) {
         try {
             if (personalEmail == null || personalEmail.isEmpty() || password == null || password.isEmpty()) {
