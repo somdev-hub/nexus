@@ -1,6 +1,7 @@
 package com.nexus.nexusbuddy.ai;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -21,6 +22,7 @@ import com.nexus.nexusbuddy.model.entities.ToolsConfig;
 import com.nexus.nexusbuddy.model.entities.ToolsParamConfig;
 import com.nexus.nexusbuddy.model.enums.DataType;
 import com.nexus.nexusbuddy.model.enums.ParamType;
+import com.nexus.nexusbuddy.payload.ToolExecutionResult;
 import com.nexus.nexusbuddy.repository.ToolsConfigRepository;
 import com.nexus.nexusbuddy.repository.ToolsParamConfigRepository;
 import com.nexus.nexusbuddy.util.Logger;
@@ -56,7 +58,11 @@ public class DynamicToolProvider implements ToolCallbackProvider {
 
     @Override
     public ToolCallback[] getToolCallbacks() {
-        List<ToolsConfig> activeTools = toolsConfigRepository.findByIsActiveTrue();
+        return getToolCallbacks(null);
+    }
+
+    public ToolCallback[] getToolCallbacks(Collection<Long> clientIds) {
+        List<ToolsConfig> activeTools = resolveActiveTools(clientIds);
         if (activeTools.isEmpty()) {
             LOGGER.info("No active tools found in configuration");
             return new ToolCallback[0];
@@ -66,6 +72,14 @@ public class DynamicToolProvider implements ToolCallbackProvider {
                 .map(this::buildToolCallback)
                 .filter(Objects::nonNull)
                 .toArray(ToolCallback[]::new);
+    }
+
+    private List<ToolsConfig> resolveActiveTools(Collection<Long> clientIds) {
+        if (clientIds == null || clientIds.isEmpty()) {
+            return toolsConfigRepository.findByIsActiveTrue();
+        }
+
+        return toolsConfigRepository.findByIsActiveTrueAndClientConfigClientConfigIdIn(clientIds);
     }
 
     private ToolCallback buildToolCallback(ToolsConfig toolsConfig) {
@@ -187,14 +201,24 @@ public class DynamicToolProvider implements ToolCallbackProvider {
                     toolsConfig.getToolName()
             );
 
-            if (responseEntity == null || responseEntity.getBody() == null) {
-                return "Tool executed successfully with empty response";
-            }
+            ToolExecutionResult executionResult = ToolExecutionResult.builder()
+                    .toolName(toolsConfig.getToolName())
+                    .parameters(input)
+                    .success(true)
+                    .statusCode(responseEntity != null ? responseEntity.getStatusCode().value() : null)
+                    .response(responseEntity != null ? responseEntity.getBody() : null)
+                    .build();
 
-            return responseEntity.getBody().toString();
+            return executionResult.toPromptString();
         } catch (Exception ex) {
             LOGGER.error("Tool execution failed for toolName={}", toolsConfig.getToolName(), ex);
-            return "Tool execution failed: " + ex.getMessage();
+            ToolExecutionResult executionError = ToolExecutionResult.builder()
+                    .toolName(toolsConfig.getToolName())
+                    .parameters(input)
+                    .success(false)
+                    .errorMessage(ex.getMessage())
+                    .build();
+            return executionError.toPromptString();
         }
     }
 

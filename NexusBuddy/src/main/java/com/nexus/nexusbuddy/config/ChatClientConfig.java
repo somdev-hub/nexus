@@ -13,7 +13,7 @@ import org.springframework.context.annotation.Configuration;
 public class ChatClientConfig {
 
     @Bean
-    public ChatClient chatClient(org.springframework.ai.chat.client.ChatClient.Builder builder,
+    ChatClient chatClient(org.springframework.ai.chat.client.ChatClient.Builder builder,
         	DynamicToolProvider dynamicToolProvider) {
         ToolCallback[] toolCallbacks = dynamicToolProvider.getToolCallbacks();
         return builder.defaultTools(toolCallbacks).build();

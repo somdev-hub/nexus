@@ -1,7 +1,25 @@
 package com.nexus.nexusbuddy.service.implementations;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
+
+import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.messages.AssistantMessage;
+import org.springframework.ai.chat.messages.Message;
+import org.springframework.ai.chat.messages.SystemMessage;
+import org.springframework.ai.chat.messages.UserMessage;
+import org.springframework.ai.chat.prompt.Prompt;
+import org.springframework.ai.tool.ToolCallback;
+import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.nexus.nexusbuddy.ai.DynamicToolProvider;
 import com.nexus.nexusbuddy.exception.ConfigNotFoundException;
 import com.nexus.nexusbuddy.model.entities.ClientConfig;
 import com.nexus.nexusbuddy.model.entities.ToolsConfig;
@@ -14,20 +32,9 @@ import com.nexus.nexusbuddy.repository.ToolsConfigRepository;
 import com.nexus.nexusbuddy.repository.ToolsParamConfigRepository;
 import com.nexus.nexusbuddy.service.interfaces.ChatService;
 import com.nexus.nexusbuddy.util.CommonUtils;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.ai.chat.messages.AssistantMessage;
-import org.springframework.ai.chat.messages.Message;
-import org.springframework.ai.chat.messages.SystemMessage;
-import org.springframework.ai.chat.messages.UserMessage;
-import org.springframework.ai.chat.prompt.Prompt;
-import org.springframework.http.ResponseEntity;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.time.Instant;
-import java.util.*;
 
 /**
  * Service implementation for Chat operations using Spring AI with MCP tool calling.
@@ -44,21 +51,30 @@ public class ChatServiceImpl implements ChatService {
     private final ToolsConfigRepository toolsConfigRepository;
     private final ToolsParamConfigRepository toolsParamConfigRepository;
     private final ChatClient chatClient;
+    private final ChatClient.Builder chatClientBuilder;
+    private final DynamicToolProvider dynamicToolProvider;
 
     @Override
     public ResponseEntity<ChatResponse> chat(ChatRequest request) {
-        log.info("Processing chat request for client config ID: {}", request.getClientConfigId());
+        log.info("Processing chat request for client IDs: {}", request.getClientIds());
 
         CommonUtils.requireNonNull(request, "Chat request");
         CommonUtils.requireNonEmpty(request.getMessage(), "Message");
-        CommonUtils.requireNonNull(request.getClientConfigId(), "Client config ID");
 
-        ClientConfig clientConfig = clientConfigRepository.findById(request.getClientConfigId())
-                .orElseThrow(() -> new ConfigNotFoundException("ClientConfig", "clientConfigId", request.getClientConfigId()));
+        List<Long> requestedClientIds = resolveClientIds(request);
+        if (requestedClientIds.isEmpty()) {
+            throw new IllegalArgumentException("At least one client ID must be provided in clientConfigId or clientIds");
+        }
 
-        List<ToolsConfig> toolsConfigs = toolsConfigRepository.findByClientConfigClientConfigId(request.getClientConfigId());
+        Set<Long> distinctClientIds = new LinkedHashSet<>(requestedClientIds);
+        List<ClientConfig> clientConfigs = clientConfigRepository.findAllById(distinctClientIds);
+        if (clientConfigs.size() != distinctClientIds.size()) {
+            throw new ConfigNotFoundException("ClientConfig", "clientIds", distinctClientIds);
+        }
 
-        String systemPrompt = buildSystemPrompt(clientConfig, toolsConfigs);
+        List<ToolsConfig> toolsConfigs = toolsConfigRepository.findByIsActiveTrueAndClientConfigClientConfigIdIn(distinctClientIds);
+
+        String systemPrompt = buildSystemPrompt(clientConfigs, toolsConfigs);
 
         List<Message> messages = new ArrayList<>();
         messages.add(new SystemMessage(systemPrompt));
@@ -77,7 +93,9 @@ public class ChatServiceImpl implements ChatService {
         messages.add(new UserMessage(request.getMessage()));
 
         Prompt prompt = new Prompt(messages);
-        String aiResponse = chatClient.prompt(prompt).call().content();
+        ToolCallback[] toolCallbacks = dynamicToolProvider.getToolCallbacks(distinctClientIds);
+        ChatClient requestChatClient = chatClientBuilder.defaultTools(toolCallbacks).build();
+        String aiResponse = requestChatClient.prompt(prompt).call().content();
         String conversationId = UUID.randomUUID().toString();
 
         ChatResponse response = ChatResponse.builder()
@@ -122,15 +140,23 @@ public class ChatServiceImpl implements ChatService {
         return ResponseEntity.ok(response);
     }
 
-    private String buildSystemPrompt(ClientConfig clientConfig, List<ToolsConfig> toolsConfigs) {
+    private String buildSystemPrompt(List<ClientConfig> clientConfigs, List<ToolsConfig> toolsConfigs) {
         StringBuilder prompt = new StringBuilder();
-        prompt.append("You are an AI assistant for ").append(clientConfig.getClientName()).append(".\n");
-        prompt.append("Client Description: ").append(clientConfig.getClientDescription()).append("\n\n");
+        if (clientConfigs != null && !clientConfigs.isEmpty()) {
+            prompt.append("You are an AI assistant for the following client(s):");
+            for (ClientConfig clientConfig : clientConfigs) {
+                prompt.append("\n- ").append(clientConfig.getClientName())
+                        .append(" (")
+                        .append(clientConfig.getClientDescription())
+                        .append(")");
+            }
+            prompt.append("\n\n");
+        }
 
         if (toolsConfigs == null || toolsConfigs.isEmpty()) {
-            prompt.append("No external tools are configured for this client.\n");
+            prompt.append("No external tools are configured for the requested client(s).\n");
         } else {
-            prompt.append("You have access to the following tools. Use them when the user's request requires external data or actions:\n\n");
+            prompt.append("You have access to the following tools. Use them only when the user's request requires external data or actions:\n\n");
 
             for (ToolsConfig tool : toolsConfigs) {
                 List<ToolsParamConfig> params = toolsParamConfigRepository.findByToolsConfigToolsConfigId(tool.getToolsConfigId());
@@ -142,29 +168,46 @@ public class ChatServiceImpl implements ChatService {
                 if (params != null && !params.isEmpty()) {
                     prompt.append("Parameters:\n");
                     for (ToolsParamConfig param : params) {
-                    	if (!Boolean.TRUE.equals(param.getIsActive())) {
-                    		continue;
-                    	}
-                    	prompt.append(" - ").append(param.getParamName())
-                    			.append(" (").append(param.getParamType()).append(", ")
-                    			.append(param.getDataType()).append(")");
-                    	if (Boolean.TRUE.equals(param.getIsRequired())) {
-                    		prompt.append(" [required]");
-                    	}
-                    	if (param.getDefaultValue() != null) {
-                    		prompt.append(" default=").append(param.getDefaultValue());
-                    	}
-                    	prompt.append("\n");
+                        if (!Boolean.TRUE.equals(param.getIsActive())) {
+                            continue;
+                        }
+                        prompt.append(" - ").append(param.getParamName())
+                                .append(" (").append(param.getParamType()).append(", ")
+                                .append(param.getDataType()).append(")");
+                        if (Boolean.TRUE.equals(param.getIsRequired())) {
+                            prompt.append(" [required]");
+                        }
+                        if (param.getDefaultValue() != null) {
+                            prompt.append(" default=").append(param.getDefaultValue());
+                        }
+                        prompt.append("\n");
                     }
                 }
                 prompt.append("\n");
             }
 
             prompt.append("When the user's request requires using one of these tools, call the appropriate tool with the required parameters. ")
-                    .append("If required parameters are missing, ask the user to provide them before calling the tool.\n");
+                    .append("Do not use tools that are outside the requested client(s).\n");
         }
 
         prompt.append("\nProvide helpful, accurate, and concise responses.");
         return prompt.toString();
+    }
+
+    private List<Long> resolveClientIds(ChatRequest request) {
+        List<Long> clientIds = new ArrayList<>();
+        if (request.getClientIds() != null) {
+            for (Long clientId : request.getClientIds()) {
+                if (clientId != null) {
+                    clientIds.add(clientId);
+                }
+            }
+        }
+
+        if (clientIds.isEmpty() && request.getClientConfigId() != null) {
+            clientIds.add(request.getClientConfigId());
+        }
+
+        return clientIds;
     }
 }

@@ -32,8 +32,10 @@ public class ChatRequest {
     private Integer maxTokens;
 
     private Map<String, Object> metadata;
-
+ 
     private Long clientConfigId;
-
+ 
+    private List<Long> clientIds;
+ 
     private Long toolsConfigId;
 }

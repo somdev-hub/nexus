@@ -1,29 +1,38 @@
 package com.nexus.nexusbuddy.util;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.nexus.nexusbuddy.model.entities.ClientConfig;
-import com.nexus.nexusbuddy.util.Logger;
+import java.io.IOException;
+import java.time.Duration;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+
 import org.slf4j.LoggerFactory;
-import org.springframework.http.*;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Component;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.WebClient;
-import reactor.core.publisher.Mono;
 
-import java.io.IOException;
-import java.net.URI;
-import java.nio.charset.StandardCharsets;
-import java.time.Duration;
-import java.util.*;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.nexus.nexusbuddy.model.entities.ClientConfig;
+
+import lombok.RequiredArgsConstructor;
+import reactor.core.publisher.Mono;
 
 /**
  * Modern WebClient-based REST client for NexusBuddy.
  * Single method nexusBuddyCall similar to HR's hrRestCall.
  * Supports multipart, regular requests, and async logging via Logger service.
  */
+@Component
+@RequiredArgsConstructor
 public class RestServices {
 
     private static final org.slf4j.Logger LOGGER = LoggerFactory.getLogger(RestServices.class);
