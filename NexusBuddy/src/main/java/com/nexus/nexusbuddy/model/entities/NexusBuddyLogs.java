@@ -1,13 +1,16 @@
 package com.nexus.nexusbuddy.model.entities;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.databind.JsonNode;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 import lombok.ToString;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.UpdateTimestamp;
+import org.hibernate.type.SqlTypes;
 
 import java.sql.Timestamp;
 
@@ -15,8 +18,8 @@ import java.sql.Timestamp;
 @Table(name = "t_nexus_buddy_logs", schema = "nexusbuddy")
 @Data
 @NoArgsConstructor
-@ToString(exclude = {"clientConfig"})
-@EqualsAndHashCode(exclude = {"clientConfig"})
+@ToString(exclude = { "clientConfig" })
+@EqualsAndHashCode(exclude = { "clientConfig" })
 public class NexusBuddyLogs {
 
     @Id
@@ -29,11 +32,11 @@ public class NexusBuddyLogs {
 
     private Integer responseStatus;
 
-    @Column(columnDefinition = "JSONB")
-    private String request;
+    @JdbcTypeCode(SqlTypes.JSON)
+    private JsonNode request;
 
-    @Column(columnDefinition = "JSONB")
-    private String response;
+    @JdbcTypeCode(SqlTypes.JSON)
+    private JsonNode response;
 
     @CreationTimestamp
     private Timestamp createdAt;
@@ -41,10 +44,12 @@ public class NexusBuddyLogs {
     @UpdateTimestamp
     private Timestamp updatedAt;
 
+    private Long responseTimeMs;
+
     private Boolean isActive;
 
     @ManyToOne(fetch = FetchType.LAZY)
-        @JoinColumn(name = "client_config_id")
+    @JoinColumn(name = "client_config_id")
     @JsonBackReference
     private ClientConfig clientConfig;
 

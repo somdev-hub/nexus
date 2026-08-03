@@ -2,9 +2,11 @@ package com.nexus.nexusbuddy.controller;
 
 import com.nexus.nexusbuddy.annotation.LogActivity;
 import com.nexus.nexusbuddy.payload.ClientConfigRequest;
+import com.nexus.nexusbuddy.payload.ClientConfigResponse;
 import com.nexus.nexusbuddy.service.interfaces.ClientConfigService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -51,29 +53,45 @@ public class ClientConfigController {
     }
 
     /**
-     * Get all client configurations.
+     * Get all client configurations with pagination.
      * GET /nexusbuddy/admin/client-configs
      * 
-     * @return 200 OK with list of all client configurations
+     * @param page Page number (0-based, default 0)
+     * @param size Page size (default 20)
+     * @param sortBy Sort field (default clientConfigId)
+     * @param sortDir Sort direction asc/desc (default asc)
+     * @return 200 OK with paginated list of client configurations
      */
     @GetMapping
     @LogActivity("GET_ALL_CLIENT_CONFIGS")
-    public ResponseEntity<?> getAllClientConfigs() {
-        log.info("Fetching all client configs");
-        return clientConfigService.getAllClientConfigs();
+    public ResponseEntity<Page<ClientConfigResponse>> getAllClientConfigs(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "clientConfigId") String sortBy,
+            @RequestParam(defaultValue = "asc") String sortDir) {
+        log.info("Fetching all client configs with pagination: page={}, size={}, sortBy={}, sortDir={}", page, size, sortBy, sortDir);
+        return clientConfigService.getAllClientConfigs(page, size, sortBy, sortDir);
     }
 
     /**
-     * Get only active client configurations.
+     * Get only active client configurations with pagination.
      * GET /nexusbuddy/admin/client-configs/active
      * 
-     * @return 200 OK with list of active client configurations
+     * @param page Page number (0-based, default 0)
+     * @param size Page size (default 20)
+     * @param sortBy Sort field (default clientConfigId)
+     * @param sortDir Sort direction asc/desc (default asc)
+     * @return 200 OK with paginated list of active client configurations
      */
     @GetMapping("/active")
     @LogActivity("GET_ACTIVE_CLIENT_CONFIGS")
-    public ResponseEntity<?> getActiveClientConfigs() {
-        log.info("Fetching active client configs");
-        return clientConfigService.getActiveClientConfigs();
+    public ResponseEntity<Page<ClientConfigResponse>> getActiveClientConfigs(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "clientConfigId") String sortBy,
+            @RequestParam(defaultValue = "asc") String sortDir) {
+        log.info("Fetching active client configs with pagination: page={}, size={}, sortBy={}, sortDir={}", page, size, sortBy, sortDir);
+        return clientConfigService.getActiveClientConfigs(page, size, sortBy, sortDir);
     }
 
     /**

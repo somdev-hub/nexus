@@ -23,8 +23,8 @@ import java.sql.Timestamp;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@ToString(exclude = {"toolsConfig"})
-@EqualsAndHashCode(exclude = {"toolsConfig"})
+@ToString(exclude = { "toolsConfig" })
+@EqualsAndHashCode(exclude = { "toolsConfig" })
 public class ToolsParamConfig {
 
     @Id
@@ -38,7 +38,7 @@ public class ToolsParamConfig {
 
     @Enumerated(EnumType.STRING)
     private DataType dataType;
-    
+
     private Boolean isRequired;
 
     @JdbcTypeCode(SqlTypes.JSON)
@@ -46,6 +46,7 @@ public class ToolsParamConfig {
     private Object defaultValue;
 
     private String requestBodyJson;
+    private String description;
 
     @CreationTimestamp
     private Timestamp createdAt;

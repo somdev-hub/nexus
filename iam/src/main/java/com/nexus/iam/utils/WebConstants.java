@@ -226,6 +226,9 @@ public class WebConstants {
     @Value("${nexus.buddy.tools.param.config.url}")
     private String nexusBuddyToolsParamConfigUrl;
 
+    @Value("${nexus.buddy.dashboard.url}")
+    private String nexusBuddyDashboardUrl;
+
     // Keycloak URLs
     public String getKeycloakAdminUrl() {
         return keycloakServerUrl + "/admin/realms/" + keycloakRealm;

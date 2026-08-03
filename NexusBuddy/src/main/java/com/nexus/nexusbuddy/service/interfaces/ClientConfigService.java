@@ -3,20 +3,21 @@ package com.nexus.nexusbuddy.service.interfaces;
 import com.nexus.nexusbuddy.model.entities.ClientConfig;
 import com.nexus.nexusbuddy.payload.ClientConfigRequest;
 import com.nexus.nexusbuddy.payload.ClientConfigResponse;
+import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 
 import java.util.List;
 
 /**
  * Service interface for Client Config operations.
- * Manages client configurations for NexusBuddy tools.
+ * Provides CRUD operations for client configurations.
  */
 public interface ClientConfigService {
 
     /**
      * Create a new client configuration.
      * 
-     * @param request ClientConfigRequest with client details
+     * @param request Client configuration details
      * @return Created ClientConfigResponse
      */
     ResponseEntity<?> createClientConfig(ClientConfigRequest request);
@@ -30,18 +31,26 @@ public interface ClientConfigService {
     ResponseEntity<?> getClientConfigById(Long clientConfigId);
 
     /**
-     * Get all client configurations.
+     * Get all client configurations with pagination.
      * 
-     * @return List of all ClientConfigResponse
+     * @param page Page number (0-based)
+     * @param size Page size
+     * @param sortBy Sort field
+     * @param sortDir Sort direction (asc/desc)
+     * @return Paginated list of ClientConfigResponse
      */
-    ResponseEntity<?> getAllClientConfigs();
+    ResponseEntity<Page<ClientConfigResponse>> getAllClientConfigs(int page, int size, String sortBy, String sortDir);
 
     /**
-     * Get only active client configurations.
+     * Get only active client configurations with pagination.
      * 
-     * @return List of active ClientConfigResponse
+     * @param page Page number (0-based)
+     * @param size Page size
+     * @param sortBy Sort field
+     * @param sortDir Sort direction (asc/desc)
+     * @return Paginated list of active ClientConfigResponse
      */
-    ResponseEntity<?> getActiveClientConfigs();
+    ResponseEntity<Page<ClientConfigResponse>> getActiveClientConfigs(int page, int size, String sortBy, String sortDir);
 
     /**
      * Update client configuration.

@@ -12,12 +12,13 @@ import java.util.function.Function;
 
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.tool.ToolCallback;
-import org.springframework.ai.tool.ToolCallbackProvider;
 import org.springframework.ai.tool.definition.ToolDefinition;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpMethod;
 import org.springframework.stereotype.Component;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.nexus.nexusbuddy.model.entities.ClientConfig;
 import com.nexus.nexusbuddy.model.entities.ToolsConfig;
 import com.nexus.nexusbuddy.model.entities.ToolsParamConfig;
 import com.nexus.nexusbuddy.model.enums.DataType;
@@ -32,11 +33,13 @@ import com.nexus.nexusbuddy.util.RestServices;
  * Dynamically builds Spring AI {@link ToolCallback}s from the configured
  * {@link ToolsConfig} and {@link ToolsParamConfig} rows.
  *
- * <p>At startup all active tools are loaded and exposed through a
- * {@link ToolCallbackProvider} so that the chat client can discover and invoke them.</p>
+ * <p>
+ * Tools are loaded on-demand per request based on client IDs, avoiding
+ * global tool registration conflicts.
+ * </p>
  */
 @Component
-public class DynamicToolProvider implements ToolCallbackProvider {
+public class DynamicToolProvider {
 
     private static final org.slf4j.Logger LOGGER = LoggerFactory.getLogger(DynamicToolProvider.class);
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
@@ -47,18 +50,13 @@ public class DynamicToolProvider implements ToolCallbackProvider {
     private final Logger logger;
 
     public DynamicToolProvider(ToolsConfigRepository toolsConfigRepository,
-                               ToolsParamConfigRepository toolsParamConfigRepository,
-                               RestServices restServices,
-                               Logger logger) {
+            ToolsParamConfigRepository toolsParamConfigRepository,
+            RestServices restServices,
+            Logger logger) {
         this.toolsConfigRepository = toolsConfigRepository;
         this.toolsParamConfigRepository = toolsParamConfigRepository;
         this.restServices = restServices;
         this.logger = logger;
-    }
-
-    @Override
-    public ToolCallback[] getToolCallbacks() {
-        return getToolCallbacks(null);
     }
 
     public ToolCallback[] getToolCallbacks(Collection<Long> clientIds) {
@@ -76,7 +74,7 @@ public class DynamicToolProvider implements ToolCallbackProvider {
 
     private List<ToolsConfig> resolveActiveTools(Collection<Long> clientIds) {
         if (clientIds == null || clientIds.isEmpty()) {
-            return toolsConfigRepository.findByIsActiveTrue();
+            return toolsConfigRepository.findByIsActiveTrue(Pageable.unpaged()).getContent();
         }
 
         return toolsConfigRepository.findByIsActiveTrueAndClientConfigClientConfigIdIn(clientIds);
@@ -84,7 +82,9 @@ public class DynamicToolProvider implements ToolCallbackProvider {
 
     private ToolCallback buildToolCallback(ToolsConfig toolsConfig) {
         try {
-            List<ToolsParamConfig> params = toolsParamConfigRepository.findByToolsConfigToolsConfigId(toolsConfig.getToolsConfigId());
+            List<ToolsParamConfig> params = toolsParamConfigRepository
+                    .findByToolsConfigToolsConfigId(toolsConfig.getToolsConfigId(), Pageable.unpaged())
+                    .getContent();
 
             ToolDefinition definition = ToolDefinition.builder()
                     .name(sanitizeName(toolsConfig.getToolName()))
@@ -135,7 +135,9 @@ public class DynamicToolProvider implements ToolCallbackProvider {
 
             Map<String, Object> property = new LinkedHashMap<>();
             property.put("type", mapDataType(param.getDataType()));
-            property.put("description", param.getParamName());
+            property.put("description",
+                    param.getDescription() != null && !param.getDescription().isBlank() ? param.getDescription()
+                            : param.getParamName());
 
             if (param.getDefaultValue() != null) {
                 property.put("default", param.getDefaultValue());
@@ -153,12 +155,12 @@ public class DynamicToolProvider implements ToolCallbackProvider {
             schema.put("required", required);
         }
 
-            try {
-                return OBJECT_MAPPER.writeValueAsString(schema);
-            } catch (Exception ex) {
-                throw new IllegalStateException("Failed to serialize tool input schema", ex);
-            }
+        try {
+            return OBJECT_MAPPER.writeValueAsString(schema);
+        } catch (Exception ex) {
+            throw new IllegalStateException("Failed to serialize tool input schema", ex);
         }
+    }
 
     private String mapDataType(DataType dataType) {
         if (dataType == null) {
@@ -174,14 +176,14 @@ public class DynamicToolProvider implements ToolCallbackProvider {
     }
 
     private String executeTool(ToolsConfig toolsConfig,
-                               List<ToolsParamConfig> params,
-                               String inputJson) {
+            List<ToolsParamConfig> params,
+            String inputJson) {
         Map<String, Object> input = parseInput(inputJson);
         validateParameters(params, input);
 
         Map<String, Object> requestPayload = buildRequestPayload(toolsConfig, params, input);
 
-        String url = resolveUrl(toolsConfig.getEndpoint(), params, input);
+        String url = resolveUrl(toolsConfig.getEndpoint(), params, input, toolsConfig.getClientConfig());
         HttpMethod method = HttpMethod.valueOf(
                 toolsConfig.getHttpMethod() != null
                         ? toolsConfig.getHttpMethod().name()
@@ -193,32 +195,14 @@ public class DynamicToolProvider implements ToolCallbackProvider {
 
         try {
             org.springframework.http.ResponseEntity<?> responseEntity = restServices.nexusBuddyCall(
-                    url,
-                    requestPayload,
-                    headers,
-                    method,
-                    toolsConfig.getClientConfig(),
-                    toolsConfig.getToolName()
-            );
-
-            ToolExecutionResult executionResult = ToolExecutionResult.builder()
-                    .toolName(toolsConfig.getToolName())
-                    .parameters(input)
-                    .success(true)
-                    .statusCode(responseEntity != null ? responseEntity.getStatusCode().value() : null)
-                    .response(responseEntity != null ? responseEntity.getBody() : null)
-                    .build();
-
-            return executionResult.toPromptString();
+                    url, requestPayload, headers, method, toolsConfig.getClientConfig(), toolsConfig.getToolName());
+            if (responseEntity != null && responseEntity.getBody() != null) {
+                return OBJECT_MAPPER.writeValueAsString(responseEntity.getBody());
+            }
+            return "{\"message\":\"Tool executed successfully with empty response\",\"status\":\"success\"}";
         } catch (Exception ex) {
             LOGGER.error("Tool execution failed for toolName={}", toolsConfig.getToolName(), ex);
-            ToolExecutionResult executionError = ToolExecutionResult.builder()
-                    .toolName(toolsConfig.getToolName())
-                    .parameters(input)
-                    .success(false)
-                    .errorMessage(ex.getMessage())
-                    .build();
-            return executionError.toPromptString();
+            return "{\"message\":\"Tool execution failed: " + ex.getMessage() + "\",\"status\":\"error\"}";
         }
     }
 
@@ -258,8 +242,8 @@ public class DynamicToolProvider implements ToolCallbackProvider {
     }
 
     private Map<String, Object> buildRequestPayload(ToolsConfig toolsConfig,
-                                                     List<ToolsParamConfig> params,
-                                                     Map<String, Object> input) {
+            List<ToolsParamConfig> params,
+            Map<String, Object> input) {
         if (input == null || input.isEmpty()) {
             return Collections.emptyMap();
         }
@@ -289,7 +273,7 @@ public class DynamicToolProvider implements ToolCallbackProvider {
     }
 
     private Map<String, Object> mergeTemplateWithInput(Map<String, Object> template,
-                                                       Map<String, Object> input) {
+            Map<String, Object> input) {
         Map<String, Object> result = new LinkedHashMap<>(template);
         for (Map.Entry<String, Object> entry : input.entrySet()) {
             result.put(entry.getKey(), entry.getValue());
@@ -298,13 +282,26 @@ public class DynamicToolProvider implements ToolCallbackProvider {
     }
 
     private String resolveUrl(String endpoint,
-                              List<ToolsParamConfig> params,
-                              Map<String, Object> input) {
+            List<ToolsParamConfig> params,
+            Map<String, Object> input,
+            ClientConfig clientConfig) {
         if (endpoint == null || endpoint.isBlank()) {
             throw new IllegalArgumentException("Tool endpoint is not configured");
         }
 
-        String url = endpoint;
+        String baseUrl = clientConfig != null ? clientConfig.getConnectionUrl() : null;
+        if (baseUrl == null || baseUrl.isBlank()) {
+            throw new IllegalArgumentException(
+                    "Client connection URL is not configured for clientConfigId="
+                            + (clientConfig != null ? clientConfig.getClientConfigId() : "null"));
+        }
+
+        String url = baseUrl;
+        if (!url.endsWith("/") && !endpoint.startsWith("/")) {
+            url = url + "/";
+        }
+        url = url + endpoint;
+
         if (params != null && input != null) {
             for (ToolsParamConfig param : params) {
                 if (ParamType.PATH_VARIABLE.equals(param.getParamType())

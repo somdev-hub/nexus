@@ -1,6 +1,8 @@
 package com.nexus.nexusbuddy.repository;
 
 import com.nexus.nexusbuddy.model.entities.ToolsParamConfig;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -12,9 +14,9 @@ public interface ToolsParamConfigRepository extends JpaRepository<ToolsParamConf
     
     Optional<ToolsParamConfig> findByParamName(String paramName);
     
-    List<ToolsParamConfig> findByIsActiveTrue();
+    Page<ToolsParamConfig> findByIsActiveTrue(Pageable pageable);
     
-    List<ToolsParamConfig> findByToolsConfigToolsConfigId(Long toolsConfigId);
+    Page<ToolsParamConfig> findByToolsConfigToolsConfigId(Long toolsConfigId, Pageable pageable);
     
     boolean existsByParamNameAndToolsConfigToolsConfigId(String paramName, Long toolsConfigId);
 }

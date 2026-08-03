@@ -8,12 +8,14 @@ import java.util.Set;
 import java.util.UUID;
 
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.tool.ToolCallback;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -37,7 +39,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Service implementation for Chat operations using Spring AI with MCP tool calling.
+ * Service implementation for Chat operations using Spring AI with MCP tool
+ * calling.
  */
 @Service
 @RequiredArgsConstructor
@@ -50,8 +53,7 @@ public class ChatServiceImpl implements ChatService {
     private final ClientConfigRepository clientConfigRepository;
     private final ToolsConfigRepository toolsConfigRepository;
     private final ToolsParamConfigRepository toolsParamConfigRepository;
-    private final ChatClient chatClient;
-    private final ChatClient.Builder chatClientBuilder;
+    private final ChatModel chatModel;
     private final DynamicToolProvider dynamicToolProvider;
 
     @Override
@@ -63,7 +65,8 @@ public class ChatServiceImpl implements ChatService {
 
         List<Long> requestedClientIds = resolveClientIds(request);
         if (requestedClientIds.isEmpty()) {
-            throw new IllegalArgumentException("At least one client ID must be provided in clientConfigId or clientIds");
+            throw new IllegalArgumentException(
+                    "At least one client ID must be provided in clientConfigId or clientIds");
         }
 
         Set<Long> distinctClientIds = new LinkedHashSet<>(requestedClientIds);
@@ -72,7 +75,8 @@ public class ChatServiceImpl implements ChatService {
             throw new ConfigNotFoundException("ClientConfig", "clientIds", distinctClientIds);
         }
 
-        List<ToolsConfig> toolsConfigs = toolsConfigRepository.findByIsActiveTrueAndClientConfigClientConfigIdIn(distinctClientIds);
+        List<ToolsConfig> toolsConfigs = toolsConfigRepository
+                .findByIsActiveTrueAndClientConfigClientConfigIdIn(distinctClientIds);
 
         String systemPrompt = buildSystemPrompt(clientConfigs, toolsConfigs);
 
@@ -94,7 +98,7 @@ public class ChatServiceImpl implements ChatService {
 
         Prompt prompt = new Prompt(messages);
         ToolCallback[] toolCallbacks = dynamicToolProvider.getToolCallbacks(distinctClientIds);
-        ChatClient requestChatClient = chatClientBuilder.defaultTools(toolCallbacks).build();
+        ChatClient requestChatClient = ChatClient.builder(chatModel).defaultTools(toolCallbacks).build();
         String aiResponse = requestChatClient.prompt(prompt).call().content();
         String conversationId = UUID.randomUUID().toString();
 
@@ -127,7 +131,8 @@ public class ChatServiceImpl implements ChatService {
         messages.add(new UserMessage(prompt));
 
         Prompt aiPrompt = new Prompt(messages);
-        String aiResponse = chatClient.prompt(aiPrompt).call().content();
+        ChatClient directChatClient = ChatClient.builder(chatModel).build();
+        String aiResponse = directChatClient.prompt(aiPrompt).call().content();
         String conversationId = UUID.randomUUID().toString();
 
         ChatResponse response = ChatResponse.builder()
@@ -156,10 +161,13 @@ public class ChatServiceImpl implements ChatService {
         if (toolsConfigs == null || toolsConfigs.isEmpty()) {
             prompt.append("No external tools are configured for the requested client(s).\n");
         } else {
-            prompt.append("You have access to the following tools. Use them only when the user's request requires external data or actions:\n\n");
+            prompt.append(
+                    "You have access to the following tools. Use them only when the user's request requires external data or actions:\n\n");
 
             for (ToolsConfig tool : toolsConfigs) {
-                List<ToolsParamConfig> params = toolsParamConfigRepository.findByToolsConfigToolsConfigId(tool.getToolsConfigId());
+                List<ToolsParamConfig> params = toolsParamConfigRepository
+                        .findByToolsConfigToolsConfigId(tool.getToolsConfigId(), Pageable.unpaged())
+                        .getContent();
                 prompt.append("Tool: ").append(tool.getToolName()).append("\n");
                 prompt.append("Description: ").append(tool.getToolDescription()).append("\n");
                 prompt.append("Endpoint: ").append(tool.getEndpoint()).append("\n");
@@ -180,13 +188,19 @@ public class ChatServiceImpl implements ChatService {
                         if (param.getDefaultValue() != null) {
                             prompt.append(" default=").append(param.getDefaultValue());
                         }
+                        if (param.getDescription() != null && !param.getDescription().isBlank()) {
+                            prompt.append(" - ").append(param.getDescription());
+                        }
                         prompt.append("\n");
                     }
                 }
                 prompt.append("\n");
             }
 
-            prompt.append("When the user's request requires using one of these tools, call the appropriate tool with the required parameters. ")
+            prompt.append(
+                    "When the user's request requires using one of these tools, call the appropriate tool with the required parameters. ")
+                    .append("Extract filter values such as company name, location, role, status, or date range directly from the user's message. ")
+                    .append("Do not ask the user for optional pagination parameters like pageNo or pageOffset; if omitted, the backend will use defaults. ")
                     .append("Do not use tools that are outside the requested client(s).\n");
         }
 

@@ -13,6 +13,10 @@ import com.nexus.nexusbuddy.util.CommonUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -74,32 +78,36 @@ public class ToolsParamConfigServiceImpl implements ToolsParamConfigService {
     }
 
     @Override
-    public ResponseEntity<?> getAllToolsParamConfigs() {
-        log.info("Fetching all tools param configs");
+    public ResponseEntity<Page<ToolsParamConfigResponse>> getAllToolsParamConfigs(int page, int size, String sortBy, String sortDir) {
+        log.info("Fetching all tools param configs with pagination: page={}, size={}, sortBy={}, sortDir={}", page, size, sortBy, sortDir);
         
-        List<ToolsParamConfig> configs = toolsParamConfigRepository.findAll();
-        List<ToolsParamConfigResponse> responses = configs.stream()
-                .map(config -> modelMapper.map(config, ToolsParamConfigResponse.class))
-                .toList();
-
-        return ResponseEntity.ok(responses);
+        Sort sort = Sort.by(Sort.Direction.fromString(sortDir), sortBy);
+        Pageable pageable = PageRequest.of(page, size, sort);
+        
+        Page<ToolsParamConfig> configPage = toolsParamConfigRepository.findAll(pageable);
+        
+        Page<ToolsParamConfigResponse> responsePage = configPage.map(config -> modelMapper.map(config, ToolsParamConfigResponse.class));
+        
+        return ResponseEntity.ok(responsePage);
     }
 
     @Override
-    public ResponseEntity<?> getActiveToolsParamConfigs() {
-        log.info("Fetching active tools param configs");
+    public ResponseEntity<Page<ToolsParamConfigResponse>> getActiveToolsParamConfigs(int page, int size, String sortBy, String sortDir) {
+        log.info("Fetching active tools param configs with pagination: page={}, size={}, sortBy={}, sortDir={}", page, size, sortBy, sortDir);
         
-        List<ToolsParamConfig> configs = toolsParamConfigRepository.findByIsActiveTrue();
-        List<ToolsParamConfigResponse> responses = configs.stream()
-                .map(config -> modelMapper.map(config, ToolsParamConfigResponse.class))
-                .toList();
-
-        return ResponseEntity.ok(responses);
+        Sort sort = Sort.by(Sort.Direction.fromString(sortDir), sortBy);
+        Pageable pageable = PageRequest.of(page, size, sort);
+        
+        Page<ToolsParamConfig> configPage = toolsParamConfigRepository.findByIsActiveTrue(pageable);
+        
+        Page<ToolsParamConfigResponse> responsePage = configPage.map(config -> modelMapper.map(config, ToolsParamConfigResponse.class));
+        
+        return ResponseEntity.ok(responsePage);
     }
 
     @Override
-    public ResponseEntity<?> getToolsParamConfigsByToolsConfigId(Long toolsConfigId) {
-        log.info("Fetching tools param configs for tools config ID: {}", toolsConfigId);
+    public ResponseEntity<Page<ToolsParamConfigResponse>> getToolsParamConfigsByToolsConfigId(Long toolsConfigId, int page, int size, String sortBy, String sortDir) {
+        log.info("Fetching tools param configs for tools config ID: {} with pagination: page={}, size={}, sortBy={}, sortDir={}", toolsConfigId, page, size, sortBy, sortDir);
         
         CommonUtils.requireNonNull(toolsConfigId, "Tools config ID");
 
@@ -107,12 +115,14 @@ public class ToolsParamConfigServiceImpl implements ToolsParamConfigService {
             throw new ConfigNotFoundException("ToolsConfig", "toolsConfigId", toolsConfigId);
         }
 
-        List<ToolsParamConfig> configs = toolsParamConfigRepository.findByToolsConfigToolsConfigId(toolsConfigId);
-        List<ToolsParamConfigResponse> responses = configs.stream()
-                .map(config -> modelMapper.map(config, ToolsParamConfigResponse.class))
-                .toList();
-
-        return ResponseEntity.ok(responses);
+        Sort sort = Sort.by(Sort.Direction.fromString(sortDir), sortBy);
+        Pageable pageable = PageRequest.of(page, size, sort);
+        
+        Page<ToolsParamConfig> configPage = toolsParamConfigRepository.findByToolsConfigToolsConfigId(toolsConfigId, pageable);
+        
+        Page<ToolsParamConfigResponse> responsePage = configPage.map(config -> modelMapper.map(config, ToolsParamConfigResponse.class));
+        
+        return ResponseEntity.ok(responsePage);
     }
 
     @Override

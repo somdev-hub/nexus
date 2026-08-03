@@ -22,6 +22,7 @@ public class ToolsParamConfigResponse {
     private Boolean isRequired;
     private Object defaultValue;
     private String requestBodyJson;
+    private String description;
     private Timestamp createdAt;
     private Timestamp updatedAt;
     private Boolean isActive;

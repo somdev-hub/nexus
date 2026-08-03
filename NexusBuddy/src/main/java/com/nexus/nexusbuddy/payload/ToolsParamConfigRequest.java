@@ -31,6 +31,8 @@ public class ToolsParamConfigRequest {
 
     private String requestBodyJson;
 
+    private String description;
+
     @NotNull(message = "Active status is required")
     private Boolean isActive;
 

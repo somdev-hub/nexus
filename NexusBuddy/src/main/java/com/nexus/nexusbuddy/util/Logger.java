@@ -1,6 +1,7 @@
 package com.nexus.nexusbuddy.util;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nexus.nexusbuddy.model.entities.ClientConfig;
 import com.nexus.nexusbuddy.model.entities.NexusBuddyLogs;
@@ -69,32 +70,40 @@ public class Logger {
     }
 
     /**
-     * Helper method to serialize objects to JSON
-     * Always returns valid JSON format for PostgreSQL jsonb columns
-     * Strings are wrapped in quotes, objects are serialized to JSON
+         * Helper method to serialize objects to JsonNode
+         * Always returns valid JsonNode for PostgreSQL jsonb columns
+         * Strings are parsed as JSON, objects are serialized to JSON
      *
      * @param obj The object to serialize
-     * @return Valid JSON string or null if object is null
+         * @return JsonNode or null if object is null
      */
-    private String serializeObject(Object obj) {
+        private JsonNode serializeObject(Object obj) {
         if (obj == null) {
             return null;
         }
 
         try {
-            // Always serialize through ObjectMapper to ensure valid JSON
-            // This handles both String and complex objects correctly
-            return objectMapper.writeValueAsString(obj);
-        } catch (JsonProcessingException e) {
-            // If serialization fails, wrap the toString() result as a JSON string
-            log.warn("Failed to serialize object to JSON, using toString(): {}", e.getMessage());
-            try {
-                // Manually create a valid JSON string by wrapping in quotes and escaping
-                return objectMapper.writeValueAsString(obj.toString());
-            } catch (JsonProcessingException ex) {
-                // Last resort: return a simple JSON string with error message
-                return "\"Serialization failed: " + obj.getClass().getSimpleName() + "\"";
+                // If it's already a JsonNode, return as-is
+                if (obj instanceof JsonNode) {
+                    return (JsonNode) obj;
+                }
+
+                // If it's a String, try to parse it as JSON
+                if (obj instanceof String) {
+                    try {
+                        return objectMapper.readTree((String) obj);
+                    } catch (JsonProcessingException e) {
+                        // If it's not valid JSON, wrap it as a JSON string
+                        return objectMapper.valueToTree(obj);
+                    }
+                }
+
+                // For other objects, serialize to JSON
+                return objectMapper.valueToTree(obj);
+            } catch (Exception e) {
+                // If serialization fails, wrap the toString() result as a JSON string
+                log.warn("Failed to serialize object to JSON, using toString(): {}", e.getMessage());
+                return objectMapper.valueToTree("Serialization failed: " + obj.getClass().getSimpleName());
             }
         }
-    }
 }

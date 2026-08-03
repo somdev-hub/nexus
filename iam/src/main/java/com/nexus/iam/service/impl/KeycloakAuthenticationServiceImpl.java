@@ -230,8 +230,8 @@ public class KeycloakAuthenticationServiceImpl implements KeycloakAuthentication
      */
     @Transactional
     protected ResponseEntity<LoginResponse> createUserInDatabase(UserRegisterDto userRegisterDto,
-                                                                 MultipartFile profilePhoto,
-                                                                 String keycloakUserId) {
+            MultipartFile profilePhoto,
+            String keycloakUserId) {
         try {
             // Step 3: CREATE ORGANIZATION
             log.debug("Creating organization for user: {}", userRegisterDto.getEmail());
@@ -451,7 +451,8 @@ public class KeycloakAuthenticationServiceImpl implements KeycloakAuthentication
      * @return LoginResponse with new tokens, user data, org, and role
      */
     @Override
-//    @CircuitBreaker(name = "keycloak-auth", fallbackMethod = "refreshTokenFallback")
+    // @CircuitBreaker(name = "keycloak-auth", fallbackMethod =
+    // "refreshTokenFallback")
     @Retry(name = "keycloak-auth")
     public ResponseEntity<LoginResponse> refreshToken(String refreshToken) {
         try {
@@ -660,7 +661,8 @@ public class KeycloakAuthenticationServiceImpl implements KeycloakAuthentication
         } catch (Exception e) {
             // Service-level exception - let circuit breaker handle it
             log.error("Error validating and syncing user: {}", e.getMessage(), e);
-            throw new ServiceLevelException("KeycloakAuthenticationService", e.getLocalizedMessage(), "validateAndSyncUser",
+            throw new ServiceLevelException("KeycloakAuthenticationService", e.getLocalizedMessage(),
+                    "validateAndSyncUser",
                     new Timestamp(System.currentTimeMillis()), e.getCause().toString(), e.getMessage());
         }
     }
@@ -674,7 +676,7 @@ public class KeycloakAuthenticationServiceImpl implements KeycloakAuthentication
     }
 
     public ResponseEntity<?> registerFallback(UserRegisterDto userRegisterDto, MultipartFile profilePhoto,
-                                              Throwable e) {
+            Throwable e) {
         log.error("Circuit breaker fallback for register: {}", e.getMessage());
         return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
                 .body(Map.of("error", "Keycloak registration service temporarily unavailable"));
@@ -752,7 +754,8 @@ public class KeycloakAuthenticationServiceImpl implements KeycloakAuthentication
                 return Map.of("error", "Token is required");
             }
 
-            if (token.startsWith("Bearer")) token = token.substring(7).trim(); // Remove "Bearer " prefix if present
+            if (token.startsWith("Bearer"))
+                token = token.substring(7).trim(); // Remove "Bearer " prefix if present
 
             log.debug("Decrypting Keycloak token");
 
@@ -780,17 +783,18 @@ public class KeycloakAuthenticationServiceImpl implements KeycloakAuthentication
 
             /**
              * private boolean isValid;
-             *     private List<Map<String, String>> roles;
-             *     private long expiration;
-             *     private long issuedAt;
-             *     private String type;
-             *     private Long userId;
-             *     private Long orgId;
-             *     private String username;
-             *     private String email;
+             * private List<Map<String, String>> roles;
+             * private long expiration;
+             * private long issuedAt;
+             * private String type;
+             * private Long userId;
+             * private Long orgId;
+             * private String username;
+             * private String email;
              */
 
-            User user = userRepository.findByEmail(claims.get("email").toString()).orElseThrow(() -> new ResourceNotFoundException("User", "email", claims.getOrDefault("email", "").toString()));
+            User user = userRepository.findByEmail(claims.get("email").toString()).orElseThrow(
+                    () -> new ResourceNotFoundException("User", "email", claims.getOrDefault("email", "").toString()));
 
             claims.put("isValid", true);
             claims.put("userId", user.getId());
@@ -813,13 +817,15 @@ public class KeycloakAuthenticationServiceImpl implements KeycloakAuthentication
         try {
             // Step 1: VALIDATION
             if (ObjectUtils.isEmpty(userRegisterDto)) {
-                return ResponseEntity.badRequest().body(Map.of("error", "User registration data cannot be null or empty"));
+                return ResponseEntity.badRequest()
+                        .body(Map.of("error", "User registration data cannot be null or empty"));
             }
 
             if (ObjectUtils.isEmpty(userRegisterDto.getFirstName()) ||
                     ObjectUtils.isEmpty(userRegisterDto.getPersonalEmail()) ||
                     ObjectUtils.isEmpty(userRegisterDto.getPassword())) {
-                return ResponseEntity.badRequest().body(Map.of("error", "First name, personal email, and password are required"));
+                return ResponseEntity.badRequest()
+                        .body(Map.of("error", "First name, personal email, and password are required"));
             }
 
             // Check if email already exists in database
@@ -857,7 +863,8 @@ public class KeycloakAuthenticationServiceImpl implements KeycloakAuthentication
             user.setPhone(userRegisterDto.getPhone());
             user.setAddress(userRegisterDto.getAddress());
             user.setDateOfBirth(userRegisterDto.getDateOfBirth());
-            user.setName(userRegisterDto.getFirstName() + " " + (userRegisterDto.getLastName() != null ? userRegisterDto.getLastName() : ""));
+            user.setName(userRegisterDto.getFirstName() + " "
+                    + (userRegisterDto.getLastName() != null ? userRegisterDto.getLastName() : ""));
             user.setCreatedAt(Timestamp.valueOf(java.time.LocalDateTime.now()));
             user.setKeycloakId(keycloakUserId); // Store Keycloak user ID for sync
             user.setEnabled(true);
@@ -910,7 +917,8 @@ public class KeycloakAuthenticationServiceImpl implements KeycloakAuthentication
     @Override
     public ResponseEntity<?> loginApplicant(LoginRequest.ApplicantLoginRequest request) {
         try {
-            if (request == null || ObjectUtils.isEmpty(request.getPersonalEmail()) || ObjectUtils.isEmpty(request.getPassword())) {
+            if (request == null || ObjectUtils.isEmpty(request.getPersonalEmail())
+                    || ObjectUtils.isEmpty(request.getPassword())) {
                 return ResponseEntity.badRequest().body(Map.of("error", "Email and password are required"));
             }
 
@@ -1036,12 +1044,13 @@ public class KeycloakAuthenticationServiceImpl implements KeycloakAuthentication
      */
     @Transactional
     protected ResponseEntity<LoginResponse> createAdminUserInDatabase(AdminRegisterDto userRegisterDto,
-                                                                      String keycloakUserId) {
+            String keycloakUserId) {
         try {
             // Step 1: CREATE USER IN DATABASE (no organization for admin)
             log.debug("Creating admin user in IAM database");
             User user = new User();
-            user.setName(userRegisterDto.getFirstName() + " " + (userRegisterDto.getLastName() != null ? userRegisterDto.getLastName() : ""));
+            user.setName(userRegisterDto.getFirstName() + " "
+                    + (userRegisterDto.getLastName() != null ? userRegisterDto.getLastName() : ""));
             user.setEmail(userRegisterDto.getEmail());
             user.setPhone(userRegisterDto.getPhone());
             user.setAddress(userRegisterDto.getAddress());
@@ -1105,7 +1114,8 @@ public class KeycloakAuthenticationServiceImpl implements KeycloakAuthentication
     @Override
     public ResponseEntity<LoginResponse> loginAdmin(LoginRequest request) {
         try {
-            if (request == null || ObjectUtils.isEmpty(request.getEmail()) || ObjectUtils.isEmpty(request.getPassword())) {
+            if (request == null || ObjectUtils.isEmpty(request.getEmail())
+                    || ObjectUtils.isEmpty(request.getPassword())) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                         .body(LoginResponse.builder()
                                 .build());
@@ -1148,9 +1158,11 @@ public class KeycloakAuthenticationServiceImpl implements KeycloakAuthentication
 
     /**
      * Validate JWT token and sync admin user to IAM database
-     * Returns the same full LoginResponse as the login endpoint with user data, org, and role information.
+     * Returns the same full LoginResponse as the login endpoint with user data,
+     * org, and role information.
      */
-    private ResponseEntity<LoginResponse> validateAndSyncAdminUser(String accessToken, String refreshToken, Long expiresIn) {
+    private ResponseEntity<LoginResponse> validateAndSyncAdminUser(String accessToken, String refreshToken,
+            Long expiresIn) {
         try {
             log.debug("Validating and syncing admin user from Keycloak token");
 
@@ -1176,7 +1188,8 @@ public class KeycloakAuthenticationServiceImpl implements KeycloakAuthentication
                     .orElseThrow(() -> new RuntimeException("User not found after sync"));
             Long orgId = syncedUser.getOrganization() != null ? syncedUser.getOrganization().getId() : null;
 
-            // Get the primary application role (first non-system role, or ADMIN/USER based on what's in DB)
+            // Get the primary application role (first non-system role, or ADMIN/USER based
+            // on what's in DB)
             String primaryRole = "ROLE_USER";
             if (!syncedUser.getRoles().isEmpty()) {
                 primaryRole = syncedUser.getRoles().stream()
@@ -1214,7 +1227,8 @@ public class KeycloakAuthenticationServiceImpl implements KeycloakAuthentication
         } catch (Exception e) {
             // Service-level exception - let circuit breaker handle it
             log.error("Error validating and syncing admin user: {}", e.getMessage(), e);
-            throw new ServiceLevelException("KeycloakAuthenticationService", e.getLocalizedMessage(), "validateAndSyncAdminUser",
+            throw new ServiceLevelException("KeycloakAuthenticationService", e.getLocalizedMessage(),
+                    "validateAndSyncAdminUser",
                     new Timestamp(System.currentTimeMillis()), e.getCause().toString(), e.getMessage());
         }
     }
@@ -1248,7 +1262,8 @@ public class KeycloakAuthenticationServiceImpl implements KeycloakAuthentication
         }
     }
 
-    private ResponseEntity<LoginResponse> validateAndSyncApplicantUser(String accessToken, String refreshToken, Long expiresIn) {
+    private ResponseEntity<LoginResponse> validateAndSyncApplicantUser(String accessToken, String refreshToken,
+            Long expiresIn) {
         try {
             var userDto = keycloakUserSyncService.extractUserFromToken(accessToken);
             if (userDto == null) {
@@ -1315,12 +1330,15 @@ public class KeycloakAuthenticationServiceImpl implements KeycloakAuthentication
             payload.put("applicantCountry", userRegisterDto.getCountry());
             payload.put("applicantAge", userRegisterDto.getAge());
             payload.put("applicantDateOfBirth", userRegisterDto.getDateOfBirth());
-            payload.put("applicantGender", userRegisterDto.getGender().equals(Gender.MALE) ? 'M' : userRegisterDto.getGender().equals(Gender.FEMALE) ? 'F' : 'O');
+            payload.put("applicantGender", userRegisterDto.getGender().equals(Gender.MALE) ? 'M'
+                    : userRegisterDto.getGender().equals(Gender.FEMALE) ? 'F' : 'O');
             payload.put("userId", userId);
 
             Map<String, String> headers = commonUtils.buildJsonHeaders(null);
-            UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getCreateApplicantWithoutDocumentUrl());
-            ResponseEntity<String> response = restService.iamRestCall(builder.toUriString(), payload, headers, HttpMethod.POST, userId);
+            UriComponentsBuilder builder = UriComponentsBuilder
+                    .fromUriString(webConstants.getCreateApplicantWithoutDocumentUrl());
+            ResponseEntity<String> response = restService.iamRestCall(builder.toUriString(), payload, headers,
+                    HttpMethod.POST, userId);
             if (response.getStatusCode().is2xxSuccessful()) {
                 log.debug("HR applicant record created successfully for userId: {}", userId);
             } else {

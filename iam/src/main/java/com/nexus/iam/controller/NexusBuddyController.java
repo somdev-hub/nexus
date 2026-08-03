@@ -1,11 +1,23 @@
 package com.nexus.iam.controller;
 
+import java.util.List;
+
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
 import com.nexus.iam.annotation.LogActivity;
 import com.nexus.iam.service.NexusBuddyService;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/nexusbuddy/admin")
@@ -152,7 +164,8 @@ public class NexusBuddyController {
 
     @PutMapping("/tools-param-configs/{toolsParamConfigId}")
     @LogActivity("UPDATE_TOOLS_PARAM_CONFIG")
-    public ResponseEntity<String> updateToolsParamConfig(@PathVariable Long toolsParamConfigId, @RequestBody String payload) {
+    public ResponseEntity<String> updateToolsParamConfig(@PathVariable Long toolsParamConfigId,
+            @RequestBody String payload) {
         log.info("Updating tools param config: {}", toolsParamConfigId);
         return nexusBuddyService.updateToolsParamConfig(toolsParamConfigId, payload);
     }
@@ -162,5 +175,70 @@ public class NexusBuddyController {
     public ResponseEntity<String> deactivateToolsParamConfig(@PathVariable Long toolsParamConfigId) {
         log.info("Deactivating tools param config: {}", toolsParamConfigId);
         return nexusBuddyService.deactivateToolsParamConfig(toolsParamConfigId);
+    }
+
+    // ============================================
+    // Dashboard Analytics APIs
+    // ============================================
+    @GetMapping("/dashboard/summary")
+    @LogActivity("GET_DASHBOARD_SUMMARY")
+    public ResponseEntity<String> getDashboardSummary(
+            @RequestParam(defaultValue = "24h") String range,
+            @RequestParam(required = false) String start,
+            @RequestParam(required = false) String end,
+            @RequestParam(required = false) List<Long> clientIds) {
+        log.info("Fetching dashboard summary for range: {}, clientIds: {}", range, clientIds);
+        return nexusBuddyService.getDashboardSummary(range, start, end, clientIds);
+    }
+
+    @GetMapping("/dashboard/client-health")
+    @LogActivity("GET_CLIENT_HEALTH")
+    public ResponseEntity<String> getClientHealth(
+            @RequestParam(defaultValue = "24h") String range,
+            @RequestParam(required = false) String start,
+            @RequestParam(required = false) String end,
+            @RequestParam(required = false) List<Long> clientIds) {
+        log.info("Fetching client health for range: {}, clientIds: {}", range, clientIds);
+        return nexusBuddyService.getClientHealth(range, start, end, clientIds);
+    }
+
+    @GetMapping("/dashboard/requests/trends")
+    @LogActivity("GET_REQUEST_TRENDS")
+    public ResponseEntity<String> getRequestTrends(
+            @RequestParam(defaultValue = "24h") String range,
+            @RequestParam(required = false) String start,
+            @RequestParam(required = false) String end,
+            @RequestParam(required = false) List<Long> clientIds) {
+        log.info("Fetching request trends for range: {}, clientIds: {}", range, clientIds);
+        return nexusBuddyService.getRequestTrends(range, start, end, clientIds);
+    }
+
+    @GetMapping("/dashboard/tools/usage")
+    @LogActivity("GET_TOOL_USAGE")
+    public ResponseEntity<String> getToolUsage(
+            @RequestParam(defaultValue = "24h") String range,
+            @RequestParam(required = false) String start,
+            @RequestParam(required = false) String end,
+            @RequestParam(required = false) List<Long> clientIds) {
+        log.info("Fetching tool usage for range: {}, clientIds: {}", range, clientIds);
+        return nexusBuddyService.getToolUsage(range, start, end, clientIds);
+    }
+
+    @GetMapping("/dashboard/performance")
+    @LogActivity("GET_PERFORMANCE")
+    public ResponseEntity<String> getPerformance(
+            @RequestParam(defaultValue = "24h") String range,
+            @RequestParam(required = false) String start,
+            @RequestParam(required = false) String end,
+            @RequestParam(required = false) List<Long> clientIds) {
+        log.info("Fetching performance metrics for range: {}, clientIds: {}", range, clientIds);
+        return nexusBuddyService.getPerformance(range, start, end, clientIds);
+    }
+
+    @GetMapping("/dashboard/config-insights")
+    @LogActivity("GET_CONFIG_INSIGHTS")
+    public ResponseEntity<String> getConfigInsights() {
+        log.info("Fetching configuration insights");
+        return nexusBuddyService.getConfigInsights();
     }
 }

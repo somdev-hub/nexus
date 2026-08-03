@@ -11,6 +11,10 @@ import com.nexus.nexusbuddy.util.CommonUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -64,27 +68,31 @@ public class ClientConfigServiceImpl implements ClientConfigService {
     }
 
     @Override
-    public ResponseEntity<?> getAllClientConfigs() {
-        log.info("Fetching all client configs");
+    public ResponseEntity<Page<ClientConfigResponse>> getAllClientConfigs(int page, int size, String sortBy, String sortDir) {
+        log.info("Fetching all client configs with pagination: page={}, size={}, sortBy={}, sortDir={}", page, size, sortBy, sortDir);
         
-        List<ClientConfig> configs = clientConfigRepository.findAll();
-        List<ClientConfigResponse> responses = configs.stream()
-                .map(config -> modelMapper.map(config, ClientConfigResponse.class))
-                .toList();
-
-        return ResponseEntity.ok(responses);
+        Sort sort = Sort.by(Sort.Direction.fromString(sortDir), sortBy);
+        Pageable pageable = PageRequest.of(page, size, sort);
+        
+        Page<ClientConfig> configPage = clientConfigRepository.findAll(pageable);
+        
+        Page<ClientConfigResponse> responsePage = configPage.map(config -> modelMapper.map(config, ClientConfigResponse.class));
+        
+        return ResponseEntity.ok(responsePage);
     }
 
     @Override
-    public ResponseEntity<?> getActiveClientConfigs() {
-        log.info("Fetching active client configs");
+    public ResponseEntity<Page<ClientConfigResponse>> getActiveClientConfigs(int page, int size, String sortBy, String sortDir) {
+        log.info("Fetching active client configs with pagination: page={}, size={}, sortBy={}, sortDir={}", page, size, sortBy, sortDir);
         
-        List<ClientConfig> configs = clientConfigRepository.findByIsActiveTrue();
-        List<ClientConfigResponse> responses = configs.stream()
-                .map(config -> modelMapper.map(config, ClientConfigResponse.class))
-                .toList();
-
-        return ResponseEntity.ok(responses);
+        Sort sort = Sort.by(Sort.Direction.fromString(sortDir), sortBy);
+        Pageable pageable = PageRequest.of(page, size, sort);
+        
+        Page<ClientConfig> configPage = clientConfigRepository.findByIsActiveTrue(pageable);
+        
+        Page<ClientConfigResponse> responsePage = configPage.map(config -> modelMapper.map(config, ClientConfigResponse.class));
+        
+        return ResponseEntity.ok(responsePage);
     }
 
     @Override

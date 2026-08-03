@@ -3,6 +3,7 @@ package com.nexus.nexusbuddy.service.interfaces;
 import com.nexus.nexusbuddy.model.entities.ToolsConfig;
 import com.nexus.nexusbuddy.payload.ToolsConfigRequest;
 import com.nexus.nexusbuddy.payload.ToolsConfigResponse;
+import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 
 import java.util.List;
@@ -30,26 +31,38 @@ public interface ToolsConfigService {
     ResponseEntity<?> getToolsConfigById(Long toolsConfigId);
 
     /**
-     * Get all tool configurations.
+     * Get all tool configurations with pagination.
      * 
-     * @return List of all ToolsConfigResponse
+     * @param page Page number (0-based)
+     * @param size Page size
+     * @param sortBy Sort field
+     * @param sortDir Sort direction (asc/desc)
+     * @return Paginated list of ToolsConfigResponse
      */
-    ResponseEntity<?> getAllToolsConfigs();
+    ResponseEntity<Page<ToolsConfigResponse>> getAllToolsConfigs(int page, int size, String sortBy, String sortDir);
 
     /**
-     * Get only active tool configurations.
+     * Get only active tool configurations with pagination.
      * 
-     * @return List of active ToolsConfigResponse
+     * @param page Page number (0-based)
+     * @param size Page size
+     * @param sortBy Sort field
+     * @param sortDir Sort direction (asc/desc)
+     * @return Paginated list of active ToolsConfigResponse
      */
-    ResponseEntity<?> getActiveToolsConfigs();
+    ResponseEntity<Page<ToolsConfigResponse>> getActiveToolsConfigs(int page, int size, String sortBy, String sortDir);
 
     /**
-     * Get tool configurations by client config ID.
+     * Get tool configurations by client config ID with pagination.
      * 
      * @param clientConfigId Client configuration ID
-     * @return List of ToolsConfigResponse
+     * @param page Page number (0-based)
+     * @param size Page size
+     * @param sortBy Sort field
+     * @param sortDir Sort direction (asc/desc)
+     * @return Paginated list of ToolsConfigResponse
      */
-    ResponseEntity<?> getToolsConfigsByClientConfigId(Long clientConfigId);
+    ResponseEntity<Page<ToolsConfigResponse>> getToolsConfigsByClientConfigId(Long clientConfigId, int page, int size, String sortBy, String sortDir);
 
     /**
      * Update tool configuration.

@@ -3,6 +3,7 @@ package com.nexus.nexusbuddy.service.interfaces;
 import com.nexus.nexusbuddy.model.entities.ToolsParamConfig;
 import com.nexus.nexusbuddy.payload.ToolsParamConfigRequest;
 import com.nexus.nexusbuddy.payload.ToolsParamConfigResponse;
+import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 
 import java.util.List;
@@ -30,26 +31,38 @@ public interface ToolsParamConfigService {
     ResponseEntity<?> getToolsParamConfigById(Long toolsParamConfigId);
 
     /**
-     * Get all tool parameter configurations.
+     * Get all tool parameter configurations with pagination.
      * 
-     * @return List of all ToolsParamConfigResponse
+     * @param page Page number (0-based)
+     * @param size Page size
+     * @param sortBy Sort field
+     * @param sortDir Sort direction (asc/desc)
+     * @return Paginated list of all ToolsParamConfigResponse
      */
-    ResponseEntity<?> getAllToolsParamConfigs();
+    ResponseEntity<Page<ToolsParamConfigResponse>> getAllToolsParamConfigs(int page, int size, String sortBy, String sortDir);
 
     /**
-     * Get only active tool parameter configurations.
+     * Get only active tool parameter configurations with pagination.
      * 
-     * @return List of active ToolsParamConfigResponse
+     * @param page Page number (0-based)
+     * @param size Page size
+     * @param sortBy Sort field
+     * @param sortDir Sort direction (asc/desc)
+     * @return Paginated list of active ToolsParamConfigResponse
      */
-    ResponseEntity<?> getActiveToolsParamConfigs();
+    ResponseEntity<Page<ToolsParamConfigResponse>> getActiveToolsParamConfigs(int page, int size, String sortBy, String sortDir);
 
     /**
-     * Get tool parameter configurations by tool config ID.
+     * Get tool parameter configurations by tool config ID with pagination.
      * 
      * @param toolsConfigId Tool configuration ID
-     * @return List of ToolsParamConfigResponse
+     * @param page Page number (0-based)
+     * @param size Page size
+     * @param sortBy Sort field
+     * @param sortDir Sort direction (asc/desc)
+     * @return Paginated list of ToolsParamConfigResponse
      */
-    ResponseEntity<?> getToolsParamConfigsByToolsConfigId(Long toolsConfigId);
+    ResponseEntity<Page<ToolsParamConfigResponse>> getToolsParamConfigsByToolsConfigId(Long toolsConfigId, int page, int size, String sortBy, String sortDir);
 
     /**
      * Update tool parameter configuration.

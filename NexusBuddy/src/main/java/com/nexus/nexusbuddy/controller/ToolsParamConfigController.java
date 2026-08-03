@@ -2,9 +2,11 @@ package com.nexus.nexusbuddy.controller;
 
 import com.nexus.nexusbuddy.annotation.LogActivity;
 import com.nexus.nexusbuddy.payload.ToolsParamConfigRequest;
+import com.nexus.nexusbuddy.payload.ToolsParamConfigResponse;
 import com.nexus.nexusbuddy.service.interfaces.ToolsParamConfigService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -51,43 +53,68 @@ public class ToolsParamConfigController {
     }
 
     /**
-     * Get all tool parameter configurations.
+     * Get all tool parameter configurations with pagination.
      * GET /nexusbuddy/admin/tools-param-configs
      * 
-     * @return 200 OK with list of all tool parameter configurations
+     * @param page Page number (0-based, default 0)
+     * @param size Page size (default 20)
+     * @param sortBy Sort field (default toolsParamConfigId)
+     * @param sortDir Sort direction asc/desc (default asc)
+     * @return 200 OK with paginated list of all tool parameter configurations
      */
     @GetMapping
     @LogActivity("GET_ALL_TOOLS_PARAM_CONFIGS")
-    public ResponseEntity<?> getAllToolsParamConfigs() {
-        log.info("Fetching all tools param configs");
-        return toolsParamConfigService.getAllToolsParamConfigs();
+    public ResponseEntity<Page<ToolsParamConfigResponse>> getAllToolsParamConfigs(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "toolsParamConfigId") String sortBy,
+            @RequestParam(defaultValue = "asc") String sortDir) {
+        log.info("Fetching all tools param configs with pagination: page={}, size={}, sortBy={}, sortDir={}", page, size, sortBy, sortDir);
+        return toolsParamConfigService.getAllToolsParamConfigs(page, size, sortBy, sortDir);
     }
 
     /**
-     * Get only active tool parameter configurations.
+     * Get only active tool parameter configurations with pagination.
      * GET /nexusbuddy/admin/tools-param-configs/active
      * 
-     * @return 200 OK with list of active tool parameter configurations
+     * @param page Page number (0-based, default 0)
+     * @param size Page size (default 20)
+     * @param sortBy Sort field (default toolsParamConfigId)
+     * @param sortDir Sort direction asc/desc (default asc)
+     * @return 200 OK with paginated list of active tool parameter configurations
      */
     @GetMapping("/active")
     @LogActivity("GET_ACTIVE_TOOLS_PARAM_CONFIGS")
-    public ResponseEntity<?> getActiveToolsParamConfigs() {
-        log.info("Fetching active tools param configs");
-        return toolsParamConfigService.getActiveToolsParamConfigs();
+    public ResponseEntity<Page<ToolsParamConfigResponse>> getActiveToolsParamConfigs(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "toolsParamConfigId") String sortBy,
+            @RequestParam(defaultValue = "asc") String sortDir) {
+        log.info("Fetching active tools param configs with pagination: page={}, size={}, sortBy={}, sortDir={}", page, size, sortBy, sortDir);
+        return toolsParamConfigService.getActiveToolsParamConfigs(page, size, sortBy, sortDir);
     }
 
     /**
-     * Get tool parameter configurations by tool config ID.
+     * Get tool parameter configurations by tool config ID with pagination.
      * GET /nexusbuddy/admin/tools-param-configs/tool/{toolsConfigId}
      * 
      * @param toolsConfigId Tool configuration ID
-     * @return 200 OK with list of tool parameter configurations for the tool
+     * @param page Page number (0-based, default 0)
+     * @param size Page size (default 20)
+     * @param sortBy Sort field (default toolsParamConfigId)
+     * @param sortDir Sort direction asc/desc (default asc)
+     * @return 200 OK with paginated list of tool parameter configurations for the tool
      */
     @GetMapping("/tool/{toolsConfigId}")
     @LogActivity("GET_TOOLS_PARAM_CONFIGS_BY_TOOL")
-    public ResponseEntity<?> getToolsParamConfigsByToolsConfigId(@PathVariable Long toolsConfigId) {
-        log.info("Fetching tools param configs for tools config ID: {}", toolsConfigId);
-        return toolsParamConfigService.getToolsParamConfigsByToolsConfigId(toolsConfigId);
+    public ResponseEntity<Page<ToolsParamConfigResponse>> getToolsParamConfigsByToolsConfigId(
+            @PathVariable Long toolsConfigId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "toolsParamConfigId") String sortBy,
+            @RequestParam(defaultValue = "asc") String sortDir) {
+        log.info("Fetching tools param configs for tools config ID: {} with pagination: page={}, size={}, sortBy={}, sortDir={}", toolsConfigId, page, size, sortBy, sortDir);
+        return toolsParamConfigService.getToolsParamConfigsByToolsConfigId(toolsConfigId, page, size, sortBy, sortDir);
     }
 
     /**

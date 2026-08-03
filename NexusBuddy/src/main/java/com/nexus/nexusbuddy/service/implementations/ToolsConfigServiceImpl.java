@@ -3,6 +3,10 @@ package com.nexus.nexusbuddy.service.implementations;
 import java.util.List;
 
 import org.modelmapper.ModelMapper;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -92,32 +96,36 @@ public class ToolsConfigServiceImpl implements ToolsConfigService {
     }
 
     @Override
-    public ResponseEntity<?> getAllToolsConfigs() {
-        log.info("Fetching all tools configs");
+    public ResponseEntity<Page<ToolsConfigResponse>> getAllToolsConfigs(int page, int size, String sortBy, String sortDir) {
+        log.info("Fetching all tools configs with pagination: page={}, size={}, sortBy={}, sortDir={}", page, size, sortBy, sortDir);
         
-        List<ToolsConfig> configs = toolsConfigRepository.findAll();
-        List<ToolsConfigResponse> responses = configs.stream()
-                .map(config -> modelMapper.map(config, ToolsConfigResponse.class))
-                .toList();
-
-        return ResponseEntity.ok(responses);
+        Sort sort = Sort.by(Sort.Direction.fromString(sortDir), sortBy);
+        Pageable pageable = PageRequest.of(page, size, sort);
+        
+        Page<ToolsConfig> configPage = toolsConfigRepository.findAll(pageable);
+        
+        Page<ToolsConfigResponse> responsePage = configPage.map(config -> modelMapper.map(config, ToolsConfigResponse.class));
+        
+        return ResponseEntity.ok(responsePage);
     }
 
     @Override
-    public ResponseEntity<?> getActiveToolsConfigs() {
-        log.info("Fetching active tools configs");
+    public ResponseEntity<Page<ToolsConfigResponse>> getActiveToolsConfigs(int page, int size, String sortBy, String sortDir) {
+        log.info("Fetching active tools configs with pagination: page={}, size={}, sortBy={}, sortDir={}", page, size, sortBy, sortDir);
         
-        List<ToolsConfig> configs = toolsConfigRepository.findByIsActiveTrue();
-        List<ToolsConfigResponse> responses = configs.stream()
-                .map(config -> modelMapper.map(config, ToolsConfigResponse.class))
-                .toList();
-
-        return ResponseEntity.ok(responses);
+        Sort sort = Sort.by(Sort.Direction.fromString(sortDir), sortBy);
+        Pageable pageable = PageRequest.of(page, size, sort);
+        
+        Page<ToolsConfig> configPage = toolsConfigRepository.findByIsActiveTrue(pageable);
+        
+        Page<ToolsConfigResponse> responsePage = configPage.map(config -> modelMapper.map(config, ToolsConfigResponse.class));
+        
+        return ResponseEntity.ok(responsePage);
     }
 
     @Override
-    public ResponseEntity<?> getToolsConfigsByClientConfigId(Long clientConfigId) {
-        log.info("Fetching tools configs for client config ID: {}", clientConfigId);
+    public ResponseEntity<Page<ToolsConfigResponse>> getToolsConfigsByClientConfigId(Long clientConfigId, int page, int size, String sortBy, String sortDir) {
+        log.info("Fetching tools configs for client config ID: {} with pagination: page={}, size={}, sortBy={}, sortDir={}", clientConfigId, page, size, sortBy, sortDir);
         
         CommonUtils.requireNonNull(clientConfigId, "Client config ID");
 
@@ -125,12 +133,14 @@ public class ToolsConfigServiceImpl implements ToolsConfigService {
             throw new ConfigNotFoundException("ClientConfig", "clientConfigId", clientConfigId);
         }
 
-        List<ToolsConfig> configs = toolsConfigRepository.findByClientConfigClientConfigId(clientConfigId);
-        List<ToolsConfigResponse> responses = configs.stream()
-                .map(config -> modelMapper.map(config, ToolsConfigResponse.class))
-                .toList();
-
-        return ResponseEntity.ok(responses);
+        Sort sort = Sort.by(Sort.Direction.fromString(sortDir), sortBy);
+        Pageable pageable = PageRequest.of(page, size, sort);
+        
+        Page<ToolsConfig> configPage = toolsConfigRepository.findByClientConfigClientConfigId(clientConfigId, pageable);
+        
+        Page<ToolsConfigResponse> responsePage = configPage.map(config -> modelMapper.map(config, ToolsConfigResponse.class));
+        
+        return ResponseEntity.ok(responsePage);
     }
 
     @Override
@@ -148,7 +158,8 @@ public class ToolsConfigServiceImpl implements ToolsConfigService {
             throw new ConfigValidationException("Tools config with name '" + request.getToolName() + "' already exists");
         }
 
-        if (request.getClientConfigId() != null && !request.getClientConfigId().equals(existingConfig.getClientConfig().getClientConfigId())) {
+        // Update client config if changed
+        if (!existingConfig.getClientConfig().getClientConfigId().equals(request.getClientConfigId())) {
             ClientConfig clientConfig = clientConfigRepository.findById(request.getClientConfigId())
                     .orElseThrow(() -> new ConfigNotFoundException("ClientConfig", "clientConfigId", request.getClientConfigId()));
             existingConfig.setClientConfig(clientConfig);
