@@ -289,4 +289,57 @@ public class NexusBuddyServiceImpl implements NexusBuddyService {
                 .toUriString();
         return restService.iamRestCall(url, null, null, HttpMethod.GET, null);
     }
+
+    // ============================================
+    // Client Insights APIs
+    // ============================================
+    @Override
+    public ResponseEntity<String> getClientInsights(Long clientId, String range, String start, String end) {
+        UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getNexusBuddyClientInsightsUrl())
+                .pathSegment(clientId.toString())
+                .queryParam("range", range);
+        if (start != null)
+            builder.queryParam("start", start);
+        if (end != null)
+            builder.queryParam("end", end);
+        return restService.iamRestCall(builder.toUriString(), null, null, HttpMethod.GET, null);
+    }
+
+    @Override
+    public ResponseEntity<String> getClientToolInsights(Long clientId, String range, String start, String end, Integer pageNo, Integer pageOffset, String sort) {
+        UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getNexusBuddyClientInsightsUrl() + "/" + clientId.toString() + "/tools")
+                .queryParam("range", range)
+                .queryParam("pageNo", pageNo)
+                .queryParam("pageOffset", pageOffset);
+        if (start != null)
+            builder.queryParam("start", start);
+        if (end != null)
+            builder.queryParam("end", end);
+        if (sort != null)
+            builder.queryParam("sort", sort);
+        return restService.iamRestCall(builder.toUriString(), null, null, HttpMethod.GET, null);
+    }
+
+    @Override
+    public ResponseEntity<String> getClientLogs(Long clientId, String toolName, String status, String statusCode,
+                                                String httpMethod, String startDate, String endDate, Integer pageNo, Integer pageOffset, String sort) {
+        UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getNexusBuddyClientInsightsUrl() + "/" + clientId.toString() + "/logs")
+                .queryParam("pageNo", pageNo)
+                .queryParam("pageOffset", pageOffset);
+        if (toolName != null)
+            builder.queryParam("toolName", toolName);
+        if (status != null)
+            builder.queryParam("status", status);
+        if (statusCode != null)
+            builder.queryParam("statusCode", statusCode);
+        if (httpMethod != null)
+            builder.queryParam("httpMethod", httpMethod);
+        if (startDate != null)
+            builder.queryParam("startDate", startDate);
+        if (endDate != null)
+            builder.queryParam("endDate", endDate);
+        if (sort != null)
+            builder.queryParam("sort", sort);
+        return restService.iamRestCall(builder.toUriString(), null, null, HttpMethod.GET, null);
+    }
 }

@@ -69,4 +69,14 @@ public interface NexusBuddyService {
     ResponseEntity<String> getPerformance(String range, String start, String end, List<Long> clientIds);
 
     ResponseEntity<String> getConfigInsights();
+
+    // ============================================
+    // Client Insights APIs
+    // ============================================
+    ResponseEntity<String> getClientInsights(Long clientId, String range, String start, String end);
+
+    ResponseEntity<String> getClientToolInsights(Long clientId, String range, String start, String end, Integer pageNo, Integer pageOffset, String sort);
+
+    ResponseEntity<String> getClientLogs(Long clientId, String toolName, String status, String statusCode,
+                                         String httpMethod, String startDate, String endDate, Integer pageNo, Integer pageOffset, String sort);
 }

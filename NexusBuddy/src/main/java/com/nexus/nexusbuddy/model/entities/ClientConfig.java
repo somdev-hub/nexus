@@ -31,6 +31,7 @@ public class ClientConfig {
 
     private String clientName;
 
+    @Column(columnDefinition = "TEXT")
     private String clientDescription;
 
     private String connectionUrl;

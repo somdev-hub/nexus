@@ -21,7 +21,7 @@ public class ToolsParamConfigResponse {
     private DataType dataType;
     private Boolean isRequired;
     private Object defaultValue;
-    private String requestBodyJson;
+    private Object requestBodyJson;
     private String description;
     private Timestamp createdAt;
     private Timestamp updatedAt;

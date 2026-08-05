@@ -29,7 +29,7 @@ public class ToolsParamConfigRequest {
 
     private Object defaultValue;
 
-    private String requestBodyJson;
+    private Object requestBodyJson;
 
     private String description;
 

@@ -229,6 +229,9 @@ public class WebConstants {
     @Value("${nexus.buddy.dashboard.url}")
     private String nexusBuddyDashboardUrl;
 
+    @Value("${nexus.buddy.client.insights.url}")
+    private String nexusBuddyClientInsightsUrl;
+
     // Keycloak URLs
     public String getKeycloakAdminUrl() {
         return keycloakServerUrl + "/admin/realms/" + keycloakRealm;
@@ -269,5 +272,9 @@ public class WebConstants {
 
     public boolean isKeycloakOAuth2Enabled() {
         return keycloakOAuth2Enabled;
+    }
+
+    public String getNexusBuddyClientInsightsUrl() {
+        return nexusBuddyClientInsightsUrl;
     }
 }

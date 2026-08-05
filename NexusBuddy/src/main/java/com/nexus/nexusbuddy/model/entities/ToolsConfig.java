@@ -32,6 +32,7 @@ public class ToolsConfig {
 
     private String toolName;
 
+    @Column(columnDefinition = "TEXT")
     private String toolDescription;
 
     private String endpoint;

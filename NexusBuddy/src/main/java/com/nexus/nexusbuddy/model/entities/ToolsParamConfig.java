@@ -45,7 +45,11 @@ public class ToolsParamConfig {
     @Column(columnDefinition = "JSONB")
     private Object defaultValue;
 
-    private String requestBodyJson;
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(columnDefinition = "JSONB")
+    private Object requestBodyJson;
+
+    @Column(columnDefinition = "TEXT")
     private String description;
 
     @CreationTimestamp

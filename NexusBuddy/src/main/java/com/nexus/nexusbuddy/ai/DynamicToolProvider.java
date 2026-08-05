@@ -16,6 +16,7 @@ import org.springframework.ai.tool.definition.ToolDefinition;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpMethod;
 import org.springframework.stereotype.Component;
+import org.springframework.util.ObjectUtils;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nexus.nexusbuddy.model.entities.ClientConfig;
@@ -241,6 +242,7 @@ public class DynamicToolProvider {
         }
     }
 
+    @SuppressWarnings("unchecked")
     private Map<String, Object> buildRequestPayload(ToolsConfig toolsConfig,
             List<ToolsParamConfig> params,
             Map<String, Object> input) {
@@ -257,11 +259,15 @@ public class DynamicToolProvider {
 
         for (ToolsParamConfig param : params) {
             if (ParamType.REQUEST_BODY.equals(param.getParamType())
-                    && param.getRequestBodyJson() != null
-                    && !param.getRequestBodyJson().isBlank()) {
+                    && param.getRequestBodyJson() != null) {
                 try {
                     com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-                    Map<String, Object> template = mapper.readValue(param.getRequestBodyJson(), Map.class);
+                    Map<String, Object> template;
+                    if (param.getRequestBodyJson() instanceof String) {
+                        template = mapper.readValue((String) param.getRequestBodyJson(), Map.class);
+                    } else {
+                        template = mapper.convertValue(param.getRequestBodyJson(), Map.class);
+                    }
                     return mergeTemplateWithInput(template, input);
                 } catch (Exception ex) {
                     LOGGER.warn("Failed to parse requestBodyJson for param={}", param.getParamName(), ex);

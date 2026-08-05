@@ -241,4 +241,53 @@ public class NexusBuddyController {
         log.info("Fetching configuration insights");
         return nexusBuddyService.getConfigInsights();
     }
+
+    // ============================================
+    // Client Insights APIs
+    // ============================================
+    @GetMapping("/client-insights/{clientId}")
+    @LogActivity("GET_CLIENT_INSIGHTS")
+    public ResponseEntity<String> getClientInsights(
+            @PathVariable Long clientId,
+            @RequestParam(defaultValue = "24h") String range,
+            @RequestParam(required = false) String start,
+            @RequestParam(required = false) String end) {
+        log.info("Fetching client insights for clientId: {}, range: {}", clientId, range);
+        return nexusBuddyService.getClientInsights(clientId, range, start, end);
+    }
+
+    @GetMapping("/client-insights/{clientId}/tools")
+    @LogActivity("GET_CLIENT_TOOL_INSIGHTS")
+    public ResponseEntity<String> getClientToolInsights(
+            @PathVariable Long clientId,
+            @RequestParam(defaultValue = "24h") String range,
+            @RequestParam(required = false) String start,
+            @RequestParam(required = false) String end,
+            @RequestParam(defaultValue = "0") Integer pageNo,
+            @RequestParam(defaultValue = "10") Integer pageOffset,
+            @RequestParam(required = false) String sort) {
+        log.info("Fetching client tool insights for clientId: {}, range: {}, page: {}, size: {}",
+                clientId, range, pageNo, pageOffset);
+        return nexusBuddyService.getClientToolInsights(clientId, range, start, end, pageNo, pageOffset, sort);
+    }
+
+    @GetMapping("/client-insights/{clientId}/logs")
+    @LogActivity("GET_CLIENT_LOGS")
+    public ResponseEntity<String> getClientLogs(
+            @PathVariable Long clientId,
+            @RequestParam(required = false) String toolName,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String statusCode,
+            @RequestParam(required = false) String httpMethod,
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate,
+            @RequestParam(defaultValue = "0") Integer pageNo,
+            @RequestParam(defaultValue = "20") Integer pageOffset,
+            @RequestParam(required = false) String sort) {
+        log.info(
+                "Fetching client logs for clientId: {}, toolName: {}, status: {}, statusCode: {}, httpMethod: {}, startDate: {}, endDate: {}, page: {}, size: {}",
+                clientId, toolName, status, statusCode, httpMethod, startDate, endDate, pageNo, pageOffset);
+        return nexusBuddyService.getClientLogs(clientId, toolName, status, statusCode, httpMethod, startDate, endDate,
+                pageNo, pageOffset, sort);
+    }
 }
