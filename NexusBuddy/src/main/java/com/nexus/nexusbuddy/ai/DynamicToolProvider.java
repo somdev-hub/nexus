@@ -25,6 +25,7 @@ import com.nexus.nexusbuddy.model.entities.ToolsParamConfig;
 import com.nexus.nexusbuddy.model.enums.DataType;
 import com.nexus.nexusbuddy.model.enums.ParamType;
 import com.nexus.nexusbuddy.payload.ToolExecutionResult;
+import com.nexus.nexusbuddy.repository.ClientConfigRepository;
 import com.nexus.nexusbuddy.repository.ToolsConfigRepository;
 import com.nexus.nexusbuddy.repository.ToolsParamConfigRepository;
 import com.nexus.nexusbuddy.util.Logger;
@@ -47,15 +48,18 @@ public class DynamicToolProvider {
 
     private final ToolsConfigRepository toolsConfigRepository;
     private final ToolsParamConfigRepository toolsParamConfigRepository;
+    private final ClientConfigRepository clientConfigRepository;
     private final RestServices restServices;
     private final Logger logger;
 
     public DynamicToolProvider(ToolsConfigRepository toolsConfigRepository,
             ToolsParamConfigRepository toolsParamConfigRepository,
+            ClientConfigRepository clientConfigRepository,
             RestServices restServices,
             Logger logger) {
         this.toolsConfigRepository = toolsConfigRepository;
         this.toolsParamConfigRepository = toolsParamConfigRepository;
+        this.clientConfigRepository = clientConfigRepository;
         this.restServices = restServices;
         this.logger = logger;
     }
@@ -71,6 +75,29 @@ public class DynamicToolProvider {
                 .map(this::buildToolCallback)
                 .filter(Objects::nonNull)
                 .toArray(ToolCallback[]::new);
+    }
+
+    /**
+     * Get tool callbacks filtered by domain (e.g., "localhost:3001").
+     * This finds client configs that have the domain in their allowedUsersList
+     * and returns tools for those client configs.
+     * 
+     * @param domain The domain to filter by (e.g., "localhost:3001")
+     * @return Array of ToolCallbacks for the matching client configs
+     */
+    public ToolCallback[] getToolCallbacksByDomain(String domain) {
+        List<ClientConfig> matchingConfigs = clientConfigRepository.findByAllowedUsersListContaining(domain);
+        if (matchingConfigs.isEmpty()) {
+            LOGGER.info("No client configs found for domain: {}", domain);
+            return new ToolCallback[0];
+        }
+
+        List<Long> clientIds = matchingConfigs.stream()
+                .map(ClientConfig::getClientConfigId)
+                .toList();
+
+        LOGGER.info("Found {} client configs for domain: {}", clientIds.size(), domain);
+        return getToolCallbacks(clientIds);
     }
 
     private List<ToolsConfig> resolveActiveTools(Collection<Long> clientIds) {

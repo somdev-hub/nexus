@@ -1,16 +1,29 @@
 package com.nexus.nexusbuddy.controller;
 
+import java.util.List;
+
+import org.modelmapper.ModelMapper;
+import org.springframework.data.domain.Page;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
 import com.nexus.nexusbuddy.annotation.LogActivity;
+import com.nexus.nexusbuddy.model.entities.ClientConfig;
 import com.nexus.nexusbuddy.payload.ClientConfigRequest;
 import com.nexus.nexusbuddy.payload.ClientConfigResponse;
 import com.nexus.nexusbuddy.service.interfaces.ClientConfigService;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.Page;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
 
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * REST Controller for Client Config management.
@@ -23,6 +36,7 @@ import jakarta.validation.Valid;
 public class ClientConfigController {
 
     private final ClientConfigService clientConfigService;
+    private final ModelMapper modelMapper;
 
     /**
      * Create a new client configuration.
@@ -123,5 +137,24 @@ public class ClientConfigController {
     public ResponseEntity<?> deactivateClientConfig(@PathVariable Long clientConfigId) {
         log.info("Deactivating client config with ID: {}", clientConfigId);
         return clientConfigService.deactivateClientConfig(clientConfigId);
+    }
+
+    /**
+     * Find client configurations by allowed users list containing a domain.
+     * GET /nexusbuddy/admin/client-configs/by-domain?domain=localhost:3001
+     * 
+     * @param domain Domain to search for (e.g., "localhost:3001")
+     * @return 200 OK with list of matching client configurations
+     */
+    @GetMapping("/by-domain")
+    @LogActivity("GET_CLIENT_CONFIGS_BY_DOMAIN")
+    public ResponseEntity<List<ClientConfigResponse>> getClientConfigsByDomain(
+            @RequestParam String domain) {
+        log.info("Fetching client configs by domain: {}", domain);
+        List<ClientConfig> configs = clientConfigService.findByAllowedUsersListContaining(domain);
+        List<ClientConfigResponse> responses = configs.stream()
+                .map(config -> modelMapper.map(config, ClientConfigResponse.class))
+                .toList();
+        return ResponseEntity.ok(responses);
     }
 }

@@ -19,6 +19,7 @@ public class ClientConfigResponse {
     private String clientName;
     private String connectionUrl;
     private String healthCheckPath;
+    private List<String> allowedUsersList;
     private Timestamp createdOn;
     private Timestamp updatedOn;
     private Boolean isActive;

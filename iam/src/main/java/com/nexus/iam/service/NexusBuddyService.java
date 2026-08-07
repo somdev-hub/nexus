@@ -7,6 +7,31 @@ import java.util.List;
 public interface NexusBuddyService {
 
     // ============================================
+    // Chat APIs (Proxy to NexusBuddy service)
+    // ============================================
+    ResponseEntity<String> chat(String payload);
+
+    ResponseEntity<String> chatWithConversation(String payload);
+
+    ResponseEntity<String> directChat(String payload);
+
+    ResponseEntity<String> streamChat(String payload);
+
+    ResponseEntity<String> health();
+
+    // ============================================
+    // Domain-based Chat APIs
+    // ============================================
+    ResponseEntity<String> streamChatByDomain(String payload, String domain);
+
+    ResponseEntity<String> chatByDomain(String payload, String domain);
+
+    // ============================================
+    // Test/Debug Streaming Endpoint
+    // ============================================
+    ResponseEntity<String> streamTestLogs(String payload);
+
+    // ============================================
     // Client Config APIs
     // ============================================
     ResponseEntity<String> createClientConfig(String payload);
@@ -20,6 +45,8 @@ public interface NexusBuddyService {
     ResponseEntity<String> updateClientConfig(Long clientConfigId, String payload);
 
     ResponseEntity<String> deactivateClientConfig(Long clientConfigId);
+
+    ResponseEntity<String> getClientConfigsByDomain(String domain);
 
     // ============================================
     // Tools Config APIs
@@ -75,8 +102,9 @@ public interface NexusBuddyService {
     // ============================================
     ResponseEntity<String> getClientInsights(Long clientId, String range, String start, String end);
 
-    ResponseEntity<String> getClientToolInsights(Long clientId, String range, String start, String end, Integer pageNo, Integer pageOffset, String sort);
+    ResponseEntity<String> getClientToolInsights(Long clientId, String range, String start, String end, Integer pageNo,
+            Integer pageOffset, String sort);
 
     ResponseEntity<String> getClientLogs(Long clientId, String toolName, String status, String statusCode,
-                                         String httpMethod, String startDate, String endDate, Integer pageNo, Integer pageOffset, String sort);
+            String httpMethod, String startDate, String endDate, Integer pageNo, Integer pageOffset, String sort);
 }

@@ -68,4 +68,12 @@ public interface ClientConfigService {
      * @return Success response
      */
     ResponseEntity<?> deactivateClientConfig(Long clientConfigId);
+
+    /**
+     * Find client configurations by allowed users list containing a domain.
+     * 
+     * @param domain Domain to search for (e.g., "localhost:3001")
+     * @return List of matching ClientConfig entities
+     */
+    List<ClientConfig> findByAllowedUsersListContaining(String domain);
 }

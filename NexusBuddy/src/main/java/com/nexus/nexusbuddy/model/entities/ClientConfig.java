@@ -20,14 +20,14 @@ import java.util.List;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@EqualsAndHashCode(exclude = {"toolsConfigList"})
-@ToString(exclude = {"toolsConfigList"})
+@EqualsAndHashCode(exclude = { "toolsConfigList", "allowedUsers" })
+@ToString(exclude = { "toolsConfigList", "allowedUsers" })
 public class ClientConfig {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-        @Column(name = "client_config_id")
-        private Long clientConfigId;
+    @Column(name = "client_config_id")
+    private Long clientConfigId;
 
     private String clientName;
 
@@ -37,6 +37,10 @@ public class ClientConfig {
     private String connectionUrl;
 
     private String healthCheckPath;
+
+    @OneToMany(mappedBy = "clientConfig", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
+    @JsonManagedReference
+    private List<ClientConfigAllowedUser> allowedUsers;
 
     @CreationTimestamp
     private Timestamp createdOn;

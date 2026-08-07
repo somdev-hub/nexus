@@ -20,6 +20,94 @@ public class NexusBuddyServiceImpl implements NexusBuddyService {
     private final WebConstants webConstants;
 
     // ============================================
+    // Chat APIs (Proxy to NexusBuddy service)
+    // ============================================
+    @Override
+    public ResponseEntity<String> chat(String payload) {
+        String url = UriComponentsBuilder.fromUriString(webConstants.getNexusBuddyChatUrl())
+                .toUriString();
+        Map<String, String> headers = new HashMap<>();
+        headers.put("Content-Type", "application/json");
+        return restService.iamRestCall(url, payload, headers, HttpMethod.POST, null);
+    }
+
+    @Override
+    public ResponseEntity<String> chatWithConversation(String payload) {
+        String url = UriComponentsBuilder.fromUriString(webConstants.getNexusBuddyChatUrl())
+                .pathSegment("conversation")
+                .toUriString();
+        Map<String, String> headers = new HashMap<>();
+        headers.put("Content-Type", "application/json");
+        return restService.iamRestCall(url, payload, headers, HttpMethod.POST, null);
+    }
+
+    @Override
+    public ResponseEntity<String> directChat(String payload) {
+        String url = UriComponentsBuilder.fromUriString(webConstants.getNexusBuddyChatUrl())
+                .pathSegment("direct")
+                .toUriString();
+        Map<String, String> headers = new HashMap<>();
+        headers.put("Content-Type", "text/plain");
+        return restService.iamRestCall(url, payload, headers, HttpMethod.POST, null);
+    }
+
+    @Override
+    public ResponseEntity<String> streamChat(String payload) {
+        String url = UriComponentsBuilder.fromUriString(webConstants.getNexusBuddyChatUrl())
+                .pathSegment("stream")
+                .toUriString();
+        Map<String, String> headers = new HashMap<>();
+        headers.put("Content-Type", "application/json");
+        return restService.iamRestCall(url, payload, headers, HttpMethod.POST, null);
+    }
+
+    @Override
+    public ResponseEntity<String> health() {
+        String url = UriComponentsBuilder.fromUriString(webConstants.getNexusBuddyChatUrl())
+                .pathSegment("health")
+                .toUriString();
+        return restService.iamRestCall(url, null, null, HttpMethod.GET, null);
+    }
+
+    // ============================================
+    // Domain-based Chat APIs
+    // ============================================
+    @Override
+    public ResponseEntity<String> streamChatByDomain(String payload, String domain) {
+        String url = UriComponentsBuilder.fromUriString(webConstants.getNexusBuddyChatUrl())
+                .pathSegment("stream", "by-domain")
+                .queryParam("domain", domain)
+                .toUriString();
+        Map<String, String> headers = new HashMap<>();
+        headers.put("Content-Type", "application/json");
+        return restService.iamRestCall(url, payload, headers, HttpMethod.POST, null);
+    }
+
+    @Override
+    public ResponseEntity<String> chatByDomain(String payload, String domain) {
+        String url = UriComponentsBuilder.fromUriString(webConstants.getNexusBuddyChatUrl())
+                .pathSegment("by-domain")
+                .queryParam("domain", domain)
+                .toUriString();
+        Map<String, String> headers = new HashMap<>();
+        headers.put("Content-Type", "application/json");
+        return restService.iamRestCall(url, payload, headers, HttpMethod.POST, null);
+    }
+
+    // ============================================
+    // Test/Debug Streaming Endpoint
+    // ============================================
+    @Override
+    public ResponseEntity<String> streamTestLogs(String payload) {
+        String url = UriComponentsBuilder.fromUriString(webConstants.getNexusBuddyChatUrl())
+                .pathSegment("stream", "test")
+                .toUriString();
+        Map<String, String> headers = new HashMap<>();
+        headers.put("Content-Type", "application/json");
+        return restService.iamRestCall(url, payload, headers, HttpMethod.POST, null);
+    }
+
+    // ============================================
     // Client Config APIs
     // ============================================
     @Override
@@ -70,6 +158,15 @@ public class NexusBuddyServiceImpl implements NexusBuddyService {
                 .pathSegment(clientConfigId.toString())
                 .toUriString();
         return restService.iamRestCall(url, null, null, HttpMethod.DELETE, null);
+    }
+
+    @Override
+    public ResponseEntity<String> getClientConfigsByDomain(String domain) {
+        String url = UriComponentsBuilder.fromUriString(webConstants.getNexusBuddyClientConfigUrl())
+                .pathSegment("by-domain")
+                .queryParam("domain", domain)
+                .toUriString();
+        return restService.iamRestCall(url, null, null, HttpMethod.GET, null);
     }
 
     // ============================================
@@ -306,8 +403,10 @@ public class NexusBuddyServiceImpl implements NexusBuddyService {
     }
 
     @Override
-    public ResponseEntity<String> getClientToolInsights(Long clientId, String range, String start, String end, Integer pageNo, Integer pageOffset, String sort) {
-        UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getNexusBuddyClientInsightsUrl() + "/" + clientId.toString() + "/tools")
+    public ResponseEntity<String> getClientToolInsights(Long clientId, String range, String start, String end,
+            Integer pageNo, Integer pageOffset, String sort) {
+        UriComponentsBuilder builder = UriComponentsBuilder
+                .fromUriString(webConstants.getNexusBuddyClientInsightsUrl() + "/" + clientId.toString() + "/tools")
                 .queryParam("range", range)
                 .queryParam("pageNo", pageNo)
                 .queryParam("pageOffset", pageOffset);
@@ -322,8 +421,9 @@ public class NexusBuddyServiceImpl implements NexusBuddyService {
 
     @Override
     public ResponseEntity<String> getClientLogs(Long clientId, String toolName, String status, String statusCode,
-                                                String httpMethod, String startDate, String endDate, Integer pageNo, Integer pageOffset, String sort) {
-        UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getNexusBuddyClientInsightsUrl() + "/" + clientId.toString() + "/logs")
+            String httpMethod, String startDate, String endDate, Integer pageNo, Integer pageOffset, String sort) {
+        UriComponentsBuilder builder = UriComponentsBuilder
+                .fromUriString(webConstants.getNexusBuddyClientInsightsUrl() + "/" + clientId.toString() + "/logs")
                 .queryParam("pageNo", pageNo)
                 .queryParam("pageOffset", pageOffset);
         if (toolName != null)

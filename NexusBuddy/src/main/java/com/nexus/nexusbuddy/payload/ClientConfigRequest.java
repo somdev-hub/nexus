@@ -7,6 +7,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 @Data
 @Builder
 @NoArgsConstructor
@@ -19,6 +21,8 @@ public class ClientConfigRequest {
     private String connectionUrl;
 
     private String healthCheckPath;
+
+    private List<String> allowedUsersList;
 
     @NotNull(message = "Active status is required")
     private Boolean isActive;
