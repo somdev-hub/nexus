@@ -2,6 +2,7 @@ package com.nexus.iam.entities;
 
 import jakarta.persistence.*;
 import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
@@ -17,7 +18,7 @@ import java.util.Set;
 @Table(name = "t_departments", schema = "iam")
 @NoArgsConstructor
 @AllArgsConstructor
-@lombok.ToString(exclude = {"departmentHead", "members", "organization"})
+@lombok.ToString(exclude = { "departmentHead", "members", "organization", "teams" })
 public class Department {
 
     @Id
@@ -32,27 +33,21 @@ public class Department {
     private User departmentHead;
 
     @ManyToMany(fetch = FetchType.LAZY, cascade = CascadeType.REMOVE)
-    @JoinTable(
-        name = "t_department_members",
-        schema = "iam",
-        joinColumns = @JoinColumn(name = "department_id"),
-        inverseJoinColumns = @JoinColumn(name = "user_id")
-    )
+    @JoinTable(name = "t_department_members", schema = "iam", joinColumns = @JoinColumn(name = "department_id"), inverseJoinColumns = @JoinColumn(name = "user_id"))
     private List<User> members = new ArrayList<>();
 
     @ManyToMany(fetch = FetchType.LAZY)
-    @JoinTable(
-        name = "t_department_roles",
-        schema = "iam",
-        joinColumns = @JoinColumn(name = "department_id"),
-        inverseJoinColumns = @JoinColumn(name = "role_id")
-    )
+    @JoinTable(name = "t_department_roles", schema = "iam", joinColumns = @JoinColumn(name = "department_id"), inverseJoinColumns = @JoinColumn(name = "role_id"))
     private Set<Role> roles = new HashSet<>();
 
     @ManyToOne
     @JoinColumn(name = "org_id")
     @JsonBackReference(value = "organization-departments")
     private Organization organization;
+
+    @OneToMany(mappedBy = "department", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
+    @JsonManagedReference(value = "department-teams")
+    private List<Team> teams = new ArrayList<>();
 
     private Timestamp createdAt;
 
@@ -71,7 +66,7 @@ public class Department {
 
     public void addDepartmentHead(User user) {
         if (this.departmentHead == null || !this.departmentHead.equals(user)) {
-            this.departmentHead=user;
+            this.departmentHead = user;
         }
         if (user.getHeadedDepartments() == null) {
             user.setHeadedDepartments(new java.util.ArrayList<>());

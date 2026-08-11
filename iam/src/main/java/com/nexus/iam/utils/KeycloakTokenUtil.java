@@ -5,10 +5,11 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.stereotype.Component;
+
+import com.nexus.iam.repository.UserRepository;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -30,14 +31,17 @@ import lombok.extern.slf4j.Slf4j;
 @Component
 public class KeycloakTokenUtil {
 
-    @Autowired
-    private JwtDecoder jwtDecoder;
+    private final JwtDecoder jwtDecoder;
 
-    @Autowired
-    private WebConstants webConstants;
+    private final WebConstants webConstants;
 
-    @Autowired(required = false)
-    private com.nexus.iam.repository.UserRepository userRepository;
+    private final UserRepository userRepository;
+
+    KeycloakTokenUtil(JwtDecoder jwtDecoder, WebConstants webConstants, UserRepository userRepository) {
+        this.jwtDecoder = jwtDecoder;
+        this.webConstants = webConstants;
+        this.userRepository = userRepository;
+    }
 
     /**
      * Validate JWT token against Keycloak JWKS

@@ -21,7 +21,8 @@ import lombok.NoArgsConstructor;
 @Entity
 @Table(name = "t_users", schema = "iam")
 @NoArgsConstructor
-@lombok.ToString(exclude = {"headedDepartments", "memberOfDepartments", "organization", "roles"})
+@lombok.ToString(exclude = { "headedDepartments", "memberOfDepartments", "organization", "roles", "teamMemberships",
+        "ledTeams" })
 public class User implements UserDetails {
 
     @Id
@@ -76,13 +77,22 @@ public class User implements UserDetails {
     @JsonBackReference(value = "organization-users")
     private Organization organization;
 
-    @OneToMany(mappedBy = "departmentHead", fetch = FetchType.LAZY, cascade = {CascadeType.DETACH, CascadeType.REFRESH})
+    @OneToMany(mappedBy = "departmentHead", fetch = FetchType.LAZY, cascade = { CascadeType.DETACH,
+            CascadeType.REFRESH })
     @JsonBackReference(value = "department-head")
     private List<Department> headedDepartments = new java.util.ArrayList<>();
 
     @ManyToMany(mappedBy = "members", fetch = FetchType.LAZY)
     @JsonBackReference(value = "department-members")
     private List<Department> memberOfDepartments = new java.util.ArrayList<>();
+
+    @OneToMany(mappedBy = "user", fetch = FetchType.LAZY, cascade = { CascadeType.DETACH, CascadeType.REFRESH })
+    @JsonBackReference(value = "user-team-memberships")
+    private List<TeamMember> teamMemberships = new java.util.ArrayList<>();
+
+    @OneToMany(mappedBy = "teamLead", fetch = FetchType.LAZY, cascade = { CascadeType.DETACH, CascadeType.REFRESH })
+    @JsonBackReference(value = "user-led-teams")
+    private List<Team> ledTeams = new java.util.ArrayList<>();
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
