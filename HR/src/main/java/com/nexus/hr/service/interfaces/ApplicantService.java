@@ -52,5 +52,9 @@ public interface ApplicantService {
     ResponseEntity<?> addApplicantDocument(MultipartFile document, Long userId);
 
     ResponseEntity<?> deleteApplicantDocument(Long userId, Long hrDocumentId);
+
+    ResponseEntity<?> getApplicantByRecruitmentMapping(Long applicantRecruitmentMappingId);
+
+    ResponseEntity<?> updateApplicantRecruitmentStatus(Long applicantRecruitmentMappingId, ApplicationStatus status);
 }
 

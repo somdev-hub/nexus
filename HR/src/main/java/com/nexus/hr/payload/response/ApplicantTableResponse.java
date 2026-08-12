@@ -1,11 +1,11 @@
 package com.nexus.hr.payload.response;
 
+import java.util.List;
+
 import com.nexus.hr.model.entities.HrDocument;
 import com.nexus.hr.model.enums.ApplicationStatus;
-import lombok.Data;
 
-import java.time.LocalDate;
-import java.util.List;
+import lombok.Data;
 
 @Data
 public class ApplicantTableResponse {
@@ -23,4 +23,5 @@ public class ApplicantTableResponse {
     private Double totalYearsOfExperience;
     private List<HrDocument> applicantDocuments;
     private ApplicationStatus applicationStatus;
+    private Long applicantRecruitmentMappingId;
 }

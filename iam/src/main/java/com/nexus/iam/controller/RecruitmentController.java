@@ -84,6 +84,38 @@ public class RecruitmentController {
                 pageSize);
     }
 
+	@GetMapping("/applicant/applicantId/{id}")
+	public ResponseEntity<?> getApplicantByApplicantId(@PathVariable Long id) {
+		return recruitmentService.getApplicantByApplicantId(id);
+	}
+
+    /**
+     * Get applicant by recruitment mapping ID
+     * Returns applicant with active collections and only the application documents
+     * associated with the specific recruitment mapping
+     *
+     * @param mappingId Applicant Recruitment Mapping ID
+     * @return Applicant details with recruitment-scoped documents
+     */
+    @GetMapping("/applicant/recruitment-mapping/{mappingId}")
+    public ResponseEntity<?> getApplicantByRecruitmentMapping(@PathVariable Long mappingId) {
+        return recruitmentService.getApplicantByRecruitmentMapping(mappingId);
+    }
+
+    /**
+     * Update applicant recruitment status (Schedule interview, accept, reject, etc.)
+     *
+     * @param mappingId Applicant Recruitment Mapping ID
+     * @param status    New application status
+     * @return Success message
+     */
+    @PutMapping("/applicant/recruitment-mapping/{mappingId}/status")
+    public ResponseEntity<?> updateApplicantRecruitmentStatus(
+            @PathVariable Long mappingId,
+            @RequestParam String status) {
+        return recruitmentService.updateApplicantRecruitmentStatus(mappingId, status);
+    }
+
     /**
      * Get applicant by ID
      *

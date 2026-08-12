@@ -5,8 +5,7 @@ import lombok.Data;
 
 @Data
 public class UpdateTeamMemberRequest {
-
-    private String teamPosition;
-
-    private TeamRole role;
+	private String teamPosition;
+	private TeamRole role;
+	private Long managerId;
 }

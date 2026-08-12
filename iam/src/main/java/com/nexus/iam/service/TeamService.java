@@ -1,17 +1,12 @@
 package com.nexus.iam.service;
 
+import org.springframework.http.ResponseEntity;
+
 import com.nexus.iam.dto.request.AddTeamMemberRequest;
 import com.nexus.iam.dto.request.ChangeManagerRequest;
 import com.nexus.iam.dto.request.CreateTeamRequest;
 import com.nexus.iam.dto.request.UpdateTeamMemberRequest;
 import com.nexus.iam.dto.request.UpdateTeamRequest;
-import com.nexus.iam.dto.response.TeamHierarchyResponse;
-import com.nexus.iam.dto.response.TeamMemberResponse;
-import com.nexus.iam.dto.response.TeamResponse;
-import com.nexus.iam.entities.User;
-import org.springframework.http.ResponseEntity;
-
-import java.util.List;
 
 public interface TeamService {
 	ResponseEntity<?> createTeam(CreateTeamRequest request, String authHeader);

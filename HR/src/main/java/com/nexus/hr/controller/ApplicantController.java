@@ -155,4 +155,31 @@ public class ApplicantController {
     public ResponseEntity<?> deleteApplicantDocument(@RequestParam Long userId, @RequestParam Long hrDocumentId){
         return applicantService.deleteApplicantDocument(userId, hrDocumentId);
     }
+
+    /**
+     * Get applicant by recruitment mapping ID
+     * Returns applicant with active collections and only the application documents
+     * associated with the specific recruitment mapping
+     *
+     * @param mappingId Applicant Recruitment Mapping ID
+     * @return Applicant details with recruitment-scoped documents
+     */
+    @GetMapping("/recruitment-mapping/{mappingId}")
+    public ResponseEntity<?> getApplicantByRecruitmentMapping(@PathVariable Long mappingId) {
+        return applicantService.getApplicantByRecruitmentMapping(mappingId);
+    }
+
+    /**
+     * Update applicant recruitment status (Schedule interview, accept, reject, etc.)
+     *
+     * @param mappingId Applicant Recruitment Mapping ID
+     * @param status    New application status
+     * @return Success message
+     */
+    @PutMapping("/recruitment-mapping/{mappingId}/status")
+    public ResponseEntity<?> updateApplicantRecruitmentStatus(
+            @PathVariable Long mappingId,
+            @RequestParam ApplicationStatus status) {
+        return applicantService.updateApplicantRecruitmentStatus(mappingId, status);
+    }
 }

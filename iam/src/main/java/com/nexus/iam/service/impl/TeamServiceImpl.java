@@ -313,6 +313,39 @@ public class TeamServiceImpl implements TeamService {
 			}
 			member.setRole(request.getRole());
 		}
+		if (request.getManagerId() != null) {
+			TeamMember currentManager = member.getManager();
+			if (currentManager == null || !currentManager.getId().equals(request.getManagerId())) {
+				TeamMember newManager = teamMemberRepository.findById(request.getManagerId())
+						.orElseThrow(() -> new ResourceNotFoundException("Manager", "id", request.getManagerId()));
+				if (!newManager.getTeam().equals(member.getTeam())) {
+					throw new IllegalArgumentException("New manager must belong to the same team");
+				}
+				if (!newManager.getIsActive()) {
+					throw new IllegalArgumentException("New manager must be an active team member");
+				}
+				if (newManager.getRole() == TeamRole.EMPLOYEE) {
+					throw new IllegalArgumentException("An employee cannot be a manager");
+				}
+				if (wouldCreateCycle(newManager, member)) {
+					throw new IllegalArgumentException("Cannot assign manager: would create a cycle");
+				}
+				int newHierarchyLevel = newManager.getHierarchyLevel() + 1;
+				if (newHierarchyLevel > MAX_HIERARCHY_DEPTH) {
+					throw new IllegalArgumentException(
+							"Maximum hierarchy depth (" + MAX_HIERARCHY_DEPTH + ") exceeded");
+				}
+				if (currentManager != null) {
+					currentManager.removeSubordinate(member);
+					teamMemberRepository.save(currentManager);
+				}
+				member.setManager(newManager);
+				member.setHierarchyLevel(newHierarchyLevel);
+				newManager.addSubordinate(member);
+				teamMemberRepository.save(newManager);
+				updateSubordinateHierarchyLevels(member, newHierarchyLevel);
+			}
+		}
 		TeamMember updated = teamMemberRepository.save(member);
 		return ResponseEntity.ok(mapToTeamMemberResponse(updated));
 	}
@@ -397,7 +430,8 @@ public class TeamServiceImpl implements TeamService {
 			return ResponseEntity.ok().build();
 		}
 		TeamMember manager = member.getManager();
-		List<TeamMember> activeMembers = teamMemberRepository.findActiveMembersByTeamId(member.getTeam().getTeamId());
+		Team team = member.getTeam();
+		List<TeamMember> activeMembers = teamMemberRepository.findActiveMembersByTeamId(team.getTeamId());
 		if (!member.getSubordinates().isEmpty()) {
 			TeamMember newManager = manager;
 			if (newManager == null) {
@@ -405,7 +439,7 @@ public class TeamServiceImpl implements TeamService {
 						.filter(m -> m.isTeamLead())
 						.findFirst()
 						.orElseThrow(() -> new IllegalStateException(
-								"Team lead not found for team: " + member.getTeam().getTeamId()));
+								"Team lead not found for team: " + team.getTeamId()));
 			}
 			reassignSubordinatesToManager(member, newManager);
 		}
@@ -413,9 +447,9 @@ public class TeamServiceImpl implements TeamService {
 			manager.removeSubordinate(member);
 			teamMemberRepository.save(manager);
 		}
-		member.getTeam().removeMember(member);
+		team.removeMember(member);
 		teamMemberRepository.delete(member);
-		log.info("Removed member '{}' from team '{}'", member.getUser().getName(), member.getTeam().getTeamName());
+		log.info("Removed member '{}' from team '{}'", member.getUser().getName(), team.getTeamName());
 		return ResponseEntity.ok().build();
 	}
 

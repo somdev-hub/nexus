@@ -70,4 +70,10 @@ public interface RecruitmentService {
     ResponseEntity<?> getCompanyInsights();
 
     ResponseEntity<?> getDashboardStats();
+
+	ResponseEntity<?> getApplicantByApplicantId(Long id);
+
+    ResponseEntity<?> getApplicantByRecruitmentMapping(Long mappingId);
+
+    ResponseEntity<?> updateApplicantRecruitmentStatus(Long mappingId, String status);
 }
