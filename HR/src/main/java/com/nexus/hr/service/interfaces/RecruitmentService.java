@@ -58,4 +58,9 @@ public interface RecruitmentService {
     ResponseEntity<?> getCompanyInsights();
 
     ResponseEntity<?> getDashboardStats();
+
+    // Applicant recruitment mapping APIs
+    ResponseEntity<?> getApplicantByRecruitmentMapping(Long mappingId);
+
+    ResponseEntity<?> updateApplicantRecruitmentStatus(Long mappingId, ApplicationStatus status);
 }

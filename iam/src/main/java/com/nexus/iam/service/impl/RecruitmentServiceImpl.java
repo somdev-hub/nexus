@@ -716,7 +716,7 @@ public class RecruitmentServiceImpl implements RecruitmentService {
 	@Override
 	public ResponseEntity<?> getApplicantByRecruitmentMapping(Long mappingId) {
 		UriComponentsBuilder builder = UriComponentsBuilder
-				.fromUriString(webConstants.getApplicantUrl() + "/recruitment-mapping/" + mappingId);
+				.fromUriString(webConstants.getHrRecruitmentUrl() + "/applicant/recruitment-mapping/" + mappingId);
 		Map<String, String> headers = new HashMap<>();
 		headers.put(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
 		ResponseEntity<String> response = restService.iamRestCall(builder.toUriString(), null, headers,
@@ -735,7 +735,7 @@ public class RecruitmentServiceImpl implements RecruitmentService {
 	@Override
 	public ResponseEntity<?> updateApplicantRecruitmentStatus(Long mappingId, String status) {
 		UriComponentsBuilder builder = UriComponentsBuilder
-				.fromUriString(webConstants.getApplicantUrl() + "/recruitment-mapping/" + mappingId + "/status")
+				.fromUriString(webConstants.getHrRecruitmentUrl() + "/applicant/recruitment-mapping/" + mappingId + "/status")
 				.queryParam("status", status);
 		Map<String, String> headers = new HashMap<>();
 		headers.put(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);

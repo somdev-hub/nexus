@@ -995,4 +995,76 @@ public class RecruitmentServiceImpl implements RecruitmentService {
                     e.getMessage());
         }
     }
+
+    @Override
+    public ResponseEntity<?> getApplicantByRecruitmentMapping(Long mappingId) {
+        if (ObjectUtils.isEmpty(mappingId)) {
+            throw new ServiceLevelException(
+                    "RecruitmentService",
+                    "Applicant recruitment mapping id is missing",
+                    "getApplicantByRecruitmentMapping",
+                    "Missing required data exception",
+                    "Required data applicant recruitment mapping id is missing");
+        }
+        try {
+            ApplicantRecruitmentMapping mapping = applicantRecruitmentMappingRepo.findById(mappingId)
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            "ApplicantRecruitmentMapping",
+                            "id",
+                            mappingId.toString()));
+            Applicant applicant = mapping.getApplicant();
+            return ResponseEntity.ok(applicant);
+        } catch (ServiceLevelException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new ServiceLevelException(
+                    "RecruitmentService",
+                    "Error occurred while fetching applicant by recruitment mapping",
+                    "getApplicantByRecruitmentMapping",
+                    "Service level exception",
+                    e.getMessage());
+        }
+    }
+
+    @Override
+    @Transactional
+    public ResponseEntity<?> updateApplicantRecruitmentStatus(Long mappingId, ApplicationStatus status) {
+        if (ObjectUtils.isEmpty(mappingId) || ObjectUtils.isEmpty(status)) {
+            throw new ServiceLevelException(
+                    "RecruitmentService",
+                    "Applicant recruitment mapping id or status is missing",
+                    "updateApplicantRecruitmentStatus",
+                    "Missing required data exception",
+                    "Required data applicant recruitment mapping id or status is missing");
+        }
+        try {
+            ApplicantRecruitmentMapping mapping = applicantRecruitmentMappingRepo.findById(mappingId)
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            "ApplicantRecruitmentMapping",
+                            "id",
+                            mappingId.toString()));
+
+            // Create status history entry
+            ApplicantRecruitmentMappingStatusHist statusHist = new ApplicantRecruitmentMappingStatusHist();
+            statusHist.setStatus(status);
+            statusHist.setApplicantRecruitmentMapping(mapping);
+            statusHist.setIsActive(true);
+            mapping.getStatusHistory().add(statusHist);
+
+            // Update the current status
+            mapping.setStatus(status);
+            applicantRecruitmentMappingRepo.save(mapping);
+
+            return ResponseEntity.ok("Applicant recruitment status updated successfully to " + status);
+        } catch (ServiceLevelException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new ServiceLevelException(
+                    "RecruitmentService",
+                    "Error occurred while updating applicant recruitment status",
+                    "updateApplicantRecruitmentStatus",
+                    "Service level exception",
+                    e.getMessage());
+        }
+    }
 }

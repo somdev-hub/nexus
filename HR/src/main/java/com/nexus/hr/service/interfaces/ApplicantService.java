@@ -14,47 +14,41 @@ import java.time.LocalDate;
 
 public interface ApplicantService {
 
-    ResponseEntity<?> createApplicant(Applicant applicant);
+	ResponseEntity<?> createApplicant(Applicant applicant);
 
-    ResponseEntity<?> createApplicantWithDocuments(
-            Long recruitmentId, Applicant applicant,
-            MultipartFile resume,
-            MultipartFile coverLetter);
+	ResponseEntity<?> createApplicantWithDocuments(
+			Long recruitmentId, Applicant applicant,
+			MultipartFile resume,
+			MultipartFile coverLetter);
 
-    ResponseEntity<?> getApplicantById(Long id);
+	ResponseEntity<?> getApplicantById(Long id);
 
-    ResponseEntity<?> getAllApplicants(
-            Long recruitmentId, ApplicationStatus status,
-            String name,
-            Character gender,
-            Integer minAge,
-            Integer maxAge,
-            LocalDate appliedFromDate,
-            LocalDate appliedToDate,
-            Double yearsOfExperience,
-            Pageable pageRequest
-    );
+	ResponseEntity<?> getAllApplicants(
+			Long recruitmentId, ApplicationStatus status,
+			String name,
+			Character gender,
+			Integer minAge,
+			Integer maxAge,
+			LocalDate appliedFromDate,
+			LocalDate appliedToDate,
+			Double yearsOfExperience,
+			Pageable pageRequest);
 
-    ResponseEntity<?> updateApplicant(@Valid Applicant applicant, Long userId);
+	ResponseEntity<?> updateApplicant(@Valid Applicant applicant, Long userId);
 
-    ResponseEntity<?> deleteApplicant(Long id);
+	ResponseEntity<?> deleteApplicant(Long id);
 
-    ResponseEntity<?> createApplicantWithoutDocuments(@Valid Applicant applicant);
+	ResponseEntity<?> createApplicantWithoutDocuments(@Valid Applicant applicant);
 
-    ResponseEntity<?> createApplicantEducation(@Valid ApplicantEducation applicantEducation, Long userId);
+	ResponseEntity<?> createApplicantEducation(@Valid ApplicantEducation applicantEducation, Long userId);
 
-    ResponseEntity<?> createApplicantExperience(@Valid ApplicantExperience applicantExperience, Long userId);
+	ResponseEntity<?> createApplicantExperience(@Valid ApplicantExperience applicantExperience, Long userId);
 
-    ResponseEntity<?> createApplicantSkill(@Valid ApplicantSkill applicantSkill, Long userId);
+	ResponseEntity<?> createApplicantSkill(@Valid ApplicantSkill applicantSkill, Long userId);
 
-    ResponseEntity<?> getApplicantByUserId(Long userId);
+	ResponseEntity<?> getApplicantByUserId(Long userId);
 
-    ResponseEntity<?> addApplicantDocument(MultipartFile document, Long userId);
+	ResponseEntity<?> addApplicantDocument(MultipartFile document, Long userId);
 
-    ResponseEntity<?> deleteApplicantDocument(Long userId, Long hrDocumentId);
-
-    ResponseEntity<?> getApplicantByRecruitmentMapping(Long applicantRecruitmentMappingId);
-
-    ResponseEntity<?> updateApplicantRecruitmentStatus(Long applicantRecruitmentMappingId, ApplicationStatus status);
+	ResponseEntity<?> deleteApplicantDocument(Long userId, Long hrDocumentId);
 }
-

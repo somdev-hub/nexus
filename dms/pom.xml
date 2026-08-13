@@ -94,6 +94,13 @@
       <artifactId>modelmapper</artifactId>
       <version>3.2.4</version>
     </dependency>
+    <dependency>
+      <groupId>com.nexus</groupId>
+      <artifactId>NexusEncryption</artifactId>
+      <version>1.0-SNAPSHOT</version>
+      <scope>system</scope>
+      <systemPath>${project.basedir}/lib/nexus-encryption.jar</systemPath>
+    </dependency>
   </dependencies>
 
   <build>

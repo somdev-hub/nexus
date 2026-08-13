@@ -11,6 +11,7 @@ import com.nexus.cms.payload.EmailAttachmentDto;
 import com.nexus.cms.payload.EmailCommunicationDto;
 import com.nexus.cms.repository.EventTemplateRepo;
 import com.nexus.cms.util.WebConstants;
+import com.nexus.nexusencryption.NexusEncryption;
 import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -97,9 +98,19 @@ public class EmailCommunicationService {
                 kafkaBacklogService.logReceived(null, uuid, emailCommunicationDto.getOrgId(), templateName);
                 String templateHtmlUrl = eventTemplate.getTemplateHtmlUrl();
                 // fetch the html content
-                String templateHtml = restTemplate.getForObject(templateHtmlUrl, String.class);
-                if (ObjectUtils.isEmpty(templateHtml)) {
+                String templateHtmlEncrypted = restTemplate.getForObject(templateHtmlUrl, String.class);
+                if (ObjectUtils.isEmpty(templateHtmlEncrypted)) {
                     throw new ServiceLevelException("EventOnboardingService", "Failed to fetch template HTML content from URL: " + templateHtmlUrl, "triggerMail", "TemplateFetchException", "DMS did not return template content");
+                }
+                String templateHtml;
+                try {
+                    if (templateHtmlEncrypted.startsWith("<!DOCTYPE html>")) {
+                        templateHtml = templateHtmlEncrypted;
+                    } else {
+                        templateHtml = NexusEncryption.decrypt(templateHtmlEncrypted);
+                    }
+                } catch (Exception e) {
+                    throw new ServiceLevelException("EventOnboardingService", "Failed to decrypt template HTML content from URL: " + templateHtmlUrl, "triggerMail", "TemplateDecryptionException", e.getMessage());
                 }
                 String subject = eventTemplate.getEventSubject();
                 // placeholders are present in this fashion: ${key}
