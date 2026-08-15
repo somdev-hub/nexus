@@ -36,4 +36,6 @@ public interface HrEntityRepo extends JpaRepository<HrEntity, Long> {
 
     @Query("SELECT h FROM HrEntity h LEFT JOIN FETCH h.leaveAllocations WHERE h.hrId = :hrId")
     Optional<HrEntity> findByHrIdWithLeaveAllocations(@Param("hrId") Long hrId);
+
+	Optional<HrEntity> findByEmployeeEmail(String employeeEmail);
 }

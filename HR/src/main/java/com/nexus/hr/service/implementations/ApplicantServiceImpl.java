@@ -251,10 +251,11 @@ public class ApplicantServiceImpl implements ApplicantService {
 								.orElse(null));
 				// Set applicantRecruitmentMappingId from the recruitment mapping
 				applicant.getApplicantRecruitmentMappings().stream()
-						.filter(mapping -> mapping.getRecruitment() != null && 
+						.filter(mapping -> mapping.getRecruitment() != null &&
 								mapping.getRecruitment().getRecruitmentId().equals(recruitmentId))
 						.findFirst()
-						.ifPresent(mapping -> applicantTableResponse.setApplicantRecruitmentMappingId(mapping.getApplicantRecruitmentMappingId()));
+						.ifPresent(mapping -> applicantTableResponse
+								.setApplicantRecruitmentMappingId(mapping.getApplicantRecruitmentMappingId()));
 				return applicantTableResponse;
 			});
 			return ResponseEntity.ok(applicantTableResponses);

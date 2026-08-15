@@ -18,49 +18,55 @@ import java.util.List;
 @Entity
 public class ApplicantRecruitmentMapping {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long applicantRecruitmentMappingId;
+	@Id
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
+	private Long applicantRecruitmentMappingId;
 
-    @ManyToOne
-    @JoinColumn(name = "applicant_applicant_id")
-    @JsonBackReference("applicant-recruitment-mappings")
-    @ToString.Exclude
-    @EqualsAndHashCode.Exclude
-    private Applicant applicant;
+	@ManyToOne
+	@JoinColumn(name = "applicant_applicant_id")
+	@JsonBackReference("applicant-recruitment-mappings")
+	@ToString.Exclude
+	@EqualsAndHashCode.Exclude
+	private Applicant applicant;
 
-    @ManyToOne
-    @JoinColumn(name = "recruitment_recruitment_id")
-    @JsonBackReference("recruitment-applicantRecruitmentMappings")
-    @ToString.Exclude
-    @EqualsAndHashCode.Exclude
-    private Recruitment recruitment;
+	@ManyToOne
+	@JoinColumn(name = "recruitment_recruitment_id")
+	@JsonBackReference("recruitment-applicantRecruitmentMappings")
+	@ToString.Exclude
+	@EqualsAndHashCode.Exclude
+	private Recruitment recruitment;
 
-    @CreationTimestamp
-    private Timestamp appliedOn;
+	@CreationTimestamp
+	private Timestamp appliedOn;
 
-    @UpdateTimestamp
-    private Timestamp updatedOn;
+	@UpdateTimestamp
+	private Timestamp updatedOn;
 
-    private Boolean isActive;
+	private Boolean isActive;
 
-    @OneToMany(orphanRemoval = true, mappedBy = "applicantRecruitmentMapping", cascade = CascadeType.ALL)
-    @JsonManagedReference("applicantRecruitmentMapping-applicationDocuments")
-    @ToString.Exclude
-    @EqualsAndHashCode.Exclude
-    private List<HrDocument> applicationDocuments;
+	@OneToMany(orphanRemoval = true, mappedBy = "applicantRecruitmentMapping", cascade = CascadeType.ALL)
+	@JsonManagedReference("applicantRecruitmentMapping-applicationDocuments")
+	@ToString.Exclude
+	@EqualsAndHashCode.Exclude
+	private List<HrDocument> applicationDocuments;
 
-    @Enumerated(EnumType.STRING)
-    private ApplicationStatus status;
+	@Enumerated(EnumType.STRING)
+	private ApplicationStatus status;
 
-    @PrePersist
-    protected void onCreate() {
-        isActive = true;
-    }
+	@PrePersist
+	protected void onCreate() {
+		isActive = true;
+	}
 
-    @OneToMany(orphanRemoval = true, mappedBy = "applicantRecruitmentMapping", cascade = CascadeType.ALL)
-    @JsonManagedReference("applicantRecruitmentMapping-statusHistory")
-    @ToString.Exclude
-    @EqualsAndHashCode.Exclude
-    private List<ApplicantRecruitmentMappingStatusHist> statusHistory;
+	@OneToMany(orphanRemoval = true, mappedBy = "applicantRecruitmentMapping", cascade = CascadeType.ALL)
+	@JsonManagedReference("applicantRecruitmentMapping-statusHistory")
+	@ToString.Exclude
+	@EqualsAndHashCode.Exclude
+	private List<ApplicantRecruitmentMappingStatusHist> statusHistory;
+
+	@OneToMany(orphanRemoval = true, mappedBy = "applicantRecruitmentMapping", cascade = CascadeType.ALL)
+	@JsonManagedReference("applicantRecruitmentMapping-interviews")
+	@ToString.Exclude
+	@EqualsAndHashCode.Exclude
+	private List<RecruitmentInterview> interviews;
 }

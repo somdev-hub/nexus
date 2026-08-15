@@ -695,7 +695,7 @@ public class RecruitmentServiceImpl implements RecruitmentService {
 
 	@Override
 	public ResponseEntity<?> getApplicantByApplicantId(Long id) {
-		
+
 		UriComponentsBuilder builder = UriComponentsBuilder
 				.fromUriString(webConstants.getApplicantUrl() + "/" + id);
 		Map<String, String> headers = new HashMap<>();
@@ -714,9 +714,11 @@ public class RecruitmentServiceImpl implements RecruitmentService {
 	}
 
 	@Override
-	public ResponseEntity<?> getApplicantByRecruitmentMapping(Long mappingId) {
+	public ResponseEntity<?> getApplicantByRecruitmentMapping(Long applicantId, Long recruitmentId) {
 		UriComponentsBuilder builder = UriComponentsBuilder
-				.fromUriString(webConstants.getHrRecruitmentUrl() + "/applicant/recruitment-mapping/" + mappingId);
+				.fromUriString(webConstants.getHrRecruitmentUrl() + "/applicant/recruitment-mapping")
+				.queryParam("applicantId", applicantId)
+				.queryParam("recruitmentId", recruitmentId);
 		Map<String, String> headers = new HashMap<>();
 		headers.put(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
 		ResponseEntity<String> response = restService.iamRestCall(builder.toUriString(), null, headers,
@@ -733,13 +735,15 @@ public class RecruitmentServiceImpl implements RecruitmentService {
 	}
 
 	@Override
-	public ResponseEntity<?> updateApplicantRecruitmentStatus(Long mappingId, String status) {
+	public ResponseEntity<?> updateApplicantRecruitmentStatus(Long applicantId, Long recruitmentId, String request) {
 		UriComponentsBuilder builder = UriComponentsBuilder
-				.fromUriString(webConstants.getHrRecruitmentUrl() + "/applicant/recruitment-mapping/" + mappingId + "/status")
-				.queryParam("status", status);
+				.fromUriString(
+						webConstants.getHrRecruitmentUrl() + "/applicant/recruitment-mapping/status")
+				.queryParam("applicantId", applicantId)
+				.queryParam("recruitmentId", recruitmentId);
 		Map<String, String> headers = new HashMap<>();
 		headers.put(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
-		ResponseEntity<String> response = restService.iamRestCall(builder.toUriString(), null, headers,
+		ResponseEntity<String> response = restService.iamRestCall(builder.toUriString(), request, headers,
 				HttpMethod.PUT, null);
 		if (!response.getStatusCode().is2xxSuccessful()) {
 			throw new ServiceLevelException(
