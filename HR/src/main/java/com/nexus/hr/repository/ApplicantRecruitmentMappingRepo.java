@@ -55,4 +55,7 @@ public interface ApplicantRecruitmentMappingRepo extends JpaRepository<Applicant
 
     @Query("SELECT r.roleName, COUNT(arm) FROM ApplicantRecruitmentMapping arm JOIN arm.recruitment r WHERE r.orgId = :orgId GROUP BY r.roleName ORDER BY COUNT(arm) DESC")
     List<Object[]> countApplicationsByRoleForOrg(@Param("orgId") Long orgId);
+
+	@Query("SELECT arm FROM ApplicantRecruitmentMapping arm WHERE arm.applicant.applicantId = :applicantId AND arm.recruitment.recruitmentId = :recruitmentId")
+	Optional<ApplicantRecruitmentMapping> findByApplicantIdAndRecruitmentId(Long applicantId, Long recruitmentId);
 }

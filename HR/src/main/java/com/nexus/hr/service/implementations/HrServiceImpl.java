@@ -312,7 +312,9 @@ public class HrServiceImpl implements HrService {
                                 "application/pdf", letterOfIntentUrl),
                         new EmailAttachmentDto("Compensation_Card_" + savedHrEntity.getEmployeeId() + ".pdf",
                                 "application/pdf", compensationCardUrl));
-                commsService.sendCommunication(CommonConstants.CommsTriggerPoint.CANDIDATE_SELECTION_MAIL, savedHrEntity.getHrId(), emailAttachmentDtos, null);
+								CommsPayload commsPayload = new CommsPayload();
+								commsPayload.setHrId(savedHrEntity.getHrId());
+                commsService.sendCommunication(CommonConstants.CommsTriggerPoint.CANDIDATE_SELECTION_MAIL, emailAttachmentDtos, commsPayload);
 
                 log.info("Welcome email published to Kafka successfully for employee ID: {}",
                         savedHrEntity.getEmployeeId());

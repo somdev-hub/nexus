@@ -1,28 +1,17 @@
 package com.nexus.hr.service.implementations;
 
-import com.nexus.hr.exception.ResourceNotFoundException;
-import com.nexus.hr.exception.ServiceLevelException;
-import com.nexus.hr.model.entities.*;
-import com.nexus.hr.model.enums.ApplicationStatus;
-import com.nexus.hr.model.enums.HiringStatus;
-import com.nexus.hr.model.enums.HiringType;
-import com.nexus.hr.model.enums.InterviewMode;
-import com.nexus.hr.payload.ApplicantApplication;
-import com.nexus.hr.payload.ApplicantStatusUpdateRequest;
-import com.nexus.hr.payload.response.*;
-import com.nexus.hr.payload.response.CompanyInsightDto.TopOpeningDto;
-import com.nexus.hr.payload.response.CompanyInsightDto.TopRoleDto;
-import com.nexus.hr.payload.response.CompanyInsightDto.StatusBreakdownDto;
-import com.nexus.hr.payload.reflections.ExperienceBucketCount;
-import com.nexus.hr.payload.reflections.OrgOpeningCount;
-import com.nexus.hr.repository.ApplicantRecruitmentMappingRepo;
-import com.nexus.hr.repository.ApplicantRepo;
-import com.nexus.hr.repository.HrEntityRepo;
-import com.nexus.hr.repository.RecruitmentInterviewRepo;
-import com.nexus.hr.repository.RecruitmentRepo;
-import com.nexus.hr.service.interfaces.RecruitmentService;
-import com.nexus.hr.utils.CommonConstants;
-import lombok.RequiredArgsConstructor;
+import java.sql.Timestamp;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.stream.Collectors;
+
 import org.modelmapper.ModelMapper;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -33,14 +22,52 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.ObjectUtils;
 
-import java.sql.Timestamp;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.util.*;
-import java.util.stream.Collectors;
+import com.nexus.hr.exception.ResourceNotFoundException;
+import com.nexus.hr.exception.ServiceLevelException;
+import com.nexus.hr.model.entities.Applicant;
+import com.nexus.hr.model.entities.ApplicantRecruitmentMapping;
+import com.nexus.hr.model.entities.ApplicantRecruitmentMappingStatusHist;
+import com.nexus.hr.model.entities.HrDocument;
+import com.nexus.hr.model.entities.HrEntity;
+import com.nexus.hr.model.entities.Recruitment;
+import com.nexus.hr.model.entities.RecruitmentInterview;
+import com.nexus.hr.model.enums.ApplicationStatus;
+import com.nexus.hr.model.enums.HiringStatus;
+import com.nexus.hr.model.enums.HiringType;
+import com.nexus.hr.model.enums.InterviewMode;
+import com.nexus.hr.payload.ApplicantApplication;
+import com.nexus.hr.payload.ApplicantStatusUpdateRequest;
+import com.nexus.hr.payload.CommsPayload;
+import com.nexus.hr.payload.reflections.ExperienceBucketCount;
+import com.nexus.hr.payload.reflections.OrgOpeningCount;
+import com.nexus.hr.payload.response.ApplicantApplicationResponseDto;
+import com.nexus.hr.payload.response.ApplicationWithStatusResponseDto;
+import com.nexus.hr.payload.response.CompanyInsightDto;
+import com.nexus.hr.payload.response.CompanyInsightDto.StatusBreakdownDto;
+import com.nexus.hr.payload.response.CompanyInsightDto.TopOpeningDto;
+import com.nexus.hr.payload.response.CompanyInsightDto.TopRoleDto;
+import com.nexus.hr.payload.response.CompanyOpeningsCardDto;
+import com.nexus.hr.payload.response.DashboardStatsDto;
+import com.nexus.hr.payload.response.RecruitmentAnalyticsResponseDto;
+import com.nexus.hr.payload.response.RecruitmentApplicantTableResponse;
+import com.nexus.hr.payload.response.RecruitmentApplicantViewDto;
+import com.nexus.hr.payload.response.RecruitmentFilter;
+import com.nexus.hr.payload.response.RecruitmentTableResponse;
+import com.nexus.hr.repository.ApplicantRecruitmentMappingRepo;
+import com.nexus.hr.repository.ApplicantRepo;
+import com.nexus.hr.repository.HrEntityRepo;
+import com.nexus.hr.repository.RecruitmentInterviewRepo;
+import com.nexus.hr.repository.RecruitmentRepo;
+import com.nexus.hr.service.interfaces.CommsService;
+import com.nexus.hr.service.interfaces.RecruitmentService;
+import com.nexus.hr.utils.CommonConstants;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @RequiredArgsConstructor
 @Service
+@Slf4j
 public class RecruitmentServiceImpl implements RecruitmentService {
 
 	private final RecruitmentRepo recruitmentRepo;
@@ -49,6 +76,7 @@ public class RecruitmentServiceImpl implements RecruitmentService {
 	private final ModelMapper modelMapper;
 	private final ApplicantRecruitmentMappingRepo applicantRecruitmentMappingRepo;
 	private final RecruitmentInterviewRepo recruitmentInterviewRepo;
+	private final CommsService commsService;
 
 	@Override
 	public ResponseEntity<?> createRecruitment(Recruitment recruitment, Long empId) {
@@ -1046,7 +1074,7 @@ public class RecruitmentServiceImpl implements RecruitmentService {
 		}
 		try {
 			ApplicantRecruitmentMapping mapping = applicantRecruitmentMappingRepo
-					.findByUserIdAndRecruitmentId(applicantId, recruitmentId)
+					.findByApplicantIdAndRecruitmentId(applicantId, recruitmentId)
 					.orElseThrow(() -> new ResourceNotFoundException(
 							"ApplicantRecruitmentMapping",
 							"applicantId and recruitmentId",
@@ -1113,16 +1141,33 @@ public class RecruitmentServiceImpl implements RecruitmentService {
 
 				// Save interview
 				recruitmentInterviewRepo.save(interview);
+				log.info("Interview saved successfully for mapping ID: {}", mapping.getApplicantRecruitmentMappingId());
+
+				// Send communication to applicant about the interview schedule
+				// Use a separate transaction to avoid rollback issues
+				try {
+					CommsPayload commsPayload = new CommsPayload();
+					commsPayload.setApplicantRecruitmentMappingId(mapping.getApplicantRecruitmentMappingId());
+					commsService.sendCommunication(CommonConstants.CommsTriggerPoint.APPLICANT_INTERVIEW_SCHEDULED,
+							null, commsPayload);
+					log.info("Communication sent successfully for interview scheduled");
+				} catch (Exception e) {
+					// Log the error but do not fail the entire operation
+					log.error("Failed to send communication for applicant interview scheduled: {}", e.getMessage(), e);
+				}
 			}
 
 			// Update the current status
 			mapping.setStatus(status);
 			applicantRecruitmentMappingRepo.save(mapping);
+			log.info("Applicant recruitment status updated successfully to {} for mapping ID: {}", status.name(),
+					mapping.getApplicantRecruitmentMappingId());
 
-			return ResponseEntity.ok("Applicant recruitment status updated successfully to " + status);
+			return ResponseEntity.ok("Applicant recruitment status updated successfully to " + status.name());
 		} catch (ServiceLevelException e) {
 			throw e;
 		} catch (Exception e) {
+			log.error("Error occurred while updating applicant recruitment status: {}", e.getMessage(), e);
 			throw new ServiceLevelException(
 					"RecruitmentService",
 					"Error occurred while updating applicant recruitment status",

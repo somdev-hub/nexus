@@ -6,7 +6,7 @@ import com.nexus.hr.model.enums.InterviewType;
 import lombok.Data;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
+import java.time.LocalTime;
 
 @Data
 public class ApplicantStatusUpdateRequest {
@@ -16,7 +16,7 @@ public class ApplicantStatusUpdateRequest {
 	// Interview details (required when status is INTERVIEW_SCHEDULED)
 	private InterviewType interviewType;
 	private LocalDate interviewDate;
-	private LocalDateTime interviewTime;
+	private LocalTime interviewTime;
 	private String interviewDuration;
 	private InterviewMode interviewMode;
 	private String interviewerEmail;

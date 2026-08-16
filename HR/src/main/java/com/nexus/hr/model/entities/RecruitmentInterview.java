@@ -15,6 +15,7 @@ import com.nexus.hr.model.enums.InterviewType;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 
 @Entity
 @Table(name = "t_recruitment_interview", schema = "hr")
@@ -32,7 +33,7 @@ public class RecruitmentInterview {
 
 	private LocalDate interviewDate;
 
-	private LocalDateTime interviewTime;
+	private LocalTime interviewTime;
 
 	private String interviewDuration;
 

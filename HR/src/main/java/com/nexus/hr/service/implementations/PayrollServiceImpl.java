@@ -974,10 +974,13 @@ public class PayrollServiceImpl implements PayrollService {
                 paymentCompletionHelper.linkPayslipToPayroll(payrollId, payslipResult);
 
                 // Send email notification with payslip
-                commsService.sendCommunication(CommonConstants.CommsTriggerPoint.PAYROLL_MONTHLY, completionData.hrId(), List.of(new EmailAttachmentDto(
+				CommsPayload commsPayload = new CommsPayload();
+				commsPayload.setHrId(completionData.hrId());
+				commsPayload.setPayrollId(payrollId);
+                commsService.sendCommunication(CommonConstants.CommsTriggerPoint.PAYROLL_MONTHLY, List.of(new EmailAttachmentDto(
                         "Payslip_" + completionData.month() + "_" + completionData.year() + ".pdf",
                         "application/pdf",
-                        payslipResult.getDocumentUrl())), payrollId);
+                        payslipResult.getDocumentUrl())), commsPayload);
 //                sendPayslipEmailNotificationAsync(completionData, payslipDto, payslipResult.getDocumentUrl());
             } else {
                 log.error("Failed to generate payslip for employee: {}, error: {}",
