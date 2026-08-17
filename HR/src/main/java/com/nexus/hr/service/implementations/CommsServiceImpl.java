@@ -3,7 +3,6 @@ package com.nexus.hr.service.implementations;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 import org.json.JSONArray;
 import org.springframework.http.ResponseEntity;
@@ -72,16 +71,37 @@ public class CommsServiceImpl implements CommsService {
 		HrCommsConfig hrCommsConfig = hrCommsConfigRepo.findByCommsTriggerPoint(triggerPoint.name()).orElseThrow(
 				() -> new ResourceNotFoundException("CommsTriggerConfig", "triggerPoint", triggerPoint));
 
+		ApplicantRecruitmentMapping applicantRecruitmentMapping = null;
+		if (!ObjectUtils.isEmpty(commsPayload.getApplicantRecruitmentMappingId())) {
+			applicantRecruitmentMapping = applicantRecruitmentMappingRepo
+					.findById(commsPayload.getApplicantRecruitmentMappingId())
+					.orElseThrow(() -> new ResourceNotFoundException("ApplicantRecruitmentMapping", "id",
+							commsPayload.getApplicantRecruitmentMappingId()));
+		}
+
+		RecruitmentInterview recruitmentInterview = null;
+		if (!ObjectUtils.isEmpty(commsPayload.getRecruitmentInterviewId())) {
+			recruitmentInterview = recruitmentInterviewRepo.findById(commsPayload.getRecruitmentInterviewId())
+					.orElseThrow(() -> new ResourceNotFoundException("RecruitmentInterview", "id",
+							commsPayload.getRecruitmentInterviewId()));
+		}
+
+		PaymentCompletionHelper.PaymentCompletionData completionData = null;
+		if (CommonConstants.CommsTriggerPoint.PAYROLL_MONTHLY.name().equals(triggerPoint.name())
+				&& !ObjectUtils.isEmpty(commsPayload.getPayrollId())) {
+			completionData = paymentCompletionHelper.fetchPaymentCompletionData(commsPayload.getPayrollId());
+		}
+
+		Position activePosition = null;
+		if (hrEntity != null) {
+			activePosition = positionRepository.findByHrEntityAndIsActiveTrue(hrEntity).orElse(null);
+		}
+
 		Map<String, String> eventParamsForComms = buildEventParamsForComms(
 				hrCommsConfig.getCommParams(),
 				triggerPoint.name(),
-				commsPayload.getHrId(),
-				commsPayload.getPayrollId(),
-				commsPayload.getApplicantRecruitmentMappingId(),
-				commsPayload.getRecruitmentInterviewId());
-
-		ApplicantRecruitmentMapping applicantRecruitmentMapping = applicantRecruitmentMappingRepo
-				.findById(commsPayload.getApplicantRecruitmentMappingId()).orElse(null);
+				new EventParamsContext(hrEntity, applicantRecruitmentMapping, recruitmentInterview, completionData,
+						activePosition));
 
 		return new CommsContext(
 				triggerPoint,
@@ -121,12 +141,17 @@ public class CommsServiceImpl implements CommsService {
 			emailCommunicationDto.setTemplateName(context.hrCommsConfig().getTemplateName());
 			emailCommunicationDto.setTemplateParams(context.eventParamsForComms());
 			emailCommunicationDto.setCommType(context.hrCommsConfig().getCommType());
-			if(recruitmentComms.contains(context.hrCommsConfig.getCommsTriggerPoint())){
-				emailCommunicationDto.setOrgId(4L);
-			}else{
+			if (recruitmentComms.contains(context.hrCommsConfig.getCommsTriggerPoint())) {
+				emailCommunicationDto.setOrgId(context.applicantRecruitmentMapping().getRecruitment().getOrgId());
+				// only the first word before space
+				emailCommunicationDto.setSenderEmail("hr@"
+						+ context.applicantRecruitmentMapping().getRecruitment().getOrgName().trim().split(" ", 2)[0]
+						+ ".com");
+			} else {
 				emailCommunicationDto.setOrgId(context.hrEntity().getOrg());
+				emailCommunicationDto
+						.setSenderEmail("hr@" + context.hrEntity().getOrgName().trim().split(" ", 2)[0] + ".com");
 			}
-			emailCommunicationDto.setSenderEmail("hr@nexus-corp.com");
 			emailCommunicationDto.setAttachments(context.attachments());
 			communicationService.sendCommunicationOverKafka(emailCommunicationDto);
 		} catch (Exception e) {
@@ -141,16 +166,10 @@ public class CommsServiceImpl implements CommsService {
 				&& !ObjectUtils.isEmpty(applicantRecruitmentMapping.getApplicant().getApplicantEmail());
 	}
 
-	private Map<String, String> buildEventParamsForComms(String commParams, String triggerPoint, Long hrId,
-			Long payrollId, Long applicantRecruitmentMappingId, Long recruitmentInterviewId) {
+	private Map<String, String> buildEventParamsForComms(String commParams, String triggerPoint,
+			EventParamsContext context) {
 		if (ObjectUtils.isEmpty(commParams)) {
 			return Map.of();
-		}
-
-		PaymentCompletionHelper.PaymentCompletionData completionData = null;
-		if (CommonConstants.CommsTriggerPoint.PAYROLL_MONTHLY.name().equals(triggerPoint)
-				&& !ObjectUtils.isEmpty(payrollId)) {
-			completionData = paymentCompletionHelper.fetchPaymentCompletionData(payrollId);
 		}
 
 		JSONArray jsonArray = new JSONArray(commParams);
@@ -158,33 +177,18 @@ public class CommsServiceImpl implements CommsService {
 		for (int i = 0; i < jsonArray.length(); i++) {
 			String key = jsonArray.getJSONObject(i).getString("key");
 			String value = jsonArray.getJSONObject(i).getString("value");
-			populateEventParams(eventParams, triggerPoint, key, value, hrId, completionData,
-					applicantRecruitmentMappingId, recruitmentInterviewId);
+			populateEventParams(eventParams, triggerPoint, key, value, context);
 		}
 		return eventParams;
 	}
 
 	private void populateEventParams(Map<String, String> eventParams, String triggerPoint, String key, String value,
-			Long hrId, PaymentCompletionHelper.PaymentCompletionData completionData, Long applicantRecruitmentMappingId,
-			Long recruitmentInterviewId) {
-		HrEntity hrEntity = null;
-		ApplicantRecruitmentMapping applicantRecruitmentMapping = null;
-		RecruitmentInterview recruitmentInterview = null;
-
-		if (!ObjectUtils.isEmpty(hrId)) {
-			hrEntity = hrEntityRepo.findById(hrId)
-					.orElseThrow(() -> new ResourceNotFoundException("HrEntity", "hrId", hrId));
-		}
-		if (!ObjectUtils.isEmpty(applicantRecruitmentMappingId)) {
-			applicantRecruitmentMapping = applicantRecruitmentMappingRepo.findById(applicantRecruitmentMappingId)
-					.orElseThrow(() -> new ResourceNotFoundException("ApplicantRecruitmentMapping", "id",
-							applicantRecruitmentMappingId));
-		}
-		if (!ObjectUtils.isEmpty(recruitmentInterviewId)) {
-			recruitmentInterview = recruitmentInterviewRepo.findById(recruitmentInterviewId)
-					.orElseThrow(
-							() -> new ResourceNotFoundException("RecruitmentInterview", "id", recruitmentInterviewId));
-		}
+			EventParamsContext context) {
+		HrEntity hrEntity = context.hrEntity();
+		ApplicantRecruitmentMapping applicantRecruitmentMapping = context.applicantRecruitmentMapping();
+		RecruitmentInterview recruitmentInterview = context.recruitmentInterview();
+		PaymentCompletionHelper.PaymentCompletionData completionData = context.completionData();
+		Position activePosition = context.activePosition();
 
 		switch (key) {
 			case "orgName", "organization", "organizationName" -> {
@@ -209,12 +213,14 @@ public class CommsServiceImpl implements CommsService {
 				}
 			}
 			case "department" -> {
-				Optional<Position> position = positionRepository.findByHrEntityAndIsActiveTrue(hrEntity);
-				position.ifPresent(positionObj -> eventParams.put(value, positionObj.getDepartment()));
+				if (activePosition != null) {
+					eventParams.put(value, activePosition.getDepartment());
+				}
 			}
 			case "position" -> {
-				Optional<Position> position = positionRepository.findByHrEntityAndIsActiveTrue(hrEntity);
-				position.ifPresent(positionObj -> eventParams.put(value, positionObj.getTitle()));
+				if (activePosition != null) {
+					eventParams.put(value, activePosition.getTitle());
+				}
 			}
 			case "doj" -> {
 				if (!ObjectUtils.isEmpty(hrEntity)) {
@@ -372,6 +378,14 @@ public class CommsServiceImpl implements CommsService {
 			HrCommsConfig hrCommsConfig,
 			Map<String, String> eventParamsForComms,
 			ApplicantRecruitmentMapping applicantRecruitmentMapping) {
+	}
+
+	private record EventParamsContext(
+			HrEntity hrEntity,
+			ApplicantRecruitmentMapping applicantRecruitmentMapping,
+			RecruitmentInterview recruitmentInterview,
+			PaymentCompletionHelper.PaymentCompletionData completionData,
+			Position activePosition) {
 	}
 }
 /**

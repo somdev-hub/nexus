@@ -254,8 +254,11 @@ public class ApplicantServiceImpl implements ApplicantService {
 						.filter(mapping -> mapping.getRecruitment() != null &&
 								mapping.getRecruitment().getRecruitmentId().equals(recruitmentId))
 						.findFirst()
-						.ifPresent(mapping -> applicantTableResponse
-								.setApplicantRecruitmentMappingId(mapping.getApplicantRecruitmentMappingId()));
+						.ifPresent(mapping -> {
+							applicantTableResponse
+									.setApplicantRecruitmentMappingId(mapping.getApplicantRecruitmentMappingId());
+							applicantTableResponse.setApplicationStatus(mapping.getStatus());
+						});
 				return applicantTableResponse;
 			});
 			return ResponseEntity.ok(applicantTableResponses);

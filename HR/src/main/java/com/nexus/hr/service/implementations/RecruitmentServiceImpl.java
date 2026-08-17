@@ -1082,6 +1082,15 @@ public class RecruitmentServiceImpl implements RecruitmentService {
 
 			ApplicationStatus status = request.getStatus();
 
+			if (mapping.getStatus().equals(status)) {
+				throw new ServiceLevelException(
+						"RecruitmentService",
+						"Applicant already has the same status: " + status.name(),
+						"updateApplicantRecruitmentStatus",
+						"Validation exception",
+						"The applicant already has the requested status: " + status.name());
+			}
+
 			// Create status history entry
 			ApplicantRecruitmentMappingStatusHist statusHist = new ApplicantRecruitmentMappingStatusHist();
 			statusHist.setStatus(status);
@@ -1116,6 +1125,20 @@ public class RecruitmentServiceImpl implements RecruitmentService {
 								"employeeEmail",
 								request.getInterviewerEmail()));
 
+				// Check for existing active interview and mark as inactive (reschedule)
+				List<RecruitmentInterview> existingInterviews = mapping.getInterviews();
+				if (existingInterviews != null) {
+					for (RecruitmentInterview existingInterview : existingInterviews) {
+						if (Boolean.TRUE.equals(existingInterview.getIsActive())) {
+							existingInterview.setIsActive(false);
+							existingInterview.setInterviewStatus(com.nexus.hr.model.enums.InterviewStatus.RESCHEDULED);
+							recruitmentInterviewRepo.save(existingInterview);
+							log.info("Previous interview marked as inactive for reschedule, mapping ID: {}",
+									mapping.getApplicantRecruitmentMappingId());
+						}
+					}
+				}
+
 				// Create interview entity
 				RecruitmentInterview interview = new RecruitmentInterview();
 				interview.setInterviewType(request.getInterviewType());
@@ -1133,10 +1156,12 @@ public class RecruitmentServiceImpl implements RecruitmentService {
 				interview.setInterviewConfirmationDeadline(LocalDateTime.now().plusDays(2));
 				interview.setInterviewStatus(com.nexus.hr.model.enums.InterviewStatus.SCHEDULED);
 				interview.setApplicantRecruitmentMapping(mapping);
+				interview.setIsActive(true);
 
 				// Set interviewer if provided
 				if (hrEntity != null) {
 					interview.setInterviewer(hrEntity);
+					interview.setInterviewerName(hrEntity.getEmployeeName());
 				}
 
 				// Save interview
@@ -1148,6 +1173,7 @@ public class RecruitmentServiceImpl implements RecruitmentService {
 				try {
 					CommsPayload commsPayload = new CommsPayload();
 					commsPayload.setApplicantRecruitmentMappingId(mapping.getApplicantRecruitmentMappingId());
+					commsPayload.setRecruitmentInterviewId(interview.getRecruitmentInterviewId());
 					commsService.sendCommunication(CommonConstants.CommsTriggerPoint.APPLICANT_INTERVIEW_SCHEDULED,
 							null, commsPayload);
 					log.info("Communication sent successfully for interview scheduled");

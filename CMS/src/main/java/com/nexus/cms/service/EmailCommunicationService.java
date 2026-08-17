@@ -44,7 +44,6 @@ public class EmailCommunicationService {
     private final EventTemplateRepo eventTemplateRepo;
     private final RestTemplate restTemplate;
 
-    @SuppressWarnings("unchecked")
     public void handleEmailCommunication(String message) {
         JSONObject kafkaContent = null;
         EmailCommunicationDto emailCommunicationDto = null;
