@@ -76,4 +76,11 @@ public interface RecruitmentService {
 	ResponseEntity<?> getApplicantByRecruitmentMapping(Long applicantId, Long recruitmentId);
 
 	ResponseEntity<?> updateApplicantRecruitmentStatus(Long applicantId, Long recruitmentId, String request);
+
+	// Interview listing endpoints
+	ResponseEntity<?> getAllScheduledInterviews(Long orgId, Integer pageNo, Integer pageOffset,
+			String interviewType, String interviewMode, String startDate, String endDate);
+
+	ResponseEntity<?> getMyInterviews(Long orgId, String interviewerEmail, Integer pageNo, Integer pageOffset,
+			String interviewType, String interviewMode, String startDate, String endDate);
 }

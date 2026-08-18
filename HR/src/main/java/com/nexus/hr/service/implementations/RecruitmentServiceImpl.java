@@ -53,6 +53,7 @@ import com.nexus.hr.payload.response.RecruitmentApplicantTableResponse;
 import com.nexus.hr.payload.response.RecruitmentApplicantViewDto;
 import com.nexus.hr.payload.response.RecruitmentFilter;
 import com.nexus.hr.payload.response.RecruitmentTableResponse;
+import com.nexus.hr.payload.response.ScheduledInterviewResponse;
 import com.nexus.hr.repository.ApplicantRecruitmentMappingRepo;
 import com.nexus.hr.repository.ApplicantRepo;
 import com.nexus.hr.repository.HrEntityRepo;
@@ -843,6 +844,10 @@ public class RecruitmentServiceImpl implements RecruitmentService {
 					.filter(doc -> Objects.equals(doc.getHrDocumentType(), CommonConstants.RESUME)).findFirst()
 					.map(HrDocument::getDocumentName).orElse(null));
 			dto.setStatusHistList(mapping.getStatusHistory());
+			// Include interviews (only active ones)
+			dto.setInterviews(mapping.getInterviews().stream()
+					.filter(interview -> Boolean.TRUE.equals(interview.getIsActive()))
+					.toList());
 
 			return ResponseEntity.ok(dto);
 		} catch (Exception e) {
@@ -1201,5 +1206,102 @@ public class RecruitmentServiceImpl implements RecruitmentService {
 					"Service level exception",
 					e.getMessage());
 		}
+	}
+
+	@Override
+	public ResponseEntity<?> getAllScheduledInterviews(Long orgId, Integer pageNo, Integer pageOffset,
+			String interviewType, String interviewMode, String startDate, String endDate) {
+		if (ObjectUtils.isEmpty(orgId)) {
+			throw new ServiceLevelException(
+					"RecruitmentService",
+					"Organization ID is required",
+					"getAllScheduledInterviews",
+					"Missing required data exception",
+					"Organization ID is required");
+		}
+
+		try {
+			Pageable pageable = PageRequest.of(pageNo != null ? pageNo : 0, pageOffset != null ? pageOffset : 10);
+			Page<RecruitmentInterview> interviewsPage = recruitmentInterviewRepo
+					.findAllScheduledInterviewsByOrg(orgId, interviewType, interviewMode, startDate, endDate, pageable);
+
+			List<ScheduledInterviewResponse> response = interviewsPage.getContent().stream()
+					.map(this::mapToScheduledInterviewResponse)
+					.collect(Collectors.toList());
+
+			return ResponseEntity.ok(new PageImpl<>(response, pageable, interviewsPage.getTotalElements()));
+		} catch (Exception e) {
+			log.error("Error fetching all scheduled interviews: {}", e.getMessage(), e);
+			throw new ServiceLevelException(
+					"RecruitmentService",
+					"Error fetching all scheduled interviews",
+					"getAllScheduledInterviews",
+					"Service level exception",
+					e.getMessage());
+		}
+	}
+
+	@Override
+	public ResponseEntity<?> getMyInterviews(Long orgId, String interviewerEmail, Integer pageNo, Integer pageOffset,
+			String interviewType, String interviewMode, String startDate, String endDate) {
+		if (ObjectUtils.isEmpty(orgId) || ObjectUtils.isEmpty(interviewerEmail)) {
+			throw new ServiceLevelException(
+					"RecruitmentService",
+					"Organization ID and interviewer email are required",
+					"getMyInterviews",
+					"Missing required data exception",
+					"Organization ID and interviewer email are required");
+		}
+
+		try {
+			Pageable pageable = PageRequest.of(pageNo != null ? pageNo : 0, pageOffset != null ? pageOffset : 10);
+			Page<RecruitmentInterview> interviewsPage = recruitmentInterviewRepo
+					.findMyInterviewsByOrgAndInterviewer(orgId, interviewerEmail, interviewType, interviewMode,
+							startDate, endDate, pageable);
+
+			List<ScheduledInterviewResponse> response = interviewsPage.getContent().stream()
+					.map(this::mapToScheduledInterviewResponse)
+					.collect(Collectors.toList());
+
+			return ResponseEntity.ok(new PageImpl<>(response, pageable, interviewsPage.getTotalElements()));
+		} catch (Exception e) {
+			log.error("Error fetching my interviews: {}", e.getMessage(), e);
+			throw new ServiceLevelException(
+					"RecruitmentService",
+					"Error fetching my interviews",
+					"getMyInterviews",
+					"Service level exception",
+					e.getMessage());
+		}
+	}
+
+	private ScheduledInterviewResponse mapToScheduledInterviewResponse(RecruitmentInterview interview) {
+		ScheduledInterviewResponse response = new ScheduledInterviewResponse();
+		response.setRecruitmentInterviewId(interview.getRecruitmentInterviewId());
+		response.setApplicantRecruitmentMappingId(
+				interview.getApplicantRecruitmentMapping().getApplicantRecruitmentMappingId());
+		response.setApplicantId(interview.getApplicantRecruitmentMapping().getApplicant().getApplicantId());
+		response.setApplicantName(interview.getApplicantRecruitmentMapping().getApplicant().getApplicantFirstName()
+				+ " " + interview.getApplicantRecruitmentMapping().getApplicant().getApplicantLastName());
+		response.setApplicantEmail(interview.getApplicantRecruitmentMapping().getApplicant().getApplicantEmail());
+		response.setRecruitmentId(interview.getApplicantRecruitmentMapping().getRecruitment().getRecruitmentId());
+		response.setRecruitmentTitle(interview.getApplicantRecruitmentMapping().getRecruitment().getTitle());
+		response.setRoleName(interview.getApplicantRecruitmentMapping().getRecruitment().getRoleName());
+		response.setDepartmentName(interview.getApplicantRecruitmentMapping().getRecruitment().getDepartmentName());
+		response.setInterviewType(interview.getInterviewType());
+		response.setInterviewDate(interview.getInterviewDate());
+		response.setInterviewTime(interview.getInterviewTime());
+		response.setInterviewDuration(interview.getInterviewDuration());
+		response.setInterviewMode(interview.getInterviewMode());
+		response.setInterviewLocation(interview.getInterviewLocation());
+		response.setInterviewUrl(interview.getInterviewUrl());
+		response.setInterviewerName(interview.getInterviewerName());
+		response.setInterviewerEmail(
+				interview.getInterviewer() != null ? interview.getInterviewer().getEmployeeEmail() : null);
+		response.setInterviewStatus(interview.getInterviewStatus());
+		response.setIsActive(interview.getIsActive());
+		response.setCreatedAt(interview.getCreatedAt());
+		response.setUpdatedAt(interview.getUpdatedAt());
+		return response;
 	}
 }

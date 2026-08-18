@@ -180,4 +180,56 @@ public class RecruitmentController {
 		return recruitmentService.updateApplicantRecruitmentStatus(applicantId, recruitmentId, request);
 	}
 
+	/**
+	 * Get all scheduled interviews for an organization
+	 *
+	 * @param orgId         Organization ID
+	 * @param pageNo        Page number (default 0)
+	 * @param pageOffset    Page size (default 10)
+	 * @param interviewType Filter by interview type
+	 * @param interviewMode Filter by interview mode
+	 * @param startDate     Filter by start date (yyyy-MM-dd)
+	 * @param endDate       Filter by end date (yyyy-MM-dd)
+	 * @return Paginated list of scheduled interviews
+	 */
+	@GetMapping("/interviews/scheduled")
+	public ResponseEntity<?> getAllScheduledInterviews(
+			@RequestParam Long orgId,
+			@RequestParam(required = false, defaultValue = "0") Integer pageNo,
+			@RequestParam(required = false, defaultValue = "10") Integer pageOffset,
+			@RequestParam(required = false) String interviewType,
+			@RequestParam(required = false) String interviewMode,
+			@RequestParam(required = false) String startDate,
+			@RequestParam(required = false) String endDate) {
+		return recruitmentService.getAllScheduledInterviews(orgId, pageNo, pageOffset, interviewType, interviewMode,
+				startDate, endDate);
+	}
+
+	/**
+	 * Get interviews where the current user is the interviewer
+	 *
+	 * @param orgId            Organization ID
+	 * @param interviewerEmail Interviewer email
+	 * @param pageNo           Page number (default 0)
+	 * @param pageOffset       Page size (default 10)
+	 * @param interviewType    Filter by interview type
+	 * @param interviewMode    Filter by interview mode
+	 * @param startDate        Filter by start date (yyyy-MM-dd)
+	 * @param endDate          Filter by end date (yyyy-MM-dd)
+	 * @return Paginated list of interviews for the interviewer
+	 */
+	@GetMapping("/interviews/my-interviews")
+	public ResponseEntity<?> getMyInterviews(
+			@RequestParam Long orgId,
+			@RequestParam String interviewerEmail,
+			@RequestParam(required = false, defaultValue = "0") Integer pageNo,
+			@RequestParam(required = false, defaultValue = "10") Integer pageOffset,
+			@RequestParam(required = false) String interviewType,
+			@RequestParam(required = false) String interviewMode,
+			@RequestParam(required = false) String startDate,
+			@RequestParam(required = false) String endDate) {
+		return recruitmentService.getMyInterviews(orgId, interviewerEmail, pageNo, pageOffset, interviewType,
+				interviewMode, startDate, endDate);
+	}
+
 }

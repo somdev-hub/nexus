@@ -1,6 +1,7 @@
 package com.nexus.hr.payload.response;
 
 import com.nexus.hr.model.entities.ApplicantRecruitmentMappingStatusHist;
+import com.nexus.hr.model.entities.RecruitmentInterview;
 import lombok.Data;
 
 import java.sql.Timestamp;
@@ -17,4 +18,5 @@ public class ApplicationWithStatusResponseDto {
     private Timestamp appliedOn;
     private String resumeSubmitted;
     private List<ApplicantRecruitmentMappingStatusHist> statusHistList;
+    private List<RecruitmentInterview> interviews;
 }

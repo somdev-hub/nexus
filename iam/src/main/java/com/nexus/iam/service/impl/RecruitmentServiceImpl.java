@@ -755,4 +755,69 @@ public class RecruitmentServiceImpl implements RecruitmentService {
 		}
 		return response;
 	}
+
+	@Override
+	public ResponseEntity<?> getAllScheduledInterviews(Long orgId, Integer pageNo, Integer pageOffset,
+			String interviewType, String interviewMode, String startDate, String endDate) {
+		UriComponentsBuilder builder = UriComponentsBuilder
+				.fromUriString(webConstants.getHrRecruitmentUrl() + "/interviews/scheduled")
+				.queryParam("orgId", orgId)
+				.queryParam("pageNo", pageNo != null ? pageNo : 0)
+				.queryParam("pageOffset", pageOffset != null ? pageOffset : 10);
+		if (interviewType != null)
+			builder.queryParam("interviewType", interviewType);
+		if (interviewMode != null)
+			builder.queryParam("interviewMode", interviewMode);
+		if (startDate != null)
+			builder.queryParam("startDate", startDate);
+		if (endDate != null)
+			builder.queryParam("endDate", endDate);
+
+		Map<String, String> headers = new HashMap<>();
+		headers.put(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
+		ResponseEntity<String> response = restService.iamRestCall(builder.toUriString(), null, headers,
+				HttpMethod.GET, null);
+		if (!response.getStatusCode().is2xxSuccessful()) {
+			throw new ServiceLevelException(
+					"RecruitmentService",
+					"Failed to fetch all scheduled interviews",
+					"getAllScheduledInterviews",
+					response.getStatusCode().toString(),
+					response.getBody() != null ? response.getBody() : "No response body");
+		}
+		return response;
+	}
+
+	@Override
+	public ResponseEntity<?> getMyInterviews(Long orgId, String interviewerEmail, Integer pageNo, Integer pageOffset,
+			String interviewType, String interviewMode, String startDate, String endDate) {
+		UriComponentsBuilder builder = UriComponentsBuilder
+				.fromUriString(webConstants.getHrRecruitmentUrl() + "/interviews/my-interviews")
+				.queryParam("orgId", orgId)
+				.queryParam("interviewerEmail", interviewerEmail)
+				.queryParam("pageNo", pageNo != null ? pageNo : 0)
+				.queryParam("pageOffset", pageOffset != null ? pageOffset : 10);
+		if (interviewType != null)
+			builder.queryParam("interviewType", interviewType);
+		if (interviewMode != null)
+			builder.queryParam("interviewMode", interviewMode);
+		if (startDate != null)
+			builder.queryParam("startDate", startDate);
+		if (endDate != null)
+			builder.queryParam("endDate", endDate);
+
+		Map<String, String> headers = new HashMap<>();
+		headers.put(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
+		ResponseEntity<String> response = restService.iamRestCall(builder.toUriString(), null, headers,
+				HttpMethod.GET, null);
+		if (!response.getStatusCode().is2xxSuccessful()) {
+			throw new ServiceLevelException(
+					"RecruitmentService",
+					"Failed to fetch my interviews",
+					"getMyInterviews",
+					response.getStatusCode().toString(),
+					response.getBody() != null ? response.getBody() : "No response body");
+		}
+		return response;
+	}
 }

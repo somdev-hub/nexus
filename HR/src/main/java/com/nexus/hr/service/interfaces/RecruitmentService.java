@@ -8,6 +8,7 @@ import com.nexus.hr.payload.ApplicantApplication;
 import com.nexus.hr.payload.ApplicantStatusUpdateRequest;
 import com.nexus.hr.payload.response.CompanyInsightDto;
 import com.nexus.hr.payload.response.DashboardStatsDto;
+import com.nexus.hr.payload.response.ScheduledInterviewResponse;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
@@ -65,4 +66,11 @@ public interface RecruitmentService {
 
 	ResponseEntity<?> updateApplicantRecruitmentStatus(Long applicantId, Long recruitmentId,
 			ApplicantStatusUpdateRequest request);
+
+	// Interview listing APIs
+	ResponseEntity<?> getAllScheduledInterviews(Long orgId, Integer pageNo, Integer pageOffset,
+			String interviewType, String interviewMode, String startDate, String endDate);
+
+	ResponseEntity<?> getMyInterviews(Long orgId, String interviewerEmail, Integer pageNo, Integer pageOffset,
+			String interviewType, String interviewMode, String startDate, String endDate);
 }
