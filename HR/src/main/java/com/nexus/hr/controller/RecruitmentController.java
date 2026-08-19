@@ -232,4 +232,32 @@ public class RecruitmentController {
 				interviewMode, startDate, endDate);
 	}
 
+	// Bookmark endpoints
+	@PostMapping("/bookmark")
+	public ResponseEntity<?> bookmarkRecruitment(@RequestParam Long recruitmentId, @RequestParam Long userId) {
+		return recruitmentService.bookmarkRecruitment(recruitmentId, userId);
+	}
+
+	@DeleteMapping("/bookmark")
+	public ResponseEntity<?> unbookmarkRecruitment(@RequestParam Long recruitmentId, @RequestParam Long userId) {
+		return recruitmentService.unbookmarkRecruitment(recruitmentId, userId);
+	}
+
+	@GetMapping("/bookmark/status")
+	public ResponseEntity<?> hasBookmarkedRecruitment(@RequestParam Long recruitmentId, @RequestParam Long userId) {
+		return recruitmentService.hasBookmarkedRecruitment(recruitmentId, userId);
+	}
+
+	@GetMapping("/bookmark/count")
+	public ResponseEntity<?> getBookmarkCount(@RequestParam Long recruitmentId) {
+		return recruitmentService.getBookmarkCount(recruitmentId);
+	}
+
+	@GetMapping("/bookmarks")
+	public ResponseEntity<?> getBookmarkedRecruitments(@RequestParam Long userId,
+			@RequestParam(required = false, defaultValue = "0") Integer pageNo,
+			@RequestParam(required = false, defaultValue = "10") Integer pageOffset) {
+		return recruitmentService.getBookmarkedRecruitments(userId, pageNo, pageOffset);
+	}
+
 }

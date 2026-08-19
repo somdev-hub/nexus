@@ -10,6 +10,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.modelmapper.ModelMapper;
@@ -25,6 +26,7 @@ import org.springframework.util.ObjectUtils;
 import com.nexus.hr.exception.ResourceNotFoundException;
 import com.nexus.hr.exception.ServiceLevelException;
 import com.nexus.hr.model.entities.Applicant;
+import com.nexus.hr.model.entities.ApplicantBookmarkRecruitment;
 import com.nexus.hr.model.entities.ApplicantRecruitmentMapping;
 import com.nexus.hr.model.entities.ApplicantRecruitmentMappingStatusHist;
 import com.nexus.hr.model.entities.HrDocument;
@@ -54,6 +56,7 @@ import com.nexus.hr.payload.response.RecruitmentApplicantViewDto;
 import com.nexus.hr.payload.response.RecruitmentFilter;
 import com.nexus.hr.payload.response.RecruitmentTableResponse;
 import com.nexus.hr.payload.response.ScheduledInterviewResponse;
+import com.nexus.hr.repository.ApplicantBookmarkRecruitmentRepo;
 import com.nexus.hr.repository.ApplicantRecruitmentMappingRepo;
 import com.nexus.hr.repository.ApplicantRepo;
 import com.nexus.hr.repository.HrEntityRepo;
@@ -77,6 +80,7 @@ public class RecruitmentServiceImpl implements RecruitmentService {
 	private final ModelMapper modelMapper;
 	private final ApplicantRecruitmentMappingRepo applicantRecruitmentMappingRepo;
 	private final RecruitmentInterviewRepo recruitmentInterviewRepo;
+	private final ApplicantBookmarkRecruitmentRepo applicantBookmarkRecruitmentRepo;
 	private final CommsService commsService;
 
 	@Override
@@ -1270,6 +1274,181 @@ public class RecruitmentServiceImpl implements RecruitmentService {
 					"RecruitmentService",
 					"Error fetching my interviews",
 					"getMyInterviews",
+					"Service level exception",
+					e.getMessage());
+		}
+	}
+
+	@Override
+	@Transactional
+	public ResponseEntity<?> bookmarkRecruitment(Long recruitmentId, Long userId) {
+		if (ObjectUtils.isEmpty(recruitmentId) || ObjectUtils.isEmpty(userId)) {
+			throw new ServiceLevelException(
+					"RecruitmentService",
+					"Recruitment ID and User ID are required",
+					"bookmarkRecruitment",
+					"Missing required data exception",
+					"Recruitment ID and User ID are required");
+		}
+		try {
+			// Check if recruitment exists
+			Recruitment recruitment = recruitmentRepo.findById(recruitmentId)
+					.orElseThrow(() -> new ResourceNotFoundException("Recruitment", "recruitmentId", recruitmentId.toString()));
+
+			// Check if applicant exists
+			Applicant applicant = applicantRepo.findByUserId(userId)
+					.orElseThrow(() -> new ResourceNotFoundException("Applicant", "userId", userId.toString()));
+
+			// Check if already bookmarked
+			if (applicantBookmarkRecruitmentRepo.findByApplicantUserIdAndRecruitmentRecruitmentIdAndIsActiveTrue(userId, recruitmentId).isPresent()) {
+				return ResponseEntity.badRequest().body(Map.of("error", "Recruitment already bookmarked"));
+			}
+
+			// Create bookmark
+			ApplicantBookmarkRecruitment bookmark = new ApplicantBookmarkRecruitment();
+			bookmark.setApplicant(applicant);
+			bookmark.setRecruitment(recruitment);
+			applicantBookmarkRecruitmentRepo.save(bookmark);
+
+			return ResponseEntity.ok(Map.of("message", "Recruitment bookmarked successfully", "bookmarked", true));
+		} catch (ResourceNotFoundException e) {
+			throw e;
+		} catch (Exception e) {
+			log.error("Error occurred while bookmarking recruitment: {}", e.getMessage(), e);
+			throw new ServiceLevelException(
+					"RecruitmentService",
+					"Error occurred while bookmarking recruitment",
+					"bookmarkRecruitment",
+					"Service level exception",
+					e.getMessage());
+		}
+	}
+
+	@Override
+	@Transactional
+	public ResponseEntity<?> unbookmarkRecruitment(Long recruitmentId, Long userId) {
+		if (ObjectUtils.isEmpty(recruitmentId) || ObjectUtils.isEmpty(userId)) {
+			throw new ServiceLevelException(
+					"RecruitmentService",
+					"Recruitment ID and User ID are required",
+					"unbookmarkRecruitment",
+					"Missing required data exception",
+					"Recruitment ID and User ID are required");
+		}
+		try {
+			Optional<ApplicantBookmarkRecruitment> bookmarkOpt = applicantBookmarkRecruitmentRepo
+					.findByApplicantUserIdAndRecruitmentRecruitmentIdAndIsActiveTrue(userId, recruitmentId);
+
+			if (bookmarkOpt.isEmpty()) {
+				return ResponseEntity.badRequest().body(Map.of("error", "Bookmark not found"));
+			}
+
+			ApplicantBookmarkRecruitment bookmark = bookmarkOpt.get();
+			bookmark.setIsActive(false);
+			applicantBookmarkRecruitmentRepo.save(bookmark);
+
+			return ResponseEntity.ok(Map.of("message", "Bookmark removed successfully", "bookmarked", false));
+		} catch (Exception e) {
+			log.error("Error occurred while removing bookmark: {}", e.getMessage(), e);
+			throw new ServiceLevelException(
+					"RecruitmentService",
+					"Error occurred while removing bookmark",
+					"unbookmarkRecruitment",
+					"Service level exception",
+					e.getMessage());
+		}
+	}
+
+	@Override
+	public ResponseEntity<?> hasBookmarkedRecruitment(Long recruitmentId, Long userId) {
+		if (ObjectUtils.isEmpty(recruitmentId) || ObjectUtils.isEmpty(userId)) {
+			throw new ServiceLevelException(
+					"RecruitmentService",
+					"Recruitment ID and User ID are required",
+					"hasBookmarkedRecruitment",
+					"Missing required data exception",
+					"Recruitment ID and User ID are required");
+		}
+		try {
+			boolean hasBookmarked = applicantBookmarkRecruitmentRepo
+					.findByApplicantUserIdAndRecruitmentRecruitmentIdAndIsActiveTrue(userId, recruitmentId).isPresent();
+
+			return ResponseEntity.ok(Map.of("hasBookmarked", hasBookmarked));
+		} catch (Exception e) {
+			log.error("Error checking bookmark status: {}", e.getMessage(), e);
+			throw new ServiceLevelException(
+					"RecruitmentService",
+					"Error checking bookmark status",
+					"hasBookmarkedRecruitment",
+					"Service level exception",
+					e.getMessage());
+		}
+	}
+
+	@Override
+	public ResponseEntity<?> getBookmarkedRecruitments(Long userId, Integer pageNo, Integer pageOffset) {
+		if (ObjectUtils.isEmpty(userId)) {
+			throw new ServiceLevelException(
+					"RecruitmentService",
+					"User ID is required",
+					"getBookmarkedRecruitments",
+					"Missing required data exception",
+					"User ID is required");
+		}
+		try {
+			Pageable pageable = PageRequest.of(pageNo != null ? pageNo : 0, pageOffset != null ? pageOffset : 10);
+			Page<ApplicantBookmarkRecruitment> bookmarksPage = applicantBookmarkRecruitmentRepo
+					.findByApplicantUserIdAndIsActiveTrue(userId, pageable);
+
+			List<Map<String, Object>> response = bookmarksPage.getContent().stream()
+					.map(bookmark -> {
+						Recruitment r = bookmark.getRecruitment();
+						Map<String, Object> map = new HashMap<>();
+						map.put("recruitmentId", r.getRecruitmentId());
+						map.put("title", r.getTitle());
+						map.put("shortDescription", r.getShortDescription());
+						map.put("orgName", r.getOrgName());
+						map.put("location", r.getLocation());
+						map.put("hiringType", r.getHiringType());
+						map.put("hiringStatus", r.getHiringStatus());
+						map.put("totalCompensation", r.getTotalCompensation());
+						map.put("openingTillDate", r.getOpeningTillDate());
+						map.put("bookmarkedAt", bookmark.getCreatedAt());
+						return map;
+					})
+					.collect(Collectors.toList());
+
+			return ResponseEntity.ok(new PageImpl<>(response, pageable, bookmarksPage.getTotalElements()));
+		} catch (Exception e) {
+			log.error("Error fetching bookmarked recruitments: {}", e.getMessage(), e);
+			throw new ServiceLevelException(
+					"RecruitmentService",
+					"Error fetching bookmarked recruitments",
+					"getBookmarkedRecruitments",
+					"Service level exception",
+					e.getMessage());
+		}
+	}
+
+	@Override
+	public ResponseEntity<?> getBookmarkCount(Long recruitmentId) {
+		if (ObjectUtils.isEmpty(recruitmentId)) {
+			throw new ServiceLevelException(
+					"RecruitmentService",
+					"Recruitment ID is required",
+					"getBookmarkCount",
+					"Missing required data exception",
+					"Recruitment ID is required");
+		}
+		try {
+			Long count = applicantBookmarkRecruitmentRepo.countByRecruitmentRecruitmentIdAndIsActiveTrue(recruitmentId);
+			return ResponseEntity.ok(Map.of("bookmarkCount", count));
+		} catch (Exception e) {
+			log.error("Error fetching bookmark count: {}", e.getMessage(), e);
+			throw new ServiceLevelException(
+					"RecruitmentService",
+					"Error fetching bookmark count",
+					"getBookmarkCount",
 					"Service level exception",
 					e.getMessage());
 		}

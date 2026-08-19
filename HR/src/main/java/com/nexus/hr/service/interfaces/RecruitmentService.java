@@ -14,6 +14,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 
 import java.util.List;
+import java.util.Map;
 
 public interface RecruitmentService {
 	ResponseEntity<?> createRecruitment(Recruitment recruitment, Long empId);
@@ -73,4 +74,15 @@ public interface RecruitmentService {
 
 	ResponseEntity<?> getMyInterviews(Long orgId, String interviewerEmail, Integer pageNo, Integer pageOffset,
 			String interviewType, String interviewMode, String startDate, String endDate);
+
+	// Bookmark APIs
+	ResponseEntity<?> bookmarkRecruitment(Long recruitmentId, Long userId);
+
+	ResponseEntity<?> unbookmarkRecruitment(Long recruitmentId, Long userId);
+
+	ResponseEntity<?> hasBookmarkedRecruitment(Long recruitmentId, Long userId);
+
+	ResponseEntity<?> getBookmarkedRecruitments(Long userId, Integer pageNo, Integer pageOffset);
+
+	ResponseEntity<?> getBookmarkCount(Long recruitmentId);
 }

@@ -83,4 +83,15 @@ public interface RecruitmentService {
 
 	ResponseEntity<?> getMyInterviews(Long orgId, String interviewerEmail, Integer pageNo, Integer pageOffset,
 			String interviewType, String interviewMode, String startDate, String endDate);
+
+	// Bookmark endpoints
+	ResponseEntity<?> bookmarkRecruitment(Long recruitmentId, Long userId);
+
+	ResponseEntity<?> unbookmarkRecruitment(Long recruitmentId, Long userId);
+
+	ResponseEntity<?> hasBookmarkedRecruitment(Long recruitmentId, Long userId);
+
+	ResponseEntity<?> getBookmarkedRecruitments(Long userId, Integer pageNo, Integer pageOffset);
+
+	ResponseEntity<?> getBookmarkCount(Long recruitmentId);
 }

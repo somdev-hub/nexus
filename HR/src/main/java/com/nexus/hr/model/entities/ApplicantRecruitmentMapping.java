@@ -1,7 +1,6 @@
 package com.nexus.hr.model.entities;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 import com.nexus.hr.model.enums.ApplicationStatus;
 import jakarta.persistence.*;
@@ -32,7 +31,7 @@ public class ApplicantRecruitmentMapping {
 
 	@ManyToOne
 	@JoinColumn(name = "recruitment_recruitment_id")
-	@JsonIgnoreProperties("applicantRecruitmentMappings")
+	@JsonBackReference("recruitment-applicantRecruitmentMappings")
 	@ToString.Exclude
 	@EqualsAndHashCode.Exclude
 	private Recruitment recruitment;

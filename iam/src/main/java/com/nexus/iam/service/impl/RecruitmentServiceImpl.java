@@ -820,4 +820,109 @@ public class RecruitmentServiceImpl implements RecruitmentService {
 		}
 		return response;
 	}
+
+	@Override
+	public ResponseEntity<?> bookmarkRecruitment(Long recruitmentId, Long userId) {
+		UriComponentsBuilder builder = UriComponentsBuilder
+				.fromUriString(webConstants.getHrRecruitmentUrl() + "/bookmark")
+				.queryParam("recruitmentId", recruitmentId)
+				.queryParam("userId", userId);
+		Map<String, String> headers = new HashMap<>();
+		headers.put(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
+		ResponseEntity<String> response = restService.iamRestCall(builder.toUriString(), null, headers,
+				HttpMethod.POST, null);
+		if (!response.getStatusCode().is2xxSuccessful()) {
+			throw new ServiceLevelException(
+					"RecruitmentService",
+					"Failed to bookmark recruitment",
+					"bookmarkRecruitment",
+					response.getStatusCode().toString(),
+					response.getBody() != null ? response.getBody() : "No response body");
+		}
+		return response;
+	}
+
+	@Override
+	public ResponseEntity<?> unbookmarkRecruitment(Long recruitmentId, Long userId) {
+		UriComponentsBuilder builder = UriComponentsBuilder
+				.fromUriString(webConstants.getHrRecruitmentUrl() + "/bookmark")
+				.queryParam("recruitmentId", recruitmentId)
+				.queryParam("userId", userId);
+		Map<String, String> headers = new HashMap<>();
+		headers.put(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
+		ResponseEntity<String> response = restService.iamRestCall(builder.toUriString(), null, headers,
+				HttpMethod.DELETE, null);
+		if (!response.getStatusCode().is2xxSuccessful()) {
+			throw new ServiceLevelException(
+					"RecruitmentService",
+					"Failed to unbookmark recruitment",
+					"unbookmarkRecruitment",
+					response.getStatusCode().toString(),
+					response.getBody() != null ? response.getBody() : "No response body");
+		}
+		return response;
+	}
+
+	@Override
+	public ResponseEntity<?> hasBookmarkedRecruitment(Long recruitmentId, Long userId) {
+		UriComponentsBuilder builder = UriComponentsBuilder
+				.fromUriString(webConstants.getHrRecruitmentUrl() + "/bookmark/status")
+				.queryParam("recruitmentId", recruitmentId)
+				.queryParam("userId", userId);
+		Map<String, String> headers = new HashMap<>();
+		headers.put(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
+		ResponseEntity<String> response = restService.iamRestCall(builder.toUriString(), null, headers,
+				HttpMethod.GET, null);
+		if (!response.getStatusCode().is2xxSuccessful()) {
+			throw new ServiceLevelException(
+					"RecruitmentService",
+					"Failed to check bookmark status",
+					"hasBookmarkedRecruitment",
+					response.getStatusCode().toString(),
+					response.getBody() != null ? response.getBody() : "No response body");
+		}
+		return response;
+	}
+
+	@Override
+	public ResponseEntity<?> getBookmarkedRecruitments(Long userId, Integer pageNo, Integer pageOffset) {
+		UriComponentsBuilder builder = UriComponentsBuilder
+				.fromUriString(webConstants.getHrRecruitmentUrl() + "/bookmarks")
+				.queryParam("userId", userId)
+				.queryParam("pageNo", pageNo != null ? pageNo : 0)
+				.queryParam("pageOffset", pageOffset != null ? pageOffset : 10);
+		Map<String, String> headers = new HashMap<>();
+		headers.put(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
+		ResponseEntity<String> response = restService.iamRestCall(builder.toUriString(), null, headers,
+				HttpMethod.GET, null);
+		if (!response.getStatusCode().is2xxSuccessful()) {
+			throw new ServiceLevelException(
+					"RecruitmentService",
+					"Failed to fetch bookmarked recruitments",
+					"getBookmarkedRecruitments",
+					response.getStatusCode().toString(),
+					response.getBody() != null ? response.getBody() : "No response body");
+		}
+		return response;
+	}
+
+	@Override
+	public ResponseEntity<?> getBookmarkCount(Long recruitmentId) {
+		UriComponentsBuilder builder = UriComponentsBuilder
+				.fromUriString(webConstants.getHrRecruitmentUrl() + "/bookmark/count")
+				.queryParam("recruitmentId", recruitmentId);
+		Map<String, String> headers = new HashMap<>();
+		headers.put(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
+		ResponseEntity<String> response = restService.iamRestCall(builder.toUriString(), null, headers,
+				HttpMethod.GET, null);
+		if (!response.getStatusCode().is2xxSuccessful()) {
+			throw new ServiceLevelException(
+					"RecruitmentService",
+					"Failed to fetch bookmark count",
+					"getBookmarkCount",
+					response.getStatusCode().toString(),
+					response.getBody() != null ? response.getBody() : "No response body");
+		}
+		return response;
+	}
 }

@@ -28,6 +28,7 @@ import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
+import lombok.ToString;
 
 @Data
 @Entity
@@ -77,13 +78,20 @@ public class Recruitment {
 
     @OneToMany(cascade = CascadeType.ALL, mappedBy = "recruitment", orphanRemoval = true)
     @JsonManagedReference("recruitment-applicantRecruitmentMappings")
+    @ToString.Exclude
     private List<ApplicantRecruitmentMapping> applicantRecruitmentMappings= new ArrayList<>();
+
+    @OneToMany(cascade = CascadeType.ALL, mappedBy = "recruitment", orphanRemoval = true)
+    @JsonManagedReference("recruitment-applicantBookmarkRecruitments")
+    @ToString.Exclude
+    private List<ApplicantBookmarkRecruitment> applicantBookmarkRecruitments = new ArrayList<>();
 
     private Long totalApplicants;
 
     @ManyToOne
     @JoinColumn(name = "created_by_hr_id")
     @JsonBackReference("hrEntity-recruitments")
+    @ToString.Exclude
     private HrEntity createdBy;
 
     @Enumerated(EnumType.STRING)
