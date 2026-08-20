@@ -482,6 +482,112 @@ public class AnalyticsServiceImpl implements AnalyticsService {
         }
     }
 
+    @Override
+    public ResponseEntity<?> getWeeklyEmployeeStrength(Long orgId) {
+        if (ObjectUtils.isEmpty(orgId)) {
+            return ResponseEntity.badRequest().body("Organization ID is required");
+        }
+        try {
+            List<Object[]> weeklyData = timeManagementRepo.getWeeklyEmployeeStrength(orgId);
+
+            // Initialize all 7 days with default values
+            Map<String, Object> response = new LinkedHashMap<>();
+            String[] weekdays = {"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"};
+            for (String day : weekdays) {
+                response.put(day, 0L);
+            }
+
+            // Override with actual data
+            for (Object[] row : weeklyData) {
+                String dayName = row[0] != null ? row[0].toString() : null;
+                Long count = row[2] != null ? ((Number) row[2]).longValue() : 0L;
+
+                if (dayName != null) {
+                    response.put(dayName, count);
+                }
+            }
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.internalServerError()
+                    .body("Error fetching weekly employee strength data: " + e.getMessage());
+        }
+    }
+
+    @Override
+    public ResponseEntity<?> getWeeklyWorkingHours(Long orgId) {
+        if (ObjectUtils.isEmpty(orgId)) {
+            return ResponseEntity.badRequest().body("Organization ID is required");
+        }
+        try {
+            List<Object[]> weeklyData = timeManagementRepo.getWeeklyWorkingHours(orgId);
+
+            // Initialize all 7 days with default values
+            Map<String, Object> response = new LinkedHashMap<>();
+            String[] weekdays = {"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"};
+            for (String day : weekdays) {
+                response.put(day, 0.0);
+            }
+
+            // Override with actual data
+            for (Object[] row : weeklyData) {
+                String dayName = row[0] != null ? row[0].toString() : null;
+                Double totalHours = row[2] != null ? ((Number) row[2]).doubleValue() : 0.0;
+
+                if (dayName != null) {
+                    response.put(dayName, totalHours);
+                }
+            }
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.internalServerError()
+                    .body("Error fetching weekly working hours data: " + e.getMessage());
+        }
+    }
+
+    @Override
+    public ResponseEntity<?> getWeeklyCheckInCheckOut(Long orgId) {
+        if (ObjectUtils.isEmpty(orgId)) {
+            return ResponseEntity.badRequest().body("Organization ID is required");
+        }
+        try {
+            List<Object[]> weeklyData = timeManagementRepo.getWeeklyCheckInCheckOut(orgId);
+
+            // Initialize all 7 days with default values
+            Map<String, Object> response = new LinkedHashMap<>();
+            String[] weekdays = {"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"};
+            for (String day : weekdays) {
+                Map<String, String> dayData = new LinkedHashMap<>();
+                dayData.put("checkIn", "00:00");
+                dayData.put("checkout", "00:00");
+                response.put(day, dayData);
+            }
+
+            // Override with actual data
+            for (Object[] row : weeklyData) {
+                String dayName = row[0] != null ? row[0].toString() : null;
+                Double avgCheckInMinutes = row[2] != null ? ((Number) row[2]).doubleValue() : null;
+                Double avgCheckOutMinutes = row[3] != null ? ((Number) row[3]).doubleValue() : null;
+
+                if (dayName != null) {
+                    Map<String, String> dayData = new LinkedHashMap<>();
+                    dayData.put("checkIn", convertMinutesToTime(avgCheckInMinutes));
+                    dayData.put("checkout", convertMinutesToTime(avgCheckOutMinutes));
+                    response.put(dayName, dayData);
+                }
+            }
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.internalServerError()
+                    .body("Error fetching weekly check-in/check-out data: " + e.getMessage());
+        }
+    }
+
     /**
      * Parse monthYear string in format "APRIL 2026" and return map with month and year
      * Handles both regular and URL-encoded input (e.g., "APRIL%202026")

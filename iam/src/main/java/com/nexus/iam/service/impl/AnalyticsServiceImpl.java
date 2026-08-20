@@ -273,4 +273,79 @@ public class AnalyticsServiceImpl implements AnalyticsService {
             );
         }
     }
+
+    @Override
+    public ResponseEntity<?> getWeeklyEmployeeStrength(Long orgId) {
+        if (ObjectUtils.isEmpty(orgId)) {
+            return ResponseEntity.badRequest().body("Organization ID is required");
+        }
+        try {
+            UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getWeeklyEmployeeStrengthUrl())
+                    .queryParam("orgId", orgId);
+            ResponseEntity<String> response = restService.iamRestCall(builder.toUriString(), null, null, HttpMethod.GET, null);
+            if (response.getStatusCode().is2xxSuccessful()) {
+                return ResponseEntity.ok(response.getBody());
+            } else {
+                return ResponseEntity.status(response.getStatusCode()).body(response.getBody() != null ? response.getBody() : "Failed to fetch weekly employee strength data");
+            }
+        } catch (RuntimeException e) {
+            throw new ServiceLevelException(
+                    "AnalyticsService",
+                    "Method execution failed",
+                    "getWeeklyEmployeeStrength",
+                    e.getClass().getName(),
+                    e.getMessage()
+            );
+        }
+    }
+
+    @Override
+    public ResponseEntity<?> getWeeklyWorkingHours(Long orgId) {
+        if (ObjectUtils.isEmpty(orgId)) {
+            return ResponseEntity.badRequest().body("Organization ID is required");
+        }
+        try {
+            UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getWeeklyWorkingHoursUrl())
+                    .queryParam("orgId", orgId);
+            ResponseEntity<String> response = restService.iamRestCall(builder.toUriString(), null, null, HttpMethod.GET, null);
+            if (response.getStatusCode().is2xxSuccessful()) {
+                return ResponseEntity.ok(response.getBody());
+            } else {
+                return ResponseEntity.status(response.getStatusCode()).body(response.getBody() != null ? response.getBody() : "Failed to fetch weekly working hours data");
+            }
+        } catch (RuntimeException e) {
+            throw new ServiceLevelException(
+                    "AnalyticsService",
+                    "Method execution failed",
+                    "getWeeklyWorkingHours",
+                    e.getClass().getName(),
+                    e.getMessage()
+            );
+        }
+    }
+
+    @Override
+    public ResponseEntity<?> getWeeklyCheckInCheckOut(Long orgId) {
+        if (ObjectUtils.isEmpty(orgId)) {
+            return ResponseEntity.badRequest().body("Organization ID is required");
+        }
+        try {
+            UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getWeeklyCheckInCheckOutUrl())
+                    .queryParam("orgId", orgId);
+            ResponseEntity<String> response = restService.iamRestCall(builder.toUriString(), null, null, HttpMethod.GET, null);
+            if (response.getStatusCode().is2xxSuccessful()) {
+                return ResponseEntity.ok(response.getBody());
+            } else {
+                return ResponseEntity.status(response.getStatusCode()).body(response.getBody() != null ? response.getBody() : "Failed to fetch weekly check-in/check-out data");
+            }
+        } catch (RuntimeException e) {
+            throw new ServiceLevelException(
+                    "AnalyticsService",
+                    "Method execution failed",
+                    "getWeeklyCheckInCheckOut",
+                    e.getClass().getName(),
+                    e.getMessage()
+            );
+        }
+    }
 }

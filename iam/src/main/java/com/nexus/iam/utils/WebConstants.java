@@ -157,6 +157,16 @@ public class WebConstants {
     @Value("${hero.analytics.url}")
     private String heroAnalyticsUrl;
 
+    // Weekly analytics URLs (last 7 days)
+    @Value("${weekly.employee.strength.url}")
+    private String weeklyEmployeeStrengthUrl;
+
+    @Value("${weekly.working.hours.url}")
+    private String weeklyWorkingHoursUrl;
+
+    @Value("${weekly.checkin.checkout.url}")
+    private String weeklyCheckInCheckOutUrl;
+
     @Value("${today.applied.hr.requests.url}")
     private String todayAppliedHrRequestsUrl;
 

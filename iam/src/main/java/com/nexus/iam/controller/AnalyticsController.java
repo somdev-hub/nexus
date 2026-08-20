@@ -59,4 +59,19 @@ public class AnalyticsController {
         return analyticsService.getLeavesRoleWise(orgId, monthYear);
     }
 
+    // Weekly analytics endpoints (last 7 days)
+    @GetMapping("/employee/weekly-strength")
+    public ResponseEntity<?> getWeeklyEmployeeStrength(@RequestParam Long orgId) {
+        return analyticsService.getWeeklyEmployeeStrength(orgId);
+    }
+
+    @GetMapping("/employee/weekly-working-hours")
+    public ResponseEntity<?> getWeeklyWorkingHours(@RequestParam Long orgId) {
+        return analyticsService.getWeeklyWorkingHours(orgId);
+    }
+
+    @GetMapping("/employee/weekly-check-in-check-out")
+    public ResponseEntity<?> getWeeklyCheckInCheckOut(@RequestParam Long orgId) {
+        return analyticsService.getWeeklyCheckInCheckOut(orgId);
+    }
 }

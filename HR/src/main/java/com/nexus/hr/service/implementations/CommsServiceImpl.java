@@ -355,6 +355,24 @@ public class CommsServiceImpl implements CommsService {
 								? recruitmentInterview.getInterviewDuration().toString()
 								: "N/A");
 			}
+			case "hiringType" -> {
+				eventParams.put(value,
+						nullCheckApplicantRecruitmentMappingRecruitment(applicantRecruitmentMapping)
+								? applicantRecruitmentMapping.getRecruitment().getHiringType().name()
+								: "N/A");
+			}
+			case "location" -> {
+				eventParams.put(value,
+						nullCheckApplicantRecruitmentMappingRecruitment(applicantRecruitmentMapping)
+								? applicantRecruitmentMapping.getRecruitment().getLocation()
+								: "N/A");
+			}
+			case "departmentName" -> {
+				eventParams.put(value,
+						nullCheckApplicantRecruitmentMappingRecruitment(applicantRecruitmentMapping)
+								? applicantRecruitmentMapping.getRecruitment().getDepartmentName()
+								: "N/A");
+			}
 			default -> log.warn("Unknown key: {} for event params", key);
 
 		}

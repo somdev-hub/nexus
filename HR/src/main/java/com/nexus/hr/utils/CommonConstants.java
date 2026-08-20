@@ -19,7 +19,8 @@ public class CommonConstants {
     public enum CommsTriggerPoint {
         CANDIDATE_SELECTION_MAIL,
         PAYROLL_MONTHLY,
-		APPLICANT_INTERVIEW_SCHEDULED
+		APPLICANT_INTERVIEW_SCHEDULED,
+		APPLICANT_SELECTED
     }
 
 

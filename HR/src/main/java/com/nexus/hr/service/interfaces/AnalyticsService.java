@@ -25,4 +25,11 @@ public interface AnalyticsService {
     ResponseEntity<?> getLeavesRoleWise(Long orgId, Map<String, List<Long>> roleEmpIdMap, String monthYear);
 
     ResponseEntity<?> getHeroAnalytics(Long orgId);
+
+    // Weekly analytics endpoints (last 7 days)
+    ResponseEntity<?> getWeeklyEmployeeStrength(Long orgId);
+
+    ResponseEntity<?> getWeeklyWorkingHours(Long orgId);
+
+    ResponseEntity<?> getWeeklyCheckInCheckOut(Long orgId);
 }

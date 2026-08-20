@@ -91,4 +91,69 @@ public interface TimeManagementRepo extends JpaRepository<TimeManagement, Long> 
             ORDER BY EXTRACT(DOW FROM MAKE_DATE(tm.year, tm.month, tm.day))
             """, nativeQuery = true)
     List<Object[]> getBreakStartEndByDayForMonth(@Param("orgId") Long orgId, @Param("month") Integer month, @Param("year") Integer year);
+
+    // Weekly analytics queries (last 7 days)
+    @Query(value = """
+            SELECT 
+                TO_CHAR(d, 'Dy') AS dayName,
+                EXTRACT(DOW FROM d) AS dayOfWeek,
+                COUNT(DISTINCT CASE WHEN tm.is_present = true THEN he.hr_id END) AS presentCount
+            FROM generate_series(
+                CURRENT_DATE - INTERVAL '6 days',
+                CURRENT_DATE,
+                INTERVAL '1 day'
+            ) AS d
+            LEFT JOIN hr.t_time_management tm 
+                ON tm.day = EXTRACT(DAY FROM d)::int
+                AND tm.month = EXTRACT(MONTH FROM d)::int
+                AND tm.year = EXTRACT(YEAR FROM d)::int
+            LEFT JOIN hr.t_hr_entity he ON he.hr_id = tm.hr_entity_hr_id
+                AND he.org = :orgId
+            GROUP BY d
+            ORDER BY d
+            """, nativeQuery = true)
+    List<Object[]> getWeeklyEmployeeStrength(@Param("orgId") Long orgId);
+
+    @Query(value = """
+            SELECT 
+                TO_CHAR(d, 'Dy') AS dayName,
+                EXTRACT(DOW FROM d) AS dayOfWeek,
+                COALESCE(SUM(tm.effective_hours), 0) AS totalHours
+            FROM generate_series(
+                CURRENT_DATE - INTERVAL '6 days',
+                CURRENT_DATE,
+                INTERVAL '1 day'
+            ) AS d
+            LEFT JOIN hr.t_time_management tm 
+                ON tm.day = EXTRACT(DAY FROM d)::int
+                AND tm.month = EXTRACT(MONTH FROM d)::int
+                AND tm.year = EXTRACT(YEAR FROM d)::int
+            LEFT JOIN hr.t_hr_entity he ON he.hr_id = tm.hr_entity_hr_id
+                AND he.org = :orgId
+            GROUP BY d
+            ORDER BY d
+            """, nativeQuery = true)
+    List<Object[]> getWeeklyWorkingHours(@Param("orgId") Long orgId);
+
+    @Query(value = """
+            SELECT 
+                TO_CHAR(d, 'Dy') AS dayName,
+                EXTRACT(DOW FROM d) AS dayOfWeek,
+                AVG(EXTRACT(HOUR FROM tm.check_in_time)) * 60 + AVG(EXTRACT(MINUTE FROM tm.check_in_time)) AS avgCheckInMinutes,
+                AVG(EXTRACT(HOUR FROM tm.check_out_time)) * 60 + AVG(EXTRACT(MINUTE FROM tm.check_out_time)) AS avgCheckOutMinutes
+            FROM generate_series(
+                CURRENT_DATE - INTERVAL '6 days',
+                CURRENT_DATE,
+                INTERVAL '1 day'
+            ) AS d
+            LEFT JOIN hr.t_time_management tm 
+                ON tm.day = EXTRACT(DAY FROM d)::int
+                AND tm.month = EXTRACT(MONTH FROM d)::int
+                AND tm.year = EXTRACT(YEAR FROM d)::int
+            LEFT JOIN hr.t_hr_entity he ON he.hr_id = tm.hr_entity_hr_id
+                AND he.org = :orgId
+            GROUP BY d
+            ORDER BY d
+            """, nativeQuery = true)
+    List<Object[]> getWeeklyCheckInCheckOut(@Param("orgId") Long orgId);
 }

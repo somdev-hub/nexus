@@ -1100,6 +1100,19 @@ public class RecruitmentServiceImpl implements RecruitmentService {
 						"The applicant already has the requested status: " + status.name());
 			}
 
+			ApplicationStatus currentStatus = mapping.getStatus();
+			if (List.of(ApplicationStatus.SELECTED, ApplicationStatus.REJECTED).contains(currentStatus)
+					&& List.of(ApplicationStatus.REVIEW, ApplicationStatus.REVIEW_COMPLETED,
+							ApplicationStatus.REVIEW_FAILED, ApplicationStatus.INTERVIEW_SCHEDULED,
+							ApplicationStatus.INTERVIEW_COMPLETED).contains(status)) {
+				throw new ServiceLevelException(
+						"RecruitmentService",
+						"Status transition not allowed",
+						"updateApplicantRecruitmentStatus",
+						"Validation exception",
+						"Cannot update status from " + currentStatus.name() + " to " + status.name());
+			}
+
 			// Create status history entry
 			ApplicantRecruitmentMappingStatusHist statusHist = new ApplicantRecruitmentMappingStatusHist();
 			statusHist.setStatus(status);
@@ -1191,7 +1204,16 @@ public class RecruitmentServiceImpl implements RecruitmentService {
 					log.error("Failed to send communication for applicant interview scheduled: {}", e.getMessage(), e);
 				}
 			}
-
+			else if(ApplicationStatus.SELECTED.equals(status)){
+				try{
+					CommsPayload commsPayload = new CommsPayload();
+					commsPayload.setApplicantRecruitmentMappingId(mapping.getApplicantRecruitmentMappingId());
+					commsService.sendCommunication(CommonConstants.CommsTriggerPoint.APPLICANT_SELECTED, null, commsPayload);
+					log.info("Communication sent successfully for applicant selected");
+				} catch (Exception e) {
+					log.error("Failed to send communication for applicant selected: {}", e.getMessage(), e);
+				}
+			}
 			// Update the current status
 			mapping.setStatus(status);
 			applicantRecruitmentMappingRepo.save(mapping);
