@@ -103,11 +103,12 @@ public class HrController {
 
     @GetMapping("/employee/details")
     public ResponseEntity<?> getEmployeeDetails(@RequestParam Long empId,
+                                                @RequestParam(required = false) String gender,
                                                 @RequestHeader("Authorization") String token) {
         if (ObjectUtils.isEmpty(token) || !commonUtils.validateToken(token)) {
             throw new UnauthorizedException("Unauthorized", "Invalid or missing authorization token");
         }
-        return hrService.getEmployeeDetails(empId);
+        return hrService.getEmployeeDetails(empId, gender);
     }
 
     @PostMapping("/get-payroll-employees")

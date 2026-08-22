@@ -4,6 +4,7 @@ import com.nexus.hr.exception.ResourceNotFoundException;
 import com.nexus.hr.exception.ServiceLevelException;
 import com.nexus.hr.model.entities.*;
 import com.nexus.hr.model.enums.AttendanceStatus;
+import com.nexus.hr.model.enums.LeaveType;
 import com.nexus.hr.model.enums.PaymentStatus;
 import com.nexus.hr.payload.*;
 import com.nexus.hr.payload.response.EmployeeDetailsResponse;
@@ -89,7 +90,8 @@ public class HrServiceImpl implements HrService {
             // This prevents connection leaks and blocking on Kafka operations
             CompletableFuture.runAsync(() -> {
                 try {
-                    processAsyncHrOperations(hrInitRequestDto, savedHrEntity, documentUrls);
+                    String gender = hrInitRequestDto.getGender();
+                    processAsyncHrOperations(hrInitRequestDto, savedHrEntity, documentUrls, gender);
                 } catch (Exception e) {
                     log.error("Error processing async HR operations for employee: {}",
                             savedHrEntity.getEmployeeId(), e);
@@ -245,7 +247,7 @@ public class HrServiceImpl implements HrService {
      */
     @Transactional
     protected void processAsyncHrOperations(HrInitRequestDto hrInitRequestDto, HrEntity savedHrEntity,
-                                            DocumentUrls documentUrls) {
+                                            DocumentUrls documentUrls, String gender) {
         // Get extracted URLs
         String joiningLetterUrl = documentUrls.joiningLetterUrl();
         String letterOfIntentUrl = documentUrls.letterOfIntentUrl();
@@ -331,7 +333,7 @@ public class HrServiceImpl implements HrService {
 
             // Initialize leave allocations
             log.info("=== Initializing leave allocations for employee: {} ===", refreshedHrEntity.getEmployeeId());
-            leaveAllocationUtils.initializeLeaveAllocations(refreshedHrEntity);
+            leaveAllocationUtils.initializeLeaveAllocations(refreshedHrEntity, gender);
             log.info("✓ Leave allocations initialized successfully");
 
             // Save with all relationships in a transactional context
@@ -817,7 +819,7 @@ public class HrServiceImpl implements HrService {
     }
 
     @Override
-    public ResponseEntity<?> getEmployeeDetails(Long empId) {
+    public ResponseEntity<?> getEmployeeDetails(Long empId, String gender) {
         if (ObjectUtils.isEmpty(empId)) {
             throw new ServiceLevelException("HR Service", "Employee ID cannot be null or empty",
                     "getEmployeeDetails", "InvalidInput", "Employee ID is null or empty");
@@ -831,8 +833,7 @@ public class HrServiceImpl implements HrService {
             employeeDetailsResponse.setJobTitle(hrEntity.getPositions().getLast().getTitle());
             employeeDetailsResponse
                     .setJoiningDate(LocalDateTime.of(hrEntity.getDateOfJoining().toLocalDate(), LocalTime.MIDNIGHT));
-            employeeDetailsResponse.setAnnualSalary(hrEntity.getCompensation().getNetPay()); // later to be changed to
-            // gross pay
+            employeeDetailsResponse.setAnnualSalary(hrEntity.getCompensation().getNetPay());
             List<EmployeeDetailsResponse.PositionsHeld> positionsHeld = hrEntity.getPositions().stream()
                     .map(position -> {
                         Double duration = position.getLastEffectiveDate() != null
@@ -853,11 +854,8 @@ public class HrServiceImpl implements HrService {
             // attendance
             List<EmployeeDetailsResponse.AttendanceRecord> attendanceRecords = hrEntity.getTimeManagements().stream()
                     .map(attendance -> {
-                        // Date date =
-                        // Date.valueOf(attendance.getCreatedOn().toLocalDateTime().toLocalDate());
                         LocalDateTime datetime = LocalDateTime
                                 .of(attendance.getCreatedOn().toLocalDateTime().toLocalDate(), LocalTime.MIDNIGHT);
-                        // decide status
                         AttendanceStatus status = getAttendanceStatus(attendance);
                         Double totalBreakHours = attendance.getBreakEndTime() != null
                                 && attendance.getBreakStartTime() != null
@@ -868,7 +866,21 @@ public class HrServiceImpl implements HrService {
                                 attendance.getCheckInTime(), attendance.getCheckOutTime(),
                                 attendance.getTotalHoursWorked(), totalBreakHours, attendance.getOvertimeHours());
                     }).toList();
+            // leave records - filter based on gender
             List<EmployeeDetailsResponse.LeaveRecord> leaveRecords = hrEntity.getLeaveAllocations().stream()
+                    .filter(leave -> {
+                        LeaveType leaveType = leave.getLeaveType();
+                        if (gender == null || gender.isEmpty()) {
+                            return true; // Show all if gender not specified
+                        }
+                        if (leaveType == LeaveType.MATERNITY_LEAVE) {
+                            return "F".equalsIgnoreCase(gender) || "FEMALE".equalsIgnoreCase(gender);
+                        }
+                        if (leaveType == LeaveType.PATERNITY_LEAVE) {
+                            return "M".equalsIgnoreCase(gender) || "MALE".equalsIgnoreCase(gender);
+                        }
+                        return true;
+                    })
                     .map(leave -> new EmployeeDetailsResponse.LeaveRecord(leave.getLeaveType().name(),
                             leave.getAllocatedDays(), leave.getUsedDays(), leave.getRemainingDays()))
                     .toList();

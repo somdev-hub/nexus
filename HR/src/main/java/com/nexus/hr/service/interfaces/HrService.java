@@ -30,7 +30,7 @@ public interface HrService {
 
     ResponseEntity<?> getEmployeesDirectory(List<Long> empIds);
 
-    ResponseEntity<?> getEmployeeDetails(Long empId);
+    ResponseEntity<?> getEmployeeDetails(Long empId, String gender);
 
     ResponseEntity<?> getPayrollEmployees(List<Long> empIds);
 

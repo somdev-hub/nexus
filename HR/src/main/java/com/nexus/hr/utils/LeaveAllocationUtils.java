@@ -24,10 +24,10 @@ public class LeaveAllocationUtils {
      * - EARNED_LEAVE: 15 days/year (1.25 days/month)
      * - SICK_LEAVE: 13 days/year (prorated for current year)
      * - BEREAVEMENT_LEAVE: 3 days
-     * - MATERNITY_LEAVE: 30 days
-     * - PATERNITY_LEAVE: 5 days
+     * - MATERNITY_LEAVE: 30 days (female employees only)
+     * - PATERNITY_LEAVE: 5 days (male employees only)
      */
-    public void initializeLeaveAllocations(HrEntity hrEntity) {
+    public void initializeLeaveAllocations(HrEntity hrEntity, String gender) {
         LocalDate currentDate = LocalDate.now();
         int currentYear = currentDate.getYear();
 
@@ -95,33 +95,37 @@ public class LeaveAllocationUtils {
         hrEntity.getLeaveAllocations().add(bereavementLeave);
         log.debug("Added BEREAVEMENT_LEAVE: 3 days");
 
-        // 4. MATERNITY_LEAVE: 30 days
-        EmployeeLeaveAllocation maternityLeave = new EmployeeLeaveAllocation();
-        maternityLeave.setHrEntity(hrEntity);
-        maternityLeave.setLeaveType(LeaveType.MATERNITY_LEAVE);
-        maternityLeave.setAllocatedDays(30.0);
-        maternityLeave.setUsedDays(0.0);
-        maternityLeave.setRemainingDays(30.0);
-        maternityLeave.setYear(currentYear);
-        maternityLeave.setAllocationDate(new Timestamp(System.currentTimeMillis()));
-        maternityLeave.setIsActive(Boolean.TRUE);
-        maternityLeave.setIsCarryForwardable(Boolean.FALSE);
-        hrEntity.getLeaveAllocations().add(maternityLeave);
-        log.debug("Added MATERNITY_LEAVE: 30 days");
+        // 4. MATERNITY_LEAVE: 30 days (female employees only)
+        if ("F".equalsIgnoreCase(gender) || "FEMALE".equalsIgnoreCase(gender)) {
+            EmployeeLeaveAllocation maternityLeave = new EmployeeLeaveAllocation();
+            maternityLeave.setHrEntity(hrEntity);
+            maternityLeave.setLeaveType(LeaveType.MATERNITY_LEAVE);
+            maternityLeave.setAllocatedDays(30.0);
+            maternityLeave.setUsedDays(0.0);
+            maternityLeave.setRemainingDays(30.0);
+            maternityLeave.setYear(currentYear);
+            maternityLeave.setAllocationDate(new Timestamp(System.currentTimeMillis()));
+            maternityLeave.setIsActive(Boolean.TRUE);
+            maternityLeave.setIsCarryForwardable(Boolean.FALSE);
+            hrEntity.getLeaveAllocations().add(maternityLeave);
+            log.debug("Added MATERNITY_LEAVE: 30 days");
+        }
 
-        // 5. PATERNITY_LEAVE: 5 days
-        EmployeeLeaveAllocation paternityLeave = new EmployeeLeaveAllocation();
-        paternityLeave.setHrEntity(hrEntity);
-        paternityLeave.setLeaveType(LeaveType.PATERNITY_LEAVE);
-        paternityLeave.setAllocatedDays(5.0);
-        paternityLeave.setUsedDays(0.0);
-        paternityLeave.setRemainingDays(5.0);
-        paternityLeave.setYear(currentYear);
-        paternityLeave.setAllocationDate(new Timestamp(System.currentTimeMillis()));
-        paternityLeave.setIsActive(Boolean.TRUE);
-        paternityLeave.setIsCarryForwardable(Boolean.FALSE);
-        hrEntity.getLeaveAllocations().add(paternityLeave);
-        log.debug("Added PATERNITY_LEAVE: 5 days");
+        // 5. PATERNITY_LEAVE: 5 days (male employees only)
+        if ("M".equalsIgnoreCase(gender) || "MALE".equalsIgnoreCase(gender)) {
+            EmployeeLeaveAllocation paternityLeave = new EmployeeLeaveAllocation();
+            paternityLeave.setHrEntity(hrEntity);
+            paternityLeave.setLeaveType(LeaveType.PATERNITY_LEAVE);
+            paternityLeave.setAllocatedDays(5.0);
+            paternityLeave.setUsedDays(0.0);
+            paternityLeave.setRemainingDays(5.0);
+            paternityLeave.setYear(currentYear);
+            paternityLeave.setAllocationDate(new Timestamp(System.currentTimeMillis()));
+            paternityLeave.setIsActive(Boolean.TRUE);
+            paternityLeave.setIsCarryForwardable(Boolean.FALSE);
+            hrEntity.getLeaveAllocations().add(paternityLeave);
+            log.debug("Added PATERNITY_LEAVE: 5 days");
+        }
 
         log.info("✓ Successfully initialized all leave allocations for employee: {}", hrEntity.getEmployeeId());
     }

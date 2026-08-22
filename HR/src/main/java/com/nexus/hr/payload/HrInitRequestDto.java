@@ -43,4 +43,6 @@ public class HrInitRequestDto {
     private String employeeEmail;
 
     private String employeePersonalEmail;
+
+    private String gender;
 }

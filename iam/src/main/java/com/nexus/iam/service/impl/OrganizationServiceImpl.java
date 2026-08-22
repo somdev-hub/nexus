@@ -453,19 +453,21 @@ public class OrganizationServiceImpl implements OrganizationService {
 			employeeProfileResponse.setAge(user.getAge());
 			employeeProfileResponse.setProfileImageUrl(user.getProfilePhoto());
 
-			// for other details contact HR microservice
-			ResponseEntity<LoginResponse> loginResponseEntity = keycloakAuthenticationService.login(
-					webConstants.getGenericUserId(), webConstants.getGenericPassword());
-			LoginResponse loginResponse = loginResponseEntity.getBody();
-			Map<String, String> headers = commonUtils.buildJsonHeaders(loginResponse.getAccessToken());
-			UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getEmployeeDetailsUrl())
-					.queryParam("empId", user.getId());
-			ResponseEntity<?> hrResponse = restService.iamRestCall(
-					builder.toUriString(),
-					null,
-					headers,
-					HttpMethod.GET,
-					null);
+// for other details contact HR microservice
+            ResponseEntity<LoginResponse> loginResponseEntity = keycloakAuthenticationService.login(
+                    webConstants.getGenericUserId(), webConstants.getGenericPassword());
+            LoginResponse loginResponse = loginResponseEntity.getBody();
+            Map<String, String> headers = commonUtils.buildJsonHeaders(loginResponse.getAccessToken());
+            String gender = user.getGender() != null ? user.getGender().name() : "M";
+            UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getEmployeeDetailsUrl())
+                    .queryParam("empId", user.getId())
+                    .queryParam("gender", gender);
+            ResponseEntity<?> hrResponse = restService.iamRestCall(
+                    builder.toUriString(),
+                    null,
+                    headers,
+                    HttpMethod.GET,
+                    null);
 			if (hrResponse.getStatusCode().is2xxSuccessful() && hrResponse.getBody() != null) {
 				// Get the response body as Map
 				// @SuppressWarnings("unchecked")
