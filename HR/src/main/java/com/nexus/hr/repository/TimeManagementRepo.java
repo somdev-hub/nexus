@@ -12,148 +12,150 @@ import java.util.List;
 @Repository
 public interface TimeManagementRepo extends JpaRepository<TimeManagement, Long> {
 
-    @Query("SELECT tm FROM TimeManagement tm WHERE tm.hrEntity.hrId = :hrId ORDER BY tm.createdOn DESC")
-    TimeManagement findLatestByHrEntity_HrId(Long hrId);
+	@Query("SELECT tm FROM TimeManagement tm WHERE tm.hrEntity.hrId = :hrId ORDER BY tm.createdOn DESC")
+	TimeManagement findLatestByHrEntity_HrId(Long hrId);
 
-    @Query("SELECT tm FROM TimeManagement tm WHERE tm.day = :day AND tm.month = :month AND tm.year = :year AND tm.hrEntity.hrId = :hrId")
-    TimeManagement findByDayMonthYearAndHrEntity(Integer day, Integer month, Integer year, Long hrId);
+	@Query("SELECT tm FROM TimeManagement tm WHERE tm.day = :day AND tm.month = :month AND tm.year = :year AND tm.hrEntity.hrId = :hrId")
+	TimeManagement findByDayMonthYearAndHrEntity(Integer day, Integer month, Integer year, Long hrId);
 
-    @Query("SELECT tm FROM TimeManagement tm WHERE tm.hrEntity.hrId = :hrId " +
-            "AND (tm.year < :year OR (tm.year = :year AND tm.month < :month) OR " +
-            "(tm.year = :year AND tm.month = :month AND tm.day < :day)) " +
-            "ORDER BY tm.year DESC, tm.month DESC, tm.day DESC")
-    List<TimeManagement> findAllBeforeDate(@Param("hrId") Long hrId,
-                                           @Param("year") Integer year,
-                                           @Param("month") Integer month,
-                                           @Param("day") Integer day);
+	@Query("SELECT tm FROM TimeManagement tm WHERE tm.hrEntity.hrId = :hrId " +
+			"AND (tm.year < :year OR (tm.year = :year AND tm.month < :month) OR " +
+			"(tm.year = :year AND tm.month = :month AND tm.day < :day)) " +
+			"ORDER BY tm.year DESC, tm.month DESC, tm.day DESC")
+	List<TimeManagement> findAllBeforeDate(@Param("hrId") Long hrId,
+			@Param("year") Integer year,
+			@Param("month") Integer month,
+			@Param("day") Integer day);
 
-    @Query("SELECT tm FROM TimeManagement tm WHERE tm.hrEntity.hrId IN :hrIds " +
-            "ORDER BY tm.year DESC, tm.month DESC, tm.day DESC")
-    List<TimeManagement> findAllByHrEntityIdIn(@Param("hrIds") List<Long> hrIds);
+	@Query("SELECT tm FROM TimeManagement tm WHERE tm.hrEntity.hrId IN :hrIds " +
+			"ORDER BY tm.year DESC, tm.month DESC, tm.day DESC")
+	List<TimeManagement> findAllByHrEntityIdIn(@Param("hrIds") List<Long> hrIds);
 
-    @Query("SELECT tm FROM TimeManagement tm WHERE tm.day = :day AND tm.month = :month AND tm.year = :year AND tm.hrEntity.hrId IN :hrIds "
-            +
-            "ORDER BY tm.year DESC, tm.month DESC, tm.day DESC")
-    @Transactional(readOnly = true)
-    List<TimeManagement> findAllByDateAndHrEntityIdIn(@Param("day") Integer day, @Param("month") Integer month,
-                                                      @Param("year") Integer year, @Param("hrIds") List<Long> hrIds);
+	@Query("SELECT tm FROM TimeManagement tm WHERE tm.day = :day AND tm.month = :month AND tm.year = :year AND tm.hrEntity.hrId IN :hrIds "
+			+
+			"ORDER BY tm.year DESC, tm.month DESC, tm.day DESC")
+	@Transactional(readOnly = true)
+	List<TimeManagement> findAllByDateAndHrEntityIdIn(@Param("day") Integer day, @Param("month") Integer month,
+			@Param("year") Integer year, @Param("hrIds") List<Long> hrIds);
 
-    @Query("""
-                                    SELECT tm FROM TimeManagement tm WHERE tm.month = :monthValue AND tm.year = :year AND tm.hrEntity.hrId = :hrId
-                                    ORDER BY tm.year DESC, tm.month DESC, tm.day DESC
-            """)
-    List<TimeManagement> findAllByMonthYearAndHrEntity(int monthValue, int year, Long hrId);
+	@Query("""
+			                        SELECT tm FROM TimeManagement tm WHERE tm.month = :monthValue AND tm.year = :year AND tm.hrEntity.hrId = :hrId
+			                        ORDER BY tm.year DESC, tm.month DESC, tm.day DESC
+			""")
+	List<TimeManagement> findAllByMonthYearAndHrEntity(int monthValue, int year, Long hrId);
 
-    @Query("""
-            SELECT tm.month AS month, COUNT(DISTINCT tm.hrEntity.hrId) AS count 
-            FROM TimeManagement tm 
-            WHERE tm.hrEntity.org = :orgId AND tm.isPresent = true
-            AND (tm.year > :startYear OR (tm.year = :startYear AND tm.month >= :startMonth))
-            AND (tm.year < :endYear OR (tm.year = :endYear AND tm.month <= :endMonth))
-            GROUP BY tm.month, tm.year
-            ORDER BY tm.year ASC, tm.month ASC
-            """)
-    List<Object[]> findMonthWiseEmployeePresenceLastYear(@Param("orgId") Long orgId, 
-                                                          @Param("startYear") Integer startYear, 
-                                                          @Param("startMonth") Integer startMonth,
-                                                          @Param("endYear") Integer endYear,
-                                                          @Param("endMonth") Integer endMonth);
+	@Query("""
+			SELECT tm.month AS month, COUNT(DISTINCT tm.hrEntity.hrId) AS count
+			FROM TimeManagement tm
+			WHERE tm.hrEntity.org = :orgId AND tm.isPresent = true
+			AND (tm.year > :startYear OR (tm.year = :startYear AND tm.month >= :startMonth))
+			AND (tm.year < :endYear OR (tm.year = :endYear AND tm.month <= :endMonth))
+			GROUP BY tm.month, tm.year
+			ORDER BY tm.year ASC, tm.month ASC
+			""")
+	List<Object[]> findMonthWiseEmployeePresenceLastYear(@Param("orgId") Long orgId,
+			@Param("startYear") Integer startYear,
+			@Param("startMonth") Integer startMonth,
+			@Param("endYear") Integer endYear,
+			@Param("endMonth") Integer endMonth);
 
-    @Query("""
-            SELECT COUNT(DISTINCT he.hrId) 
-            FROM HrEntity he 
-            WHERE he.org = :orgId AND he.isActive = true
-            """)
-    Long countActiveEmployeesByOrg(@Param("orgId") Long orgId);
+	@Query("""
+			SELECT COUNT(DISTINCT he.hrId)
+			FROM HrEntity he
+			WHERE he.org = :orgId AND he.isActive = true
+			""")
+	Long countActiveEmployeesByOrg(@Param("orgId") Long orgId);
 
-    @Query(value = """
-            SELECT TRIM(TO_CHAR(MAKE_DATE(tm.year, tm.month, tm.day), 'Day')) AS dayName,
-                   AVG(EXTRACT(HOUR FROM tm.check_in_time)) * 60 + AVG(EXTRACT(MINUTE FROM tm.check_in_time)) AS avgCheckInMinutes,
-                   AVG(EXTRACT(HOUR FROM tm.check_out_time)) * 60 + AVG(EXTRACT(MINUTE FROM tm.check_out_time)) AS avgCheckOutMinutes
-            FROM hr.t_time_management tm
-            JOIN hr.t_hr_entity he ON he.hr_id = tm.hr_entity_hr_id
-            WHERE he.org = :orgId AND tm.month = :month AND tm.year = :year
-            GROUP BY EXTRACT(DOW FROM MAKE_DATE(tm.year, tm.month, tm.day)), 
-                     TO_CHAR(MAKE_DATE(tm.year, tm.month, tm.day), 'Day')
-            ORDER BY EXTRACT(DOW FROM MAKE_DATE(tm.year, tm.month, tm.day))
-            """, nativeQuery = true)
-    List<Object[]> getCheckInCheckOutByDayForMonth(@Param("orgId") Long orgId, @Param("month") Integer month, @Param("year") Integer year);
+	@Query(value = """
+			SELECT TRIM(TO_CHAR(MAKE_DATE(tm.year, tm.month, tm.day), 'Day')) AS dayName,
+			       AVG(EXTRACT(HOUR FROM tm.check_in_time)) * 60 + AVG(EXTRACT(MINUTE FROM tm.check_in_time)) AS avgCheckInMinutes,
+			       AVG(EXTRACT(HOUR FROM tm.check_out_time)) * 60 + AVG(EXTRACT(MINUTE FROM tm.check_out_time)) AS avgCheckOutMinutes
+			FROM hr.t_time_management tm
+			JOIN hr.t_hr_entity he ON he.hr_id = tm.hr_entity_hr_id
+			WHERE he.org = :orgId AND tm.month = :month AND tm.year = :year
+			GROUP BY EXTRACT(DOW FROM MAKE_DATE(tm.year, tm.month, tm.day)),
+			         TO_CHAR(MAKE_DATE(tm.year, tm.month, tm.day), 'Day')
+			ORDER BY EXTRACT(DOW FROM MAKE_DATE(tm.year, tm.month, tm.day))
+			""", nativeQuery = true)
+	List<Object[]> getCheckInCheckOutByDayForMonth(@Param("orgId") Long orgId, @Param("month") Integer month,
+			@Param("year") Integer year);
 
-    @Query(value = """
-            SELECT TRIM(TO_CHAR(MAKE_DATE(tm.year, tm.month, tm.day), 'Day')) AS dayName,
-                   AVG(EXTRACT(HOUR FROM tm.break_start_time)) * 60 + AVG(EXTRACT(MINUTE FROM tm.break_start_time)) AS avgBreakStartMinutes,
-                   AVG(EXTRACT(HOUR FROM tm.break_end_time)) * 60 + AVG(EXTRACT(MINUTE FROM tm.break_end_time)) AS avgBreakEndMinutes
-            FROM hr.t_time_management tm
-            JOIN hr.t_hr_entity he ON he.hr_id = tm.hr_entity_hr_id
-            WHERE he.org = :orgId AND tm.month = :month AND tm.year = :year
-            GROUP BY EXTRACT(DOW FROM MAKE_DATE(tm.year, tm.month, tm.day)), 
-                     TO_CHAR(MAKE_DATE(tm.year, tm.month, tm.day), 'Day')
-            ORDER BY EXTRACT(DOW FROM MAKE_DATE(tm.year, tm.month, tm.day))
-            """, nativeQuery = true)
-    List<Object[]> getBreakStartEndByDayForMonth(@Param("orgId") Long orgId, @Param("month") Integer month, @Param("year") Integer year);
+	@Query(value = """
+			SELECT TRIM(TO_CHAR(MAKE_DATE(tm.year, tm.month, tm.day), 'Day')) AS dayName,
+			       AVG(EXTRACT(HOUR FROM tm.break_start_time)) * 60 + AVG(EXTRACT(MINUTE FROM tm.break_start_time)) AS avgBreakStartMinutes,
+			       AVG(EXTRACT(HOUR FROM tm.break_end_time)) * 60 + AVG(EXTRACT(MINUTE FROM tm.break_end_time)) AS avgBreakEndMinutes
+			FROM hr.t_time_management tm
+			JOIN hr.t_hr_entity he ON he.hr_id = tm.hr_entity_hr_id
+			WHERE he.org = :orgId AND tm.month = :month AND tm.year = :year
+			GROUP BY EXTRACT(DOW FROM MAKE_DATE(tm.year, tm.month, tm.day)),
+			         TO_CHAR(MAKE_DATE(tm.year, tm.month, tm.day), 'Day')
+			ORDER BY EXTRACT(DOW FROM MAKE_DATE(tm.year, tm.month, tm.day))
+			""", nativeQuery = true)
+	List<Object[]> getBreakStartEndByDayForMonth(@Param("orgId") Long orgId, @Param("month") Integer month,
+			@Param("year") Integer year);
 
-    // Weekly analytics queries (last 7 days)
-    @Query(value = """
-            SELECT 
-                TO_CHAR(d, 'Dy') AS dayName,
-                EXTRACT(DOW FROM d) AS dayOfWeek,
-                COUNT(DISTINCT CASE WHEN tm.is_present = true THEN he.hr_id END) AS presentCount
-            FROM generate_series(
-                CURRENT_DATE - INTERVAL '6 days',
-                CURRENT_DATE,
-                INTERVAL '1 day'
-            ) AS d
-            LEFT JOIN hr.t_time_management tm 
-                ON tm.day = EXTRACT(DAY FROM d)::int
-                AND tm.month = EXTRACT(MONTH FROM d)::int
-                AND tm.year = EXTRACT(YEAR FROM d)::int
-            LEFT JOIN hr.t_hr_entity he ON he.hr_id = tm.hr_entity_hr_id
-                AND he.org = :orgId
-            GROUP BY d
-            ORDER BY d
-            """, nativeQuery = true)
-    List<Object[]> getWeeklyEmployeeStrength(@Param("orgId") Long orgId);
+	// Weekly analytics queries (last 7 days)
+	@Query(value = """
+			SELECT
+			    TO_CHAR(d, 'Dy') AS dayName,
+			    EXTRACT(DOW FROM d) AS dayOfWeek,
+			    COUNT(DISTINCT CASE WHEN tm.is_present = true THEN he.hr_id END) AS presentCount
+			FROM generate_series(
+			    CURRENT_DATE - INTERVAL '6 days',
+			    CURRENT_DATE,
+			    INTERVAL '1 day'
+			) AS d
+			LEFT JOIN hr.t_time_management tm
+			    ON tm.day = EXTRACT(DAY FROM d)::int
+			    AND tm.month = EXTRACT(MONTH FROM d)::int
+			    AND tm.year = EXTRACT(YEAR FROM d)::int
+			LEFT JOIN hr.t_hr_entity he ON he.hr_id = tm.hr_entity_hr_id
+			    AND he.org = :orgId
+			GROUP BY d
+			ORDER BY d
+			""", nativeQuery = true)
+	List<Object[]> getWeeklyEmployeeStrength(@Param("orgId") Long orgId);
 
-    @Query(value = """
-            SELECT 
-                TO_CHAR(d, 'Dy') AS dayName,
-                EXTRACT(DOW FROM d) AS dayOfWeek,
-                COALESCE(SUM(tm.effective_hours), 0) AS totalHours
-            FROM generate_series(
-                CURRENT_DATE - INTERVAL '6 days',
-                CURRENT_DATE,
-                INTERVAL '1 day'
-            ) AS d
-            LEFT JOIN hr.t_time_management tm 
-                ON tm.day = EXTRACT(DAY FROM d)::int
-                AND tm.month = EXTRACT(MONTH FROM d)::int
-                AND tm.year = EXTRACT(YEAR FROM d)::int
-            LEFT JOIN hr.t_hr_entity he ON he.hr_id = tm.hr_entity_hr_id
-                AND he.org = :orgId
-            GROUP BY d
-            ORDER BY d
-            """, nativeQuery = true)
-    List<Object[]> getWeeklyWorkingHours(@Param("orgId") Long orgId);
+	@Query(value = """
+			SELECT
+			    TO_CHAR(d, 'Dy') AS dayName,
+			    EXTRACT(DOW FROM d) AS dayOfWeek,
+			    COALESCE(SUM(tm.effective_hours), 0) AS totalHours
+			FROM generate_series(
+			    CURRENT_DATE - INTERVAL '6 days',
+			    CURRENT_DATE,
+			    INTERVAL '1 day'
+			) AS d
+			LEFT JOIN hr.t_time_management tm
+			    ON tm.day = EXTRACT(DAY FROM d)::int
+			    AND tm.month = EXTRACT(MONTH FROM d)::int
+			    AND tm.year = EXTRACT(YEAR FROM d)::int
+			LEFT JOIN hr.t_hr_entity he ON he.hr_id = tm.hr_entity_hr_id
+			    AND he.org = :orgId
+			GROUP BY d
+			ORDER BY d
+			""", nativeQuery = true)
+	List<Object[]> getWeeklyWorkingHours(@Param("orgId") Long orgId);
 
-    @Query(value = """
-            SELECT 
-                TO_CHAR(d, 'Dy') AS dayName,
-                EXTRACT(DOW FROM d) AS dayOfWeek,
-                AVG(EXTRACT(HOUR FROM tm.check_in_time)) * 60 + AVG(EXTRACT(MINUTE FROM tm.check_in_time)) AS avgCheckInMinutes,
-                AVG(EXTRACT(HOUR FROM tm.check_out_time)) * 60 + AVG(EXTRACT(MINUTE FROM tm.check_out_time)) AS avgCheckOutMinutes
-            FROM generate_series(
-                CURRENT_DATE - INTERVAL '6 days',
-                CURRENT_DATE,
-                INTERVAL '1 day'
-            ) AS d
-            LEFT JOIN hr.t_time_management tm 
-                ON tm.day = EXTRACT(DAY FROM d)::int
-                AND tm.month = EXTRACT(MONTH FROM d)::int
-                AND tm.year = EXTRACT(YEAR FROM d)::int
-            LEFT JOIN hr.t_hr_entity he ON he.hr_id = tm.hr_entity_hr_id
-                AND he.org = :orgId
-            GROUP BY d
-            ORDER BY d
-            """, nativeQuery = true)
-    List<Object[]> getWeeklyCheckInCheckOut(@Param("orgId") Long orgId);
+	@Query(value = """
+			SELECT
+			    TO_CHAR(d, 'Dy') AS dayName,
+			    EXTRACT(DOW FROM d) AS dayOfWeek,
+			    AVG(EXTRACT(HOUR FROM tm.check_in_time)) * 60 + AVG(EXTRACT(MINUTE FROM tm.check_in_time)) AS avgCheckInMinutes,
+			    AVG(EXTRACT(HOUR FROM tm.check_out_time)) * 60 + AVG(EXTRACT(MINUTE FROM tm.check_out_time)) AS avgCheckOutMinutes
+			FROM generate_series(
+			    CURRENT_DATE - INTERVAL '6 days',
+			    CURRENT_DATE,
+			    INTERVAL '1 day'
+			) AS d
+			LEFT JOIN hr.t_time_management tm
+			    ON tm.day = EXTRACT(DAY FROM d)::int
+			    AND tm.month = EXTRACT(MONTH FROM d)::int
+			    AND tm.year = EXTRACT(YEAR FROM d)::int
+			LEFT JOIN hr.t_hr_entity he ON he.hr_id = tm.hr_entity_hr_id
+			    AND he.org = :orgId
+			GROUP BY d
+			ORDER BY d
+			""", nativeQuery = true)
+	List<Object[]> getWeeklyCheckInCheckOut(@Param("orgId") Long orgId);
 }
