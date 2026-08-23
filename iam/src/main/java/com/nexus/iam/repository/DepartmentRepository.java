@@ -1,0 +1,26 @@
+package com.nexus.iam.repository;
+
+import com.nexus.iam.dto.response.AllDeptResponse;
+import com.nexus.iam.entities.Department;
+import com.nexus.iam.entities.Organization;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+
+@Repository
+public interface DepartmentRepository extends JpaRepository<Department, Long>{
+    boolean existsByDepartmentNameAndOrganization(String departmentName, Organization organization);
+
+    @Query("SELECT d FROM Department d WHERE d.organization.id = :orgId")
+    List<Department> findByOrgId(Long orgId);
+
+    @Query("SELECT d FROM Department d WHERE d.organization.id = :orgId")
+    Page<Department> findByOrgId(Long orgId, Pageable pageable);
+
+    @Query("SELECT new com.nexus.iam.dto.response.AllDeptResponse(d.departmentId, d.departmentName) FROM Department d WHERE d.organization.id = :orgId")
+    List<AllDeptResponse> findAllDeptIdAndName(Long orgId);
+}

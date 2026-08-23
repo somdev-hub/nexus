@@ -1,0 +1,1508 @@
+package com.nexus.hr.service.implementations;
+
+import java.sql.Timestamp;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.stream.Collectors;
+
+import org.modelmapper.ModelMapper;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.ObjectUtils;
+
+import com.nexus.hr.exception.ResourceNotFoundException;
+import com.nexus.hr.exception.ServiceLevelException;
+import com.nexus.hr.model.entities.Applicant;
+import com.nexus.hr.model.entities.ApplicantBookmarkRecruitment;
+import com.nexus.hr.model.entities.ApplicantRecruitmentMapping;
+import com.nexus.hr.model.entities.ApplicantRecruitmentMappingStatusHist;
+import com.nexus.hr.model.entities.HrDocument;
+import com.nexus.hr.model.entities.HrEntity;
+import com.nexus.hr.model.entities.Recruitment;
+import com.nexus.hr.model.entities.RecruitmentInterview;
+import com.nexus.hr.model.enums.ApplicationStatus;
+import com.nexus.hr.model.enums.HiringStatus;
+import com.nexus.hr.model.enums.HiringType;
+import com.nexus.hr.model.enums.InterviewMode;
+import com.nexus.hr.payload.ApplicantApplication;
+import com.nexus.hr.payload.ApplicantStatusUpdateRequest;
+import com.nexus.hr.payload.CommsPayload;
+import com.nexus.hr.payload.reflections.ExperienceBucketCount;
+import com.nexus.hr.payload.reflections.OrgOpeningCount;
+import com.nexus.hr.payload.response.ApplicantApplicationResponseDto;
+import com.nexus.hr.payload.response.ApplicationWithStatusResponseDto;
+import com.nexus.hr.payload.response.CompanyInsightDto;
+import com.nexus.hr.payload.response.CompanyInsightDto.StatusBreakdownDto;
+import com.nexus.hr.payload.response.CompanyInsightDto.TopOpeningDto;
+import com.nexus.hr.payload.response.CompanyInsightDto.TopRoleDto;
+import com.nexus.hr.payload.response.CompanyOpeningsCardDto;
+import com.nexus.hr.payload.response.DashboardStatsDto;
+import com.nexus.hr.payload.response.RecruitmentAnalyticsResponseDto;
+import com.nexus.hr.payload.response.RecruitmentApplicantTableResponse;
+import com.nexus.hr.payload.response.RecruitmentApplicantViewDto;
+import com.nexus.hr.payload.response.RecruitmentFilter;
+import com.nexus.hr.payload.response.RecruitmentTableResponse;
+import com.nexus.hr.payload.response.ScheduledInterviewResponse;
+import com.nexus.hr.repository.ApplicantBookmarkRecruitmentRepo;
+import com.nexus.hr.repository.ApplicantRecruitmentMappingRepo;
+import com.nexus.hr.repository.ApplicantRepo;
+import com.nexus.hr.repository.HrEntityRepo;
+import com.nexus.hr.repository.RecruitmentInterviewRepo;
+import com.nexus.hr.repository.RecruitmentRepo;
+import com.nexus.hr.service.interfaces.CommsService;
+import com.nexus.hr.service.interfaces.RecruitmentService;
+import com.nexus.hr.utils.CommonConstants;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
+@RequiredArgsConstructor
+@Service
+@Slf4j
+public class RecruitmentServiceImpl implements RecruitmentService {
+
+	private final RecruitmentRepo recruitmentRepo;
+	private final ApplicantRepo applicantRepo;
+	private final HrEntityRepo hrEntityRepo;
+	private final ModelMapper modelMapper;
+	private final ApplicantRecruitmentMappingRepo applicantRecruitmentMappingRepo;
+	private final RecruitmentInterviewRepo recruitmentInterviewRepo;
+	private final ApplicantBookmarkRecruitmentRepo applicantBookmarkRecruitmentRepo;
+	private final CommsService commsService;
+
+	@Override
+	public ResponseEntity<?> createRecruitment(Recruitment recruitment, Long empId) {
+		if (ObjectUtils.isEmpty(recruitment) || ObjectUtils.isEmpty(empId)) {
+			throw new ServiceLevelException(
+					"RecruimentService",
+					"Required recruitment body and empId missing",
+					"createRecruitment",
+					"Missing required data exception",
+					"Required data recruitment and empId are missing");
+		}
+		try {
+			HrEntity hrEntity = hrEntityRepo.findByEmployeeId(empId).orElseThrow(() -> new ResourceNotFoundException(
+					"HrEntity",
+					"employeeId",
+					empId.toString()));
+			recruitment.setCreatedBy(hrEntity);
+			recruitment.setHiringStatus(HiringStatus.OPEN);
+			Recruitment savedRecruitment = recruitmentRepo.save(recruitment);
+			return ResponseEntity.ok(savedRecruitment);
+		} catch (Exception e) {
+			throw new ServiceLevelException(
+					"RecruimentService",
+					"Error occurred while creating recruitment",
+					"createRecruitment",
+					"Service level exception",
+					e.getMessage());
+		}
+	}
+
+	@Override
+	public ResponseEntity<?> getRecruitment(Long id) {
+		if (ObjectUtils.isEmpty(id)) {
+			throw new ServiceLevelException(
+					"RecruimentService",
+					"Recruitment id is missing",
+					"getRecruitment",
+					"Missing required data exception",
+					"Required data recruitment id is missing");
+		}
+		try {
+			Recruitment recruitment = recruitmentRepo.findById(id).orElseThrow(() -> new ResourceNotFoundException(
+					"Recruitment",
+					"id",
+					id.toString()));
+			return ResponseEntity.ok(recruitment);
+		} catch (Exception e) {
+			throw new ServiceLevelException(
+					"RecruimentService",
+					"Error occurred while fetching recruitment",
+					"getRecruitment",
+					"Service level exception",
+					e.getMessage());
+		}
+	}
+
+	@Override
+	public ResponseEntity<?> getAllRecruitments(Long orgId, Boolean isActive, Long empId, HiringType hiringType,
+			HiringStatus hiringStatus, Pageable pageRequest) {
+		try {
+			// Validate pageRequest
+			if (ObjectUtils.isEmpty(pageRequest)) {
+				throw new ServiceLevelException(
+						"RecruimentService",
+						"PageRequest is required",
+						"getAllRecruitments",
+						"Missing required data exception",
+						"PageRequest cannot be null or empty");
+			}
+
+			// Count how many filters are provided
+			boolean hasIsActive = !ObjectUtils.isEmpty(isActive);
+			boolean hasEmpId = !ObjectUtils.isEmpty(empId);
+			boolean hasHiringType = !ObjectUtils.isEmpty(hiringType);
+			boolean hasHiringStatus = !ObjectUtils.isEmpty(hiringStatus);
+
+			// Call appropriate repository method based on filter combination
+			org.springframework.data.domain.Page<Recruitment> result;
+
+			if (hasIsActive && hasEmpId && hasHiringType && hasHiringStatus) {
+				// All four filters provided
+				result = recruitmentRepo.findByAllFilters(orgId, isActive, empId, hiringType, hiringStatus,
+						pageRequest);
+			} else if (hasIsActive && hasEmpId && hasHiringType) {
+				// isActive, empId, hiringType
+				result = recruitmentRepo.findByOrgIdAndIsActiveAndCreatedByEmployeeIdAndHiringType(orgId, isActive,
+						empId, hiringType, pageRequest);
+			} else if (hasIsActive && hasEmpId && hasHiringStatus) {
+				// isActive, empId, hiringStatus
+				result = recruitmentRepo.findByOrgIdAndIsActiveAndCreatedByEmployeeIdAndHiringStatus(orgId, isActive,
+						empId, hiringStatus, pageRequest);
+			} else if (hasIsActive && hasHiringType && hasHiringStatus) {
+				// isActive, hiringType, hiringStatus
+				result = recruitmentRepo.findByOrgIdAndIsActiveAndHiringTypeAndHiringStatus(orgId, isActive, hiringType,
+						hiringStatus, pageRequest);
+			} else if (hasEmpId && hasHiringType && hasHiringStatus) {
+				// empId, hiringType, hiringStatus
+				result = recruitmentRepo.findByOrgIdAndCreatedByEmployeeIdAndHiringTypeAndHiringStatus(orgId, empId,
+						hiringType, hiringStatus, pageRequest);
+			} else if (hasIsActive && hasEmpId) {
+				// isActive and empId
+				result = recruitmentRepo.findByOrgIdAndIsActiveAndCreatedByEmployeeId(orgId, isActive, empId,
+						pageRequest);
+			} else if (hasIsActive && hasHiringType) {
+				// isActive and hiringType
+				result = recruitmentRepo.findByOrgIdAndIsActiveAndHiringType(orgId, isActive, hiringType, pageRequest);
+			} else if (hasIsActive && hasHiringStatus) {
+				// isActive and hiringStatus
+				result = recruitmentRepo.findByOrgIdAndIsActiveAndHiringStatus(orgId, isActive, hiringStatus,
+						pageRequest);
+			} else if (hasEmpId && hasHiringType) {
+				// empId and hiringType
+				result = recruitmentRepo.findByOrgIdAndCreatedByEmployeeIdAndHiringType(orgId, empId, hiringType,
+						pageRequest);
+			} else if (hasEmpId && hasHiringStatus) {
+				// empId and hiringStatus
+				result = recruitmentRepo.findByOrgIdAndCreatedByEmployeeIdAndHiringStatus(orgId, empId, hiringStatus,
+						pageRequest);
+			} else if (hasHiringType && hasHiringStatus) {
+				// hiringType and hiringStatus
+				result = recruitmentRepo.findByOrgIdAndHiringTypeAndHiringStatus(orgId, hiringType, hiringStatus,
+						pageRequest);
+			} else if (hasIsActive) {
+				// Only isActive
+				result = recruitmentRepo.findByOrgIdAndIsActive(orgId, isActive, pageRequest);
+			} else if (hasEmpId) {
+				// Only empId
+				result = recruitmentRepo.findByOrgIdAndCreatedByEmployeeId(orgId, empId, pageRequest);
+			} else if (hasHiringType) {
+				// Only hiringType
+				result = recruitmentRepo.findByOrgIdAndHiringType(orgId, hiringType, pageRequest);
+			} else if (hasHiringStatus) {
+				// Only hiringStatus
+				result = recruitmentRepo.findByOrgIdAndHiringStatus(orgId, hiringStatus, pageRequest);
+			} else {
+				// No filters provided - return all recruitments for the organization
+				result = recruitmentRepo.findByOrgId(orgId, pageRequest);
+			}
+
+			Page<RecruitmentTableResponse> mappedResults = result.map(recruitment -> {
+				RecruitmentTableResponse map = modelMapper.map(recruitment, RecruitmentTableResponse.class);
+				map.setHiringManager(recruitment.getCreatedBy().getEmployeeId());
+				return map;
+			});
+
+			if (result.isEmpty()) {
+				return ResponseEntity.ok(Page.empty(pageRequest));
+			}
+
+			return ResponseEntity.ok(mappedResults);
+		} catch (ServiceLevelException e) {
+			throw e;
+		} catch (Exception e) {
+			throw new ServiceLevelException(
+					"RecruimentService",
+					"Error occurred while fetching recruitments",
+					"getAllRecruitments",
+					"Service level exception",
+					e.getMessage());
+		}
+	}
+
+	@Override
+	public ResponseEntity<?> updateRecruitment(Recruitment recruitment, Long empId) {
+		if (ObjectUtils.isEmpty(recruitment) || ObjectUtils.isEmpty(empId)) {
+			throw new ServiceLevelException(
+					"RecruimentService",
+					"Required recruitment body and empId missing",
+					"updateRecruitment",
+					"Missing required data exception",
+					"Required data recruitment and empId are missing");
+		}
+		try {
+			Recruitment existingRecruitment = recruitmentRepo.findById(recruitment.getRecruitmentId())
+					.orElseThrow(() -> new ResourceNotFoundException(
+							"Recruitment",
+							"id",
+							recruitment.getRecruitmentId().toString()));
+			if (!existingRecruitment.getCreatedBy().getEmployeeId().equals(empId)) {
+				throw new ServiceLevelException(
+						"RecruimentService",
+						"Unauthorized update attempt",
+						"updateRecruitment",
+						"Unauthorized access exception",
+						"Employee with id " + empId + " is not authorized to update this recruitment");
+			}
+			if (recruitment.getTitle() != null) {
+				existingRecruitment.setTitle(recruitment.getTitle());
+			}
+			if (recruitment.getShortDescription() != null) {
+				existingRecruitment.setShortDescription(recruitment.getShortDescription());
+			}
+			if (recruitment.getDescription() != null) {
+				existingRecruitment.setDescription(recruitment.getDescription());
+			}
+			if (recruitment.getOrgId() != null) {
+				existingRecruitment.setOrgId(recruitment.getOrgId());
+			}
+			if (recruitment.getDepartmentName() != null) {
+				existingRecruitment.setDepartmentName(recruitment.getDepartmentName());
+			}
+			if (recruitment.getDepartmentId() != null) {
+				existingRecruitment.setDepartmentId(recruitment.getDepartmentId());
+			}
+			if (recruitment.getRoleName() != null) {
+				existingRecruitment.setRoleName(recruitment.getRoleName());
+			}
+			if (recruitment.getOpeningTillDate() != null) {
+				existingRecruitment.setOpeningTillDate(recruitment.getOpeningTillDate());
+			}
+			if (recruitment.getTotalCompensation() != null) {
+				existingRecruitment.setTotalCompensation(recruitment.getTotalCompensation());
+			}
+			if (recruitment.getHiringType() != null) {
+				existingRecruitment.setHiringType(recruitment.getHiringType());
+			}
+			if (recruitment.getHiringStatus() != null) {
+				existingRecruitment.setHiringStatus(recruitment.getHiringStatus());
+			}
+
+			Recruitment updatedRecruitment = recruitmentRepo.save(existingRecruitment);
+			return ResponseEntity.ok(updatedRecruitment);
+		} catch (ServiceLevelException e) {
+			throw e;
+		} catch (Exception e) {
+			throw new ServiceLevelException(
+					"RecruimentService",
+					"Error occurred while updating recruitment",
+					"updateRecruitment",
+					"Service level exception",
+					e.getMessage());
+		}
+	}
+
+	@Override
+	public ResponseEntity<?> getClosedRecruitments(Long orgId, Pageable of) {
+		if (ObjectUtils.isEmpty(orgId)) {
+			throw new ServiceLevelException(
+					"RecruimentService",
+					"Organization id is missing",
+					"getClosedRecruitments",
+					"Missing required data exception",
+					"Required data organization id is missing");
+		}
+		try {
+			Page<Recruitment> closedRecruitments = recruitmentRepo.findByOrgIdAndHiringStatusIn(orgId,
+					List.of(HiringStatus.CLOSED, HiringStatus.HIRED), of);
+			Page<RecruitmentTableResponse> mappedResults = closedRecruitments.map(recruitment -> {
+				RecruitmentTableResponse map = modelMapper.map(recruitment, RecruitmentTableResponse.class);
+				map.setHiringManager(recruitment.getCreatedBy().getEmployeeId());
+				return map;
+			});
+			return ResponseEntity.ok(mappedResults);
+		} catch (Exception e) {
+			throw new ServiceLevelException(
+					"RecruimentService",
+					"Error occurred while fetching closed recruitments",
+					"getClosedRecruitments",
+					"Service level exception",
+					e.getMessage());
+		}
+	}
+
+	@Override
+	public ResponseEntity<?> getRecruitmentAnalytics(Long orgId) {
+		if (ObjectUtils.isEmpty(orgId)) {
+			throw new ServiceLevelException(
+					"RecruimentService",
+					"Organization id is missing",
+					"getRecruitmentAnalytics",
+					"Missing required data exception",
+					"Required data organization id is missing");
+		}
+		try {
+			RecruitmentAnalyticsResponseDto analytics = new RecruitmentAnalyticsResponseDto();
+
+			// 1. Open Roles - DIFFERENCE_COMPARISON with previous month
+			Long currentOpenRoles = recruitmentRepo.countOpenRecruitments(orgId);
+			Long previousMonthOpenRoles = recruitmentRepo.countOpenRecruitmentsPreviousMonth(orgId);
+			Integer openRolesDifference = (currentOpenRoles != null ? currentOpenRoles.intValue() : 0)
+					- (previousMonthOpenRoles != null ? previousMonthOpenRoles.intValue() : 0);
+			RecruitmentAnalyticsResponseDto.Trend openRolesTrend = openRolesDifference > 0
+					? RecruitmentAnalyticsResponseDto.Trend.INCREMENT
+					: (openRolesDifference < 0 ? RecruitmentAnalyticsResponseDto.Trend.DECREMENT
+							: RecruitmentAnalyticsResponseDto.Trend.STABLE);
+
+			analytics.setOpenRoles(new RecruitmentAnalyticsResponseDto.Values(
+					currentOpenRoles != null ? currentOpenRoles.intValue() : 0,
+					RecruitmentAnalyticsResponseDto.Type.DIFFERENCE_COMPARISON,
+					Math.abs(openRolesDifference),
+					openRolesTrend,
+					"Active job openings",
+					"previous month"));
+
+			// 2. Current Applications - DIFFERENCE_COMPARISON with previous week
+			Long currentApplications = applicantRepo.countTotalApplications(orgId);
+			Long previousWeekApplications = applicantRepo.countApplicationsPreviousWeek(orgId);
+			Integer applicationsDifference = (currentApplications != null ? currentApplications.intValue() : 0)
+					- (previousWeekApplications != null ? previousWeekApplications.intValue() : 0);
+			RecruitmentAnalyticsResponseDto.Trend applicationsTrend = applicationsDifference > 0
+					? RecruitmentAnalyticsResponseDto.Trend.INCREMENT
+					: (applicationsDifference < 0 ? RecruitmentAnalyticsResponseDto.Trend.DECREMENT
+							: RecruitmentAnalyticsResponseDto.Trend.STABLE);
+
+			analytics.setCurrentApplications(new RecruitmentAnalyticsResponseDto.Values(
+					currentApplications != null ? currentApplications.intValue() : 0,
+					RecruitmentAnalyticsResponseDto.Type.DIFFERENCE_COMPARISON,
+					Math.abs(applicationsDifference),
+					applicationsTrend,
+					"Total applications received",
+					"previous week"));
+
+			// 3. Under Review - VALUE_COMPARISON between REVIEW and INTERVIEW_SCHEDULED
+			Long underReviewCount = applicantRepo.countApplicationsByStatus(orgId, ApplicationStatus.REVIEW);
+			Long interviewScheduledCount = applicantRepo.countApplicationsByStatus(orgId,
+					ApplicationStatus.INTERVIEW_SCHEDULED);
+			Integer underReviewDifference = (underReviewCount != null ? underReviewCount.intValue() : 0)
+					- (interviewScheduledCount != null ? interviewScheduledCount.intValue() : 0);
+			RecruitmentAnalyticsResponseDto.Trend underReviewTrend = RecruitmentAnalyticsResponseDto.Trend.STABLE;
+
+			analytics.setUnderReview(new RecruitmentAnalyticsResponseDto.Values(
+					underReviewCount != null ? underReviewCount.intValue() : 0,
+					RecruitmentAnalyticsResponseDto.Type.VALUE_COMPARISON,
+					Math.abs(underReviewDifference),
+					underReviewTrend,
+					"applications under review",
+					"Interview scheduled"));
+
+			// 4. Offer Sent - VALUE_COMPARISON between SELECTED and OFFER_ACCEPTED
+			Long offerSentCount = applicantRepo.countSelected(orgId);
+			Long offerAcceptedCount = applicantRepo.countOfferAccepted(orgId);
+			Integer offerSentDifference = (offerSentCount != null ? offerSentCount.intValue() : 0)
+					- (offerAcceptedCount != null ? offerAcceptedCount.intValue() : 0);
+			RecruitmentAnalyticsResponseDto.Trend offerSentTrend = RecruitmentAnalyticsResponseDto.Trend.STABLE;
+
+			analytics.setOfferSent(new RecruitmentAnalyticsResponseDto.Values(
+					offerSentCount != null ? offerSentCount.intValue() : 0,
+					RecruitmentAnalyticsResponseDto.Type.VALUE_COMPARISON,
+					Math.abs(offerSentDifference),
+					offerSentTrend,
+					"Outstanding offers",
+					"Offer accepted"));
+
+			// 5. Recruitment TAT (Time To Hire) - DIFFERENCE_COMPARISON with quarterly
+			Double currentTAT = applicantRepo.averageTimeToHire(orgId);
+			Double previousQuarterTAT = applicantRepo.averageTimeToHirePreviousQuarter(orgId);
+			Integer tatDifference = (currentTAT != null ? currentTAT.intValue() : 0)
+					- (previousQuarterTAT != null ? previousQuarterTAT.intValue() : 0);
+			RecruitmentAnalyticsResponseDto.Trend tatTrend = tatDifference < 0
+					? RecruitmentAnalyticsResponseDto.Trend.INCREMENT
+					: (tatDifference > 0 ? RecruitmentAnalyticsResponseDto.Trend.DECREMENT
+							: RecruitmentAnalyticsResponseDto.Trend.STABLE);
+
+			analytics.setRecruitmentTAT(new RecruitmentAnalyticsResponseDto.Values(
+					currentTAT != null ? currentTAT.intValue() : 0,
+					RecruitmentAnalyticsResponseDto.Type.DIFFERENCE_COMPARISON,
+					Math.abs(tatDifference),
+					tatTrend,
+					"Average hiring duration",
+					"previous quarter"));
+
+			// 6. Offer Acceptance Rate - DIFFERENCE_COMPARISON with quarterly
+			Long currentOfferAccepted = applicantRepo.countOfferAccepted(orgId);
+			Long currentSelected = applicantRepo.countSelected(orgId);
+			Integer currentOfferAcceptanceRate = (currentSelected != null && currentSelected > 0)
+					? (int) ((currentOfferAccepted != null ? currentOfferAccepted : 0) * 100 / currentSelected)
+					: 0;
+
+			Long previousQuarterOfferAccepted = applicantRepo.countOfferAcceptedPreviousQuarter(orgId);
+			Long previousQuarterSelected = applicantRepo.countSelectedPreviousQuarter(orgId);
+			Integer previousQuarterOfferAcceptanceRate = (previousQuarterSelected != null
+					&& previousQuarterSelected > 0)
+							? (int) ((previousQuarterOfferAccepted != null ? previousQuarterOfferAccepted : 0) * 100
+									/ previousQuarterSelected)
+							: 0;
+
+			Integer offerAcceptanceRateDifference = currentOfferAcceptanceRate - previousQuarterOfferAcceptanceRate;
+			RecruitmentAnalyticsResponseDto.Trend offerAcceptanceTrend = offerAcceptanceRateDifference > 0
+					? RecruitmentAnalyticsResponseDto.Trend.INCREMENT
+					: (offerAcceptanceRateDifference < 0 ? RecruitmentAnalyticsResponseDto.Trend.DECREMENT
+							: RecruitmentAnalyticsResponseDto.Trend.STABLE);
+
+			analytics.setOfferAcceptance(new RecruitmentAnalyticsResponseDto.Values(
+					currentOfferAcceptanceRate,
+					RecruitmentAnalyticsResponseDto.Type.DIFFERENCE_COMPARISON,
+					Math.abs(offerAcceptanceRateDifference),
+					offerAcceptanceTrend,
+					"Conversion rate",
+					"previous quarter"));
+
+			return ResponseEntity.ok(analytics);
+		} catch (ServiceLevelException e) {
+			throw e;
+		} catch (Exception e) {
+			throw new ServiceLevelException(
+					"RecruimentService",
+					"Error occurred while fetching recruitment analytics",
+					"getRecruitmentAnalytics",
+					"Service level exception",
+					e.getMessage());
+		}
+	}
+
+	@Override
+	public ResponseEntity<?> getOpeningsToday(Integer pageNo, Integer pageOffset, HiringStatus status, String orgName,
+			String location, String query) {
+		try {
+			PageRequest pageRequest = PageRequest.of(pageNo, pageOffset);
+			Page<Recruitment> openingsToday = recruitmentRepo.findOpeningsToday(pageRequest,
+					status != null ? status.name() : null, orgName, location, query);
+			Page<RecruitmentApplicantTableResponse> mappedResults = openingsToday
+					.map(recruitment -> modelMapper.map(recruitment, RecruitmentApplicantTableResponse.class));
+			return ResponseEntity.ok(mappedResults);
+		} catch (Exception e) {
+			throw new ServiceLevelException(
+					"RecruimentService",
+					"Error occurred while fetching today's openings",
+					"getOpeningsToday",
+					"Service level exception",
+					e.getMessage());
+		}
+	}
+
+	@Override
+	public ResponseEntity<?> getOpeningsBeforeToday(Integer pageNo, Integer pageOffset, HiringStatus status,
+			String orgName, String location, String query) {
+		try {
+			PageRequest pageRequest = PageRequest.of(pageNo, pageOffset);
+			Page<Recruitment> openingsBeforeToday = recruitmentRepo.findOpeningsBeforeToday(pageRequest,
+					status != null ? status.name() : null, orgName, location, query);
+			Page<RecruitmentApplicantTableResponse> mappedResults = openingsBeforeToday
+					.map(recruitment -> modelMapper.map(recruitment, RecruitmentApplicantTableResponse.class));
+			return ResponseEntity.ok(mappedResults);
+		} catch (Exception e) {
+			throw new ServiceLevelException(
+					"RecruimentService",
+					"Error occurred while fetching openings before today",
+					"getOpeningsBeforeToday",
+					"Service level exception",
+					e.getMessage());
+		}
+	}
+
+	private record PositionPieGraphResponse(String position, Long openings) {
+	}
+
+	@Override
+	public ResponseEntity<?> getPositionPieGraph() {
+		try {
+			Map<String, Long> graphMap = recruitmentRepo.countOpeningsByDepartmentRaw().stream()
+					.collect(Collectors.toMap(
+							row -> (String) row[0],
+							row -> (Long) row[1]));
+			List<PositionPieGraphResponse> positionPieGraphResponses = graphMap.entrySet()
+					.stream()
+					.map(entry -> new PositionPieGraphResponse(entry.getKey(), entry.getValue()))
+					.toList();
+
+			return ResponseEntity.ok(positionPieGraphResponses);
+		} catch (Exception e) {
+			throw new ServiceLevelException(
+					"RecruimentService",
+					"Error occurred while fetching position pie graph data",
+					"getPositionPieGraph",
+					"Service level exception",
+					e.getMessage());
+		}
+	}
+
+	@Override
+	public ResponseEntity<?> getExperienceWiseOpenings() {
+		try {
+			List<ExperienceBucketCount> rows = recruitmentRepo.countOpeningsByExperienceBucket(HiringStatus.OPEN);
+
+			Map<String, Long> raw = rows.stream()
+					.collect(Collectors.toMap(
+							ExperienceBucketCount::getBucket,
+							ExperienceBucketCount::getOpeningCount));
+
+			Map<String, Long> ordered = new LinkedHashMap<>();
+			ordered.put("Junior Roles", raw.getOrDefault("Junior Roles", 0L));
+			ordered.put("Mid-Level Roles", raw.getOrDefault("Mid-Level Roles", 0L));
+			ordered.put("Senior Roles", raw.getOrDefault("Senior Roles", 0L));
+			ordered.put("Executive Roles", raw.getOrDefault("Executive Roles", 0L));
+
+			return ResponseEntity.ok(ordered);
+		} catch (Exception e) {
+			throw new ServiceLevelException(
+					"RecruimentService",
+					"Error occurred while fetching experience-wise openings",
+					"getExperienceWiseOpenings",
+					"Service level exception",
+					e.getMessage());
+		}
+	}
+
+	@Override
+	public ResponseEntity<?> getCompanyWiseOpeningCount(Integer pageNo, Integer pageOffset) {
+		try {
+			Page<OrgOpeningCount> currentPage = recruitmentRepo.findCurrentOpeningsGroupedByOrg(HiringStatus.OPEN,
+					PageRequest.of(pageNo, pageOffset));
+
+			// Start of current month, for the "last month" comparison baseline
+			LocalDateTime startOfThisMonth = LocalDate.now()
+					.withDayOfMonth(1)
+					.atStartOfDay();
+			Timestamp monthStart = Timestamp.valueOf(startOfThisMonth);
+
+			// Openings that already existed before this month started, per org
+			Map<Long, Long> openingsBeforeThisMonth = recruitmentRepo
+					.findOpeningsGroupedByOrgBefore(HiringStatus.OPEN, monthStart).stream()
+					.collect(Collectors.toMap(
+							OrgOpeningCount::getOrgId,
+							OrgOpeningCount::getOpeningCount));
+
+			// Combine into DTOs, computing the delta
+			List<CompanyOpeningsCardDto> cards = currentPage.getContent().stream()
+					.map(row -> {
+						long current = row.getOpeningCount();
+						long before = openingsBeforeThisMonth.getOrDefault(row.getOrgId(), 0L);
+						long change = current - before;
+						return new CompanyOpeningsCardDto(
+								row.getOrgId(),
+								row.getOrgName(),
+								current,
+								change);
+					})
+					.toList();
+
+			return ResponseEntity
+					.ok(new PageImpl<>(cards, PageRequest.of(pageNo, pageOffset), currentPage.getTotalElements()));
+		} catch (Exception e) {
+			throw new ServiceLevelException(
+					"RecruimentService",
+					"Error occurred while fetching company-wise opening count",
+					"getCompanyWiseOpeningCount",
+					"Service level exception",
+					e.getMessage());
+		}
+	}
+
+	@Override
+	public ResponseEntity<?> getRecruitmentApplicantView(Long id) {
+		if (ObjectUtils.isEmpty(id)) {
+			throw new ServiceLevelException(
+					"RecruimentService",
+					"Recruitment id is missing",
+					"getRecruitmentApplicantView",
+					"Missing required data exception",
+					"Required data recruitment id is missing");
+		}
+		try {
+			Recruitment recruitment = recruitmentRepo.findById(id).orElseThrow(() -> new ResourceNotFoundException(
+					"Recruitment",
+					"id",
+					id.toString()));
+			RecruitmentApplicantViewDto recruitmentApplicantViewDto = modelMapper.map(recruitment,
+					RecruitmentApplicantViewDto.class);
+			return ResponseEntity.ok(recruitmentApplicantViewDto);
+		} catch (Exception e) {
+			throw new ServiceLevelException(
+					"RecruimentService",
+					"Error occurred while fetching recruitment applicant view",
+					"getRecruitmentApplicantView",
+					"Service level exception",
+					e.getMessage());
+		}
+	}
+
+	@Override
+	public ResponseEntity<?> getRecruitmentFilters() {
+		try {
+			List<String> allLocations = recruitmentRepo.findAllLocations();
+			List<String> allOrgNames = recruitmentRepo.findAllOrgNames();
+			HiringType[] hiringTypes = HiringType.values();
+			HiringStatus[] hiringStatuses = HiringStatus.values();
+			// Initialize other lists as needed
+			return ResponseEntity.ok(new RecruitmentFilter(Arrays.stream(hiringTypes).toList(),
+					Arrays.stream(hiringStatuses).toList(), allOrgNames, allLocations));
+		} catch (Exception e) {
+			throw new ServiceLevelException(
+					"RecruimentService",
+					"Error occurred while fetching recruitment filters",
+					"getRecruitmentFilters",
+					"Service level exception",
+					e.getMessage());
+		}
+	}
+
+	@Override
+	public ResponseEntity<?> getRecruitmentByName(String name, Integer pageNo, Integer pageOffset) {
+		if (ObjectUtils.isEmpty(name)) {
+			throw new ServiceLevelException(
+					"RecruimentService",
+					"Recruitment name is missing",
+					"getRecruitmentByName",
+					"Missing required data exception",
+					"Required data recruitment name is missing");
+		}
+		try {
+			Page<Recruitment> recruitments = recruitmentRepo.findByTitleAndRoleNameContainingIgnoreCase(name,
+					PageRequest.of(pageNo, pageOffset));
+			Page<RecruitmentApplicantTableResponse> mappedResults = recruitments
+					.map(recruitment -> modelMapper.map(recruitment, RecruitmentApplicantTableResponse.class));
+			return ResponseEntity.ok(mappedResults);
+		} catch (Exception e) {
+			throw new ServiceLevelException(
+					"RecruimentService",
+					"Error occurred while fetching recruitment by name",
+					"getRecruitmentByName",
+					"Service level exception",
+					e.getMessage());
+		}
+	}
+
+	@Transactional
+	@Override
+	public ResponseEntity<?> applyApplicantRecruitment(ApplicantApplication application) {
+		if (ObjectUtils.isEmpty(application)) {
+			throw new ServiceLevelException(
+					"RecruimentService",
+					"Applicant application data is missing",
+					"applyApplicantRecruitment",
+					"Missing required data exception",
+					"Required data applicant application is missing");
+		}
+		try {
+			// Validate recruitment existence
+			Recruitment recruitment = recruitmentRepo.findById(application.getRecruitmentId())
+					.orElseThrow(() -> new ResourceNotFoundException(
+							"Recruitment",
+							"id",
+							application.getRecruitmentId().toString()));
+
+			// Create and save the applicant entity
+			Applicant applicant = applicantRepo.findByUserId(application.getUserId())
+					.orElseThrow(() -> new ResourceNotFoundException(
+							"Applicant",
+							"userId",
+							application.getUserId().toString()));
+			List<HrDocument> hrDocuments = applicant.getApplicantDocuments().stream().filter(
+					document -> application.getHrDocumentIds().stream().anyMatch(document.getHrDocumentId()::equals))
+					.toList();
+			ApplicantRecruitmentMapping mapping = new ApplicantRecruitmentMapping();
+			mapping.setApplicant(applicant);
+			mapping.setRecruitment(recruitment);
+			mapping.setApplicationDocuments(hrDocuments);
+			hrDocuments.forEach(doc -> doc.setApplicantRecruitmentMapping(mapping));
+			mapping.setStatus(ApplicationStatus.APPLIED);
+			ApplicantRecruitmentMapping applicantRecruitmentMapping = applicantRecruitmentMappingRepo.save(mapping);
+			return ResponseEntity.ok(applicantRecruitmentMapping);
+		} catch (Exception e) {
+			throw new ServiceLevelException(
+					"RecruimentService",
+					"Error occurred while applying for recruitment",
+					"applyApplicantRecruitment",
+					"Service level exception",
+					e.getMessage());
+		}
+	}
+
+	@Override
+	public ResponseEntity<?> hasApplicantApplied(Long recruitmentId, Long userId) {
+		if (ObjectUtils.isEmpty(recruitmentId) || ObjectUtils.isEmpty(userId)) {
+			throw new ServiceLevelException(
+					"RecruimentService",
+					"Recruitment id or user id is missing",
+					"hasApplicantApplied",
+					"Missing required data exception",
+					"Required data recruitment id or user id is missing");
+		}
+		try {
+			boolean hasApplied = applicantRecruitmentMappingRepo
+					.existsByRecruitmentRecruitmentIdAndApplicantUserId(recruitmentId, userId);
+			Map<String, Boolean> response = new HashMap<>();
+			response.put("hasApplied", hasApplied);
+			return ResponseEntity.ok(response);
+		} catch (Exception e) {
+			throw new ServiceLevelException(
+					"RecruimentService",
+					"Error occurred while checking if applicant has applied",
+					"hasApplicantApplied",
+					"Service level exception",
+					e.getMessage());
+		}
+	}
+
+	@Override
+	public ResponseEntity<?> getApplicantApplications(Long userId, Integer pageNo, Integer pageOffset,
+			ApplicationStatus status) {
+		if (ObjectUtils.isEmpty(userId)) {
+			throw new ServiceLevelException(
+					"RecruimentService",
+					"User id is missing",
+					"getApplicantApplications",
+					"Missing required data exception",
+					"Required data user id is missing");
+		}
+		try {
+			Page<ApplicantRecruitmentMapping> applications = null;
+			if (status != null) {
+				applications = applicantRecruitmentMappingRepo.findByApplicantUserIsAndStatus(userId, status,
+						PageRequest.of(pageNo, pageOffset));
+			} else {
+				applications = applicantRecruitmentMappingRepo.findByApplicantUserId(userId,
+						PageRequest.of(pageNo, pageOffset));
+			}
+			Page<ApplicantApplicationResponseDto> responseDtos = applications.map(mapping -> {
+				ApplicantApplicationResponseDto dto = new ApplicantApplicationResponseDto();
+				dto.setApplicantId(mapping.getApplicant().getApplicantId());
+				dto.setRecruitmentId(mapping.getRecruitment().getRecruitmentId());
+				dto.setUserId(mapping.getApplicant().getUserId());
+				dto.setRoleName(mapping.getRecruitment().getRoleName());
+				dto.setStatus(mapping.getStatus());
+				dto.setLocation(mapping.getRecruitment().getLocation());
+				dto.setAppliedOn(mapping.getAppliedOn());
+				dto.setOrgName(mapping.getRecruitment().getOrgName());
+				return dto;
+			});
+			return ResponseEntity.ok(responseDtos);
+		} catch (Exception e) {
+			throw new ServiceLevelException(
+					"RecruitmentService",
+					"Error occurred while fetching applicant applications",
+					"getApplicantApplications",
+					"Service level exception",
+					e.getMessage());
+		}
+	}
+
+	@Override
+	public ResponseEntity<?> getApplicantApplicationWithStatus(Long userId, Long recruitmentId) {
+		if (ObjectUtils.isEmpty(userId) || ObjectUtils.isEmpty(recruitmentId)) {
+			throw new ServiceLevelException(
+					"RecruitmentService",
+					"User id or applicant recruitment mapping id is missing",
+					"getApplicantApplicationWithStatus",
+					"Missing required data exception",
+					"Required data user id or applicant recruitment mapping id is missing");
+		}
+		try {
+			ApplicantRecruitmentMapping mapping = applicantRecruitmentMappingRepo
+					.findByUserIdAndRecruitmentId(userId, recruitmentId)
+					.orElseThrow(() -> new ResourceNotFoundException(
+							"ApplicantRecruitmentMapping",
+							"id",
+							recruitmentId.toString()));
+			if (!mapping.getApplicant().getUserId().equals(userId)) {
+				throw new ServiceLevelException(
+						"RecruitmentService",
+						"Unauthorized access attempt",
+						"getApplicantApplicationWithStatus",
+						"Unauthorized access exception",
+						"User with id " + userId + " is not authorized to access this application");
+			}
+			ApplicationWithStatusResponseDto dto = new ApplicationWithStatusResponseDto();
+			dto.setApplicantRecruitmentMappingId(mapping.getApplicantRecruitmentMappingId());
+			dto.setRecruitmentId(mapping.getRecruitment().getRecruitmentId());
+			dto.setRoleName(mapping.getRecruitment().getRoleName());
+			dto.setLocation(mapping.getRecruitment().getLocation());
+			dto.setOrgName(mapping.getRecruitment().getOrgName());
+			dto.setAppliedOn(mapping.getAppliedOn());
+			dto.setResumeSubmitted(mapping.getApplicationDocuments().stream()
+					.filter(doc -> Objects.equals(doc.getHrDocumentType(), CommonConstants.RESUME)).findFirst()
+					.map(HrDocument::getDocumentName).orElse(null));
+			dto.setStatusHistList(mapping.getStatusHistory());
+			// Include interviews (only active ones)
+			dto.setInterviews(mapping.getInterviews().stream()
+					.filter(interview -> Boolean.TRUE.equals(interview.getIsActive()))
+					.toList());
+
+			return ResponseEntity.ok(dto);
+		} catch (Exception e) {
+			throw new ServiceLevelException(
+					"RecruitmentService",
+					"Error occurred while fetching applicant application with status",
+					"getApplicantApplicationWithStatus",
+					"Service level exception",
+					e.getMessage());
+		}
+	}
+
+	@Override
+	public ResponseEntity<?> getCompanyInsights() {
+		try {
+			List<CompanyInsightDto> insights = new ArrayList<>();
+
+			// Get all organizations with open recruitments
+			List<OrgOpeningCount> orgOpenings = recruitmentRepo
+					.findCurrentOpeningsGroupedByOrg(HiringStatus.OPEN, PageRequest.of(0, 100)).getContent();
+
+			for (OrgOpeningCount org : orgOpenings) {
+				Long orgId = org.getOrgId();
+				String orgName = org.getOrgName();
+
+				// Total openings for this org
+				Long totalOpenings = recruitmentRepo.countOpenRecruitments(orgId);
+
+				// Total applications for this org
+				Long totalApplications = applicantRepo.countTotalApplications(orgId);
+
+				// Applications this week
+				java.sql.Timestamp weekStart = java.sql.Timestamp
+						.valueOf(java.time.LocalDate.now().with(java.time.DayOfWeek.MONDAY).atStartOfDay());
+				Long applicationsThisWeek = applicantRepo.countApplicationsThisWeek(orgId, weekStart);
+
+				// Average time to fill
+				Double avgTAT = applicantRepo.averageTimeToHireOverall(orgId);
+				Integer avgTimeToFill = avgTAT != null ? avgTAT.intValue() : 0;
+
+				// Top openings (recent 5)
+				Page<Recruitment> topOpeningsPage = recruitmentRepo.findByOrgIdAndHiringStatus(orgId, HiringStatus.OPEN,
+						PageRequest.of(0, 5));
+				List<TopOpeningDto> topOpenings = topOpeningsPage.getContent().stream()
+						.map(r -> {
+							Long appsCount = applicantRecruitmentMappingRepo
+									.countByRecruitmentRecruitmentId(r.getRecruitmentId());
+							Long daysOpen = java.time.Duration
+									.between(r.getCreatedAt().toLocalDateTime(), java.time.LocalDateTime.now())
+									.toDays();
+							return new TopOpeningDto(
+									r.getRecruitmentId(),
+									r.getTitle(),
+									r.getDepartmentName(),
+									r.getHiringType().name(),
+									r.getLocation(),
+									r.getCreatedAt().toLocalDateTime().toLocalDate().toString(),
+									appsCount,
+									0L, // viewsCount - not tracked currently
+									r.getHiringStatus().name().toLowerCase(),
+									daysOpen.intValue());
+						})
+						.toList();
+
+				// Top roles by application count
+				List<Object[]> roleStats = applicantRecruitmentMappingRepo.countApplicationsByRoleForOrg(orgId);
+				List<TopRoleDto> topRoles = roleStats.stream()
+						.map(row -> {
+							String role = (String) row[0];
+							Long apps = (Long) row[1];
+							Long openings = recruitmentRepo.countByOrgIdAndRoleNameAndHiringStatus(orgId, role,
+									HiringStatus.OPEN);
+							Double conversion = openings > 0 ? (apps.doubleValue() * 100 / openings) : 0.0;
+							return new TopRoleDto(role, openings.intValue(), apps, conversion);
+						})
+						.toList();
+
+				// Status breakdown
+				List<StatusBreakdownDto> statusBreakdown = Arrays.asList(
+						new StatusBreakdownDto("Applied",
+								applicantRepo.countApplicationsByStatus(orgId, ApplicationStatus.APPLIED),
+								"bg-blue-500"),
+						new StatusBreakdownDto("Under Review",
+								applicantRepo.countApplicationsByStatus(orgId, ApplicationStatus.REVIEW),
+								"bg-yellow-500"),
+						new StatusBreakdownDto("Interview",
+								applicantRepo.countApplicationsByStatus(orgId, ApplicationStatus.INTERVIEW_SCHEDULED),
+								"bg-purple-500"),
+						new StatusBreakdownDto("Offered", applicantRepo.countSelected(orgId), "bg-green-500"),
+						new StatusBreakdownDto("Rejected",
+								applicantRepo.countApplicationsByStatus(orgId, ApplicationStatus.REJECTED),
+								"bg-red-500"));
+
+				// Hiring trend (compare current month openings with previous month)
+				java.sql.Timestamp monthStart = java.sql.Timestamp
+						.valueOf(java.time.LocalDate.now().withDayOfMonth(1).atStartOfDay());
+				Long currentMonthOpenings = recruitmentRepo.countOpenRecruitmentsCurrentMonth(orgId, monthStart);
+				Long previousMonthOpenings = recruitmentRepo.countOpenRecruitmentsPreviousMonth(orgId);
+				Integer trendPercent = previousMonthOpenings > 0
+						? (int) (((currentMonthOpenings - previousMonthOpenings) * 100) / previousMonthOpenings)
+						: 0;
+				String hiringTrend = trendPercent > 0 ? "up" : trendPercent < 0 ? "down" : "stable";
+
+				insights.add(new CompanyInsightDto(
+						orgId,
+						orgName,
+						totalOpenings,
+						totalApplications,
+						applicationsThisWeek,
+						avgTimeToFill,
+						topOpenings,
+						topRoles,
+						statusBreakdown,
+						hiringTrend,
+						Math.abs(trendPercent)));
+			}
+
+			return ResponseEntity.ok(insights);
+		} catch (Exception e) {
+			throw new ServiceLevelException(
+					"RecruitmentService",
+					"Error occurred while fetching company insights",
+					"getCompanyInsights",
+					"Service level exception",
+					e.getMessage());
+		}
+	}
+
+	@Override
+	public ResponseEntity<?> getDashboardStats() {
+		try {
+			List<DashboardStatsDto> stats = new ArrayList<>();
+
+			// Active Companies - count distinct orgs with open recruitments
+			Long activeCompanies = recruitmentRepo.countDistinctOrgsWithOpenRecruitments();
+			stats.add(new DashboardStatsDto(
+					"Active Companies",
+					activeCompanies + "+",
+					"+12% vs last month",
+					"positive",
+					"Building2",
+					"text-blue-600 bg-blue-100"));
+
+			// Open Positions - total open recruitments
+			Long openPositions = recruitmentRepo.countAllOpenRecruitments();
+			stats.add(new DashboardStatsDto(
+					"Open Positions",
+					openPositions.toString(),
+					"+8% vs last week",
+					"positive",
+					"Briefcase",
+					"text-green-600 bg-green-100"));
+
+			// Total Applications
+			Long totalApplications = applicantRecruitmentMappingRepo.countAllApplications();
+			stats.add(new DashboardStatsDto(
+					"Total Applications",
+					totalApplications.toString(),
+					"+23% vs last week",
+					"positive",
+					"FileText",
+					"text-purple-600 bg-purple-100"));
+
+			// Avg Time to Fill
+			Double avgTAT = applicantRepo.averageTimeToHireOverall();
+			Integer avgDays = avgTAT != null ? avgTAT.intValue() : 19;
+			stats.add(new DashboardStatsDto(
+					"Avg Time to Fill",
+					avgDays + " days",
+					"-2 days vs last month",
+					"positive",
+					"Clock",
+					"text-orange-600 bg-orange-100"));
+
+			return ResponseEntity.ok(stats);
+		} catch (Exception e) {
+			throw new ServiceLevelException(
+					"RecruitmentService",
+					"Error occurred while fetching dashboard stats",
+					"getDashboardStats",
+					"Service level exception",
+					e.getMessage());
+		}
+	}
+
+	@Override
+	public ResponseEntity<?> getApplicantByRecruitmentMapping(Long applicantId, Long recruitmentId) {
+		if (ObjectUtils.isEmpty(applicantId) || ObjectUtils.isEmpty(recruitmentId)) {
+			throw new ServiceLevelException(
+					"RecruitmentService",
+					"Applicant ID or recruitment ID is missing",
+					"getApplicantByRecruitmentMapping",
+					"Missing required data exception",
+					"Required data applicant ID or recruitment ID is missing");
+		}
+		try {
+			ApplicantRecruitmentMapping mapping = applicantRecruitmentMappingRepo
+					.findByUserIdAndRecruitmentId(applicantId, recruitmentId)
+					.orElseThrow(() -> new ResourceNotFoundException(
+							"ApplicantRecruitmentMapping",
+							"applicantId and recruitmentId",
+							applicantId + " / " + recruitmentId));
+			Applicant applicant = mapping.getApplicant();
+			return ResponseEntity.ok(applicant);
+		} catch (ServiceLevelException e) {
+			throw e;
+		} catch (Exception e) {
+			throw new ServiceLevelException(
+					"RecruitmentService",
+					"Error occurred while fetching applicant by recruitment mapping",
+					"getApplicantByRecruitmentMapping",
+					"Service level exception",
+					e.getMessage());
+		}
+	}
+
+	@Override
+	@Transactional
+	public ResponseEntity<?> updateApplicantRecruitmentStatus(Long applicantId, Long recruitmentId,
+			ApplicantStatusUpdateRequest request) {
+		if (ObjectUtils.isEmpty(applicantId) || ObjectUtils.isEmpty(recruitmentId) || ObjectUtils.isEmpty(request)
+				|| ObjectUtils.isEmpty(request.getStatus())) {
+			throw new ServiceLevelException(
+					"RecruitmentService",
+					"Applicant ID, recruitment ID, or status is missing",
+					"updateApplicantRecruitmentStatus",
+					"Missing required data exception",
+					"Required data applicant ID, recruitment ID, or status is missing");
+		}
+		try {
+			ApplicantRecruitmentMapping mapping = applicantRecruitmentMappingRepo
+					.findByApplicantIdAndRecruitmentId(applicantId, recruitmentId)
+					.orElseThrow(() -> new ResourceNotFoundException(
+							"ApplicantRecruitmentMapping",
+							"applicantId and recruitmentId",
+							applicantId + " / " + recruitmentId));
+
+			ApplicationStatus status = request.getStatus();
+
+			if (mapping.getStatus().equals(status)) {
+				throw new ServiceLevelException(
+						"RecruitmentService",
+						"Applicant already has the same status: " + status.name(),
+						"updateApplicantRecruitmentStatus",
+						"Validation exception",
+						"The applicant already has the requested status: " + status.name());
+			}
+
+			ApplicationStatus currentStatus = mapping.getStatus();
+			if (List.of(ApplicationStatus.SELECTED, ApplicationStatus.REJECTED).contains(currentStatus)
+					&& List.of(ApplicationStatus.REVIEW, ApplicationStatus.REVIEW_COMPLETED,
+							ApplicationStatus.REVIEW_FAILED, ApplicationStatus.INTERVIEW_SCHEDULED,
+							ApplicationStatus.INTERVIEW_COMPLETED).contains(status)) {
+				throw new ServiceLevelException(
+						"RecruitmentService",
+						"Status transition not allowed",
+						"updateApplicantRecruitmentStatus",
+						"Validation exception",
+						"Cannot update status from " + currentStatus.name() + " to " + status.name());
+			}
+
+			// Create status history entry
+			ApplicantRecruitmentMappingStatusHist statusHist = new ApplicantRecruitmentMappingStatusHist();
+			statusHist.setStatus(status);
+			statusHist.setApplicantRecruitmentMapping(mapping);
+			statusHist.setIsActive(true);
+			mapping.getStatusHistory().add(statusHist);
+
+			// Handle status-specific logic
+			if (status == ApplicationStatus.INTERVIEW_SCHEDULED) {
+				// Validate interview details are provided
+				if (ObjectUtils.isEmpty(request.getInterviewType()) || ObjectUtils.isEmpty(request.getInterviewDate())
+						|| ObjectUtils.isEmpty(request.getInterviewTime())) {
+					throw new ServiceLevelException(
+							"RecruitmentService",
+							"Interview type, date, and time are required when scheduling an interview",
+							"updateApplicantRecruitmentStatus",
+							"Missing required data exception",
+							"Interview type, date, and time are required for INTERVIEW_SCHEDULED status");
+				}
+				if (ObjectUtils.isEmpty(request.getInterviewerEmail())) {
+					throw new ServiceLevelException(
+							"RecruitmentService",
+							"Interviewer email is required when scheduling an interview",
+							"updateApplicantRecruitmentStatus",
+							"Missing required data exception",
+							"Interviewer email is required for INTERVIEW_SCHEDULED status");
+				}
+
+				HrEntity hrEntity = hrEntityRepo.findByEmployeeEmail(request.getInterviewerEmail())
+						.orElseThrow(() -> new ResourceNotFoundException(
+								"HrEntity",
+								"employeeEmail",
+								request.getInterviewerEmail()));
+
+				// Check for existing active interview and mark as inactive (reschedule)
+				List<RecruitmentInterview> existingInterviews = mapping.getInterviews();
+				if (existingInterviews != null) {
+					for (RecruitmentInterview existingInterview : existingInterviews) {
+						if (Boolean.TRUE.equals(existingInterview.getIsActive())) {
+							existingInterview.setIsActive(false);
+							existingInterview.setInterviewStatus(com.nexus.hr.model.enums.InterviewStatus.RESCHEDULED);
+							recruitmentInterviewRepo.save(existingInterview);
+							log.info("Previous interview marked as inactive for reschedule, mapping ID: {}",
+									mapping.getApplicantRecruitmentMappingId());
+						}
+					}
+				}
+
+				// Create interview entity
+				RecruitmentInterview interview = new RecruitmentInterview();
+				interview.setInterviewType(request.getInterviewType());
+				interview.setInterviewDate(request.getInterviewDate());
+				interview.setInterviewTime(request.getInterviewTime());
+				interview.setInterviewDuration(request.getInterviewDuration());
+				interview.setInterviewMode(request.getInterviewMode());
+				interview.setInterviewLocation(
+						request.getInterviewMode().equals(InterviewMode.VIRTUAL) ? "Remote" : "On-site");
+				interview.setInterviewUrl(
+						"https://meet.nexus.org/interview/" + mapping.getApplicantRecruitmentMappingId());
+				interview.setInterviewerName(hrEntity.getEmployeeName());
+				interview.setInterviewConfirmationLink(
+						"https://nexus.org/confirm-interview/" + mapping.getApplicantRecruitmentMappingId());
+				interview.setInterviewConfirmationDeadline(LocalDateTime.now().plusDays(2));
+				interview.setInterviewStatus(com.nexus.hr.model.enums.InterviewStatus.SCHEDULED);
+				interview.setApplicantRecruitmentMapping(mapping);
+				interview.setIsActive(true);
+
+				// Set interviewer if provided
+				if (hrEntity != null) {
+					interview.setInterviewer(hrEntity);
+					interview.setInterviewerName(hrEntity.getEmployeeName());
+				}
+
+				// Save interview
+				recruitmentInterviewRepo.save(interview);
+				log.info("Interview saved successfully for mapping ID: {}", mapping.getApplicantRecruitmentMappingId());
+
+				// Send communication to applicant about the interview schedule
+				// Use a separate transaction to avoid rollback issues
+				try {
+					CommsPayload commsPayload = new CommsPayload();
+					commsPayload.setApplicantRecruitmentMappingId(mapping.getApplicantRecruitmentMappingId());
+					commsPayload.setRecruitmentInterviewId(interview.getRecruitmentInterviewId());
+					commsService.sendCommunication(CommonConstants.CommsTriggerPoint.APPLICANT_INTERVIEW_SCHEDULED,
+							null, commsPayload);
+					log.info("Communication sent successfully for interview scheduled");
+				} catch (Exception e) {
+					// Log the error but do not fail the entire operation
+					log.error("Failed to send communication for applicant interview scheduled: {}", e.getMessage(), e);
+				}
+			}
+			else if(ApplicationStatus.SELECTED.equals(status)){
+				try{
+					CommsPayload commsPayload = new CommsPayload();
+					commsPayload.setApplicantRecruitmentMappingId(mapping.getApplicantRecruitmentMappingId());
+					commsService.sendCommunication(CommonConstants.CommsTriggerPoint.APPLICANT_SELECTED, null, commsPayload);
+					log.info("Communication sent successfully for applicant selected");
+				} catch (Exception e) {
+					log.error("Failed to send communication for applicant selected: {}", e.getMessage(), e);
+				}
+			}
+			// Update the current status
+			mapping.setStatus(status);
+			applicantRecruitmentMappingRepo.save(mapping);
+			log.info("Applicant recruitment status updated successfully to {} for mapping ID: {}", status.name(),
+					mapping.getApplicantRecruitmentMappingId());
+
+			return ResponseEntity.ok("Applicant recruitment status updated successfully to " + status.name());
+		} catch (ServiceLevelException e) {
+			throw e;
+		} catch (Exception e) {
+			log.error("Error occurred while updating applicant recruitment status: {}", e.getMessage(), e);
+			throw new ServiceLevelException(
+					"RecruitmentService",
+					"Error occurred while updating applicant recruitment status",
+					"updateApplicantRecruitmentStatus",
+					"Service level exception",
+					e.getMessage());
+		}
+	}
+
+	@Override
+	public ResponseEntity<?> getAllScheduledInterviews(Long orgId, Integer pageNo, Integer pageOffset,
+			String interviewType, String interviewMode, String startDate, String endDate) {
+		if (ObjectUtils.isEmpty(orgId)) {
+			throw new ServiceLevelException(
+					"RecruitmentService",
+					"Organization ID is required",
+					"getAllScheduledInterviews",
+					"Missing required data exception",
+					"Organization ID is required");
+		}
+
+		try {
+			Pageable pageable = PageRequest.of(pageNo != null ? pageNo : 0, pageOffset != null ? pageOffset : 10);
+			Page<RecruitmentInterview> interviewsPage = recruitmentInterviewRepo
+					.findAllScheduledInterviewsByOrg(orgId, interviewType, interviewMode, startDate, endDate, pageable);
+
+			List<ScheduledInterviewResponse> response = interviewsPage.getContent().stream()
+					.map(this::mapToScheduledInterviewResponse)
+					.collect(Collectors.toList());
+
+			return ResponseEntity.ok(new PageImpl<>(response, pageable, interviewsPage.getTotalElements()));
+		} catch (Exception e) {
+			log.error("Error fetching all scheduled interviews: {}", e.getMessage(), e);
+			throw new ServiceLevelException(
+					"RecruitmentService",
+					"Error fetching all scheduled interviews",
+					"getAllScheduledInterviews",
+					"Service level exception",
+					e.getMessage());
+		}
+	}
+
+	@Override
+	public ResponseEntity<?> getMyInterviews(Long orgId, String interviewerEmail, Integer pageNo, Integer pageOffset,
+			String interviewType, String interviewMode, String startDate, String endDate) {
+		if (ObjectUtils.isEmpty(orgId) || ObjectUtils.isEmpty(interviewerEmail)) {
+			throw new ServiceLevelException(
+					"RecruitmentService",
+					"Organization ID and interviewer email are required",
+					"getMyInterviews",
+					"Missing required data exception",
+					"Organization ID and interviewer email are required");
+		}
+
+		try {
+			Pageable pageable = PageRequest.of(pageNo != null ? pageNo : 0, pageOffset != null ? pageOffset : 10);
+			Page<RecruitmentInterview> interviewsPage = recruitmentInterviewRepo
+					.findMyInterviewsByOrgAndInterviewer(orgId, interviewerEmail, interviewType, interviewMode,
+							startDate, endDate, pageable);
+
+			List<ScheduledInterviewResponse> response = interviewsPage.getContent().stream()
+					.map(this::mapToScheduledInterviewResponse)
+					.collect(Collectors.toList());
+
+			return ResponseEntity.ok(new PageImpl<>(response, pageable, interviewsPage.getTotalElements()));
+		} catch (Exception e) {
+			log.error("Error fetching my interviews: {}", e.getMessage(), e);
+			throw new ServiceLevelException(
+					"RecruitmentService",
+					"Error fetching my interviews",
+					"getMyInterviews",
+					"Service level exception",
+					e.getMessage());
+		}
+	}
+
+	@Override
+	@Transactional
+	public ResponseEntity<?> bookmarkRecruitment(Long recruitmentId, Long userId) {
+		if (ObjectUtils.isEmpty(recruitmentId) || ObjectUtils.isEmpty(userId)) {
+			throw new ServiceLevelException(
+					"RecruitmentService",
+					"Recruitment ID and User ID are required",
+					"bookmarkRecruitment",
+					"Missing required data exception",
+					"Recruitment ID and User ID are required");
+		}
+		try {
+			// Check if recruitment exists
+			Recruitment recruitment = recruitmentRepo.findById(recruitmentId)
+					.orElseThrow(() -> new ResourceNotFoundException("Recruitment", "recruitmentId", recruitmentId.toString()));
+
+			// Check if applicant exists
+			Applicant applicant = applicantRepo.findByUserId(userId)
+					.orElseThrow(() -> new ResourceNotFoundException("Applicant", "userId", userId.toString()));
+
+			// Check if already bookmarked
+			if (applicantBookmarkRecruitmentRepo.findByApplicantUserIdAndRecruitmentRecruitmentIdAndIsActiveTrue(userId, recruitmentId).isPresent()) {
+				return ResponseEntity.badRequest().body(Map.of("error", "Recruitment already bookmarked"));
+			}
+
+			// Create bookmark
+			ApplicantBookmarkRecruitment bookmark = new ApplicantBookmarkRecruitment();
+			bookmark.setApplicant(applicant);
+			bookmark.setRecruitment(recruitment);
+			applicantBookmarkRecruitmentRepo.save(bookmark);
+
+			return ResponseEntity.ok(Map.of("message", "Recruitment bookmarked successfully", "bookmarked", true));
+		} catch (ResourceNotFoundException e) {
+			throw e;
+		} catch (Exception e) {
+			log.error("Error occurred while bookmarking recruitment: {}", e.getMessage(), e);
+			throw new ServiceLevelException(
+					"RecruitmentService",
+					"Error occurred while bookmarking recruitment",
+					"bookmarkRecruitment",
+					"Service level exception",
+					e.getMessage());
+		}
+	}
+
+	@Override
+	@Transactional
+	public ResponseEntity<?> unbookmarkRecruitment(Long recruitmentId, Long userId) {
+		if (ObjectUtils.isEmpty(recruitmentId) || ObjectUtils.isEmpty(userId)) {
+			throw new ServiceLevelException(
+					"RecruitmentService",
+					"Recruitment ID and User ID are required",
+					"unbookmarkRecruitment",
+					"Missing required data exception",
+					"Recruitment ID and User ID are required");
+		}
+		try {
+			Optional<ApplicantBookmarkRecruitment> bookmarkOpt = applicantBookmarkRecruitmentRepo
+					.findByApplicantUserIdAndRecruitmentRecruitmentIdAndIsActiveTrue(userId, recruitmentId);
+
+			if (bookmarkOpt.isEmpty()) {
+				return ResponseEntity.badRequest().body(Map.of("error", "Bookmark not found"));
+			}
+
+			ApplicantBookmarkRecruitment bookmark = bookmarkOpt.get();
+			bookmark.setIsActive(false);
+			applicantBookmarkRecruitmentRepo.save(bookmark);
+
+			return ResponseEntity.ok(Map.of("message", "Bookmark removed successfully", "bookmarked", false));
+		} catch (Exception e) {
+			log.error("Error occurred while removing bookmark: {}", e.getMessage(), e);
+			throw new ServiceLevelException(
+					"RecruitmentService",
+					"Error occurred while removing bookmark",
+					"unbookmarkRecruitment",
+					"Service level exception",
+					e.getMessage());
+		}
+	}
+
+	@Override
+	public ResponseEntity<?> hasBookmarkedRecruitment(Long recruitmentId, Long userId) {
+		if (ObjectUtils.isEmpty(recruitmentId) || ObjectUtils.isEmpty(userId)) {
+			throw new ServiceLevelException(
+					"RecruitmentService",
+					"Recruitment ID and User ID are required",
+					"hasBookmarkedRecruitment",
+					"Missing required data exception",
+					"Recruitment ID and User ID are required");
+		}
+		try {
+			boolean hasBookmarked = applicantBookmarkRecruitmentRepo
+					.findByApplicantUserIdAndRecruitmentRecruitmentIdAndIsActiveTrue(userId, recruitmentId).isPresent();
+
+			return ResponseEntity.ok(Map.of("hasBookmarked", hasBookmarked));
+		} catch (Exception e) {
+			log.error("Error checking bookmark status: {}", e.getMessage(), e);
+			throw new ServiceLevelException(
+					"RecruitmentService",
+					"Error checking bookmark status",
+					"hasBookmarkedRecruitment",
+					"Service level exception",
+					e.getMessage());
+		}
+	}
+
+	@Override
+	public ResponseEntity<?> getBookmarkedRecruitments(Long userId, Integer pageNo, Integer pageOffset) {
+		if (ObjectUtils.isEmpty(userId)) {
+			throw new ServiceLevelException(
+					"RecruitmentService",
+					"User ID is required",
+					"getBookmarkedRecruitments",
+					"Missing required data exception",
+					"User ID is required");
+		}
+		try {
+			Pageable pageable = PageRequest.of(pageNo != null ? pageNo : 0, pageOffset != null ? pageOffset : 10);
+			Page<ApplicantBookmarkRecruitment> bookmarksPage = applicantBookmarkRecruitmentRepo
+					.findByApplicantUserIdAndIsActiveTrue(userId, pageable);
+
+			List<Map<String, Object>> response = bookmarksPage.getContent().stream()
+					.map(bookmark -> {
+						Recruitment r = bookmark.getRecruitment();
+						Map<String, Object> map = new HashMap<>();
+						map.put("recruitmentId", r.getRecruitmentId());
+						map.put("title", r.getTitle());
+						map.put("shortDescription", r.getShortDescription());
+						map.put("orgName", r.getOrgName());
+						map.put("location", r.getLocation());
+						map.put("hiringType", r.getHiringType());
+						map.put("hiringStatus", r.getHiringStatus());
+						map.put("totalCompensation", r.getTotalCompensation());
+						map.put("openingTillDate", r.getOpeningTillDate());
+						map.put("bookmarkedAt", bookmark.getCreatedAt());
+						return map;
+					})
+					.collect(Collectors.toList());
+
+			return ResponseEntity.ok(new PageImpl<>(response, pageable, bookmarksPage.getTotalElements()));
+		} catch (Exception e) {
+			log.error("Error fetching bookmarked recruitments: {}", e.getMessage(), e);
+			throw new ServiceLevelException(
+					"RecruitmentService",
+					"Error fetching bookmarked recruitments",
+					"getBookmarkedRecruitments",
+					"Service level exception",
+					e.getMessage());
+		}
+	}
+
+	@Override
+	public ResponseEntity<?> getBookmarkCount(Long recruitmentId) {
+		if (ObjectUtils.isEmpty(recruitmentId)) {
+			throw new ServiceLevelException(
+					"RecruitmentService",
+					"Recruitment ID is required",
+					"getBookmarkCount",
+					"Missing required data exception",
+					"Recruitment ID is required");
+		}
+		try {
+			Long count = applicantBookmarkRecruitmentRepo.countByRecruitmentRecruitmentIdAndIsActiveTrue(recruitmentId);
+			return ResponseEntity.ok(Map.of("bookmarkCount", count));
+		} catch (Exception e) {
+			log.error("Error fetching bookmark count: {}", e.getMessage(), e);
+			throw new ServiceLevelException(
+					"RecruitmentService",
+					"Error fetching bookmark count",
+					"getBookmarkCount",
+					"Service level exception",
+					e.getMessage());
+		}
+	}
+
+	private ScheduledInterviewResponse mapToScheduledInterviewResponse(RecruitmentInterview interview) {
+		ScheduledInterviewResponse response = new ScheduledInterviewResponse();
+		response.setRecruitmentInterviewId(interview.getRecruitmentInterviewId());
+		response.setApplicantRecruitmentMappingId(
+				interview.getApplicantRecruitmentMapping().getApplicantRecruitmentMappingId());
+		response.setApplicantId(interview.getApplicantRecruitmentMapping().getApplicant().getApplicantId());
+		response.setApplicantName(interview.getApplicantRecruitmentMapping().getApplicant().getApplicantFirstName()
+				+ " " + interview.getApplicantRecruitmentMapping().getApplicant().getApplicantLastName());
+		response.setApplicantEmail(interview.getApplicantRecruitmentMapping().getApplicant().getApplicantEmail());
+		response.setRecruitmentId(interview.getApplicantRecruitmentMapping().getRecruitment().getRecruitmentId());
+		response.setRecruitmentTitle(interview.getApplicantRecruitmentMapping().getRecruitment().getTitle());
+		response.setRoleName(interview.getApplicantRecruitmentMapping().getRecruitment().getRoleName());
+		response.setDepartmentName(interview.getApplicantRecruitmentMapping().getRecruitment().getDepartmentName());
+		response.setInterviewType(interview.getInterviewType());
+		response.setInterviewDate(interview.getInterviewDate());
+		response.setInterviewTime(interview.getInterviewTime());
+		response.setInterviewDuration(interview.getInterviewDuration());
+		response.setInterviewMode(interview.getInterviewMode());
+		response.setInterviewLocation(interview.getInterviewLocation());
+		response.setInterviewUrl(interview.getInterviewUrl());
+		response.setInterviewerName(interview.getInterviewerName());
+		response.setInterviewerEmail(
+				interview.getInterviewer() != null ? interview.getInterviewer().getEmployeeEmail() : null);
+		response.setInterviewStatus(interview.getInterviewStatus());
+		response.setIsActive(interview.getIsActive());
+		response.setCreatedAt(interview.getCreatedAt());
+		response.setUpdatedAt(interview.getUpdatedAt());
+		return response;
+	}
+}

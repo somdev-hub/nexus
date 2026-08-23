@@ -1,0 +1,447 @@
+package com.nexus.nexusbuddy.service.implementations;
+
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
+
+import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.ai.chat.messages.AssistantMessage;
+import org.springframework.ai.chat.messages.Message;
+import org.springframework.ai.chat.messages.SystemMessage;
+import org.springframework.ai.chat.messages.UserMessage;
+import org.springframework.ai.chat.prompt.Prompt;
+import org.springframework.ai.tool.ToolCallback;
+import org.springframework.data.domain.Pageable;
+import org.springframework.http.ResponseEntity;
+import org.springframework.http.codec.ServerSentEvent;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.nexus.nexusbuddy.ai.DynamicToolProvider;
+import com.nexus.nexusbuddy.exception.ConfigNotFoundException;
+import com.nexus.nexusbuddy.model.entities.ClientConfig;
+import com.nexus.nexusbuddy.model.entities.ToolsConfig;
+import com.nexus.nexusbuddy.model.entities.ToolsParamConfig;
+import com.nexus.nexusbuddy.payload.ChatMessage;
+import com.nexus.nexusbuddy.payload.ChatRequest;
+import com.nexus.nexusbuddy.payload.ChatResponse;
+import com.nexus.nexusbuddy.repository.ClientConfigRepository;
+import com.nexus.nexusbuddy.repository.ToolsConfigRepository;
+import com.nexus.nexusbuddy.repository.ToolsParamConfigRepository;
+import com.nexus.nexusbuddy.service.interfaces.ChatService;
+import com.nexus.nexusbuddy.util.CommonUtils;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import reactor.core.publisher.Flux;
+
+/**
+ * Service implementation for Chat operations using Spring AI with MCP tool
+ * calling.
+ */
+@Service
+@RequiredArgsConstructor
+@Slf4j
+@Transactional
+public class ChatServiceImpl implements ChatService {
+
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
+    private final ClientConfigRepository clientConfigRepository;
+    private final ToolsConfigRepository toolsConfigRepository;
+    private final ToolsParamConfigRepository toolsParamConfigRepository;
+    private final ChatModel chatModel;
+    private final DynamicToolProvider dynamicToolProvider;
+
+    @Override
+    public ResponseEntity<ChatResponse> chat(ChatRequest request) {
+        log.info("Processing chat request for client IDs: {}", request.getClientIds());
+
+        CommonUtils.requireNonNull(request, "Chat request");
+        CommonUtils.requireNonEmpty(request.getMessage(), "Message");
+
+        List<Long> requestedClientIds = resolveClientIds(request);
+        if (requestedClientIds.isEmpty()) {
+            throw new IllegalArgumentException(
+                    "At least one client ID must be provided in clientConfigId or clientIds");
+        }
+
+        Set<Long> distinctClientIds = new LinkedHashSet<>(requestedClientIds);
+        List<ClientConfig> clientConfigs = clientConfigRepository.findAllById(distinctClientIds);
+        if (clientConfigs.size() != distinctClientIds.size()) {
+            throw new ConfigNotFoundException("ClientConfig", "clientIds", distinctClientIds);
+        }
+
+        List<ToolsConfig> toolsConfigs = toolsConfigRepository
+                .findByIsActiveTrueAndClientConfigClientConfigIdIn(distinctClientIds);
+
+        String systemPrompt = buildSystemPrompt(clientConfigs, toolsConfigs);
+
+        List<Message> messages = new ArrayList<>();
+        messages.add(new SystemMessage(systemPrompt));
+
+        if (request.getHistory() != null && !request.getHistory().isEmpty()) {
+            for (ChatMessage historyEntry : request.getHistory()) {
+                switch (historyEntry.getRole()) {
+                    case "user" -> messages.add(new UserMessage(historyEntry.getContent()));
+                    case "assistant" -> messages.add(new AssistantMessage(historyEntry.getContent()));
+                    case "system" -> messages.add(new SystemMessage(historyEntry.getContent()));
+                    default -> log.warn("Unknown history role: {}", historyEntry.getRole());
+                }
+            }
+        }
+
+        messages.add(new UserMessage(request.getMessage()));
+
+        Prompt prompt = new Prompt(messages);
+        ToolCallback[] toolCallbacks = dynamicToolProvider.getToolCallbacks(distinctClientIds);
+        ChatClient requestChatClient = ChatClient.builder(chatModel).defaultTools(toolCallbacks).build();
+        String aiResponse = requestChatClient.prompt(prompt).call().content();
+        String conversationId = UUID.randomUUID().toString();
+
+        ChatResponse response = ChatResponse.builder()
+                .message(aiResponse)
+                .conversationId(conversationId)
+                .timestamp(Instant.now())
+                .metadata(request.getMetadata())
+                .build();
+
+        log.info("Chat response generated successfully for conversation: {}", conversationId);
+        return ResponseEntity.ok(response);
+    }
+
+    @Override
+    public ResponseEntity<ChatResponse> chatWithConversation(ChatRequest request) {
+        return chat(request);
+    }
+
+    @Override
+    public ResponseEntity<ChatResponse> directChat(String prompt) {
+        log.info("Processing direct chat request: {}", prompt);
+
+        CommonUtils.requireNonEmpty(prompt, "Prompt");
+
+        String systemPrompt = "You are a helpful AI assistant. Provide helpful, accurate, and concise responses.";
+
+        List<Message> messages = new ArrayList<>();
+        messages.add(new SystemMessage(systemPrompt));
+        messages.add(new UserMessage(prompt));
+
+        Prompt aiPrompt = new Prompt(messages);
+        ChatClient directChatClient = ChatClient.builder(chatModel).build();
+        String aiResponse = directChatClient.prompt(aiPrompt).call().content();
+        String conversationId = UUID.randomUUID().toString();
+
+        ChatResponse response = ChatResponse.builder()
+                .message(aiResponse)
+                .conversationId(conversationId)
+                .timestamp(Instant.now())
+                .build();
+
+        log.info("Direct chat response generated successfully for conversation: {}", conversationId);
+        return ResponseEntity.ok(response);
+    }
+
+    @Override
+    public Flux<ServerSentEvent<String>> streamChat(ChatRequest request) {
+        log.info("Processing streaming chat request for client IDs: {}", request.getClientIds());
+
+        CommonUtils.requireNonNull(request, "Chat request");
+        CommonUtils.requireNonEmpty(request.getMessage(), "Message");
+
+        List<Long> requestedClientIds = resolveClientIds(request);
+        if (requestedClientIds.isEmpty()) {
+            throw new IllegalArgumentException(
+                    "At least one client ID must be provided in clientConfigId or clientIds");
+        }
+
+        Set<Long> distinctClientIds = new LinkedHashSet<>(requestedClientIds);
+        List<ClientConfig> clientConfigs = clientConfigRepository.findAllById(distinctClientIds);
+        if (clientConfigs.size() != distinctClientIds.size()) {
+            throw new ConfigNotFoundException("ClientConfig", "clientIds", distinctClientIds);
+        }
+
+        List<ToolsConfig> toolsConfigs = toolsConfigRepository
+                .findByIsActiveTrueAndClientConfigClientConfigIdIn(distinctClientIds);
+
+        String systemPrompt = buildSystemPrompt(clientConfigs, toolsConfigs);
+
+        List<Message> messages = new ArrayList<>();
+        messages.add(new SystemMessage(systemPrompt));
+
+        if (request.getHistory() != null && !request.getHistory().isEmpty()) {
+            for (ChatMessage historyEntry : request.getHistory()) {
+                switch (historyEntry.getRole()) {
+                    case "user" -> messages.add(new UserMessage(historyEntry.getContent()));
+                    case "assistant" -> messages.add(new AssistantMessage(historyEntry.getContent()));
+                    case "system" -> messages.add(new SystemMessage(historyEntry.getContent()));
+                    default -> log.warn("Unknown history role: {}", historyEntry.getRole());
+                }
+            }
+        }
+
+        messages.add(new UserMessage(request.getMessage()));
+
+        Prompt prompt = new Prompt(messages);
+        ToolCallback[] toolCallbacks = dynamicToolProvider.getToolCallbacks(distinctClientIds);
+        ChatClient requestChatClient = ChatClient.builder(chatModel).defaultTools(toolCallbacks).build();
+
+        String conversationId = UUID.randomUUID().toString();
+
+        // Stream the response
+        Flux<String> contentFlux = requestChatClient.prompt(prompt).stream().content();
+
+        return contentFlux
+                .map(chunk -> ServerSentEvent.builder(chunk)
+                        .id(conversationId)
+                        .event("message")
+                        .build())
+                .concatWith(Flux.just(ServerSentEvent.builder("")
+                        .id(conversationId)
+                        .event("done")
+                        .build()));
+    }
+
+    /**
+     * Stream chat with domain-based tool loading.
+     * Finds client configs that have the domain in their allowedUsersList
+     * and loads tools for those client configs.
+     * 
+     * @param request Chat request
+     * @param domain  Domain to filter by (e.g., "localhost:3001")
+     * @return Flux of ServerSentEvents
+     */
+    public Flux<ServerSentEvent<String>> streamChatByDomain(ChatRequest request, String domain) {
+        log.info("Processing streaming chat request for domain: {}", domain);
+
+        CommonUtils.requireNonNull(request, "Chat request");
+        CommonUtils.requireNonEmpty(request.getMessage(), "Message");
+        CommonUtils.requireNonEmpty(domain, "Domain");
+
+        // Get tool callbacks for the domain
+        ToolCallback[] toolCallbacks = dynamicToolProvider.getToolCallbacksByDomain(domain);
+
+        // Get client configs for the domain to build system prompt
+        List<ClientConfig> clientConfigs = clientConfigRepository.findByAllowedUsersListContaining(domain);
+        List<Long> clientIds = clientConfigs.stream()
+                .map(ClientConfig::getClientConfigId)
+                .toList();
+
+        List<ToolsConfig> toolsConfigs = toolsConfigRepository
+                .findByIsActiveTrueAndClientConfigClientConfigIdIn(clientIds);
+
+        String systemPrompt = buildSystemPrompt(clientConfigs, toolsConfigs);
+
+        List<Message> messages = new ArrayList<>();
+        messages.add(new SystemMessage(systemPrompt));
+
+        if (request.getHistory() != null && !request.getHistory().isEmpty()) {
+            for (ChatMessage historyEntry : request.getHistory()) {
+                switch (historyEntry.getRole()) {
+                    case "user" -> messages.add(new UserMessage(historyEntry.getContent()));
+                    case "assistant" -> messages.add(new AssistantMessage(historyEntry.getContent()));
+                    case "system" -> messages.add(new SystemMessage(historyEntry.getContent()));
+                    default -> log.warn("Unknown history role: {}", historyEntry.getRole());
+                }
+            }
+        }
+
+        messages.add(new UserMessage(request.getMessage()));
+
+        Prompt prompt = new Prompt(messages);
+        ChatClient requestChatClient = ChatClient.builder(chatModel).defaultTools(toolCallbacks).build();
+
+        String conversationId = UUID.randomUUID().toString();
+
+        // Stream the response
+        Flux<String> contentFlux = requestChatClient.prompt(prompt).stream().content();
+
+        return contentFlux
+                .map(chunk -> ServerSentEvent.builder(chunk)
+                        .id(conversationId)
+                        .event("message")
+                        .build())
+                .concatWith(Flux.just(ServerSentEvent.builder("")
+                        .id(conversationId)
+                        .event("done")
+                        .build()));
+    }
+
+    /**
+     * Non-streaming chat with domain-based tool loading.
+     * 
+     * @param request Chat request
+     * @param domain  Domain to filter by (e.g., "localhost:3001")
+     * @return ChatResponse
+     */
+    public ResponseEntity<ChatResponse> chatByDomain(ChatRequest request, String domain) {
+        log.info("Processing chat request for domain: {}", domain);
+
+        CommonUtils.requireNonNull(request, "Chat request");
+        CommonUtils.requireNonEmpty(request.getMessage(), "Message");
+        CommonUtils.requireNonEmpty(domain, "Domain");
+
+        // Get tool callbacks for the domain
+        ToolCallback[] toolCallbacks = dynamicToolProvider.getToolCallbacksByDomain(domain);
+
+        // Get client configs for the domain to build system prompt
+        List<ClientConfig> clientConfigs = clientConfigRepository.findByAllowedUsersListContaining(domain);
+        List<Long> clientIds = clientConfigs.stream()
+                .map(ClientConfig::getClientConfigId)
+                .toList();
+
+        List<ToolsConfig> toolsConfigs = toolsConfigRepository
+                .findByIsActiveTrueAndClientConfigClientConfigIdIn(clientIds);
+
+        String systemPrompt = buildSystemPrompt(clientConfigs, toolsConfigs);
+
+        List<Message> messages = new ArrayList<>();
+        messages.add(new SystemMessage(systemPrompt));
+
+        if (request.getHistory() != null && !request.getHistory().isEmpty()) {
+            for (ChatMessage historyEntry : request.getHistory()) {
+                switch (historyEntry.getRole()) {
+                    case "user" -> messages.add(new UserMessage(historyEntry.getContent()));
+                    case "assistant" -> messages.add(new AssistantMessage(historyEntry.getContent()));
+                    case "system" -> messages.add(new SystemMessage(historyEntry.getContent()));
+                    default -> log.warn("Unknown history role: {}", historyEntry.getRole());
+                }
+            }
+        }
+
+        messages.add(new UserMessage(request.getMessage()));
+
+        Prompt prompt = new Prompt(messages);
+        ChatClient requestChatClient = ChatClient.builder(chatModel).defaultTools(toolCallbacks).build();
+        String aiResponse = requestChatClient.prompt(prompt).call().content();
+        String conversationId = UUID.randomUUID().toString();
+
+        ChatResponse response = ChatResponse.builder()
+                .message(aiResponse)
+                .conversationId(conversationId)
+                .timestamp(Instant.now())
+                .metadata(request.getMetadata())
+                .build();
+
+        log.info("Chat response generated successfully for conversation: {}", conversationId);
+        return ResponseEntity.ok(response);
+    }
+
+    private String buildSystemPrompt(List<ClientConfig> clientConfigs, List<ToolsConfig> toolsConfigs) {
+        StringBuilder prompt = new StringBuilder();
+        if (clientConfigs != null && !clientConfigs.isEmpty()) {
+            prompt.append("You are an AI assistant for the following client(s):");
+            for (ClientConfig clientConfig : clientConfigs) {
+                prompt.append("\n- ").append(clientConfig.getClientName())
+                        .append(" (")
+                        .append(clientConfig.getClientDescription())
+                        .append(")");
+            }
+            prompt.append("\n\n");
+        }
+
+        if (toolsConfigs == null || toolsConfigs.isEmpty()) {
+            prompt.append("No external tools are configured for the requested client(s).\n");
+        } else {
+            prompt.append(
+                    "You have access to the following tools. Use them only when the user's request requires external data or actions:\n\n");
+
+            for (ToolsConfig tool : toolsConfigs) {
+                List<ToolsParamConfig> params = toolsParamConfigRepository
+                        .findByToolsConfigToolsConfigId(tool.getToolsConfigId(), Pageable.unpaged())
+                        .getContent();
+                prompt.append("Tool: ").append(tool.getToolName()).append("\n");
+                prompt.append("Description: ").append(tool.getToolDescription()).append("\n");
+                prompt.append("Endpoint: ").append(tool.getEndpoint()).append("\n");
+                prompt.append("HTTP Method: ").append(tool.getHttpMethod()).append("\n");
+
+                if (params != null && !params.isEmpty()) {
+                    prompt.append("Parameters:\n");
+                    for (ToolsParamConfig param : params) {
+                        if (!Boolean.TRUE.equals(param.getIsActive())) {
+                            continue;
+                        }
+                        prompt.append(" - ").append(param.getParamName())
+                                .append(" (").append(param.getParamType()).append(", ")
+                                .append(param.getDataType()).append(")");
+                        if (Boolean.TRUE.equals(param.getIsRequired())) {
+                            prompt.append(" [required]");
+                        }
+                        if (param.getDefaultValue() != null) {
+                            prompt.append(" default=").append(param.getDefaultValue());
+                        }
+                        if (param.getDescription() != null && !param.getDescription().isBlank()) {
+                            prompt.append(" - ").append(param.getDescription());
+                        }
+                        prompt.append("\n");
+                    }
+                }
+                prompt.append("\n");
+            }
+
+            prompt.append(
+                    "When the user's request requires using one of these tools, call the appropriate tool with the required parameters. ")
+                    .append("Extract filter values such as company name, location, role, status, or date range directly from the user's message. ")
+                    .append("Do not ask the user for optional pagination parameters like pageNo or pageOffset; if omitted, the backend will use defaults. ")
+                    .append("Do not use tools that are outside the requested client(s).\n");
+        }
+
+        prompt.append("\nProvide helpful, accurate, and concise responses.");
+        return prompt.toString();
+    }
+
+    private List<Long> resolveClientIds(ChatRequest request) {
+        List<Long> clientIds = new ArrayList<>();
+        if (request.getClientIds() != null) {
+            for (Long clientId : request.getClientIds()) {
+                if (clientId != null) {
+                    clientIds.add(clientId);
+                }
+            }
+        }
+
+        if (clientIds.isEmpty() && request.getClientConfigId() != null) {
+            clientIds.add(request.getClientConfigId());
+        }
+
+        return clientIds;
+    }
+
+    @Override
+    public Flux<ServerSentEvent<String>> streamTestLogs(ChatRequest request) {
+        log.info("Processing test streaming request: {}", request.getMessage());
+
+        String conversationId = UUID.randomUUID().toString();
+
+        // Dummy log data to stream
+        String[] logLines = {
+                "[INFO] 2026-08-07 10:00:00 NexusBuddyApplication - Starting NexusBuddy service...",
+                "[INFO] 2026-08-07 10:00:01 DynamicToolProvider - Loading tool callbacks for client configs...",
+                "[INFO] 2026-08-07 10:00:02 ClientConfigRepository - Found 3 client configs for domain localhost:3001",
+                "[INFO] 2026-08-07 10:00:03 ToolsConfigRepository - Loading 5 active tools for client configs [1, 2, 3]",
+                "[INFO] 2026-08-07 10:00:04 ChatServiceImpl - Building system prompt with 5 tools...",
+                "[INFO] 2026-08-07 10:00:05 ChatClient - Sending prompt to LLM (gemini-pro)...",
+                "[INFO] 2026-08-07 10:00:06 ToolCallback - Invoking tool: getJobOpenings with params {company: \"Cosmos Inc\"}",
+                "[INFO] 2026-08-07 10:00:07 HttpClient - POST http://localhost:8086/cms/api/jobs/search",
+                "[INFO] 2026-08-07 10:00:08 HttpClient - Response 200 OK, 3 job openings found",
+                "[INFO] 2026-08-07 10:00:09 ChatClient - Received tool result, generating response...",
+                "[INFO] 2026-08-07 10:00:10 NexusBuddyApplication - Streaming response to client..."
+        };
+
+        return Flux.fromArray(logLines)
+                .delayElements(java.time.Duration.ofMillis(300))
+                .map(line -> ServerSentEvent.builder(line)
+                        .id(conversationId)
+                        .event("message")
+                        .build())
+                .concatWith(Flux.just(ServerSentEvent.builder("")
+                        .id(conversationId)
+                        .event("done")
+                        .build()));
+    }
+}

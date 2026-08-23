@@ -1,0 +1,439 @@
+{
+  "tools": [
+    {
+      "toolName": "get_recruitment_by_id",
+      "toolDescription": "Retrieve a specific recruitment record by its unique identifier. Use this tool when you need detailed information about a single job posting/recruitment including its title, description, requirements, status, hiring type, location, experience requirements, salary range, and all associated metadata. This is the primary tool for fetching complete recruitment details for display, editing, or processing.",
+      "endpoint": "/hr/recruitment/{id}",
+      "httpMethod": "GET",
+      "params": [
+        {
+          "paramName": "id",
+          "paramType": "PATH_VARIABLE",
+          "dataType": "INTEGER",
+          "isRequired": true,
+          "defaultValue": null,
+          "description": "Unique identifier (primary key) of the recruitment record. This is a numeric ID that uniquely identifies a specific job posting in the system. Required to fetch the exact recruitment details."
+        }
+      ]
+    },
+    {
+      "toolName": "get_all_recruitments",
+      "toolDescription": "Retrieve a paginated list of recruitments with comprehensive filtering capabilities. This is the main tool for browsing and searching job postings. Supports filtering by organization, active status, creator employee, hiring type (full-time, part-time, contract, internship), and hiring status (open, closed, on-hold, cancelled). Returns paginated results with configurable page size. Use this for recruitment dashboards, listing pages, and administrative views.",
+      "endpoint": "/hr/recruitment/",
+      "httpMethod": "GET",
+      "params": [
+        {
+          "paramName": "orgId",
+          "paramType": "REQUEST_PARAM",
+          "dataType": "INTEGER",
+          "isRequired": true,
+          "defaultValue": null,
+          "description": "Organization ID to filter recruitments. This scopes the results to a specific organization/company. Required parameter - all recruitments belong to an organization."
+        },
+        {
+          "paramName": "isActive",
+          "paramType": "REQUEST_PARAM",
+          "dataType": "BOOLEAN",
+          "isRequired": false,
+          "defaultValue": null,
+          "description": "Filter by active status. Set to true to get only currently active/open recruitments, false to get inactive/archived ones. Omit to get both active and inactive recruitments."
+        },
+        {
+          "paramName": "empId",
+          "paramType": "REQUEST_PARAM",
+          "dataType": "INTEGER",
+          "isRequired": false,
+          "defaultValue": null,
+          "description": "Employee ID to filter recruitments created by a specific employee/recruiter. Useful for recruiters to see their own job postings or for managers to review team's postings."
+        },
+        {
+          "paramName": "hiringType",
+          "paramType": "REQUEST_PARAM",
+          "dataType": "STRING",
+          "isRequired": false,
+          "defaultValue": null,
+          "description": "Filter by hiring/employment type. Valid values: PERMANENT (permanent full-time), CONTRACT (fixed-term contract), INTERN (internship positions). Case-sensitive enum values from HiringType enum."
+        },
+        {
+          "paramName": "hiringStatus",
+          "paramType": "REQUEST_PARAM",
+          "dataType": "STRING",
+          "isRequired": false,
+          "defaultValue": null,
+          "description": "Filter by hiring status. Valid values: OPEN (actively accepting applications), CLOSED (no longer accepting applications), ON_HOLD (temporarily paused), HIRED (position filled). Case-sensitive enum values from HiringStatus enum."
+        },
+        {
+          "paramName": "pageNo",
+          "paramType": "REQUEST_PARAM",
+          "dataType": "INTEGER",
+          "isRequired": false,
+          "defaultValue": 0,
+          "description": "Page number for pagination (0-based index). Default is 0 (first page). Use with pageOffset to implement pagination in UI."
+        },
+        {
+          "paramName": "pageOffset",
+          "paramType": "REQUEST_PARAM",
+          "dataType": "INTEGER",
+          "isRequired": false,
+          "defaultValue": 10,
+          "description": "Number of records per page (page size). Default is 10. Maximum recommended value is 100 for performance. Use with pageNo for pagination."
+        }
+      ]
+    },
+    {
+      "toolName": "get_closed_recruitments",
+      "toolDescription": "Retrieve a paginated list of closed recruitments for a specific organization. This tool specifically fetches job postings that have been closed (hiring completed or position filled). Useful for historical reporting, compliance audits, and reviewing past hiring activities. Returns paginated results.",
+      "endpoint": "/hr/recruitment/closed",
+      "httpMethod": "GET",
+      "params": [
+        {
+          "paramName": "orgId",
+          "paramType": "REQUEST_PARAM",
+          "dataType": "INTEGER",
+          "isRequired": true,
+          "defaultValue": null,
+          "description": "Organization ID to filter closed recruitments. Required to scope results to a specific organization."
+        },
+        {
+          "paramName": "pageNo",
+          "paramType": "REQUEST_PARAM",
+          "dataType": "INTEGER",
+          "isRequired": false,
+          "defaultValue": 0,
+          "description": "Page number for pagination (0-based index). Default is 0."
+        },
+        {
+          "paramName": "pageOffset",
+          "paramType": "REQUEST_PARAM",
+          "dataType": "INTEGER",
+          "isRequired": false,
+          "defaultValue": 10,
+          "description": "Number of records per page. Default is 10."
+        }
+      ]
+    },
+    {
+      "toolName": "get_recruitment_analytics",
+      "toolDescription": "Retrieve comprehensive recruitment analytics and metrics for an organization. This tool provides aggregated data including total openings, applications received, conversion rates, time-to-hire, source effectiveness, diversity metrics, and other key performance indicators. Essential for HR leadership dashboards and strategic workforce planning.",
+      "endpoint": "/hr/recruitment/analytics",
+      "httpMethod": "GET",
+      "params": [
+        {
+          "paramName": "orgId",
+          "paramType": "REQUEST_PARAM",
+          "dataType": "INTEGER",
+          "isRequired": true,
+          "defaultValue": null,
+          "description": "Organization ID to get analytics for. Required to scope analytics to a specific organization."
+        }
+      ]
+    },
+    {
+      "toolName": "get_openings_today",
+      "toolDescription": "Retrieve job openings that were posted today with optional filtering. This tool is designed for real-time job board displays and 'new today' sections. Supports filtering by hiring status, organization name, location, and free-text search query. Returns paginated results. Ideal for candidate-facing job portals and internal 'hot jobs' dashboards.",
+      "endpoint": "/hr/recruitment/openings-today",
+      "httpMethod": "GET",
+      "params": [
+        {
+          "paramName": "pageNo",
+          "paramType": "REQUEST_PARAM",
+          "dataType": "INTEGER",
+          "isRequired": false,
+          "defaultValue": 0,
+          "description": "Page number for pagination (0-based index). Default is 0."
+        },
+        {
+          "paramName": "pageOffset",
+          "paramType": "REQUEST_PARAM",
+          "dataType": "INTEGER",
+          "isRequired": false,
+          "defaultValue": 10,
+          "description": "Number of records per page. Default is 10."
+        },
+        {
+          "paramName": "status",
+          "paramType": "REQUEST_PARAM",
+          "dataType": "STRING",
+          "isRequired": false,
+          "defaultValue": null,
+          "description": "Filter by hiring status. Valid values: OPEN (actively accepting applications), CLOSED (no longer accepting applications), ON_HOLD (temporarily paused), HIRED (position filled). Case-sensitive enum values from HiringStatus enum. Use to show only currently open positions."
+        },
+        {
+          "paramName": "orgName",
+          "paramType": "REQUEST_PARAM",
+          "dataType": "STRING",
+          "isRequired": false,
+          "defaultValue": null,
+          "description": "Filter by organization/company name. Partial matches supported. Use to show jobs from specific companies."
+        },
+        {
+          "paramName": "location",
+          "paramType": "REQUEST_PARAM",
+          "dataType": "STRING",
+          "isRequired": false,
+          "defaultValue": null,
+          "description": "Filter by job location (city, state, country, or 'Remote'). Partial matches supported. Use for location-based job searches."
+        },
+        {
+          "paramName": "query",
+          "paramType": "REQUEST_PARAM",
+          "dataType": "STRING",
+          "isRequired": false,
+          "defaultValue": null,
+          "description": "Free-text search query. Searches across job title, description, requirements, skills, and keywords. Use for candidate search functionality."
+        }
+      ]
+    },
+    {
+      "toolName": "get_openings_before_today",
+      "toolDescription": "Retrieve job openings that were posted before today (historical postings) with optional filtering. Complements 'get_openings_today' for complete job board coverage. Supports the same filters: hiring status, organization name, location, and free-text search. Returns paginated results. Use for browsing older postings or 'earlier this week' sections.",
+      "endpoint": "/hr/recruitment/openings-before-today",
+      "httpMethod": "GET",
+      "params": [
+        {
+          "paramName": "pageNo",
+          "paramType": "REQUEST_PARAM",
+          "dataType": "INTEGER",
+          "isRequired": false,
+          "defaultValue": 0,
+          "description": "Page number for pagination (0-based index). Default is 0."
+        },
+        {
+          "paramName": "pageOffset",
+          "paramType": "REQUEST_PARAM",
+          "dataType": "INTEGER",
+          "isRequired": false,
+          "defaultValue": 10,
+          "description": "Number of records per page. Default is 10."
+        },
+        {
+          "paramName": "status",
+          "paramType": "REQUEST_PARAM",
+          "dataType": "STRING",
+          "isRequired": false,
+          "defaultValue": null,
+          "description": "Filter by hiring status. Valid values: OPEN (actively accepting applications), CLOSED (no longer accepting applications), ON_HOLD (temporarily paused), HIRED (position filled). Case-sensitive enum values from HiringStatus enum."
+        },
+        {
+          "paramName": "orgName",
+          "paramType": "REQUEST_PARAM",
+          "dataType": "STRING",
+          "isRequired": false,
+          "defaultValue": null,
+          "description": "Filter by organization/company name. Partial matches supported."
+        },
+        {
+          "paramName": "location",
+          "paramType": "REQUEST_PARAM",
+          "dataType": "STRING",
+          "isRequired": false,
+          "defaultValue": null,
+          "description": "Filter by job location. Partial matches supported."
+        },
+        {
+          "paramName": "query",
+          "paramType": "REQUEST_PARAM",
+          "dataType": "STRING",
+          "isRequired": false,
+          "defaultValue": null,
+          "description": "Free-text search query across job title, description, requirements, and skills."
+        }
+      ]
+    },
+    {
+      "toolName": "get_position_pie_graph",
+      "toolDescription": "Retrieve position-wise distribution data formatted for pie chart visualization. Returns aggregated counts of job openings grouped by position/role title. Essential for recruitment dashboard visualizations showing which roles have the most openings. No parameters required - returns data for the entire system.",
+      "endpoint": "/hr/recruitment/position-pie-graph",
+      "httpMethod": "GET",
+      "params": []
+    },
+    {
+      "toolName": "get_experience_wise_openings",
+      "toolDescription": "Retrieve job openings grouped by experience level requirements. Returns distribution of openings across experience bands (e.g., Entry Level 0-2 years, Mid Level 3-5 years, Senior 6-10 years, Lead/Principal 10+ years). Critical for workforce planning and understanding hiring pipeline composition by seniority.",
+      "endpoint": "/hr/recruitment/openings-experience-wise",
+      "httpMethod": "GET",
+      "params": []
+    },
+    {
+      "toolName": "get_company_wise_opening_count",
+      "toolDescription": "Retrieve paginated count of job openings grouped by company/organization. Shows how many open positions each organization has. Useful for multi-tenant platforms, recruitment agency dashboards, and understanding hiring volume across different companies. Returns paginated results.",
+      "endpoint": "/hr/recruitment/company-wise-opening-count",
+      "httpMethod": "GET",
+      "params": [
+        {
+          "paramName": "pageNo",
+          "paramType": "REQUEST_PARAM",
+          "dataType": "INTEGER",
+          "isRequired": false,
+          "defaultValue": 0,
+          "description": "Page number for pagination (0-based index). Default is 0."
+        },
+        {
+          "paramName": "pageOffset",
+          "paramType": "REQUEST_PARAM",
+          "dataType": "INTEGER",
+          "isRequired": false,
+          "defaultValue": 10,
+          "description": "Number of records per page. Default is 10."
+        }
+      ]
+    },
+    {
+      "toolName": "get_recruitment_applicant_view",
+      "toolDescription": "Retrieve detailed recruitment information formatted specifically for applicant/candidate view. This includes public-facing job details: title, description, requirements, benefits, location, salary range (if public), application deadline, and company information. Excludes internal fields like hiring manager notes, salary bands, or internal status. Use for candidate-facing job detail pages.",
+      "endpoint": "/hr/recruitment/applicant-view/{id}",
+      "httpMethod": "GET",
+      "params": [
+        {
+          "paramName": "id",
+          "paramType": "PATH_VARIABLE",
+          "dataType": "INTEGER",
+          "isRequired": true,
+          "defaultValue": null,
+          "description": "Unique identifier of the recruitment record. Required to fetch the specific job posting for applicant view."
+        }
+      ]
+    },
+    {
+      "toolName": "get_recruitment_filters",
+      "toolDescription": "Retrieve all available filter options for recruitment search and faceted navigation. Returns distinct values for: locations (cities/countries), departments, job types (hiring types), experience levels, skills/technologies, salary ranges, and other filterable facets. Essential for building dynamic filter UI components on job search pages.",
+      "endpoint": "/hr/recruitment/filter",
+      "httpMethod": "GET",
+      "params": []
+    },
+    {
+      "toolName": "get_recruitment_by_name",
+      "toolDescription": "Search recruitments by name/title with pagination. Performs partial/fuzzy matching on recruitment titles. Useful for finding specific job postings when you know part of the title. Returns paginated results. Complements the full-text search in get_openings_today for more targeted title-based searches.",
+      "endpoint": "/hr/recruitment/name",
+      "httpMethod": "GET",
+      "params": [
+        {
+          "paramName": "name",
+          "paramType": "REQUEST_PARAM",
+          "dataType": "STRING",
+          "isRequired": true,
+          "defaultValue": null,
+          "description": "Recruitment name/title to search for. Supports partial matching - will return results containing this string in the title."
+        },
+        {
+          "paramName": "pageNo",
+          "paramType": "REQUEST_PARAM",
+          "dataType": "INTEGER",
+          "isRequired": false,
+          "defaultValue": 0,
+          "description": "Page number for pagination (0-based index). Default is 0."
+        },
+        {
+          "paramName": "pageOffset",
+          "paramType": "REQUEST_PARAM",
+          "dataType": "INTEGER",
+          "isRequired": false,
+          "defaultValue": 10,
+          "description": "Number of records per page. Default is 10."
+        }
+      ]
+    },
+    {
+      "toolName": "check_applicant_has_applied",
+      "toolDescription": "Check if a specific applicant/user has already applied to a specific recruitment. Returns boolean result indicating application existence. Critical for preventing duplicate applications and showing 'Already Applied' status on job detail pages. Use before allowing application submission.",
+      "endpoint": "/hr/recruitment/has-applied",
+      "httpMethod": "GET",
+      "params": [
+        {
+          "paramName": "recruitmentId",
+          "paramType": "REQUEST_PARAM",
+          "dataType": "INTEGER",
+          "isRequired": true,
+          "defaultValue": null,
+          "description": "Recruitment ID to check application status for. Required."
+        },
+        {
+          "paramName": "userId",
+          "paramType": "REQUEST_PARAM",
+          "dataType": "INTEGER",
+          "isRequired": true,
+          "defaultValue": null,
+          "description": "User/Applicant ID to check. Required."
+        }
+      ]
+    },
+    {
+      "toolName": "get_applicant_applications",
+      "toolDescription": "Retrieve paginated list of all applications submitted by a specific applicant with optional status filtering. Returns application details including recruitment title, company, application date, current status, and next steps. Essential for candidate portal 'My Applications' page. Supports filtering by application status.",
+      "endpoint": "/hr/recruitment/applicant/applications",
+      "httpMethod": "GET",
+      "params": [
+        {
+          "paramName": "userId",
+          "paramType": "REQUEST_PARAM",
+          "dataType": "INTEGER",
+          "isRequired": true,
+          "defaultValue": null,
+          "description": "User/Applicant ID to get applications for. Required."
+        },
+        {
+          "paramName": "pageNo",
+          "paramType": "REQUEST_PARAM",
+          "dataType": "INTEGER",
+          "isRequired": false,
+          "defaultValue": 0,
+          "description": "Page number for pagination (0-based index). Default is 0."
+        },
+        {
+          "paramName": "pageOffset",
+          "paramType": "REQUEST_PARAM",
+          "dataType": "INTEGER",
+          "isRequired": false,
+          "defaultValue": 10,
+          "description": "Number of records per page. Default is 10."
+        },
+        {
+          "paramName": "status",
+          "paramType": "REQUEST_PARAM",
+          "dataType": "STRING",
+          "isRequired": false,
+          "defaultValue": null,
+          "description": "Filter by application status. Valid values: APPLIED (submitted), REVIEW (under review), REVIEW_COMPLETED (review completed), REVIEW_FAILED (review failed), INTERVIEW_SCHEDULED (interview scheduled), INTERVIEW_COMPLETED (interview completed), SELECTED (candidate selected), REJECTED (candidate rejected), OFFER_ACCEPTED (offer accepted), OFFER_REJECTED (offer rejected). Case-sensitive enum values from ApplicationStatus enum."
+        }
+      ]
+    },
+    {
+      "toolName": "get_applicant_application_with_status",
+      "toolDescription": "Retrieve a specific applicant's application for a specific recruitment with detailed current status and timeline. Returns complete application data including resume, cover letter, screening answers, interview schedule, feedback, and current stage in hiring process. Use for candidate application detail view and recruiter application review.",
+      "endpoint": "/hr/recruitment/applicant/application/with-status",
+      "httpMethod": "GET",
+      "params": [
+        {
+          "paramName": "userId",
+          "paramType": "REQUEST_PARAM",
+          "dataType": "INTEGER",
+          "isRequired": true,
+          "defaultValue": null,
+          "description": "User/Applicant ID. Required."
+        },
+        {
+          "paramName": "recruitmentId",
+          "paramType": "REQUEST_PARAM",
+          "dataType": "INTEGER",
+          "isRequired": true,
+          "defaultValue": null,
+          "description": "Recruitment ID. Required."
+        }
+      ]
+    },
+    {
+      "toolName": "get_company_insights",
+      "toolDescription": "Retrieve company-level insights and metrics for recruitment dashboard. Provides aggregated data across all recruitments for an organization including: total active openings, total applications this month, average time-to-fill, offer acceptance rate, source breakdown, diversity metrics, and hiring velocity trends. Essential for HR leadership and hiring manager dashboards.",
+      "endpoint": "/hr/recruitment/company-insights",
+      "httpMethod": "GET",
+      "params": []
+    },
+    {
+      "toolName": "get_dashboard_stats",
+      "toolDescription": "Retrieve key recruitment dashboard statistics and metrics for quick overview. Returns summary counts: total open positions, total applications pending review, interviews scheduled this week, offers extended this month, hires this quarter, and other at-a-glance metrics. Designed for executive dashboards and daily standup views.",
+      "endpoint": "/hr/recruitment/dashboard-stats",
+      "httpMethod": "GET",
+      "params": []
+    }
+  ]
+}

@@ -1,25 +1,19 @@
 package com.nexus.iam.entities;
 
+import java.sql.Date;
 import java.sql.Timestamp;
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
+import com.nexus.iam.utils.CommonConstants;
+import jakarta.persistence.*;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.JoinTable;
-import jakarta.persistence.ManyToMany;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.Table;
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
@@ -27,11 +21,16 @@ import lombok.NoArgsConstructor;
 @Entity
 @Table(name = "t_users", schema = "iam")
 @NoArgsConstructor
+@lombok.ToString(exclude = { "headedDepartments", "memberOfDepartments", "organization", "roles", "teamMemberships",
+        "ledTeams" })
 public class User implements UserDetails {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @Column(unique = true)
+    private String keycloakId;
 
     private String name;
 
@@ -45,16 +44,21 @@ public class User implements UserDetails {
 
     private String address;
 
-    private Double salary;
-
-    private Timestamp joiningDate;
-
     @Column(columnDefinition = "TEXT")
     private String notes;
 
     private Timestamp createdAt;
 
     private String profilePhoto;
+
+    private String personalEmail;
+
+    @Enumerated(EnumType.STRING)
+    private Gender gender;
+
+    private Integer age;
+
+    private Date dateOfBirth;
 
     private Boolean enabled = true;
 
@@ -68,8 +72,27 @@ public class User implements UserDetails {
     @JoinTable(name = "t_user_roles", schema = "iam", joinColumns = @JoinColumn(name = "user_id"), inverseJoinColumns = @JoinColumn(name = "role_id"))
     private Set<Role> roles = new HashSet<>();
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "organization_id")
+    @JsonBackReference(value = "organization-users")
     private Organization organization;
+
+    @OneToMany(mappedBy = "departmentHead", fetch = FetchType.LAZY, cascade = { CascadeType.DETACH,
+            CascadeType.REFRESH })
+    @JsonBackReference(value = "department-head")
+    private List<Department> headedDepartments = new java.util.ArrayList<>();
+
+    @ManyToMany(mappedBy = "members", fetch = FetchType.LAZY)
+    @JsonBackReference(value = "department-members")
+    private List<Department> memberOfDepartments = new java.util.ArrayList<>();
+
+    @OneToMany(mappedBy = "user", fetch = FetchType.LAZY, cascade = { CascadeType.DETACH, CascadeType.REFRESH })
+    @JsonBackReference(value = "user-team-memberships")
+    private List<TeamMember> teamMemberships = new java.util.ArrayList<>();
+
+    @OneToMany(mappedBy = "teamLead", fetch = FetchType.LAZY, cascade = { CascadeType.DETACH, CascadeType.REFRESH })
+    @JsonBackReference(value = "user-led-teams")
+    private List<Team> ledTeams = new java.util.ArrayList<>();
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
@@ -102,6 +125,12 @@ public class User implements UserDetails {
 
     @Override
     public String getUsername() {
+        // check if role has ROLE_APPLICANT and if so return personalEmail
+        for (Role role : roles) {
+            if (role.getName().equals(CommonConstants.ROLE_APPLICANT)) {
+                return this.personalEmail;
+            }
+        }
         return this.email;
     }
 }

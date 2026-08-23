@@ -1,21 +1,25 @@
 package com.nexus.iam.controller;
 
 import com.nexus.iam.annotation.LogActivity;
+import com.nexus.iam.exception.UnauthorizedException;
+import com.nexus.iam.security.JwtUtil;
 import com.nexus.iam.service.RoleService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.util.ObjectUtils;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.Map;
 
 @RestController
 @RequestMapping("/iam/roles")
 @CrossOrigin(origins = "*")
+@RequiredArgsConstructor
 public class RolesController {
 
     private final RoleService roleService;
-
-    public RolesController(RoleService roleService) {
-        this.roleService = roleService;
-    }
+    private final JwtUtil jwtUtil;
 
     @LogActivity("Create All Roles")
     @GetMapping("/create/roles")
@@ -25,9 +29,15 @@ public class RolesController {
     }
 
     @LogActivity("Create Single Role")
-    @GetMapping("/create/role")
-    public ResponseEntity<?> createRole(@RequestParam String role) {
-        roleService.createRoleIfNotFound(role);
+    @PostMapping("/create/role")
+    public ResponseEntity<?> createRole(@RequestParam String role, @RequestParam Long deptId, @RequestHeader("Authorization") String authHeader) {
+        if (ObjectUtils.isEmpty(authHeader) || !jwtUtil.isValidToken(authHeader)) {
+            throw new UnauthorizedException(
+                    "Unauthorized! Please use credentials",
+                    "Unable to validate token"
+            );
+        }
+        roleService.createRoleIfNotFound(role, deptId, authHeader);
         return new ResponseEntity<>("Role created successfully", HttpStatus.OK);
     }
 
@@ -36,6 +46,34 @@ public class RolesController {
     public ResponseEntity<?> deleteRole(@RequestParam String role) {
         roleService.deleteRoleByName(role);
         return new ResponseEntity<>("Role deleted successfully", HttpStatus.OK);
+    }
+
+    @LogActivity("Sync Keycloak IDs")
+    @PostMapping("/sync-keycloak-ids")
+    public ResponseEntity<?> syncKeycloakIds() {
+        try {
+            roleService.syncKeycloakIds();
+            return new ResponseEntity<>(Map.of(
+                "message", "Keycloak IDs synced successfully",
+                "status", "success"
+            ), HttpStatus.OK);
+        } catch (RuntimeException e) {
+            // Keycloak is unavailable but sync was skipped gracefully
+            if (e.getMessage() != null && (e.getMessage().contains("Keycloak") || e.getMessage().contains("unavailable"))) {
+                return new ResponseEntity<>(Map.of(
+                    "message", "Keycloak sync was skipped - service unavailable",
+                    "error", e.getMessage(),
+                    "status", "keycloak_unavailable",
+                    "details", "Ensure Keycloak is running at the configured URL and admin credentials are correct. Retry later."
+                ), HttpStatus.SERVICE_UNAVAILABLE);
+            }
+            // For other unexpected errors
+            return new ResponseEntity<>(Map.of(
+                "message", "Keycloak ID sync failed",
+                "error", e.getMessage(),
+                "status", "error"
+            ), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
     }
 
 }

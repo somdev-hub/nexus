@@ -17,5 +17,8 @@ public class Role {
 
     @Column(unique = true, nullable = false)
     private String name;
+
+    @Column(unique = true)
+    private String keycloakId;
 }
 

@@ -1,0 +1,278 @@
+package com.nexus.cms.config;
+
+import com.nexus.cms.util.CommonConstants;
+import com.nexus.cms.util.WebConstants;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.kafka.clients.admin.AdminClientConfig;
+import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.clients.producer.ProducerConfig;
+import org.apache.kafka.common.serialization.StringDeserializer;
+import org.apache.kafka.common.serialization.StringSerializer;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.kafka.annotation.EnableKafka;
+import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
+import org.springframework.kafka.config.KafkaListenerContainerFactory;
+import org.springframework.kafka.config.TopicBuilder;
+import org.springframework.kafka.core.*;
+import org.springframework.kafka.listener.ConcurrentMessageListenerContainer;
+import org.springframework.kafka.listener.ContainerProperties;
+
+import java.util.HashMap;
+import java.util.Map;
+
+/**
+ * Production-Ready Kafka Configuration
+ * <p>
+ * This configuration provides:
+ * - High availability and fault tolerance
+ * - Exactly-once semantics
+ * - Error handling and retry logic
+ * - Performance optimization
+ * - Monitoring capabilities
+ */
+@Configuration
+@EnableKafka
+@RequiredArgsConstructor
+@Slf4j
+public class KafkaConfig {
+
+    private final WebConstants webConstants;
+
+    /**
+     * Kafka Admin Configuration
+     * Only created if kafka.topic.auto-create is enabled (default: false)
+     */
+    @Bean
+    @ConditionalOnProperty(name = "kafka.topic.auto-create", havingValue = "true", matchIfMissing = false)
+    public KafkaAdmin kafkaAdmin() {
+        Map<String, Object> configs = new HashMap<>();
+        configs.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, webConstants.getBootstrapServers());
+
+        // Add timeout configuration to prevent hanging
+        configs.put(AdminClientConfig.REQUEST_TIMEOUT_MS_CONFIG, 30000);
+        configs.put(AdminClientConfig.CONNECTIONS_MAX_IDLE_MS_CONFIG, 540000);
+        configs.put(AdminClientConfig.RECONNECT_BACKOFF_MS_CONFIG, 100);
+        configs.put(AdminClientConfig.RECONNECT_BACKOFF_MAX_MS_CONFIG, 10000);
+        configs.put(AdminClientConfig.RETRIES_CONFIG, 3);
+
+        log.info("Initializing Kafka Admin with bootstrap servers: {}", webConstants.getBootstrapServers());
+        return new KafkaAdmin(configs);
+    }
+
+    /**
+     * Producer Factory Configuration
+     * Configures high-reliability producer with exactly-once semantics
+     */
+    @Bean
+    public ProducerFactory<String, Object> producerFactory() {
+        Map<String, Object> configProps = new HashMap<>();
+
+        // Connection
+        configProps.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, webConstants.getBootstrapServers());
+
+        // Serialization
+        configProps.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
+        configProps.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
+
+        // Durability - Requires all replicas to acknowledge
+        configProps.put(ProducerConfig.ACKS_CONFIG, "all");
+
+        // Retry configuration
+        configProps.put(ProducerConfig.RETRIES_CONFIG, 3);
+        configProps.put(ProducerConfig.RETRY_BACKOFF_MS_CONFIG, 100);
+
+        // Batching and compression for throughput
+        configProps.put(ProducerConfig.LINGER_MS_CONFIG, 10);
+        configProps.put(ProducerConfig.BATCH_SIZE_CONFIG, 16384);
+        configProps.put(ProducerConfig.BUFFER_MEMORY_CONFIG, 33554432);
+        configProps.put(ProducerConfig.COMPRESSION_TYPE_CONFIG, "snappy");
+
+        // Timeout configurations
+        configProps.put(ProducerConfig.REQUEST_TIMEOUT_MS_CONFIG, 30000);
+        configProps.put(ProducerConfig.DELIVERY_TIMEOUT_MS_CONFIG, 120000);
+
+        // Idempotence - Ensures exactly-once semantics without transactions
+        // CRITICAL: Do NOT enable transactions (TRANSACTIONAL_ID_CONFIG) as it
+        // conflicts with Spring @Transactional
+        configProps.put(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, true);
+
+        // Max in-flight requests for idempotent producer
+        configProps.put(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, 5);
+
+        return new DefaultKafkaProducerFactory<>(configProps);
+    }
+
+    @Bean
+    public KafkaTemplate<String, Object> kafkaTemplate() {
+        return new KafkaTemplate<>(producerFactory());
+    }
+
+    /**
+     * Consumer Factory Configuration
+     * Configures reliable consumer with manual commit and batch processing
+     */
+    @Bean
+    public ConsumerFactory<String, String> consumerFactory() {
+        Map<String, Object> configProps = new HashMap<>();
+
+        // Connection
+        configProps.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, webConstants.getBootstrapServers());
+        configProps.put(ConsumerConfig.GROUP_ID_CONFIG, webConstants.getConsumerGroupId());
+
+        // Deserialization - Use StringDeserializer for both key and value
+        configProps.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
+        configProps.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
+
+        // Offset Management - Start from earliest unread message
+        configProps.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+
+        // Auto-commit configuration - MUST be false when using MANUAL_IMMEDIATE ack
+        // mode
+        configProps.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
+
+        // Session timeout configuration
+        configProps.put(ConsumerConfig.SESSION_TIMEOUT_MS_CONFIG, 30000);
+        configProps.put(ConsumerConfig.HEARTBEAT_INTERVAL_MS_CONFIG, 10000);
+
+        // Fetch configuration for performance
+        configProps.put(ConsumerConfig.FETCH_MIN_BYTES_CONFIG, 1024);
+        configProps.put(ConsumerConfig.FETCH_MAX_WAIT_MS_CONFIG, 5000);
+        configProps.put(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, 500);
+        configProps.put(ConsumerConfig.MAX_POLL_INTERVAL_MS_CONFIG, 300000);
+
+        // Isolation level for reading only committed messages
+        configProps.put(ConsumerConfig.ISOLATION_LEVEL_CONFIG, "read_committed");
+
+        return new DefaultKafkaConsumerFactory<>(configProps);
+    }
+
+    /**
+     * Kafka Listener Container Factory for Batch Processing
+     */
+    @Bean
+    public KafkaListenerContainerFactory<ConcurrentMessageListenerContainer<String, String>> kafkaListenerContainerFactory() {
+        ConcurrentKafkaListenerContainerFactory<String, String> factory = new ConcurrentKafkaListenerContainerFactory<>();
+        factory.setConsumerFactory(consumerFactory());
+
+        // Enable batch processing
+        factory.setBatchListener(true);
+
+        // Manual acknowledgment for better control
+        factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.MANUAL_IMMEDIATE);
+
+        // Concurrency level (number of threads)
+        factory.setConcurrency(5);
+
+        // Poll timeout
+        factory.getContainerProperties().setPollTimeout(5000);
+
+        // Monitor interval
+        factory.getContainerProperties().setMonitorInterval(30);
+
+        return factory;
+    }
+
+    /**
+     * Alternative Listener Container Factory for Single Record Processing
+     */
+    @Bean(name = "singleRecordKafkaListenerContainerFactory")
+    public KafkaListenerContainerFactory<ConcurrentMessageListenerContainer<String, String>> singleRecordKafkaListenerContainerFactory() {
+        ConcurrentKafkaListenerContainerFactory<String, String> factory = new ConcurrentKafkaListenerContainerFactory<>();
+        factory.setConsumerFactory(consumerFactory());
+
+        // Single record processing (default)
+        factory.setBatchListener(false);
+
+        // Manual acknowledgment
+        factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.MANUAL_IMMEDIATE);
+
+        // Concurrency level
+        factory.setConcurrency(3);
+
+        // Poll timeout
+        factory.getContainerProperties().setPollTimeout(5000);
+
+        return factory;
+    }
+
+    /**
+     * Define topics programmatically
+     * For production, you may want to manage topics externally
+     * Enable with: kafka.topic.auto-create=true
+     */
+
+    @Bean
+    @ConditionalOnProperty(name = "kafka.topic.auto-create", havingValue = "true", matchIfMissing = false)
+    public Object candidateSelectionMailTopic() {
+        log.info("Creating topic: {}", CommonConstants.CANDIDATE_SELECTION_MAIL_TOPIC);
+        return TopicBuilder.name(CommonConstants.CANDIDATE_SELECTION_MAIL_TOPIC)
+                .partitions(3)
+                .replicas(1)
+                .config("retention.ms", "1209600000")
+                .config("compression.type", "snappy")
+                .build();
+    }
+
+    @Bean
+    @ConditionalOnProperty(name = "kafka.topic.auto-create", havingValue = "true", matchIfMissing = false)
+    public Object candidateRejectionMailTopic() {
+        log.info("Creating topic: {}", CommonConstants.CANDIDATE_REJECTION_MAIL_TOPIC);
+        return TopicBuilder.name(CommonConstants.CANDIDATE_REJECTION_MAIL_TOPIC)
+                .partitions(3)
+                .replicas(1)
+                .config("retention.ms", "1209600000")
+                .config("compression.type", "snappy")
+                .build();
+    }
+
+    @Bean
+    @ConditionalOnProperty(name = "kafka.topic.auto-create", havingValue = "true", matchIfMissing = false)
+    public Object candidatePromotionMailTopic() {
+        log.info("Creating topic: {}", CommonConstants.CANDIDATE_PROMOTION_MAIL_TOPIC);
+        return TopicBuilder.name(CommonConstants.CANDIDATE_PROMOTION_MAIL_TOPIC)
+                .partitions(3)
+                .replicas(1)
+                .config("retention.ms", "1209600000")
+                .config("compression.type", "snappy")
+                .build();
+    }
+
+    @Bean
+    @ConditionalOnProperty(name = "kafka.topic.auto-create", havingValue = "true", matchIfMissing = false)
+    public Object rewardAppraisalMailTopic() {
+        log.info("Creating topic: {}", CommonConstants.REWARD_APPRAISAL_MAIL_TOPIC);
+        return TopicBuilder.name(CommonConstants.REWARD_APPRAISAL_MAIL_TOPIC)
+                .partitions(3)
+                .replicas(1)
+                .config("retention.ms", "1209600000")
+                .config("compression.type", "snappy")
+                .build();
+    }
+
+    @Bean
+    @ConditionalOnProperty(name = "kafka.topic.auto-create", havingValue = "true", matchIfMissing = false)
+    public Object salaryPaymentMailTopic() {
+        log.info("Creating topic: {}", CommonConstants.SALARY_PAYMENT_MAIL_TOPIC);
+        return TopicBuilder.name(CommonConstants.SALARY_PAYMENT_MAIL_TOPIC)
+                .partitions(3)
+                .replicas(1)
+                .config("retention.ms", "1209600000")
+                .config("compression.type", "snappy")
+                .build();
+    }
+
+    @Bean
+    @ConditionalOnProperty(name = "kafka.topic.auto-create", havingValue = "true", matchIfMissing = false)
+    public Object hrKafkaMailTopic() {
+        log.info("Creating topic: {}", CommonConstants.HR_KAFKA_MAIL_TOPIC);
+        return TopicBuilder.name(CommonConstants.HR_KAFKA_MAIL_TOPIC)
+                .partitions(3)
+                .replicas(1)
+                .config("retention.ms", "1209600000")
+                .config("compression.type", "snappy")
+                .build();
+    }
+}

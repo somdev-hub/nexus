@@ -1,20 +1,23 @@
 package com.nexus.iam.service.impl;
 
-import com.nexus.iam.dto.LoginRequest;
-import com.nexus.iam.dto.LoginResponse;
-import com.nexus.iam.dto.UserProfileDto;
-import com.nexus.iam.dto.UserRegisterDto;
+import com.nexus.iam.dto.*;
+import com.nexus.iam.entities.Department;
+import com.nexus.iam.entities.Role;
 import com.nexus.iam.entities.User;
 import com.nexus.iam.exception.ResourceNotFoundException;
 import com.nexus.iam.exception.ServiceLevelException;
+import com.nexus.iam.repository.DepartmentRepository;
 import com.nexus.iam.repository.OrganizationRepository;
 import com.nexus.iam.repository.RoleRepository;
 import com.nexus.iam.repository.UserRepository;
 import com.nexus.iam.service.AuthenticationService;
+import com.nexus.iam.service.KeycloakAuthenticationService;
 import com.nexus.iam.service.UserService;
 import com.nexus.iam.utils.CommonConstants;
 import com.nexus.iam.utils.RestService;
 import com.nexus.iam.utils.WebConstants;
+import jakarta.transaction.Transactional;
+import lombok.RequiredArgsConstructor;
 import org.modelmapper.ModelMapper;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -28,10 +31,10 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.sql.Timestamp;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 
 @Service
+@RequiredArgsConstructor
 public class UserServiceImpl implements UserService {
 
     private final UserRepository userRepository;
@@ -50,16 +53,9 @@ public class UserServiceImpl implements UserService {
 
     private final RestService restService;
 
-    public UserServiceImpl(UserRepository userRepository, ModelMapper modelMapper, PasswordEncoder passwordEncoder, OrganizationRepository organizationRepository, RoleRepository roleRepository, WebConstants webConstants, AuthenticationService authenticationService, RestService restService) {
-        this.userRepository = userRepository;
-        this.modelMapper = modelMapper;
-        this.passwordEncoder = passwordEncoder;
-        this.organizationRepository = organizationRepository;
-        this.roleRepository = roleRepository;
-        this.webConstants = webConstants;
-        this.authenticationService = authenticationService;
-        this.restService = restService;
-    }
+    private final DepartmentRepository departmentRepository;
+
+    private final KeycloakAuthenticationService keycloakAuthenticationService;
 
     @Override
     public ResponseEntity<?> getUserById(Long userId) {
@@ -80,7 +76,8 @@ public class UserServiceImpl implements UserService {
     @Override
     public ResponseEntity<?> updateUser(UserRegisterDto userDto, Long userId) {
         try {
-            User existingUser = userRepository.findById(userId).orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
+            User existingUser = userRepository.findById(userId)
+                    .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
 
             if (!ObjectUtils.isEmpty(userDto.getName())) {
                 existingUser.setName(userDto.getName());
@@ -104,8 +101,7 @@ public class UserServiceImpl implements UserService {
                 existingUser.getRoles().clear();
                 existingUser.getRoles().add(
                         roleRepository.findByName(userDto.getRole())
-                                .orElseThrow(() -> new ResourceNotFoundException("Role", "name", userDto.getRole()))
-                );
+                                .orElseThrow(() -> new ResourceNotFoundException("Role", "name", userDto.getRole())));
             }
 
             userRepository.save(existingUser);
@@ -119,10 +115,43 @@ public class UserServiceImpl implements UserService {
         }
     }
 
+    @Transactional
     @Override
     public ResponseEntity<?> deleteUser(Long userId) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'deleteUser'");
+        try {
+            User user = userRepository.findById(userId)
+                    .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
+
+            // Clear department head relationships
+            if (user.getHeadedDepartments() != null && !user.getHeadedDepartments().isEmpty()) {
+                for (Department dept : new ArrayList<>(user.getHeadedDepartments())) {
+                    dept.setDepartmentHead(null);
+                    departmentRepository.save(dept);
+                }
+                user.getHeadedDepartments().clear();
+            }
+
+            // Remove user from all department members
+            if (user.getMemberOfDepartments() != null && !user.getMemberOfDepartments().isEmpty()) {
+                for (Department dept : new ArrayList<>(user.getMemberOfDepartments())) {
+                    dept.removeMember(user);
+                    departmentRepository.save(dept);
+                }
+                user.getMemberOfDepartments().clear();
+            }
+
+            // Clear roles
+            if (user.getRoles() != null && !user.getRoles().isEmpty()) {
+                user.getRoles().clear();
+            }
+
+            userRepository.delete(user);
+            return ResponseEntity.ok("User deleted successfully");
+        } catch (Exception e) {
+            throw new ServiceLevelException("UserService", e.getLocalizedMessage(), "deleteUser",
+                    new Timestamp(System.currentTimeMillis()), e.getCause() != null ? e.getCause().toString() : null,
+                    e.getMessage());
+        }
     }
 
     @Override
@@ -162,10 +191,10 @@ public class UserServiceImpl implements UserService {
     public ResponseEntity<?> updateProfilePhoto(MultipartFile file, Long userId) {
         ResponseEntity<?> response = null;
         try {
-            User user = userRepository.findById(userId).orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
+            User user = userRepository.findById(userId)
+                    .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
             if (!ObjectUtils.isEmpty(file)) {
-                UriComponentsBuilder builder =
-                        UriComponentsBuilder.fromUriString(webConstants.getCommonDmsUrl());
+                UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getCommonDmsUrl());
 
                 Map<String, Object> dto = new HashMap<>();
                 dto.put("userId", userId);
@@ -178,33 +207,33 @@ public class UserServiceImpl implements UserService {
                 payload.put("file", file);
 
                 Map<String, String> headers = new HashMap<>();
-                LoginResponse loginResponse = authenticationService.authenticate(new LoginRequest(webConstants.getGenericUserId(),
-                        webConstants.getGenericPassword()));
+                LoginResponse loginResponse = authenticationService
+                        .authenticate(new LoginRequest(webConstants.getGenericUserId(),
+                                webConstants.getGenericPassword()));
                 headers.put(CommonConstants.AUTHORIZATION, "Bearer " + loginResponse.getAccessToken());
                 headers.put(CommonConstants.CONTENT_TYPE, CommonConstants.APPLICATION_MULTIPART_FORMDATA);
 
-                ResponseEntity<?> dmsResponse = restService.iamRestCall(
+                ResponseEntity<String> dmsResponse = restService.iamRestCall(
                         builder.toUriString(),
                         payload,
                         headers,
                         HttpMethod.POST,
-                        userId
-                );
+                        userId);
 
                 if (dmsResponse.getStatusCode().is2xxSuccessful()) {
-                    @SuppressWarnings("unchecked")
-                    Map<String, String> respBody = (Map<String, String>) dmsResponse.getBody();
-                    assert respBody != null;
-                    if (respBody.containsKey("documentUrl")) {
-                        user.setProfilePhoto(respBody.get("documentUrl"));
+                    Map<String, Object> respBody = restService.parseJsonResponse(dmsResponse.getBody());
+                    if (respBody != null && respBody.containsKey("documentUrl")) {
+                        user.setProfilePhoto(respBody.get("documentUrl").toString());
                         userRepository.save(user);
 
                         response = new ResponseEntity<>("Profile photo updated successfully", HttpStatus.OK);
                     } else {
-                        response = new ResponseEntity<>("Failed to retrieve document URL from DMS response", HttpStatus.INTERNAL_SERVER_ERROR);
+                        response = new ResponseEntity<>("Failed to retrieve document URL from DMS response",
+                                HttpStatus.INTERNAL_SERVER_ERROR);
                     }
                 } else {
-                    response = new ResponseEntity<>("Failed to upload profile photo to DMS: " + dmsResponse.getBody(), HttpStatus.INTERNAL_SERVER_ERROR);
+                    response = new ResponseEntity<>("Failed to upload profile photo to DMS: " + dmsResponse.getBody(),
+                            HttpStatus.INTERNAL_SERVER_ERROR);
                 }
             }
         } catch (Exception e) {
@@ -216,20 +245,88 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public ResponseEntity<?> createUser(UserProfileDto userDto) {
+    public ResponseEntity<?> getUserDetails(Long userId) {
+        if (ObjectUtils.isEmpty(userId)) {
+            throw new ServiceLevelException("UserService", "User ID is required", "getUserDetails",
+                    new Timestamp(System.currentTimeMillis()), null, "User ID is null or empty");
+        }
         try {
-            User user = modelMapper.map(userDto, User.class);
+            User user = userRepository.findById(userId)
+                    .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
+            UserDetailsDto userDto = modelMapper.map(user, UserDetailsDto.class);
+            return ResponseEntity.ok(userDto);
+        } catch (Exception e) {
+            throw new ServiceLevelException("UserService", e.getLocalizedMessage(), "getUserDetails",
+                    new Timestamp(System.currentTimeMillis()), e.getCause().toString(), e.getMessage());
+        }
+    }
+
+    @Override
+    public ResponseEntity<?> getUserByName(String name) {
+        if (ObjectUtils.isEmpty(name)) {
+            throw new ServiceLevelException("UserService", "User name is required", "getUserByName",
+                    new Timestamp(System.currentTimeMillis()), null, "User name is null or empty");
+        }
+        try {
+            List<User> user = userRepository.findByNameMatch(name);
+            if (user.isEmpty()) {
+                return ResponseEntity.noContent().build();
+            }
+            List<UserDetailsDto> userDto = user.stream().map(u -> {
+                        UserDetailsDto map = modelMapper.map(u, UserDetailsDto.class);
+                        map.setRole(u.getRoles().stream().findFirst().map(Role::getName).orElse("USER"));
+                        map.setDepartment(u.getHeadedDepartments().stream().findFirst()
+                                .map(Department::getDepartmentName)
+                                .orElse(u.getMemberOfDepartments().stream().findFirst()
+                                        .map(Department::getDepartmentName)
+                                        .orElse("N/A")));
+                        return map;
+                    })
+                    .toList();
+            return ResponseEntity.ok(userDto);
+        } catch (Exception e) {
+            throw new ServiceLevelException("UserService", e.getLocalizedMessage(), "getUserByName",
+                    new Timestamp(System.currentTimeMillis()), e.getCause().toString(), e.getMessage());
+        }
+    }
+
+    @Transactional
+    @Override
+    public ResponseEntity<?> createUser(UserProfileDto userDto, MultipartFile[] files) {
+        try {
+            // NOTE: This method is for Phase 1 (Traditional JWT) user creation
+            // Phase 2 (Keycloak) user creation is handled by
+            // KeycloakAuthenticationService.register()
+
+            User user = new User();
+            user.setName(userDto.getName());
+            user.setEmail(userDto.getEmail());
+            user.setAddress(userDto.getAddress());
+            user.setPersonalEmail(userDto.getPersonalEmail());
+            user.setPhone(userDto.getPhone());
+            user.setAge(userDto.getAge());
+            user.setGender(userDto.getGender());
+            user.setDateOfBirth(userDto.getDateOfBirth());
+            user.setAge(userDto.getAge());
+            user.setNotes(userDto.getNotes());
             user.setCreatedAt(new Timestamp(System.currentTimeMillis()));
 
             // Set organization
             user.setOrganization(organizationRepository.findById(userDto.getOrgId())
                     .orElseThrow(() -> new ResourceNotFoundException("Organization", "id", userDto.getOrgId())));
 
-            // Set role
-            user.getRoles().add(roleRepository.findByName(userDto.getRole())
-                    .orElseThrow(() -> new ResourceNotFoundException("Role", "name", userDto.getRole())));
+            // Set role - only assign application roles (filtered by KeycloakUserSyncService
+            // in Keycloak mode)
+            String roleName = !ObjectUtils.isEmpty(userDto.getRole()) ? userDto.getRole() : "USER";
+            user.getRoles().add(roleRepository.findByName(roleName)
+                    .orElseThrow(() -> new ResourceNotFoundException("Role", "name", roleName)));
 
-            // Generate a random password
+            if (ObjectUtils.isEmpty(userDto.getDeptId())) {
+                throw new ServiceLevelException("UserService", "Department ID is required", "createUser",
+                        new Timestamp(System.currentTimeMillis()), null, "Department ID is null or empty");
+            }
+
+            // Generate a random password (only used for Phase 1 - traditional JWT)
             String generatedPassword = generateRandomPassword();
             user.setPassword(passwordEncoder.encode(generatedPassword));
 
@@ -242,14 +339,151 @@ public class UserServiceImpl implements UserService {
             // Save user to repository
             userRepository.save(user);
 
-            // Return email and password instead of JWT
-            Map<String, String> response = new HashMap<>();
-            response.put("email", user.getEmail());
-            response.put("userId", user.getId().toString());
-            response.put("password", generatedPassword);
-            response.put("message", "User created successfully");
+            // Set department membership
+            Department department = departmentRepository.findById(userDto.getDeptId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Department", "id", userDto.getDeptId()));
+            if (userDto.isDeptHead()) {
+                department.addDepartmentHead(user);
+            } else {
+                department.addMember(user);
+            }
 
+            // Prepare HR payload
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("employeeId", user.getId());
+            payload.put("fullName", user.getName());
+            payload.put("email", user.getEmail());
+            payload.put("orgId", user.getOrganization().getId());
+            payload.put("orgName", user.getOrganization().getOrgName());
+            payload.put("department", department.getDepartmentName());
+            payload.put("title", userDto.getTitle());
+            payload.put("remarks", userDto.getRemarks());
+            payload.put("timestamp", userDto.getEffectiveFrom());
+            payload.put("personalEmail", userDto.getPersonalEmail());
+            payload.put("compensation", userDto.getCompensation());
+            payload.put("employeeName", userDto.getName());
+            payload.put("employeeEmail", userDto.getEmail());
+            payload.put("employeePersonalEmail", userDto.getPersonalEmail());
+            payload.put("gender", user.getGender() != null ? user.getGender().name() : "M");
+
+            // Upload documents to DMS
+            if (!ObjectUtils.isEmpty(files)) {
+                List<Map<String, String>> hrDocumentsPayload = new ArrayList<>();
+                UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getOrgFileUploadUrl());
+                Arrays.stream(files).forEach(file -> {
+                    try {
+                        Map<String, Object> dto = new HashMap<>();
+                        dto.put("userId", user.getId());
+                        if (file.getOriginalFilename().contains("profile_pic")) {
+                            dto.put("fileName", user.getId() + "_profile_photo");
+                        } else {
+                            dto.put("fileName", user.getId() + "_hr_doc" + file.getOriginalFilename());
+                        }
+                        dto.put("remarks", "HR Doc Upload");
+                        dto.put("documentType", "OTHER_HR_DOCUMENTS");
+
+                        Map<String, Object> docPayload = new HashMap<>();
+                        docPayload.put("dto", dto);
+                        docPayload.put("file", file);
+
+                        // Get authentication token for DMS call
+                        // Uses generic user credentials for inter-service communication
+                        Map<String, String> headers = new HashMap<>();
+                        LoginResponse loginResponse = keycloakAuthenticationService
+                                .login(webConstants.getGenericUserId(),
+                                        webConstants.getGenericPassword()).getBody();
+                        headers.put(CommonConstants.AUTHORIZATION, "Bearer " + loginResponse.getAccessToken());
+                        // Do NOT set Content-Type header - RestTemplate will automatically set it to
+                        // multipart/form-data
+
+                        ResponseEntity<String> response = restService.iamRestCall(
+                                builder.toUriString(),
+                                docPayload,
+                                headers,
+                                HttpMethod.POST,
+                                user.getId());
+
+                        if (response.getStatusCode().is2xxSuccessful()) {
+                            Map<String, Object> respBody = restService.parseJsonResponse(response.getBody());
+                            if (respBody != null && respBody.containsKey("documentUrl")) {
+                                String documentUrl = respBody.get("documentUrl").toString();
+                                if (file.getOriginalFilename().contains("profile_photo")) {
+                                    user.setProfilePhoto(documentUrl);
+                                    userRepository.save(user);
+                                } else {
+                                    Map<String, String> docInfo = new HashMap<>();
+                                    docInfo.put("documentName", file.getOriginalFilename());
+                                    docInfo.put("hrDocumentType", "OTHER_HR_DOCUMENTS");
+                                    docInfo.put("documentUrl", documentUrl);
+                                    hrDocumentsPayload.add(docInfo);
+                                }
+                            } else {
+                                throw new ServiceLevelException("UserService",
+                                        "Failed to retrieve document URL from DMS response for user ID: "
+                                                + user.getId(),
+                                        "createUser",
+                                        new Timestamp(System.currentTimeMillis()), null,
+                                        "DMS response missing documentUrl");
+                            }
+                        } else {
+                            throw new ServiceLevelException("UserService",
+                                    "Failed to upload HR document to DMS for user ID: " + user.getId() + ". Response: "
+                                            + response.getBody(),
+                                    "createUser",
+                                    new Timestamp(System.currentTimeMillis()), null,
+                                    "DMS upload failed with status: " + response.getStatusCode());
+                        }
+                    } catch (Exception e) {
+                        throw new ServiceLevelException("UserService",
+                                "Failed to upload HR document for user ID: " + user.getId(), "createUser",
+                                new Timestamp(System.currentTimeMillis()),
+                                e.getCause() != null ? e.getCause().toString() : null, e.getMessage());
+                    }
+                });
+
+                payload.put("hrDocuments", hrDocumentsPayload);
+            }
+
+            // Call HR service to initialize employee record
+            Map<String, String> headers = new HashMap<>();
+            LoginResponse loginResponse = keycloakAuthenticationService
+                    .login(webConstants.getGenericUserId(),
+                            webConstants.getGenericPassword()).getBody();
+            headers.put(CommonConstants.AUTHORIZATION, "Bearer " + loginResponse.getAccessToken());
+            headers.put(CommonConstants.CONTENT_TYPE, CommonConstants.APPLICATION_JSON);
+
+            UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getHrInitUrl());
+            ResponseEntity<String> hrResponse = restService.iamRestCall(
+                    builder.toUriString(),
+                    payload,
+                    headers,
+                    HttpMethod.POST,
+                    user.getId());
+
+            Map<String, Object> response = new HashMap<>();
+            if (hrResponse.getStatusCode().is2xxSuccessful()) {
+                Map<String, Object> respBody = restService.parseJsonResponse(hrResponse.getBody());
+                if (respBody != null) {
+                    response.put("email", user.getEmail());
+                    response.put("userId", user.getId().toString());
+                    response.put("password", generatedPassword);
+                    response.put("joiningLetter", respBody.getOrDefault("joiningLetterUrl", "").toString());
+                    response.put("letterOfIntent", respBody.getOrDefault("letterOfIntentUrl", "").toString());
+                    response.put("compensationCard", respBody.getOrDefault("compensationCardUrl", "").toString());
+                }
+            } else {
+                throw new ServiceLevelException("UserService",
+                        "Failed to initialize HR data for user ID: " + user.getId() + ". Response: "
+                                + hrResponse.getBody(),
+                        "createUser",
+                        new Timestamp(System.currentTimeMillis()), null,
+                        "HR initialization failed with status: " + hrResponse.getStatusCode());
+            }
+
+            // Return email and password for Phase 1 (traditional JWT)
+            // Phase 2 (Keycloak) returns full LoginResponse with tokens
             return ResponseEntity.ok(response);
+
         } catch (Exception e) {
             throw new ServiceLevelException("UserService", e.getLocalizedMessage(), "createUser",
                     new Timestamp(System.currentTimeMillis()), null, e.getMessage());
@@ -294,4 +528,5 @@ public class UserServiceImpl implements UserService {
 
         return String.join("", passwordArray);
     }
+
 }

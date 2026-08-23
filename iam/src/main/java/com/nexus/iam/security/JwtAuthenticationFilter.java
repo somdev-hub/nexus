@@ -29,12 +29,21 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private static final List<String> PUBLIC_ENDPOINTS = Arrays.asList(
             "/iam/auth/login",
             "/iam/auth/register",
+            "/iam/auth/register/applicant",
+            "/iam/auth/login/applicant",
+            "/iam/auth/refresh/applicant",
             "/iam/auth/refresh",
             "/iam/public/",
             "/auth/login",
             "/auth/register",
+            "/auth/register/applicant",
+            "/auth/login/applicant",
+            "/auth/refresh/applicant",
             "/auth/refresh",
-            "/public/");
+            "/public/",
+            "/iam/auth/register/admin",
+            "/iam/auth/login/admin"
+            );
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)

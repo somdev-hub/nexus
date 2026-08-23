@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payslip - Salary Payment Notification</title>
+    <style>
+        .salary-breakdown {
+            border-collapse: collapse;
+            width: 100%;
+        }
+
+        .salary-breakdown td {
+            padding: 12px;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .salary-breakdown .label {
+            font-weight: bold;
+            color: #333;
+            width: 60%;
+        }
+
+        .salary-breakdown .amount {
+            text-align: right;
+            color: #0066cc;
+            font-weight: bold;
+        }
+
+        .salary-breakdown .subtotal-row td {
+            border-top: 2px solid #0066cc;
+            font-weight: bold;
+            background-color: #e6f2ff;
+        }
+
+        .salary-breakdown .total-row td {
+            border-top: 2px solid #333;
+            border-bottom: 2px solid #333;
+            font-weight: bold;
+            font-size: 16px;
+            background-color: #f0f0f0;
+        }
+    </style>
+</head>
+
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+    <div style="max-width: 700px; margin: 0 auto; padding: 20px;">
+        <!-- Header -->
+        <div style="text-align: center; margin-bottom: 30px; border-bottom: 3px solid #0066cc; padding-bottom: 15px;">
+            <h1 style="color: #0066cc; margin: 0;">SALARY PAYSLIP</h1>
+            <p style="margin: 5px 0; color: #666;">For the month of <span th:text="${month}">Month</span> <span
+                    th:text="${year}">Year</span></p>
+        </div>
+
+        <!-- Employee Information -->
+        <p>Dear <strong th:text="${employeeName}">Employee Name</strong>,</p>
+
+        <p>Your salary for the month of <span th:text="${month}">Month</span> <span th:text="${year}">Year</span> has
+            been successfully processed and transferred to your registered bank account. Please find detailed payslip
+            information below, and see the attached document for a complete record.</p>
+
+        <!-- Employee & Payment Details -->
+        <div
+            style="background-color: #f9f9f9; padding: 15px; border-left: 4px solid #0066cc; margin: 20px 0; border-radius: 4px;">
+            <table style="width: 100%; border-collapse: collapse;">
+                <tr>
+                    <td style="width: 50%; padding: 8px;"><strong>Employee Name:</strong> <span
+                            th:text="${employeeName}">-</span></td>
+                    <td style="width: 50%; padding: 8px;"><strong>Transaction Date:</strong> <span
+                            th:text="${paymentDate}">-</span></td>
+                </tr>
+                <tr>
+                    <td style="width: 50%; padding: 8px;"><strong>Payment Reference ID:</strong> <span
+                            th:text="${paymentReferenceId}">-</span></td>
+                    <td style="width: 50%; padding: 8px;"><strong>Organization:</strong> <span
+                            th:text="${organizationName}">-</span></td>
+                </tr>
+            </table>
+        </div>
+
+        <!-- Salary Breakdown -->
+        <div style="margin: 20px 0;">
+            <h3 style="color: #0066cc; border-bottom: 2px solid #0066cc; padding-bottom: 10px;">SALARY BREAKDOWN</h3>
+
+            <table class="salary-breakdown" style="margin-bottom: 15px;">
+                <!-- Earnings Section -->
+                <tr>
+                    <td colspan="2"
+                        style="background-color: #e6f2ff; font-weight: bold; border-bottom: 2px solid #0066cc;">EARNINGS
+                    </td>
+                </tr>
+                <tr>
+                    <td class="label">Base Pay:</td>
+                    <td class="amount" th:text="${basePay}">₹0.00</td>
+                </tr>
+                <tr>
+                    <td class="label">House Rent Allowance (HRA):</td>
+                    <td class="amount" th:text="${hra}">₹0.00</td>
+                </tr>
+
+                <!-- Bonuses Section (if any) -->
+                <tr th:if="${totalBonuses != null and totalBonuses > 0}">
+                    <td class="label">Bonuses:</td>
+                    <td class="amount" th:text="${totalBonusesFormatted}">₹0.00</td>
+                </tr>
+
+                <!-- Subtotal Earnings -->
+                <tr class="subtotal-row">
+                    <td class="label">GROSS PAY:</td>
+                    <td class="amount" th:text="${grossAmount}">₹0.00</td>
+                </tr>
+
+                <!-- Deductions Section -->
+                <tr style="height: 15px;"></tr>
+                <tr>
+                    <td colspan="2"
+                        style="background-color: #ffe6e6; font-weight: bold; border-bottom: 2px solid #cc0000;">
+                        DEDUCTIONS</td>
+                </tr>
+                <tr>
+                    <td class="label">Total Deductions:</td>
+                    <td class="amount" th:text="${totalDeductionsFormatted}">₹0.00</td>
+                </tr>
+
+                <!-- Net Pay -->
+                <tr class="total-row">
+                    <td class="label">NET AMOUNT PAYABLE:</td>
+                    <td class="amount" th:text="${netAmount}">₹0.00</td>
+                </tr>
+            </table>
+        </div>
+
+        <!-- Bank Transfer Details -->
+        <div
+            style="background-color: #e8f5e9; padding: 15px; border-left: 4px solid #28a745; margin: 20px 0; border-radius: 4px;">
+            <h4 style="color: #28a745; margin-top: 0;">PAYMENT DETAILS</h4>
+            <table style="width: 100%; border-collapse: collapse;">
+                <tr>
+                    <td style="padding: 8px; width: 50%;"><strong>Bank Name:</strong> <span
+                            th:text="${bankName}">-</span></td>
+                    <td style="padding: 8px; width: 50%;"><strong>Account Holder:</strong> <span
+                            th:text="${accountHolderName}">-</span></td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px; width: 50%;"><strong>Account Number (Last 4):</strong> <span
+                            th:text="${maskedAccountNumber}">****</span></td>
+                    <td style="padding: 8px; width: 50%;"><strong>IFSC Code:</strong> <span
+                            th:text="${ifscCode}">-</span></td>
+                </tr>
+                <tr>
+                    <td colspan="2" style="padding: 8px;"><strong>Transfer Method:</strong> NEFT/RTGS/IMPS</td>
+                </tr>
+            </table>
+        </div>
+
+        <!-- Additional Information -->
+        <div
+            style="background-color: #fff3cd; padding: 15px; border-left: 4px solid #ffc107; margin: 20px 0; border-radius: 4px;">
+            <p style="margin: 0; font-size: 13px;">
+                <strong>⏱️ Processing Time:</strong> The transfer has been initiated and typically takes 1-2 business
+                days to reflect in your account. If the amount does not appear within 2 business days, please contact
+                your HR department immediately.
+            </p>
+        </div>
+
+        <!-- Important Notes -->
+        <div style="background-color: #f0f0f0; padding: 15px; border-radius: 4px; margin: 20px 0;">
+            <h4 style="color: #333; margin-top: 0;">IMPORTANT NOTES:</h4>
+            <ul style="margin: 10px 0; padding-left: 20px; font-size: 13px;">
+                <li>This payslip contains your complete salary details including all earnings and deductions</li>
+                <li>Please refer to the attached PDF for an official record of your payslip</li>
+                <li>For any discrepancies, please report to HR within 5 days of receipt</li>
+                <li>Keep this email for your records and tax filing purposes</li>
+            </ul>
+        </div>
+
+        <!-- Closing -->
+        <p style="margin-top: 30px; text-align: center;">
+            Thank you for your outstanding contribution to <span th:text="${organizationName}">our organization</span>!
+        </p>
+
+        <p style="margin-top: 20px; text-align: center;">
+            <strong style="font-size: 14px;"><span th:text="${organizationName}">Organization</span> Human Resources
+                Team</strong>
+        </p>
+
+        <!-- Footer -->
+        <hr style="border: none; border-top: 1px solid #ddd; margin-top: 30px;">
+        <div style="font-size: 11px; color: #999; text-align: center;">
+            <p style="margin: 5px 0;">
+                This is an automatically generated email. Please do not reply directly to this message.
+            </p>
+            <p style="margin: 5px 0;">
+                For questions about your payslip, contact HR at <a href="mailto:hr@nexuscorporation.com"
+                    style="color: #0066cc;">hr@nexuscorporation.com</a>
+            </p>
+            <p style="margin: 5px 0;">
+                <strong>📎 Attached:</strong> Complete Payslip (PDF) - Please download and save for your records
+            </p>
+            <p style="margin: 5px 0; color: #ccc;">
+                © 2026 <span th:text="${organizationName}">Organization</span>. All rights reserved.
+            </p>
+        </div>
+    </div>
+</body>
+
+</html>

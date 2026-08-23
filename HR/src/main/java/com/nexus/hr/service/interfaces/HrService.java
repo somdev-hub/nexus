@@ -1,0 +1,38 @@
+package com.nexus.hr.service.interfaces;
+
+import com.nexus.hr.model.entities.Position;
+import com.nexus.hr.payload.CompensationDto;
+import com.nexus.hr.payload.HrInitRequestDto;
+import org.springframework.http.ResponseEntity;
+
+import java.util.List;
+
+public interface HrService {
+
+    /**
+     * Initialize HR for an employee with automatic PDF generation
+     * This method will:
+     * 1. Create HR entity with position and documents
+     * 2. Generate Joining Letter PDF
+     * 3. Generate Letter of Intent PDF
+     * 4. Return both PDFs along with file names
+     *
+     * @param hrInitRequestDto HR initialization request containing employee details
+     * @return ResponseEntity containing GeneratedPdfDto with PDF files and metadata
+     */
+    ResponseEntity<?> initHr(HrInitRequestDto hrInitRequestDto);
+
+    ResponseEntity<?> promoteEmployee(Long hrId, Position position, CompensationDto compensation, String role);
+
+    ResponseEntity<?> rewardAppraisal(Long hrId, CompensationDto compensation);
+
+    ResponseEntity<?> getEmployeesOnNoticePeriod(Long orgId);
+
+    ResponseEntity<?> getEmployeesDirectory(List<Long> empIds);
+
+    ResponseEntity<?> getEmployeeDetails(Long empId, String gender);
+
+    ResponseEntity<?> getPayrollEmployees(List<Long> empIds);
+
+    ResponseEntity<?> getPayrollProcessed(Long orgId, Integer month, Integer year, Integer pageNo, Integer pageSize);
+}

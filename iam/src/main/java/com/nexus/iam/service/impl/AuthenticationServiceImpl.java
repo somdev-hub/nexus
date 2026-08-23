@@ -1,13 +1,28 @@
 package com.nexus.iam.service.impl;
 
-import java.sql.Timestamp;
-import java.util.HashMap;
-import java.util.Map;
-
+import com.nexus.iam.dto.LoginRequest;
+import com.nexus.iam.dto.LoginResponse;
+import com.nexus.iam.dto.RefreshTokenRequest;
+import com.nexus.iam.dto.UserRegisterDto;
+import com.nexus.iam.entities.Department;
+import com.nexus.iam.entities.Organization;
+import com.nexus.iam.entities.Role;
+import com.nexus.iam.entities.User;
+import com.nexus.iam.repository.DepartmentRepository;
+import com.nexus.iam.repository.OrganizationRepository;
 import com.nexus.iam.repository.RoleRepository;
-import com.nexus.iam.exception.ResourceNotFoundException;
+import com.nexus.iam.repository.UserRepository;
+import com.nexus.iam.security.JwtUtil;
+import com.nexus.iam.service.AuthenticationService;
+import com.nexus.iam.utils.CommonConstants;
+import com.nexus.iam.utils.RestService;
+import com.nexus.iam.utils.WebConstants;
+import io.jsonwebtoken.Claims;
+import jakarta.transaction.Transactional;
+import lombok.RequiredArgsConstructor;
 import org.modelmapper.ModelMapper;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -16,41 +31,30 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.util.ObjectUtils;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.util.UriComponentsBuilder;
+import lombok.extern.slf4j.Slf4j;
 
-import com.nexus.iam.dto.LoginRequest;
-import com.nexus.iam.dto.LoginResponse;
-import com.nexus.iam.dto.RefreshTokenRequest;
-import com.nexus.iam.dto.UserRegisterDto;
-import com.nexus.iam.entities.User;
-import com.nexus.iam.repository.UserRepository;
-import com.nexus.iam.security.JwtUtil;
-import com.nexus.iam.service.AuthenticationService;
+import java.sql.Timestamp;
+import java.util.HashMap;
+import java.util.Map;
 
-import io.jsonwebtoken.Claims;
-
+@Slf4j
 @Service
+@RequiredArgsConstructor
 public class AuthenticationServiceImpl implements AuthenticationService {
 
-    @Autowired
-    private AuthenticationManager authenticationManager;
-
-    @Autowired
-    private UserRepository userRepository;
-
-    @Autowired
-    private JwtUtil jwtUtil;
-
-    @Autowired
-    private PasswordEncoder passwordEncoder;
-
-    @Autowired
-    private CustomUserDetailsService userDetailsService;
-
-    @Autowired
-    private ModelMapper modelMapper;
-
-    @Autowired
-    private RoleRepository roleRepository;
+    private final OrganizationRepository organizationRepository;
+    private final AuthenticationManager authenticationManager;
+    private final CustomUserDetailsService userDetailsService;
+    private final DepartmentRepository departmentRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final RoleRepository roleRepository;
+    private final UserRepository userRepository;
+    private final WebConstants webConstants;
+    private final ModelMapper modelMapper;
+    private final RestService restService;
+    private final JwtUtil jwtUtil;
 
     @Override
     public LoginResponse authenticate(LoginRequest loginRequest) {
@@ -158,18 +162,15 @@ public class AuthenticationServiceImpl implements AuthenticationService {
                 .build();
     }
 
+    @Override
     public LoginResponse registerUser(User user) {
-        if (userRepository.existsByEmail(user.getEmail())) {
-            throw new IllegalArgumentException("Email already exists");
-        }
-
         user.setPassword(passwordEncoder.encode(user.getPassword()));
         user.setEnabled(true);
         user.setAccountNonExpired(true);
         user.setAccountNonLocked(true);
         user.setCredentialsNonExpired(true);
         try {
-            userRepository.save(user);
+            User savedUser = userRepository.save(user);
 
             // Load user details and generate tokens
             UserDetails userDetails = userDetailsService.loadUserByUsername(user.getEmail());
@@ -182,6 +183,12 @@ public class AuthenticationServiceImpl implements AuthenticationService {
                     .tokenType("Bearer")
                     .expiresIn(900)
                     .email(userDetails.getUsername())
+                    .role(savedUser.getRoles().stream()
+                            .findFirst()
+                            .map(r -> "ROLE_" + r.getName())
+                            .orElse("ROLE_USER"))
+                    .name(savedUser.getName())
+                    .orgId(savedUser.getOrganization().getId())
                     .userId(
                             userRepository.findByEmail(user.getUsername()).map(
                                     User::getId).orElse(null)
@@ -193,8 +200,9 @@ public class AuthenticationServiceImpl implements AuthenticationService {
         }
     }
 
+    @Transactional
     @Override
-    public LoginResponse registerUser(UserRegisterDto userRegisterDto) {
+    public LoginResponse registerUser(UserRegisterDto userRegisterDto, MultipartFile profilePhoto) {
         if (ObjectUtils.isEmpty(userRegisterDto)) {
             throw new IllegalArgumentException("User registration data cannot be null or empty");
         }
@@ -203,18 +211,115 @@ public class AuthenticationServiceImpl implements AuthenticationService {
                 ObjectUtils.isEmpty(userRegisterDto.getPassword())) {
             throw new IllegalArgumentException("Username, email, and password are required");
         }
+        if (ObjectUtils.isEmpty(userRegisterDto.getOrgType()) || ObjectUtils.isEmpty(userRegisterDto.getOrgName())) {
+            throw new IllegalArgumentException("Organization Type or Name is required");
+
+        }
         try {
+
+            // check if email already exists
+            if (userRepository.existsByEmail(userRegisterDto.getEmail())) {
+                throw new IllegalArgumentException("Email already exists");
+            }
+
+            // save org
+            Organization org = new Organization();
+            org.setCreatedAt(new Timestamp(System.currentTimeMillis()));
+            org.setOrgName(userRegisterDto.getOrgName());
+            org.setOrgType(userRegisterDto.getOrgType());
+            org.setTrustScore(0d);
+            org = organizationRepository.save(org);
+
             User user = modelMapper.map(userRegisterDto, User.class);
             user.setCreatedAt(Timestamp.valueOf(java.time.LocalDateTime.now()));
+            user.setOrganization(org);
 
-            // Set role if provided in the DTO
-            if (!ObjectUtils.isEmpty(userRegisterDto.getRole())) {
-                user.getRoles().add(roleRepository.findByName(userRegisterDto.getRole())
-                        .orElseThrow(() -> new ResourceNotFoundException("Role", "name", userRegisterDto.getRole())));
+            // set role
+            Role role;
+            if (roleRepository.existsByName(userRegisterDto.getRole())) {
+                role = roleRepository.findByName(userRegisterDto.getRole()).get();
+            } else {
+                Role newRole = new Role();
+                newRole.setName(userRegisterDto.getRole());
+                role = roleRepository.save(newRole);
+            }
+            user.getRoles().add(role);
+            user = userRepository.save(user);
+
+            Department department = new Department();
+            department.setDepartmentName(userRegisterDto.getDepartment());
+            department.setDepartmentHead(user);
+            department.setOrganization(org);
+            department.setCreatedAt(new Timestamp(System.currentTimeMillis()));
+            department.getRoles().add(role);
+            departmentRepository.save(department);
+
+            // add profilePhoto to dms and set URL to user
+            if (!ObjectUtils.isEmpty(profilePhoto)) {
+                UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getCommonDmsUrl());
+                Map<String, Object> dto = new HashMap<>();
+                dto.put("userId", user.getId());
+                dto.put("fileName", user.getId() + "_hr_doc");
+                dto.put("remarks", "HR Doc Upload");
+                dto.put("documentType", "OTHER_HR_DOCUMENTS");
+                dto.put("orgId", org.getId());
+                dto.put("orgType", org.getOrgType().toString());
+
+                Map<String, Object> docPayload = new HashMap<>();
+                docPayload.put("dto", dto);
+                docPayload.put("file", profilePhoto);
+
+                Map<String, String> headers = new HashMap<>();
+                LoginResponse loginResponse = authenticate(new LoginRequest(webConstants.getGenericUserId(),
+                        webConstants.getGenericPassword()));
+                headers.put(CommonConstants.AUTHORIZATION, "Bearer " + loginResponse.getAccessToken());
+                ResponseEntity<String> response = restService.iamRestCall(
+                        builder.toUriString(),
+                        docPayload,
+                        headers,
+                        HttpMethod.POST,
+                        user.getId());
+
+                if (response.getStatusCode().is2xxSuccessful()) {
+                    Map<String, Object> respBody = restService.parseJsonResponse(response.getBody());
+                    if (respBody != null && respBody.containsKey("documentUrl")) {
+                        user.setProfilePhoto(respBody.get("documentUrl").toString());
+                    }
+                }
+            }
+
+            // prepare HR payloads
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("employeeId", user.getId());
+            payload.put("fullName", user.getName());
+            payload.put("email", user.getEmail());
+            payload.put("orgId", user.getOrganization().getId());
+            payload.put("department", userRegisterDto.getDepartment());
+            payload.put("title", userRegisterDto.getTitle());
+            payload.put("remarks", "New User Registration");
+            payload.put("timestamp", new Timestamp(System.currentTimeMillis()));
+            payload.put("personalEmail", userRegisterDto.getPersonalEmail());
+            payload.put("compensation", userRegisterDto.getCompensation());
+
+            Map<String, String> headers = new HashMap<>();
+            LoginResponse loginResponse = authenticate(new LoginRequest(webConstants.getGenericUserId(),
+                    webConstants.getGenericPassword()));
+            headers.put(CommonConstants.AUTHORIZATION, "Bearer " + loginResponse.getAccessToken());
+            headers.put(CommonConstants.CONTENT_TYPE, CommonConstants.APPLICATION_JSON);
+
+            UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getHrInitUrl());
+            ResponseEntity<?> hrResponse = restService.iamRestCall(
+                    builder.toUriString(),
+                    payload,
+                    headers,
+                    HttpMethod.POST,
+                    user.getId());
+            // generate JWT tokens upon registration
+            if (!hrResponse.getStatusCode().is2xxSuccessful()) {
+                throw new IllegalArgumentException("Failed to initialize HR data for the user");
             }
 
             return registerUser(user);
-            // generate JWT tokens upon registration
 
         } catch (Exception e) {
             throw new IllegalArgumentException("Failed to register user: " + e.getMessage());
@@ -227,13 +332,34 @@ public class AuthenticationServiceImpl implements AuthenticationService {
             throw new IllegalArgumentException("Invalid token");
         }
 
-        Claims claims = jwtUtil.extractAllClaims(token);
         Map<String, String> result = new HashMap<>();
-        // return isValid, username, expiration, role
+
+        // Extract username using configuration-aware method (handles both Keycloak and
+        // Traditional JWT)
+        String username = jwtUtil.extractUsernameFromToken(token);
+        if (username == null) {
+            throw new IllegalArgumentException("Unable to extract username from token");
+        }
+
         result.put("isValid", "true");
-        result.put("username", claims.getSubject());
-        result.put("expiration", claims.getExpiration().toString());
-        result.put("role", claims.get("role", String.class));
+        result.put("username", username);
+
+        // For traditional JWT (HMAC-SHA256), extract additional claims
+        // NOTE: Keycloak tokens (RS256) don't use the Claims format, so we skip
+        // additional extraction for Keycloak mode
+        try {
+            // Attempt to extract claims - will succeed for traditional JWT, fail for
+            // Keycloak
+            Claims claims = jwtUtil.extractAllClaims(token);
+            result.put("expiration", claims.getExpiration().toString());
+            result.put("role", claims.get("role", String.class));
+        } catch (Exception e) {
+            // This is expected for Keycloak tokens which use RS256 signature
+            log.debug("Could not extract Claims from token (likely Keycloak RS256): {}", e.getMessage());
+            result.put("expiration", "");
+            result.put("role", "");
+        }
+
         return result;
     }
 
@@ -250,21 +376,38 @@ public class AuthenticationServiceImpl implements AuthenticationService {
                 token = token.substring(7).trim();
             }
 
-            Claims claims = jwtUtil.extractAllClaims(token);
+            // Validate token first using configuration-aware method
+            if (!jwtUtil.validateToken(token)) {
+                throw new IllegalArgumentException("Invalid or expired token");
+            }
+
             Map<String, Object> decryptedData = new HashMap<>();
+            String username = jwtUtil.extractUsernameFromToken(token);
+            if (username != null) {
+                decryptedData.put("username", username);
+            }
 
-            // Extract all claims from the token
-            decryptedData.put("username", claims.getSubject());
-            decryptedData.put("issuedAt", claims.getIssuedAt());
-            decryptedData.put("expiration", claims.getExpiration());
-            decryptedData.put("isValid", !jwtUtil.isTokenExpired(token));
+            // For traditional JWT (HMAC-SHA256), extract all claims
+            // NOTE: Keycloak tokens (RS256) claims are extracted differently, so we attempt
+            // this gracefully
+            try {
+                Claims claims = jwtUtil.extractAllClaims(token);
+                decryptedData.put("issuedAt", claims.getIssuedAt());
+                decryptedData.put("expiration", claims.getExpiration());
+                decryptedData.put("isValid", !jwtUtil.isTokenExpired(token));
 
-            // Extract all additional claims
-            claims.forEach((key, value) -> {
-                if (!key.equals("sub") && !key.equals("iat") && !key.equals("exp")) {
-                    decryptedData.put(key, value);
-                }
-            });
+                // Extract all additional claims
+                claims.forEach((key, value) -> {
+                    if (!key.equals("sub") && !key.equals("iat") && !key.equals("exp")) {
+                        decryptedData.put(key, value);
+                    }
+                });
+            } catch (Exception e) {
+                // For Keycloak tokens (RS256), we can still return basic info
+                log.debug("Could not extract Claims from token (likely Keycloak RS256): {}", e.getMessage());
+                decryptedData.put("isValid", true);
+                decryptedData.put("note", "Additional claims not available for Keycloak RS256 tokens");
+            }
 
             return decryptedData;
         } catch (Exception e) {

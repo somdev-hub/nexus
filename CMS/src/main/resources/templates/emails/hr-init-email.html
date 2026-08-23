@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome Email</title>
+</head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+    <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+        <h2 style="color: #0066cc; border-bottom: 2px solid #0066cc; padding-bottom: 10px;">
+            Welcome to <span th:text="${organizationName}">Organization</span>!
+        </h2>
+
+        <p>Dear <strong th:text="${name}">Employee Name</strong>,</p>
+
+        <p>We are excited to have you join our team at <span th:text="${organizationName}">Organization</span>!</p>
+
+        <p>Your employee details are as follows:</p>
+
+        <div style="padding-left: 15px; background-color: #f5f5f5; border-left: 4px solid #0066cc;">
+            <ul style="padding: 15px;">
+                <li><strong>Employee ID:</strong> <span th:text="${employeeId}">EMP001</span></li>
+                <li><strong>Department:</strong> <span th:text="${department}">Department</span></li>
+                <li><strong>Position:</strong> <span th:text="${position}">Position</span></li>
+                <li><strong>Date of Joining:</strong> <span th:text="${dateOfJoining}">DD-MM-YYYY</span></li>
+            </ul>
+        </div>
+
+
+        <p>Please find attached the following documents to help you get started:</p>
+        <ol>
+            <li>Joining Letter</li>
+            <li>Letter of Intent</li>
+            <li>Compensation Card</li>
+        </ol>
+
+        <p>Please review these documents carefully and keep them for your records.</p>
+
+        <p>If you have any questions or need assistance, feel free to reach out to us at
+        <a href="mailto:hr@nexuscorporation.com">hr@nexuscorporation.com</a>.</p>
+
+        <p style="margin-top: 30px;">Best regards,<br/>
+        <strong><span th:text="${organizationName}">Organization</span> HR Team</strong></p>
+
+        <hr style="border: none; border-top: 1px solid #ddd; margin-top: 30px;">
+        <p style="font-size: 12px; color: #666;">
+            This is an automated email. Please do not reply directly to this message.
+        </p>
+    </div>
+</body>
+</html>
+

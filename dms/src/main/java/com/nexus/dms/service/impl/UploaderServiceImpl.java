@@ -74,7 +74,7 @@ public class UploaderServiceImpl implements UploaderService {
                 .build();
 
         HeadObjectResponse headObjectResponse = s3Client.headObject(headObjectRequest);
-        String cid = headObjectResponse.metadata().get("cid");
+        String cid = headObjectResponse.metadata().get("Cid");
 
         UploaderResponse response = new UploaderResponse(fileName, cid, getFileUrl(cid),
                 CommonConstants.MAIN_BUCKET + "/" + folderPrefix);

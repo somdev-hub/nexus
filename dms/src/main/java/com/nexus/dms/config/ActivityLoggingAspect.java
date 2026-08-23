@@ -80,8 +80,7 @@ public class ActivityLoggingAspect {
             result = joinPoint.proceed();
 
             // Handle successful response
-            if (result instanceof ResponseEntity<?>) {
-                ResponseEntity<?> response = (ResponseEntity<?>) result;
+            if (result instanceof ResponseEntity<?> response) {
                 activityLog.setResponseStatus(response.getStatusCode().value());
 
                 // Serialize response body
@@ -90,11 +89,10 @@ public class ActivityLoggingAspect {
                         activityLog.setResponse(objectMapper.writeValueAsString(response.getBody()));
 
                         // Extract documentRecordId from DocumentRecord response
-                        if (response.getBody() instanceof DocumentRecord) {
-                            DocumentRecord docRecord = (DocumentRecord) response.getBody();
+                        if (response.getBody() instanceof DocumentRecord docRecord) {
                             activityLog.setDocumentRecordId(docRecord.getId());
                         }
-                    } catch (JsonProcessingException e) {
+                    } catch (JsonProcessingException _) {
                         activityLog.setResponse(response.getBody().toString());
                     }
                 }
@@ -111,7 +109,7 @@ public class ActivityLoggingAspect {
                 activityLog.setResponse(objectMapper.writeValueAsString(
                         new ErrorDetails(e.getClass().getSimpleName(), errorMessage)
                 ));
-            } catch (JsonProcessingException jsonEx) {
+            } catch (JsonProcessingException _) {
                 activityLog.setResponse(errorMessage);
             }
         }
@@ -142,24 +140,10 @@ public class ActivityLoggingAspect {
     }
 
     /**
-     * Helper class to structure exception information for JSON serialization
-     */
-    private static class ErrorDetails {
-        public String exceptionType;
-        public String message;
+         * Helper class to structure exception information for JSON serialization
+         */
+        private record ErrorDetails(String exceptionType, String message) {
 
-        ErrorDetails(String exceptionType, String message) {
-            this.exceptionType = exceptionType;
-            this.message = message;
-        }
-
-        public String getExceptionType() {
-            return exceptionType;
-        }
-
-        public String getMessage() {
-            return message;
-        }
     }
 
     /**
@@ -196,9 +180,8 @@ public class ActivityLoggingAspect {
                         String requestJson = objectMapper.writeValueAsString(arg);
                         activityLog.setRequest(requestJson);
                         break; // We found the main DTO, don't need to continue
-                    } catch (JsonProcessingException e) {
+                    } catch (JsonProcessingException _) {
                         // Skip this object and continue looking
-                        continue;
                     }
                 }
             }

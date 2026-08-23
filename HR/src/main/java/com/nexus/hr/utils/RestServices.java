@@ -1,0 +1,176 @@
+package com.nexus.hr.utils;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.nexus.hr.model.entities.HrLogs;
+import com.nexus.hr.repository.HrLogsRepo;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.http.*;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
+import org.springframework.web.client.RestTemplate;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.io.IOException;
+import java.util.Map;
+import java.util.logging.Logger;
+
+@Service
+public class RestServices {
+
+    private final HrLogsRepo hrLogsRepo;
+
+    private final CommonUtils commonUtils;
+    
+    private static final Logger LOGGER = Logger.getLogger(RestServices.class.getName());
+
+    public RestServices(HrLogsRepo hrLogsRepo, CommonUtils commonUtils) {
+        this.hrLogsRepo = hrLogsRepo;
+        this.commonUtils = commonUtils;
+    }
+
+    public ResponseEntity<?> hrRestCall(String url, Object payload, Map<String, String> headers,
+                                        HttpMethod method, Long hrId) {
+        ResponseEntity<?> responseEntity = null;
+        String requestLog = null;
+        try {
+            // Check if payload contains multipart files
+            if (payload instanceof Map && containsMultipartFile((Map<String, Object>) payload)) {
+                responseEntity = handleMultipartRequest(url, (Map<String, Object>) payload, headers, method);
+                requestLog = serializePayload(payload); // Serialize to JSON even for multipart
+            } else {
+                responseEntity = handleRegularRequest(url, payload, headers, method);
+                requestLog = payload != null ? serializePayload(payload) : null;
+            }
+        } catch (Exception e) {
+            responseEntity = new ResponseEntity<>("Exception occurred during REST call: " + e.getMessage(),
+                    HttpStatus.INTERNAL_SERVER_ERROR);
+            requestLog = payload != null ? serializePayload(payload) : null;
+        } finally {
+            // Log asynchronously to prevent transaction conflicts
+            logRestCallAsync(url, method, requestLog, responseEntity, hrId);
+        }
+
+        return responseEntity;
+    }
+    
+    /**
+     * Logs REST calls in a separate transaction to prevent prepared statement conflicts
+     * during concurrent async operations. Uses REQUIRES_NEW to create a new transaction
+     * independent of the calling transaction context.
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW, timeout = 10)
+    public void logRestCallAsync(String url, HttpMethod method, String requestLog, 
+                                  ResponseEntity<?> responseEntity, Long hrId) {
+        try {
+            HrLogs log = new HrLogs();
+            log.setRequestUrl(url);
+            log.setHttpMethod(method.name());
+            log.setRequest(requestLog);
+            
+            if (responseEntity != null) {
+                Object respBody = responseEntity.getBody();
+                String responseString = respBody != null ? respBody.toString() : null;
+                if (responseString != null) {
+                    log.setResponse(commonUtils.jsonValidator(responseString));
+                }
+                log.setResponseStatus(responseEntity.getStatusCode().value());
+            }
+            log.setHrId(hrId != null ? hrId : 0L);
+
+            hrLogsRepo.save(log);
+        } catch (Exception e) {
+            // Log error but don't propagate - logging failure shouldn't crash the main operation
+            LOGGER.warning("Failed to log REST call to " + url + ": " + e.getMessage());
+        }
+    }
+
+
+    private boolean containsMultipartFile(Map<String, Object> map) {
+        for (Object value : map.values()) {
+            if (value instanceof MultipartFile) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private String serializePayload(Object payload) {
+        try {
+            if (payload instanceof Map) {
+                Map<String, Object> map = (Map<String, Object>) payload;
+                // Create a copy to avoid serializing MultipartFile objects
+                Map<String, Object> safeMap = new java.util.HashMap<>();
+                for (Map.Entry<String, Object> entry : map.entrySet()) {
+                    if (entry.getValue() instanceof MultipartFile) {
+                        safeMap.put(entry.getKey(), "MultipartFile");
+                    } else {
+                        safeMap.put(entry.getKey(), entry.getValue());
+                    }
+                }
+                ObjectMapper mapper = new ObjectMapper();
+                return mapper.writeValueAsString(safeMap);
+            } else {
+                ObjectMapper mapper = new ObjectMapper();
+                return mapper.writeValueAsString(payload);
+            }
+        } catch (Exception e) {
+            return payload.toString();
+        }
+    }
+
+    private ResponseEntity<?> handleMultipartRequest(String url, Map<String, Object> payload,
+                                                     Map<String, String> headers, HttpMethod method) throws IOException {
+        RestTemplate restTemplate = new RestTemplate();
+
+        // Create multipart body
+        MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
+
+        for (Map.Entry<String, Object> entry : payload.entrySet()) {
+            Object value = entry.getValue();
+
+            if (value instanceof MultipartFile file) {
+                // Convert MultipartFile to ByteArrayResource
+                ByteArrayResource fileResource = new ByteArrayResource(file.getBytes()) {
+                    @Override
+                    public String getFilename() {
+                        return file.getOriginalFilename();
+                    }
+                };
+                body.add(entry.getKey(), fileResource);
+            } else {
+                // Send DTO and other objects directly - RestTemplate will handle serialization
+                body.add(entry.getKey(), value);
+            }
+        }
+
+        // Create headers - DO NOT set Content-Type, RestTemplate will handle it automatically
+        HttpHeaders httpHeaders = new HttpHeaders();
+        if (headers != null) {
+            headers.forEach((key, value) -> {
+                // Skip Content-Type - RestTemplate sets it automatically for multipart
+                if (!key.equalsIgnoreCase("Content-Type")) {
+                    httpHeaders.set(key, value);
+                }
+            });
+        }
+
+        HttpEntity<MultiValueMap<String, Object>> httpEntity = new HttpEntity<>(body, httpHeaders);
+        return restTemplate.exchange(url, method, httpEntity, Object.class);
+    }
+
+    private ResponseEntity<?> handleRegularRequest(String url, Object payload, Map<String, String> headers, HttpMethod method) {
+        RestTemplate restTemplate = new RestTemplate();
+
+        HttpHeaders httpHeaders = new HttpHeaders();
+        if (headers != null) {
+            headers.forEach(httpHeaders::set);
+        }
+
+        HttpEntity<Object> httpEntity = new HttpEntity<>(payload, httpHeaders);
+        return restTemplate.exchange(url, method, httpEntity, Object.class);
+    }
+
+}

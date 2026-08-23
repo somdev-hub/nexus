@@ -96,7 +96,7 @@ public class ActivityLoggingAspect {
                         if (response.getBody() instanceof User user) {
                             activityLog.setUserId(user.getId());
                         }
-                    } catch (JsonProcessingException _) {
+                    } catch (JsonProcessingException ex) {
                         if (response.getBody() != null) {
                             activityLog.setResponse(response.getBody().toString());
                         }
@@ -115,7 +115,7 @@ public class ActivityLoggingAspect {
                 activityLog.setResponse(objectMapper.writeValueAsString(
                         new ErrorDetails(e.getClass().getSimpleName(), errorMessage)
                 ));
-            } catch (JsonProcessingException _) {
+            } catch (JsonProcessingException ex) {
                 activityLog.setResponse(errorMessage);
             }
         }
@@ -194,7 +194,7 @@ public class ActivityLoggingAspect {
                         String requestJson = objectMapper.writeValueAsString(arg);
                         activityLog.setRequest(requestJson);
                         break; // We found the main DTO, don't need to continue
-                    } catch (JsonProcessingException _) {
+                    } catch (JsonProcessingException ex) {
                         // Skip this object and continue looking
                     }
                 }

@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body {
+            font-family: 'Calibri', 'Arial', sans-serif;
+            line-height: 1.6;
+            margin: 40px;
+            color: #333;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #0066cc;
+            padding-bottom: 20px;
+        }
+
+        .organization-name {
+            font-size: 24px;
+            font-weight: bold;
+            color: #0066cc;
+            margin-bottom: 5px;
+        }
+
+        .organization-address {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 10px;
+        }
+
+        .letter-content {
+            margin-top: 30px;
+        }
+
+        .date-section {
+            text-align: right;
+            margin-bottom: 30px;
+            font-size: 12px;
+        }
+
+        .salutation {
+            margin-bottom: 20px;
+        }
+
+        .body-text {
+            text-align: justify;
+            margin-bottom: 15px;
+            font-size: 12px;
+        }
+
+        .terms-section {
+            margin: 20px 0;
+            padding: 15px;
+            background-color: #f9f9f9;
+            border-left: 4px solid #0066cc;
+            font-size: 12px;
+        }
+
+        .terms-section ul {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+
+        .terms-section li {
+            margin-bottom: 8px;
+        }
+
+        .compensation-highlight {
+            margin: 20px 0;
+            padding: 15px;
+            background-color: #e8f4f8;
+            border: 2px solid #0066cc;
+            border-radius: 5px;
+            font-size: 12px;
+        }
+
+        .compensation-highlight ul {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+
+        .compensation-highlight li {
+            margin-bottom: 6px;
+        }
+
+        .closing {
+            margin-top: 30px;
+            font-size: 12px;
+        }
+
+        .signature-section {
+            margin-top: 40px;
+            font-size: 12px;
+        }
+
+        .signature-lines {
+            margin-top: 50px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .signature-block {
+            width: 45%;
+        }
+
+        .signature-line {
+            border-top: 1px solid #000;
+            margin-bottom: 5px;
+        }
+
+        .contact-info {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #ddd;
+            font-size: 11px;
+            color: #666;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="header">
+        <div class="organization-name" th:text="${organizationName}">Organization Name</div>
+        <div class="organization-address" th:text="${organizationAddress}">Organization Address</div>
+    </div>
+
+    <div class="letter-content">
+        <div class="date-section">
+            Date: <span th:text="${currentDate}">dd-MM-yyyy</span>
+        </div>
+
+        <div class="salutation">
+            Dear <span th:text="${employeeName}">Employee Name</span>,
+        </div>
+
+        <p class="body-text">
+            <strong>Subject: Letter of Intent - Employment Agreement</strong>
+        </p>
+
+        <p class="body-text">
+            This letter confirms our mutual intention to enter into an employment relationship effective from
+            <strong th:text="${effectiveDate}">dd-MM-yyyy</strong>. This Letter of Intent outlines the terms and
+            conditions of your employment with
+            <span th:text="${organizationName}">Organization Name</span>.
+        </p>
+
+        <div class="terms-section">
+            <strong>Terms and Conditions:</strong>
+            <ul>
+                <li><strong>Position:</strong> <span th:text="${position}">Position</span></li>
+                <li><strong>Department:</strong> <span th:text="${department}">Department</span></li>
+                <li><strong>Date of Commencement:</strong> <span th:text="${effectiveDate}">dd-MM-yyyy</span></li>
+                <li><strong>Employment Type:</strong> Full-time</li>
+                <li><strong>Employee ID:</strong> <span th:text="${employeeId}">123</span></li>
+            </ul>
+        </div>
+
+        <div class="compensation-highlight" th:if="${hasCompensation}">
+            <strong>Compensation Package:</strong>
+            <ul>
+                <li th:if="${compensation['annualPackage']}"><strong>Annual Package:</strong> <span
+                        th:text="${compensation['annualPackage']}"></span></li>
+                <li th:if="${compensation['netPay']}"><strong>Gross Pay:</strong> <span
+                        th:text="${compensation['netPay']}"></span></li>
+                <li th:if="${compensation['basePay']}"><strong>Base Pay:</strong> <span
+                        th:text="${compensation['basePay']}"></span></li>
+                <li th:if="${compensation['hra']}"><strong>HRA:</strong> <span th:text="${compensation['hra']}"></span>
+                </li>
+            </ul>
+            <p style="font-size: 11px; color: #666; margin-top: 10px;">
+                * Detailed compensation breakdown will be provided in a separate compensation card document.
+            </p>
+        </div>
+
+        <p class="body-text">
+            You will be entitled to all statutory and contractual benefits as per company policy. Your employment
+            is contingent upon successful completion of background verification and medical clearance, if applicable.
+        </p>
+
+        <p class="body-text">
+            You are expected to adhere to the company's policies and procedures as outlined in the Employee Handbook.
+            This includes maintaining confidentiality of company information, respecting intellectual property rights,
+            and following all safety and security protocols.
+        </p>
+
+        <p class="body-text">
+            If there are any questions or clarifications needed, please contact the Human Resources Department
+            immediately.
+        </p>
+
+        <div class="closing">
+            We welcome you to the organization and look forward to a productive working relationship.
+        </div>
+
+        <div class="signature-section">
+            <div class="signature-lines">
+                <div class="signature-block">
+                    <div class="signature-line"></div>
+                    <div>
+                        <strong>Employee Signature</strong><br />
+                        Date: ________________<br />
+                        Employee Name: <span th:text="${employeeName}">Employee Name</span>
+                    </div>
+                </div>
+                <div class="signature-block">
+                    <div class="signature-line"></div>
+                    <div>
+                        <strong>Authorized Signatory</strong><br />
+                        Date: ________________<br />
+                        <span th:text="${organizationName}">Organization Name</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="contact-info">
+            <strong>Contact Information:</strong><br />
+            Email: <span th:text="${hrContactEmail}">hr@organization.com</span><br />
+            Phone: <span th:text="${hrContactPhone}">+91-XXXXXXXXXX</span><br /><br />
+            <strong>Address:</strong> <span th:text="${organizationAddress}">Organization Address</span>
+        </div>
+    </div>
+</body>
+
+</html>

@@ -1,38 +1,50 @@
 package com.nexus.iam.controller;
 
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.util.ObjectUtils;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
 import com.nexus.iam.annotation.LogActivity;
 import com.nexus.iam.dto.OrganizationDto;
 import com.nexus.iam.entities.Organization;
 import com.nexus.iam.entities.User;
 import com.nexus.iam.repository.UserRepository;
+import com.nexus.iam.security.JwtUtil;
 import com.nexus.iam.service.OrganizationService;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.util.ObjectUtils;
-import org.springframework.web.bind.annotation.*;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequestMapping("/iam/organizations")
 @CrossOrigin(origins = "*")
+@RequiredArgsConstructor
 public class OrganizationController {
 
     private final OrganizationService organizationService;
 
     private final UserRepository userRepository;
 
-    public OrganizationController(OrganizationService organizationService, UserRepository userRepository) {
-        this.organizationService = organizationService;
-        this.userRepository = userRepository;
-    }
+    private final JwtUtil jwtUtil;
 
     @LogActivity("Create Organization")
     @PostMapping("/add")
     public ResponseEntity<?> createOrganization(@RequestBody OrganizationDto organizationDto,
-            @RequestParam Long member) {
+                                                @RequestParam Long member) {
 
         if (ObjectUtils.isEmpty(member)) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Member ID is required");
@@ -77,6 +89,14 @@ public class OrganizationController {
         return ResponseEntity.ok(organizationService.getOrganizationById(id));
     }
 
+    @GetMapping("/details/{id}")
+    public ResponseEntity<?> getOrganizationDetails(@PathVariable Long id) {
+        if (ObjectUtils.isEmpty(id)) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Organization ID is required");
+        }
+        return organizationService.getOrganizationDetailsById(id);
+    }
+
     @LogActivity("Get All Organizations")
     @GetMapping("/")
     public ResponseEntity<?> getAllOrganizations() {
@@ -111,4 +131,207 @@ public class OrganizationController {
         Map<String, Object> userOrgDetails = organizationService.getUserOrganizationDetails(userId);
         return ResponseEntity.ok(userOrgDetails);
     }
+
+    @LogActivity("Get Employee Insights")
+    @GetMapping("/employees/insights")
+    public ResponseEntity<?> getEmployeeInsights(@RequestParam Long orgId) {
+        return organizationService.getEmployeeInsights(orgId);
+    }
+
+    @GetMapping("/employee/directory")
+    public ResponseEntity<?> getEmployeeDirectory(@RequestParam Long orgId,
+                                                  @RequestParam(value = "pageNo", required = false, defaultValue = "0") Integer pageNo,
+                                                  @RequestParam(value = "pageOffset", required = false, defaultValue = "10") Integer pageOffset) {
+        return organizationService.getEmployeeDirectory(orgId, pageNo, pageOffset);
+    }
+
+    @GetMapping("/employee/details")
+    public ResponseEntity<?> getEmployeeDetails(@RequestParam Long userId) {
+        return organizationService.getEmployeeDetails(userId);
+    }
+
+    @GetMapping("/employees/attendance")
+    public ResponseEntity<?> getEmployeesAttendance(@RequestParam Long orgId,
+                                                    @RequestParam(required = false) Long deptId,
+                                                    @RequestParam String date,
+                                                    @RequestParam(required = false, defaultValue = "0") Integer pageNo,
+                                                    @RequestParam(required = false, defaultValue = "10") Integer pageOffset,
+                                                    @RequestHeader("Authorization") String authHeader) {
+        if (ObjectUtils.isEmpty(authHeader) || !jwtUtil.isValidToken(authHeader)) {
+            return ResponseEntity.status(401).body("Unauthorized: Invalid or missing token");
+        }
+        return organizationService.getEmployeesAttendance(orgId, deptId, date, pageNo, pageOffset, authHeader);
+    }
+
+    @GetMapping("/employee/toggle-attendance")
+    public ResponseEntity<?> toggleAttendance(@RequestParam Long userId,
+                                              @RequestHeader("Authorization") String authHeader) {
+        if (ObjectUtils.isEmpty(authHeader) || !jwtUtil.isValidToken(authHeader)) {
+            return ResponseEntity.status(401).body("Unauthorized: Invalid or missing token");
+        }
+        return organizationService.toggleAttendance(userId, authHeader);
+
+    }
+
+    @GetMapping("/get-payroll-employees")
+    public ResponseEntity<?> getPayrollEmployees(@RequestParam Long orgId, @RequestParam(required = false) Long deptId, @RequestParam(required = false) String role, @RequestParam(required = false, defaultValue = "0") Integer pageNo, @RequestParam(required = false, defaultValue = "10") Integer pageOffset, @RequestHeader("Authorization") String token) {
+        if (ObjectUtils.isEmpty(token) || !jwtUtil.isValidToken(token)) {
+            return ResponseEntity.status(401).body("Unauthorized: Invalid or missing token");
+        }
+        return organizationService.getPayrollEmployees(orgId, deptId, role, pageNo, pageOffset, token);
+    }
+
+    @GetMapping("/get-employee-this-month-attendance/{id}")
+    public ResponseEntity<?> getEmployeeThisMonthAttendance(@PathVariable Long id, @RequestHeader("Authorization") String token) {
+        if (ObjectUtils.isEmpty(token) || !jwtUtil.isValidToken(token)) {
+            return ResponseEntity.status(401).body("Unauthorized: Invalid or missing token");
+        }
+        return organizationService.getEmployeeThisMonthAttendance(id, token);
+    }
+
+    @GetMapping("/get-processed-payrolls")
+    public ResponseEntity<?> getProcessedPayrolls(@RequestParam Long orgId, @RequestParam Integer month, @RequestParam Integer year, @RequestParam(required = false, defaultValue = "0") Integer pageNo, @RequestParam(required = false, defaultValue = "10") Integer pageSize, @RequestHeader("Authorization") String token) {
+        if (ObjectUtils.isEmpty(token) || !jwtUtil.isValidToken(token)) {
+            return ResponseEntity.status(401).body("Unauthorized: Invalid or missing token");
+        }
+        return organizationService.getProcessedPayrolls(orgId, month, year, pageNo, pageSize, token);
+    }
+
+    @GetMapping("/get-payroll-graphs")
+    public ResponseEntity<?> getPayrollGraphs(@RequestParam Long orgId, @RequestParam String month, @RequestParam Integer year, @RequestHeader("Authorization") String token) {
+        if (ObjectUtils.isEmpty(token) || !jwtUtil.isValidToken(token)) {
+            return ResponseEntity.status(401).body("Unauthorized: Invalid or missing token");
+        }
+        return organizationService.getPayrollGraphs(orgId, month, year);
+    }
+
+    @GetMapping("/get-payroll-insights")
+    public ResponseEntity<?> getPayrollInsights(@RequestParam Long orgId, @RequestParam String month, @RequestParam Integer year, @RequestHeader("Authorization") String token) {
+        if (ObjectUtils.isEmpty(token) || !jwtUtil.isValidToken(token)) {
+            return ResponseEntity.status(401).body("Unauthorized: Invalid or missing token");
+        }
+        return organizationService.getPayrollInsights(orgId, month, year);
+    }
+
+    @PostMapping("/hr-request")
+    public ResponseEntity<?> createHrRequest(@RequestBody String requestBody, @RequestHeader("Authorization") String token) {
+        if (ObjectUtils.isEmpty(token) || !jwtUtil.isValidToken(token)) {
+            return ResponseEntity.status(401).body("Unauthorized: Invalid or missing token");
+        }
+        return organizationService.createHrRequest(requestBody, token);
+    }
+
+    @GetMapping("/hr-requests")
+    public ResponseEntity<?> getManyHrRequests(@RequestParam Long orgId,
+                                               @RequestParam(required = false) String requestType,
+                                               @RequestParam(required = false) String status,
+                                               @RequestParam(value = "page", required = false, defaultValue = "0") Integer page,
+                                               @RequestParam(value = "offset", required = false, defaultValue = "10") Integer offset, @RequestHeader("Authorization") String token) {
+        if (ObjectUtils.isEmpty(token) || !jwtUtil.isValidToken(token)) {
+            return ResponseEntity.status(401).body("Unauthorized: Invalid or missing token");
+        }
+        return organizationService.getManyHrRequests(orgId, requestType, status, page, offset, token);
+    }
+
+    @PostMapping("/hr-request/action")
+    public ResponseEntity<?> takeActionOnHrRequest(@RequestParam Long requestId, @RequestParam String action,
+                                                   @RequestParam String resolutionRemarks, @RequestHeader("Authorization") String token) {
+        if (ObjectUtils.isEmpty(token) || !jwtUtil.isValidToken(token)) {
+            return ResponseEntity.status(401).body("Unauthorized: Invalid or missing token");
+        }
+        return organizationService.takeActionOnHrRequest(requestId, action, resolutionRemarks, token);
+    }
+
+    @GetMapping("/hr-requests/closed")
+    public ResponseEntity<?> getClosedHrRequests(@RequestParam Long orgId,
+                                                 @RequestParam(value = "page", required = false, defaultValue = "0") Integer page,
+                                                 @RequestParam(value = "offset", required = false, defaultValue = "10") Integer offset, @RequestHeader("Authorization") String token) {
+        if (ObjectUtils.isEmpty(token) || !jwtUtil.isValidToken(token)) {
+            return ResponseEntity.status(401).body("Unauthorized: Invalid or missing token");
+        }
+        return organizationService.getClosedHrRequests(orgId, page, offset, token);
+    }
+
+    @GetMapping("hr-requests/insights")
+    public ResponseEntity<?> getHrRequestsInsights(@RequestParam Long orgId) {
+        return organizationService.getHrRequestInsights(orgId);
+    }
+
+    @GetMapping("/time-management/quick-update")
+    public ResponseEntity<?> getTimeManagementQuickUpdate(@RequestParam Long empId) {
+        return organizationService.getTimeManagementQuickUpdate(empId);
+    }
+
+    @GetMapping("/hero-analytics")
+    public ResponseEntity<?> getHeroAnalytics(@RequestParam Long orgId) {
+        return organizationService.getHeroAnalytics(orgId);
+    }
+
+    @GetMapping("/hr-requests/today")
+    public ResponseEntity<?> getTodayHrRequests(@RequestParam Long orgId, @RequestParam(required = false, defaultValue = "0") Integer page, @RequestParam(required = false, defaultValue = "10") Integer offset, @RequestParam(required = false) String status, @RequestParam(required = false) String empName) {
+        return organizationService.getTodayAppliedHrRequests(orgId, status, page, offset, empName);
+    }
+
+    @PostMapping("/event-onboarding/template")
+    public ResponseEntity<?> createEventOnboardingTemplate(@RequestBody String requestBody, @RequestHeader("Authorization") String token) {
+        if (ObjectUtils.isEmpty(token) || !jwtUtil.isValidToken(token)) {
+            return ResponseEntity.status(401).body("Unauthorized: Invalid or missing token");
+        }
+        return organizationService.createEventOnboardingTemplate(requestBody, token);
+    }
+
+    @PutMapping("/event-onboarding/template")
+    public ResponseEntity<?> updateEventOnboardingTemplate(@RequestBody String requestBody, @RequestParam(required = false) Boolean templateUpdate, @RequestHeader("Authorization") String token) {
+        if (ObjectUtils.isEmpty(token) || !jwtUtil.isValidToken(token)) {
+            return ResponseEntity.status(401).body("Unauthorized: Invalid or missing token");
+        }
+        return organizationService.updateEventOnboardingTemplate(requestBody, templateUpdate, token);
+    }
+
+    @PostMapping("/event-onboarding/template/params")
+    public ResponseEntity<?> addEventOnboardingTemplateParams(@RequestBody String requestBody, @RequestHeader("Authorization") String token) {
+        if (ObjectUtils.isEmpty(token) || !jwtUtil.isValidToken(token)) {
+            return ResponseEntity.status(401).body("Unauthorized: Invalid or missing token");
+        }
+        return organizationService.addEventOnboardingTemplateParams(requestBody, token);
+    }
+
+    @PutMapping("/event-onboarding/template/params")
+    public ResponseEntity<?> updateEventOnboardingTemplateParams(@RequestBody String requestBody, @RequestHeader("Authorization") String token) {
+        if (ObjectUtils.isEmpty(token) || !jwtUtil.isValidToken(token)) {
+            return ResponseEntity.status(401).body("Unauthorized: Invalid or missing token");
+        }
+        return organizationService.updateEventOnboardingTemplateParams(requestBody, token);
+    }
+
+    @GetMapping("/event-onboarding/template")
+    public ResponseEntity<?> getEventOnboardingTemplates(@RequestParam Long orgId) {
+        return organizationService.getEventOnboardingTemplates(orgId);
+    }
+
+    @GetMapping("/event-onboarding/template/{eventTemplateId}")
+    public ResponseEntity<?> getEventOnboardingTemplateDetails(@PathVariable Long eventTemplateId) {
+        return organizationService.getEventOnboardingTemplateDetails(eventTemplateId);
+    }
+
+    @GetMapping("/event-onboarding/template/name")
+    public ResponseEntity<?> getEventOnboardingTemplateDetailsByName(@RequestParam Long orgId, @RequestParam String templateName) {
+        return organizationService.getEventOnboardingTemplateDetailsByName(orgId, templateName);
+    }
+
+    @PostMapping("/event-onboarding/trigger")
+    public ResponseEntity<?> triggerEventOnboardingMail(@RequestBody String payload){
+        return organizationService.triggerEventOnboardingMail(payload);
+    }
+
+    @GetMapping("/event-onboarding/hits")
+    public ResponseEntity<?> getEventOnboardingHits(@RequestParam String templateName, @RequestParam Long orgId) {
+        return organizationService.getEventOnboardingHits(templateName, orgId);
+    }
+
+    @GetMapping("/event-status-breakdown")
+    public ResponseEntity<?> getEventStatusBreakdown(@RequestParam String templateName, @RequestParam Long orgId) {
+        return organizationService.getEventStatusBreakdown(templateName, orgId);
+    }
+
 }

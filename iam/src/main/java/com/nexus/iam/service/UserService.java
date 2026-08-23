@@ -9,7 +9,7 @@ import org.springframework.web.multipart.MultipartFile;
 public interface UserService {
     ResponseEntity<?> getUserById(Long userId);
 
-    ResponseEntity<?> createUser(UserProfileDto userDto);
+    ResponseEntity<?> createUser(UserProfileDto userDto, MultipartFile[] files);
 
     ResponseEntity<?> updateUser(UserRegisterDto userDto, Long userId);
 
@@ -21,4 +21,7 @@ public interface UserService {
 
     ResponseEntity<?> updateProfilePhoto(MultipartFile file, Long userId);
 
+    ResponseEntity<?> getUserDetails(Long userId);
+
+    ResponseEntity<?> getUserByName(String name);
 }

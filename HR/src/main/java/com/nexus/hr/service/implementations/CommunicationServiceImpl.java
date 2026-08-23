@@ -1,0 +1,566 @@
+package com.nexus.hr.service.implementations;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.nexus.hr.kafka.KafkaProducer;
+import com.nexus.hr.model.entities.HrCommunication;
+import com.nexus.hr.model.enums.CommunicationStatus;
+import com.nexus.hr.model.enums.CommunicationType;
+import com.nexus.hr.payload.EmailAttachmentDto;
+import com.nexus.hr.payload.EmailCommunicationDto;
+import com.nexus.hr.payload.ErrorResponseDto;
+import com.nexus.hr.payload.KafkaMessageDto;
+import com.nexus.hr.repository.HrCommunicationRepo;
+import com.nexus.hr.service.interfaces.CommunicationService;
+import com.nexus.hr.utils.CommonConstants;
+import com.nexus.hr.utils.Logger;
+import com.nexus.hr.utils.WebConstants;
+import jakarta.mail.MessagingException;
+import jakarta.mail.internet.MimeMessage;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mail.javamail.MimeMessageHelper;
+import org.springframework.stereotype.Service;
+import org.springframework.util.CollectionUtils;
+import org.springframework.util.ObjectUtils;
+import org.springframework.web.client.RestClient;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import java.sql.Timestamp;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+
+@Service
+@RequiredArgsConstructor
+@Slf4j
+public class CommunicationServiceImpl implements CommunicationService {
+
+    private final JavaMailSender javaMailSender;
+    private final Logger logger;
+    private final HrCommunicationRepo hrCommunicationRepo;
+    private final WebConstants webConstants;
+    private final KafkaProducer kafkaProducer;
+    private final ObjectMapper objectMapper;
+
+    /**
+     * @deprecated this method has been deprecated, please use sendCommunicationOverKafka method
+     */
+    @Override
+    @Deprecated
+    public ResponseEntity<?> sendCommunicationOverEmail(EmailCommunicationDto emailCommunicationDto) {
+        long startTime = System.currentTimeMillis();
+
+        try {
+            // Validate input
+            validateEmailCommunication(emailCommunicationDto);
+
+            // Prepare email
+            MimeMessage mimeMessage = javaMailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, true, "UTF-8");
+
+            // Set email properties
+            String fromEmail = ObjectUtils.isEmpty(emailCommunicationDto.getSenderEmail())
+                    ? webConstants.getDefaultFromEmail()
+                    : emailCommunicationDto.getSenderEmail();
+
+            helper.setFrom(fromEmail);
+            helper.setTo(emailCommunicationDto.getRecipientEmails().toArray(new String[0]));
+            helper.setSubject(emailCommunicationDto.getSubject());
+
+            // Replace placeholders in email body with actual values
+            String processedBody = replacePlaceholders(emailCommunicationDto.getBody(), emailCommunicationDto);
+            helper.setText(processedBody, true);
+
+            // Add CC emails if present
+            if (!CollectionUtils.isEmpty(emailCommunicationDto.getCcEmails())) {
+                helper.setCc(emailCommunicationDto.getCcEmails().toArray(new String[0]));
+            }
+
+            // Add BCC emails if present
+            if (!CollectionUtils.isEmpty(emailCommunicationDto.getBccEmails())) {
+                helper.setBcc(emailCommunicationDto.getBccEmails().toArray(new String[0]));
+            }
+
+            // Attach files if present
+            if (!CollectionUtils.isEmpty(emailCommunicationDto.getAttachments())) {
+                attachFilesToEmail(helper, emailCommunicationDto.getAttachments());
+            }
+
+            // Send email
+            javaMailSender.send(mimeMessage);
+
+            // Log successful operation to database
+            logCommunicationToDatabase(emailCommunicationDto, CommunicationStatus.SENT, null);
+
+            // Log to application logs
+            logger.saveLogs(
+                    "/communication/send-email",
+                    HttpMethod.POST,
+                    HttpStatus.OK,
+                    emailCommunicationDto,
+                    "Email sent successfully",
+                    null);
+
+            long duration = System.currentTimeMillis() - startTime;
+            log.info("Email sent successfully to {} recipients in {}ms",
+                    emailCommunicationDto.getRecipientEmails().size(), duration);
+
+            Map<String, Object> successResponse = createSuccessResponse(emailCommunicationDto);
+            return ResponseEntity.ok(successResponse);
+
+        } catch (IllegalArgumentException e) {
+            return handleValidationError(emailCommunicationDto, e);
+        } catch (MessagingException e) {
+            logCommunicationToDatabase(emailCommunicationDto, CommunicationStatus.FAILED, null);
+            return handleMessagingError(emailCommunicationDto, e);
+        } catch (Exception e) {
+            logCommunicationToDatabase(emailCommunicationDto, CommunicationStatus.FAILED, null);
+            return handleGenericError(emailCommunicationDto, e);
+        }
+    }
+
+    /**
+      @deprecated this method has been deprecated, please use sendCommunicationOverKafka method
+     */
+    @Override
+    @Deprecated
+    public void sendCommunicationOverKafkaForCandidateSelection(EmailCommunicationDto emailCommunicationDto)
+            throws JsonProcessingException {
+        try {
+            validateEmailCommunication(emailCommunicationDto);
+            KafkaMessageDto kafkaMessageDto = new KafkaMessageDto();
+            kafkaMessageDto.setCommsType("email");
+            kafkaMessageDto.setTopic(CommonConstants.CANDIDATE_SELECTION_MAIL_TOPIC);
+            String uuid = UUID.randomUUID().toString();
+            kafkaMessageDto.setUuid(uuid);
+            // emailcommunicationdto as json
+            kafkaMessageDto.setMessage(objectMapper.writeValueAsString(emailCommunicationDto));
+            kafkaProducer.publishMessage(CommonConstants.CANDIDATE_SELECTION_MAIL_TOPIC, "email-selection-key",
+                    objectMapper.writeValueAsString(kafkaMessageDto));
+            logCommunicationToDatabase(emailCommunicationDto, CommunicationStatus.SENT, uuid);
+            logger.saveLogs(
+                    "/communication/send-email-kafka",
+                    HttpMethod.POST,
+                    HttpStatus.OK,
+                    emailCommunicationDto,
+                    "Email communication sent over Kafka successfully",
+                    null);
+        } catch (RuntimeException e) {
+            log.error("Error sending communication over Kafka: {}", e.getMessage(), e);
+            logger.saveLogs(
+                    "/communication/send-email-kafka",
+                    HttpMethod.POST,
+                    HttpStatus.INTERNAL_SERVER_ERROR,
+                    emailCommunicationDto,
+                    e.getMessage(),
+                    null);
+            throw e; // Rethrow to let caller handle it
+        }
+    }
+
+    /**
+      @deprecated this method has been deprecated, please use sendCommunicationOverKafka method
+     */
+    @Override
+    @Deprecated
+    public void sendCommunicationOverKafkaForPayroll(EmailCommunicationDto emailCommunicationDto) {
+        try {
+            validateEmailCommunication(emailCommunicationDto);
+            KafkaMessageDto kafkaMessageDto = new KafkaMessageDto();
+            kafkaMessageDto.setCommsType("email");
+            kafkaMessageDto.setTopic(CommonConstants.SALARY_PAYMENT_MAIL_TOPIC);
+            String uuid = UUID.randomUUID().toString();
+            kafkaMessageDto.setUuid(uuid);
+            // emailcommunicationdto as json
+            kafkaMessageDto.setMessage(objectMapper.writeValueAsString(emailCommunicationDto));
+            kafkaProducer.publishMessage(CommonConstants.SALARY_PAYMENT_MAIL_TOPIC, "email-payroll-key",
+                    objectMapper.writeValueAsString(kafkaMessageDto));
+            logger.saveLogs(
+                    "/communication/send-payroll-email-kafka",
+                    HttpMethod.POST,
+                    HttpStatus.OK,
+                    emailCommunicationDto,
+                    "Payroll email communication sent over Kafka successfully",
+                    null
+            );
+            log.info("Payroll email communication sent over Kafka successfully with UUID: {}", uuid);
+        } catch (Exception e) {
+            log.error("Error sending payroll communication over Kafka: {}", e.getMessage(), e);
+            // Don't rethrow - payment processing should not fail if email fails
+        }
+    }
+
+    @Override
+    public void sendCommunicationOverKafka(EmailCommunicationDto emailCommunicationDto){
+        try{
+            validateEmailCommunication(emailCommunicationDto);
+            KafkaMessageDto kafkaMessageDto = new KafkaMessageDto();
+            kafkaMessageDto.setCommsType(emailCommunicationDto.getCommType().name());
+            kafkaMessageDto.setTopic(CommonConstants.HR_KAFKA_MAIL_TOPIC);
+            String uuid = UUID.randomUUID().toString();
+            kafkaMessageDto.setUuid(uuid);
+            kafkaMessageDto.setMessage(objectMapper.writeValueAsString(emailCommunicationDto));
+            kafkaProducer.publishMessage(CommonConstants.HR_KAFKA_MAIL_TOPIC, "email-hr-key",
+                    objectMapper.writeValueAsString(kafkaMessageDto));
+
+            logCommunicationToDatabase(emailCommunicationDto, CommunicationStatus.SENT, uuid);
+            logger.saveLogs(
+                    "/communication/send-email-kafka",
+                    HttpMethod.POST,
+                    HttpStatus.OK,
+                    emailCommunicationDto,
+                    "Email communication sent over Kafka successfully",
+                    null);
+            log.info("Email communication sent over Kafka successfully with UUID: {}", uuid);
+
+        } catch (Exception e) {
+            log.error("Error sending communication over Kafka: {}", e.getMessage(), e);
+            logger.saveLogs(
+                    "/communication/send-email-kafka",
+                    HttpMethod.POST,
+                    HttpStatus.INTERNAL_SERVER_ERROR,
+                    emailCommunicationDto,
+                    e.getMessage(),
+                    null);
+        }
+    }
+
+    /**
+     * Validates email communication data
+     */
+    private void validateEmailCommunication(EmailCommunicationDto dto) {
+        if (ObjectUtils.isEmpty(dto)) {
+            throw new IllegalArgumentException("Email communication data cannot be null");
+        }
+
+        if (CollectionUtils.isEmpty(dto.getRecipientEmails())) {
+            throw new IllegalArgumentException("At least one recipient email is required");
+        }
+
+        if (dto.getRecipientEmails().size() > webConstants.getMaxRecipients()) {
+            throw new IllegalArgumentException(
+                    String.format("Number of recipients exceeds maximum limit of %d", webConstants.getMaxRecipients()));
+        }
+
+        // Validate email formats
+        validateEmailFormats(dto.getRecipientEmails(), "recipient");
+        if (!CollectionUtils.isEmpty(dto.getCcEmails())) {
+            validateEmailFormats(dto.getCcEmails(), "CC");
+        }
+        if (!CollectionUtils.isEmpty(dto.getBccEmails())) {
+            validateEmailFormats(dto.getBccEmails(), "BCC");
+        }
+    }
+
+    /**
+     * Validates email address format using regex
+     */
+    private void validateEmailFormats(List<String> emails, String type) {
+        String emailRegex = "^[A-Za-z0-9+_.-]+@(.+)$";
+        List<String> invalidEmails = emails.stream()
+                .filter(email -> !email.matches(emailRegex))
+                .toList();
+
+        if (!invalidEmails.isEmpty()) {
+            throw new IllegalArgumentException(
+                    String.format("Invalid %s email format: %s", type, String.join(", ", invalidEmails)));
+        }
+    }
+
+    /**
+     * Attaches files to email from provided URLs
+     */
+    @Deprecated
+    private void attachFilesToEmail(MimeMessageHelper helper, List<EmailAttachmentDto> attachments)
+            throws MessagingException {
+        for (EmailAttachmentDto attachment : attachments) {
+            try {
+                if (ObjectUtils.isEmpty(attachment.getFileUrl()) ||
+                        ObjectUtils.isEmpty(attachment.getFileName())) {
+                    log.warn("Skipping attachment with missing file URL or name");
+                    continue;
+                }
+
+                // Download file from URL and attach
+                byte[] fileData = downloadFile(attachment.getFileUrl());
+
+                // Normalize content type to proper MIME format
+                String contentType = normalizeContentType(attachment.getContentType(), attachment.getFileName());
+
+                helper.addAttachment(
+                        attachment.getFileName(),
+                        () -> new java.io.ByteArrayInputStream(fileData),
+                        contentType);
+
+                log.debug("Attached file: {} with content type: {}", attachment.getFileName(), contentType);
+            } catch (Exception e) {
+                log.warn("Failed to attach file: {}", attachment.getFileName(), e);
+                // Continue with other attachments even if one fails
+            }
+        }
+    }
+
+    /**
+     * Normalizes content type to proper MIME format
+     * Handles cases where content type is just "PDF" instead of "application/pdf"
+     */
+    private String normalizeContentType(String contentType, String fileName) {
+        // If content type is null or empty, try to infer from filename
+        if (ObjectUtils.isEmpty(contentType)) {
+            return inferContentTypeFromFilename(fileName);
+        }
+
+        // If content type doesn't contain '/', it's not a valid MIME type
+        if (!contentType.contains("/")) {
+            String normalizedType = contentType.trim().toUpperCase();
+
+            // Map common short names to proper MIME types
+            return switch (normalizedType) {
+                case "PDF" -> "application/pdf";
+                case "DOC", "DOCX" -> "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+                case "XLS", "XLSX" -> "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+                case "PPT", "PPTX" -> "application/vnd.openxmlformats-officedocument.presentationml.presentation";
+                case "TXT", "TEXT" -> "text/plain";
+                case "HTML", "HTM" -> "text/html";
+                case "XML" -> "application/xml";
+                case "JSON" -> "application/json";
+                case "ZIP" -> "application/zip";
+                case "PNG" -> "image/png";
+                case "JPG", "JPEG" -> "image/jpeg";
+                case "GIF" -> "image/gif";
+                case "CSV" -> "text/csv";
+                default -> inferContentTypeFromFilename(fileName);
+            };
+        }
+
+        // Content type looks valid, return as-is
+        return contentType;
+    }
+
+    /**
+     * Infers MIME type from file extension
+     */
+    private String inferContentTypeFromFilename(String fileName) {
+        if (ObjectUtils.isEmpty(fileName)) {
+            return "application/octet-stream";
+        }
+
+        String extension = "";
+        int lastDotIndex = fileName.lastIndexOf('.');
+        if (lastDotIndex > 0 && lastDotIndex < fileName.length() - 1) {
+            extension = fileName.substring(lastDotIndex + 1).toUpperCase();
+        }
+
+        return switch (extension) {
+            case "PDF" -> "application/pdf";
+            case "DOC" -> "application/msword";
+            case "DOCX" -> "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+            case "XLS" -> "application/vnd.ms-excel";
+            case "XLSX" -> "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+            case "PPT" -> "application/vnd.ms-powerpoint";
+            case "PPTX" -> "application/vnd.openxmlformats-officedocument.presentationml.presentation";
+            case "TXT" -> "text/plain";
+            case "HTML", "HTM" -> "text/html";
+            case "XML" -> "application/xml";
+            case "JSON" -> "application/json";
+            case "ZIP" -> "application/zip";
+            case "PNG" -> "image/png";
+            case "JPG", "JPEG" -> "image/jpeg";
+            case "GIF" -> "image/gif";
+            case "BMP" -> "image/bmp";
+            case "SVG" -> "image/svg+xml";
+            case "CSV" -> "text/csv";
+            case "MP4" -> "video/mp4";
+            case "MP3" -> "audio/mpeg";
+            default -> "application/octet-stream";
+        };
+    }
+
+    /**
+     * Downloads file from URL using RestClient
+     */
+    private byte[] downloadFile(String fileUrl) {
+        try {
+            RestClient restClient = RestClient.create();
+            byte[] fileData = restClient.get()
+                    .uri(fileUrl)
+                    .retrieve()
+                    .toEntity(byte[].class)
+                    .getBody();
+            return fileData != null ? fileData : new byte[0];
+        } catch (Exception e) {
+            log.error("Error downloading file from URL: {}", fileUrl, e);
+            throw new RuntimeException("Failed to download attachment", e);
+        }
+    }
+
+    /**
+     * Handles validation errors
+     */
+    private ResponseEntity<?> handleValidationError(EmailCommunicationDto dto,
+            IllegalArgumentException e) {
+        log.error("Validation error while sending email: {}", e.getMessage());
+
+        ErrorResponseDto errorResponse = new ErrorResponseDto(
+                "VALIDATION_ERROR",
+                HttpStatus.BAD_REQUEST.value(),
+                new Timestamp(System.currentTimeMillis()),
+                e.getMessage(),
+                "Invalid email communication parameters");
+
+        logger.saveLogs(
+                "/communication/send-email",
+                HttpMethod.POST,
+                HttpStatus.BAD_REQUEST,
+                dto,
+                e.getMessage(),
+                null);
+
+        return ResponseEntity.badRequest().body(errorResponse);
+    }
+
+    /**
+     * Handles messaging errors from JavaMailSender
+     */
+    private ResponseEntity<?> handleMessagingError(EmailCommunicationDto dto,
+            MessagingException e) {
+        log.error("Error sending email: {}", e.getMessage(), e);
+
+        ErrorResponseDto errorResponse = new ErrorResponseDto(
+                "MESSAGING_ERROR",
+                HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                new Timestamp(System.currentTimeMillis()),
+                "Failed to send email",
+                e.getMessage());
+
+        logger.saveLogs(
+                "/communication/send-email",
+                HttpMethod.POST,
+                HttpStatus.INTERNAL_SERVER_ERROR,
+                dto,
+                e.getMessage(),
+                null);
+
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+    }
+
+    /**
+     * Handles generic/unexpected errors
+     */
+    private ResponseEntity<?> handleGenericError(EmailCommunicationDto dto,
+            Exception e) {
+        log.error("Unexpected error while sending email: {}", e.getMessage(), e);
+
+        ErrorResponseDto errorResponse = new ErrorResponseDto(
+                e.getClass().getSimpleName(),
+                HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                new Timestamp(System.currentTimeMillis()),
+                "An unexpected error occurred while sending email",
+                e.getMessage());
+
+        logger.saveLogs(
+                "/communication/send-email",
+                HttpMethod.POST,
+                HttpStatus.INTERNAL_SERVER_ERROR,
+                dto,
+                e.getMessage(),
+                null);
+
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+    }
+
+    /**
+     * Saves communication record to database for audit trail and monitoring
+     * NOTE: This method is non-transactional. Failures are caught and logged but
+     * won't affect the caller.
+     * The HrCommunication entity columns have been updated to TEXT type to prevent
+     * VARCHAR(255) overflow.
+     */
+    private void logCommunicationToDatabase(EmailCommunicationDto dto, CommunicationStatus status, String uuid) {
+        try {
+            HrCommunication communication = new HrCommunication();
+            communication.setCommunicationType(CommunicationType.EMAIL);
+            communication.setSubject(dto.getSubject());
+            communication.setBody(dto.getBody());
+            communication.setSenderId(ObjectUtils.isEmpty(dto.getSenderEmail()) ? webConstants.getDefaultFromEmail()
+                    : dto.getSenderEmail());
+            communication.setReceiverIds(dto.getRecipientEmails());
+            communication.setCcEmails(dto.getCcEmails());
+            communication.setBccEmails(dto.getBccEmails());
+            communication.setStatus(status);
+            communication.setTimestamp(new Timestamp(System.currentTimeMillis()));
+            communication.setUuid(uuid);
+            if (!CollectionUtils.isEmpty(dto.getAttachments())) {
+                communication.setAttachments(
+                        dto.getAttachments().stream()
+                                .map(EmailAttachmentDto::getFileName)
+                                .toList());
+            }
+
+            hrCommunicationRepo.save(communication);
+            log.debug("Communication logged to database with status: {}", status);
+        } catch (Exception e) {
+            log.warn("Failed to log communication to database: {}", e.getMessage());
+            // Don't throw exception - this is a non-critical operation
+        }
+    }
+
+    /**
+     * Creates success response object with relevant details
+     */
+    private Map<String, Object> createSuccessResponse(EmailCommunicationDto dto) {
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", "SUCCESS");
+        response.put("message", "Email sent successfully");
+        response.put("timestamp", new Timestamp(System.currentTimeMillis()));
+        response.put("recipientCount", dto.getRecipientEmails().size());
+        response.put("subject", dto.getSubject());
+        response.put("hasAttachments", !CollectionUtils.isEmpty(dto.getAttachments()));
+        if (!CollectionUtils.isEmpty(dto.getAttachments())) {
+            response.put("attachmentCount", dto.getAttachments().size());
+        }
+        return response;
+    }
+
+    /**
+     * Replaces placeholders in the email body with actual values
+     * Placeholders are in the format {key} where key matches a key in the
+     * placeholders map
+     * Example: {name} will be replaced with the value from placeholders.get("name")
+     *
+     * @param body The email body containing placeholders
+     * @param dto  The email communication DTO containing the placeholders map
+     * @return The processed body with placeholders replaced
+     */
+    @Deprecated
+    private String replacePlaceholders(String body, EmailCommunicationDto dto) {
+        if (ObjectUtils.isEmpty(body)) {
+            return body;
+        }
+
+        // If no placeholders map is provided, return body as-is
+        if (CollectionUtils.isEmpty(dto.getPlaceholders())) {
+            log.debug("No placeholders provided, returning body as-is");
+            return body;
+        }
+
+        String processedBody = body;
+
+        // Replace each placeholder with its value
+        for (Map.Entry<String, Object> entry : dto.getPlaceholders().entrySet()) {
+            String placeholder = "{" + entry.getKey() + "}";
+            String value = entry.getValue() != null ? entry.getValue().toString() : "";
+
+            processedBody = processedBody.replace(placeholder, value);
+            log.debug("Replaced placeholder {} with value: {}", placeholder, value);
+        }
+
+        return processedBody;
+    }
+
+}

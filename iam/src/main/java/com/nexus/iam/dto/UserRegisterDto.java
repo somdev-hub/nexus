@@ -1,6 +1,8 @@
 package com.nexus.iam.dto;
 
-import java.sql.Timestamp;
+import java.sql.Date;
+
+import com.nexus.iam.entities.OrgType;
 
 import lombok.Data;
 
@@ -10,15 +12,33 @@ public class UserRegisterDto {
 
     private String email;
 
-    private String password;
-
     private String phone;
 
     private String address;
 
-    private Timestamp createdAt;
-
     private String profilePhoto;
 
+    private Long orgId;
+
     private String role;
+
+    private CompensationDto compensation;
+
+    private String personalEmail;
+
+    private String department;
+
+    private String title;
+
+    private String password;
+
+    private String gender;
+
+    private Integer age;
+
+    private Date dateOfBirth;
+
+    private String orgName;
+
+    private OrgType orgType;
 }
