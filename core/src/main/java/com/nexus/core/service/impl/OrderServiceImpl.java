@@ -12,24 +12,34 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.ObjectUtils;
 
 import com.nexus.core.entities.Material;
+import com.nexus.core.entities.Order;
+import com.nexus.core.entities.Product;
 import com.nexus.core.exception.ResourceNotFoundException;
 import com.nexus.core.payload.ErrorResponse;
-import com.nexus.core.payload.MaterialDto;
+import com.nexus.core.payload.OrderDto;
 import com.nexus.core.repository.MaterialRepo;
-import com.nexus.core.service.MaterialService;
+import com.nexus.core.repository.OrderRepo;
+import com.nexus.core.repository.ProductRepo;
+import com.nexus.core.service.OrderService;
 
 @Service
-public class MaterialServiceImpl implements MaterialService {
+public class OrderServiceImpl implements OrderService {
+
+	@Autowired
+	private OrderRepo orderRepo;
+
+	@Autowired
+	private ModelMapper modelMapper;
 
 	@Autowired
 	private MaterialRepo materialRepo;
 
 	@Autowired
-	private ModelMapper modelMapper;
+	private ProductRepo productRepo;
 
 	@Override
-	public ResponseEntity<?> addMaterial(MaterialDto materialDto) {
-		if (ObjectUtils.isEmpty(materialDto) || ObjectUtils.isEmpty(materialDto.getOrg())) {
+	public ResponseEntity<?> addOrder(OrderDto orderDto) {
+		if (ObjectUtils.isEmpty(orderDto) || ObjectUtils.isEmpty(orderDto.getBuyerOrgId())) {
 			return new ResponseEntity<ErrorResponse>(
 					new ErrorResponse("Empty Details sent", HttpStatus.BAD_REQUEST.value(),
 							Timestamp.valueOf(LocalDateTime.now()), "Necessary details are not sent!"),
@@ -38,13 +48,26 @@ public class MaterialServiceImpl implements MaterialService {
 		}
 		try {
 
-			Material material = modelMapper.map(materialDto, Material.class);
-			Material savedMaterial = materialRepo.save(material);
-			return new ResponseEntity<>(modelMapper.map(savedMaterial, MaterialDto.class), HttpStatus.CREATED);
+			Order order = modelMapper.map(orderDto, Order.class);
+
+			// Set material if provided
+			if (orderDto.getMaterialId() != null) {
+				Material material = materialRepo.findById(orderDto.getMaterialId()).orElse(null);
+				order.setMaterial(material);
+			}
+
+			// Set product if provided
+			if (orderDto.getProductId() != null) {
+				Product product = productRepo.findById(orderDto.getProductId()).orElse(null);
+				order.setProduct(product);
+			}
+
+			Order savedOrder = orderRepo.save(order);
+			return new ResponseEntity<>(modelMapper.map(savedOrder, OrderDto.class), HttpStatus.CREATED);
 
 		} catch (Exception e) {
 			return new ResponseEntity<ErrorResponse>(
-					new ErrorResponse("Failed to add material", HttpStatus.INTERNAL_SERVER_ERROR.value(),
+					new ErrorResponse("Failed to add order", HttpStatus.INTERNAL_SERVER_ERROR.value(),
 							Timestamp.valueOf(LocalDateTime.now()), e.getMessage()),
 					HttpStatus.INTERNAL_SERVER_ERROR);
 		}
@@ -52,32 +75,32 @@ public class MaterialServiceImpl implements MaterialService {
 	}
 
 	@Override
-	public ResponseEntity<?> getMaterialByIdAndOrg(Long id, Long orgId) {
+	public ResponseEntity<?> getOrderByIdAndOrg(Long id, Long orgId) {
 		if (ObjectUtils.isEmpty(id) || ObjectUtils.isEmpty(orgId)) {
 			return new ResponseEntity<ErrorResponse>(
 					new ErrorResponse(
-							"Material ID and Organization ID cannot be null or empty",
+							"Order ID and Organization ID cannot be null or empty",
 							HttpStatus.BAD_REQUEST.value(),
 							Timestamp.valueOf(LocalDateTime.now()),
-							"Invalid Material ID or Organization ID"),
+							"Invalid Order ID or Organization ID"),
 					HttpStatus.BAD_REQUEST);
 		}
 		try {
-			Material material = materialRepo.findByIdAndOrg(id, orgId).orElse(null);
-			if (ObjectUtils.isEmpty(material)) {
+			Order order = orderRepo.findByIdAndBuyerOrg(id, orgId).orElse(null);
+			if (ObjectUtils.isEmpty(order)) {
 				return new ResponseEntity<ErrorResponse>(
 						new ErrorResponse(
-								"Material not found in organization",
+								"Order not found in organization",
 								HttpStatus.NOT_FOUND.value(),
 								Timestamp.valueOf(LocalDateTime.now()),
-								"No material found with the given ID in the organization"),
+								"No order found with the given ID in the organization"),
 						HttpStatus.NOT_FOUND);
 			}
-			return new ResponseEntity<>(modelMapper.map(material, MaterialDto.class), HttpStatus.OK);
+			return new ResponseEntity<>(modelMapper.map(order, OrderDto.class), HttpStatus.OK);
 		} catch (Exception e) {
 			return new ResponseEntity<ErrorResponse>(
 					new ErrorResponse(
-							"Failed to retrieve material",
+							"Failed to retrieve order",
 							HttpStatus.INTERNAL_SERVER_ERROR.value(),
 							Timestamp.valueOf(LocalDateTime.now()),
 							e.getMessage()),
@@ -86,7 +109,7 @@ public class MaterialServiceImpl implements MaterialService {
 	}
 
 	@Override
-	public ResponseEntity<?> getAllMaterialsByOrgId(Long orgId) {
+	public ResponseEntity<?> getAllOrdersByOrgId(Long orgId) {
 		if (ObjectUtils.isEmpty(orgId)) {
 			return new ResponseEntity<ErrorResponse>(
 					new ErrorResponse(
@@ -98,18 +121,18 @@ public class MaterialServiceImpl implements MaterialService {
 
 		}
 		try {
-			List<Material> materials = materialRepo.findByOrg(orgId).orElseThrow(() -> {
-				throw new ResourceNotFoundException("Materials", "orgId", orgId);
+			List<Order> orders = orderRepo.findByBuyerOrg(orgId).orElseThrow(() -> {
+				throw new ResourceNotFoundException("Orders", "orgId", orgId);
 			});
-			List<MaterialDto> materialDtos = new java.util.ArrayList<>();
-			for (Material material : materials) {
-				materialDtos.add(modelMapper.map(material, MaterialDto.class));
+			List<OrderDto> orderDtos = new java.util.ArrayList<>();
+			for (Order order : orders) {
+				orderDtos.add(modelMapper.map(order, OrderDto.class));
 			}
-			return new ResponseEntity<>(materialDtos, HttpStatus.OK);
+			return new ResponseEntity<>(orderDtos, HttpStatus.OK);
 		} catch (Exception e) {
 			return new ResponseEntity<ErrorResponse>(
 					new ErrorResponse(
-							"Failed to retrieve materials",
+							"Failed to retrieve orders",
 							HttpStatus.INTERNAL_SERVER_ERROR.value(),
 							Timestamp.valueOf(LocalDateTime.now()),
 							e.getMessage()),

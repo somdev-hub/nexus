@@ -1,48 +1,81 @@
 package com.nexus.core.utils;
 
-import java.sql.Timestamp;
-
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.HttpStatusCode;
-import org.springframework.stereotype.Component;
-
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nexus.core.entities.Logs;
+import com.nexus.core.exception.ServiceLevelException;
 import com.nexus.core.repository.LogsRepo;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
 
-@Component
+import java.sql.Timestamp;
+
+@Service
 public class Logger {
 
-    @Autowired
-    private LogsRepo logsRepo;
+	private final LogsRepo logsRepo;
 
-    private static final ObjectMapper objectMapper = new ObjectMapper();
+	private static final ObjectMapper objectMapper = new ObjectMapper();
 
-    public void saveLog(Logs log) {
-        try {
-            logsRepo.save(log);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
+	public Logger(LogsRepo logsRepo) {
+		this.logsRepo = logsRepo;
+	}
 
-    public void log(String requestUrl, HttpMethod httpMethod, HttpStatusCode responseStatus, Object request,
-            Object response, Long org) {
-        try {
+	/**
+	 * Save logs to database
+	 * Handles both request and response objects
+	 * Serializes objects to JSON if they're not already serialized
+	 *
+	 * @param requestUrl The API endpoint URL
+	 * @param httpMethod The HTTP method (GET, POST, PUT, DELETE, etc.)
+	 * @param httpStatus The HTTP response status code
+	 * @param request    The request body (can be a DTO object or String)
+	 * @param response   The response body (can be any object or String)
+	 * @param userId     The ID of the document (if available)
+	 */
+	public void saveLogs(String requestUrl, HttpMethod httpMethod, HttpStatus httpStatus, Object request,
+			Object response, Long userId) {
+		try {
+			Logs log = new Logs();
+			log.setRequestUrl(requestUrl);
+			log.setHttpMethod(httpMethod.name());
+			log.setRequest(serializeObject(request));
+			log.setResponse(serializeObject(response));
+			log.setResponseStatus(httpStatus.value());
+			log.setUserId(userId != null ? userId : 0L);
+			log.setCreatedOn(new Timestamp(System.currentTimeMillis()));
+			logsRepo.save(log);
+		} catch (Exception e) {
+			throw new ServiceLevelException("Logger", "Failed to save logs", "saveLogs", e.getClass().getSimpleName(),
+					e.getLocalizedMessage());
+		}
+	}
 
-            Logs log = new Logs();
-            log.setRequestUrl(requestUrl);
-            log.setHttpMethod(httpMethod.name());
-            log.setResponseStatus(responseStatus.value());
-            log.setRequest(request != null ? objectMapper.writeValueAsString(request) : null);
-            log.setResponse(response != null ? objectMapper.writeValueAsString(response) : null);
-            log.setOrg(org);
-            log.setCreatedOn(new Timestamp(System.currentTimeMillis()));
+	/**
+	 * Helper method to serialize objects to JSON
+	 * If object is already a String, returns it as-is
+	 * Otherwise, serializes the object to JSON
+	 *
+	 * @param obj The object to serialize
+	 * @return JSON string or null if object is null
+	 */
+	private String serializeObject(Object obj) {
+		if (obj == null) {
+			return null;
+		}
 
-            saveLog(log);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
+		// If already a string, return as-is (already serialized)
+		if (obj instanceof String) {
+			return (String) obj;
+		}
+
+		// Otherwise, serialize to JSON
+		try {
+			return objectMapper.writeValueAsString(obj);
+		} catch (JsonProcessingException ex) {
+			// Fallback to toString if JSON serialization fails
+			return obj.toString();
+		}
+	}
 }

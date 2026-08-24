@@ -12,6 +12,7 @@ import com.nexus.iam.dto.RefreshTokenRequest;
 import com.nexus.iam.dto.UserRegisterDto;
 
 @Service
+@Deprecated(forRemoval = true, since = "This service is deprecated and will be removed in future versions. Please use the new authentication service.")
 public interface AuthenticationService {
     public LoginResponse authenticate(LoginRequest loginRequest);
 

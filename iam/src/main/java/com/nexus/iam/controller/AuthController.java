@@ -17,6 +17,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/v1/iam/auth")
 @CrossOrigin(origins = "*")
+@Deprecated(forRemoval = true, since = "This controller is deprecated and will be removed in future versions. Please use the new authentication endpoints.")
 public class AuthController {
 
     private final AuthenticationService authenticationService;

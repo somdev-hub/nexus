@@ -11,25 +11,25 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.util.ObjectUtils;
 
-import com.nexus.core.entities.Material;
+import com.nexus.core.entities.Warehouse;
 import com.nexus.core.exception.ResourceNotFoundException;
 import com.nexus.core.payload.ErrorResponse;
-import com.nexus.core.payload.MaterialDto;
-import com.nexus.core.repository.MaterialRepo;
-import com.nexus.core.service.MaterialService;
+import com.nexus.core.payload.WarehouseDto;
+import com.nexus.core.repository.WarehouseRepo;
+import com.nexus.core.service.WarehouseService;
 
 @Service
-public class MaterialServiceImpl implements MaterialService {
+public class WarehouseServiceImpl implements WarehouseService {
 
 	@Autowired
-	private MaterialRepo materialRepo;
+	private WarehouseRepo warehouseRepo;
 
 	@Autowired
 	private ModelMapper modelMapper;
 
 	@Override
-	public ResponseEntity<?> addMaterial(MaterialDto materialDto) {
-		if (ObjectUtils.isEmpty(materialDto) || ObjectUtils.isEmpty(materialDto.getOrg())) {
+	public ResponseEntity<?> addWarehouse(WarehouseDto warehouseDto) {
+		if (ObjectUtils.isEmpty(warehouseDto) || ObjectUtils.isEmpty(warehouseDto.getOrg())) {
 			return new ResponseEntity<ErrorResponse>(
 					new ErrorResponse("Empty Details sent", HttpStatus.BAD_REQUEST.value(),
 							Timestamp.valueOf(LocalDateTime.now()), "Necessary details are not sent!"),
@@ -38,13 +38,13 @@ public class MaterialServiceImpl implements MaterialService {
 		}
 		try {
 
-			Material material = modelMapper.map(materialDto, Material.class);
-			Material savedMaterial = materialRepo.save(material);
-			return new ResponseEntity<>(modelMapper.map(savedMaterial, MaterialDto.class), HttpStatus.CREATED);
+			Warehouse warehouse = modelMapper.map(warehouseDto, Warehouse.class);
+			Warehouse savedWarehouse = warehouseRepo.save(warehouse);
+			return new ResponseEntity<>(modelMapper.map(savedWarehouse, WarehouseDto.class), HttpStatus.CREATED);
 
 		} catch (Exception e) {
 			return new ResponseEntity<ErrorResponse>(
-					new ErrorResponse("Failed to add material", HttpStatus.INTERNAL_SERVER_ERROR.value(),
+					new ErrorResponse("Failed to add warehouse", HttpStatus.INTERNAL_SERVER_ERROR.value(),
 							Timestamp.valueOf(LocalDateTime.now()), e.getMessage()),
 					HttpStatus.INTERNAL_SERVER_ERROR);
 		}
@@ -52,32 +52,32 @@ public class MaterialServiceImpl implements MaterialService {
 	}
 
 	@Override
-	public ResponseEntity<?> getMaterialByIdAndOrg(Long id, Long orgId) {
+	public ResponseEntity<?> getWarehouseByIdAndOrg(Long id, Long orgId) {
 		if (ObjectUtils.isEmpty(id) || ObjectUtils.isEmpty(orgId)) {
 			return new ResponseEntity<ErrorResponse>(
 					new ErrorResponse(
-							"Material ID and Organization ID cannot be null or empty",
+							"Warehouse ID and Organization ID cannot be null or empty",
 							HttpStatus.BAD_REQUEST.value(),
 							Timestamp.valueOf(LocalDateTime.now()),
-							"Invalid Material ID or Organization ID"),
+							"Invalid Warehouse ID or Organization ID"),
 					HttpStatus.BAD_REQUEST);
 		}
 		try {
-			Material material = materialRepo.findByIdAndOrg(id, orgId).orElse(null);
-			if (ObjectUtils.isEmpty(material)) {
+			Warehouse warehouse = warehouseRepo.findByIdAndOrg(id, orgId).orElse(null);
+			if (ObjectUtils.isEmpty(warehouse)) {
 				return new ResponseEntity<ErrorResponse>(
 						new ErrorResponse(
-								"Material not found in organization",
+								"Warehouse not found in organization",
 								HttpStatus.NOT_FOUND.value(),
 								Timestamp.valueOf(LocalDateTime.now()),
-								"No material found with the given ID in the organization"),
+								"No warehouse found with the given ID in the organization"),
 						HttpStatus.NOT_FOUND);
 			}
-			return new ResponseEntity<>(modelMapper.map(material, MaterialDto.class), HttpStatus.OK);
+			return new ResponseEntity<>(modelMapper.map(warehouse, WarehouseDto.class), HttpStatus.OK);
 		} catch (Exception e) {
 			return new ResponseEntity<ErrorResponse>(
 					new ErrorResponse(
-							"Failed to retrieve material",
+							"Failed to retrieve warehouse",
 							HttpStatus.INTERNAL_SERVER_ERROR.value(),
 							Timestamp.valueOf(LocalDateTime.now()),
 							e.getMessage()),
@@ -86,7 +86,7 @@ public class MaterialServiceImpl implements MaterialService {
 	}
 
 	@Override
-	public ResponseEntity<?> getAllMaterialsByOrgId(Long orgId) {
+	public ResponseEntity<?> getAllWarehousesByOrgId(Long orgId) {
 		if (ObjectUtils.isEmpty(orgId)) {
 			return new ResponseEntity<ErrorResponse>(
 					new ErrorResponse(
@@ -98,18 +98,18 @@ public class MaterialServiceImpl implements MaterialService {
 
 		}
 		try {
-			List<Material> materials = materialRepo.findByOrg(orgId).orElseThrow(() -> {
-				throw new ResourceNotFoundException("Materials", "orgId", orgId);
+			List<Warehouse> warehouses = warehouseRepo.findByOrg(orgId).orElseThrow(() -> {
+				throw new ResourceNotFoundException("Warehouses", "orgId", orgId);
 			});
-			List<MaterialDto> materialDtos = new java.util.ArrayList<>();
-			for (Material material : materials) {
-				materialDtos.add(modelMapper.map(material, MaterialDto.class));
+			List<WarehouseDto> warehouseDtos = new java.util.ArrayList<>();
+			for (Warehouse warehouse : warehouses) {
+				warehouseDtos.add(modelMapper.map(warehouse, WarehouseDto.class));
 			}
-			return new ResponseEntity<>(materialDtos, HttpStatus.OK);
+			return new ResponseEntity<>(warehouseDtos, HttpStatus.OK);
 		} catch (Exception e) {
 			return new ResponseEntity<ErrorResponse>(
 					new ErrorResponse(
-							"Failed to retrieve materials",
+							"Failed to retrieve warehouses",
 							HttpStatus.INTERNAL_SERVER_ERROR.value(),
 							Timestamp.valueOf(LocalDateTime.now()),
 							e.getMessage()),

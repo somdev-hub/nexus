@@ -13,18 +13,18 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.nexus.core.exception.InvalidCredentialsException;
-import com.nexus.core.payload.MaterialDto;
+import com.nexus.core.payload.PartnershipDto;
 import com.nexus.core.security.OrganizationContextFilter;
-import com.nexus.core.service.MaterialService;
+import com.nexus.core.service.PartnershipService;
 import com.nexus.core.utils.CommonUtils;
 import com.nexus.core.utils.Logger;
 
 @RestController
-@RequestMapping("/core/materials")
-public class MaterialController {
+@RequestMapping("/core/partnerships")
+public class PartnershipController {
 
 	@Autowired
-	private MaterialService materialService;
+	private PartnershipService partnershipService;
 
 	@Autowired
 	private CommonUtils commonUtils;
@@ -33,7 +33,7 @@ public class MaterialController {
 	private Logger logger;
 
 	@PostMapping("/add")
-	public ResponseEntity<?> addMaterial(@RequestBody MaterialDto materialDto,
+	public ResponseEntity<?> addPartnership(@RequestBody PartnershipDto partnershipDto,
 			@RequestHeader("Authorization") String token) {
 		if (!commonUtils.validateToken(token)) {
 			throw new InvalidCredentialsException();
@@ -45,17 +45,17 @@ public class MaterialController {
 			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Organization context not found");
 		}
 
-		// Set organization ID on the material DTO
-		materialDto.setOrg(orgId);
+		// Set primary organization ID on the partnership DTO
+		partnershipDto.setPrimaryOrg(orgId);
 
 		ResponseEntity<?> response = null;
 		try {
-			response = materialService.addMaterial(materialDto);
+			response = partnershipService.addPartnership(partnershipDto);
 		} catch (Exception e) {
 			response = ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
 		} finally {
-			logger.log("/core/materials/add", HttpMethod.POST,
-					response != null ? response.getStatusCode() : HttpStatus.INTERNAL_SERVER_ERROR, materialDto,
+			logger.log("/core/partnerships/add", HttpMethod.POST,
+					response != null ? response.getStatusCode() : HttpStatus.INTERNAL_SERVER_ERROR, partnershipDto,
 					response != null ? response.getBody() : null, orgId);
 		}
 
@@ -63,7 +63,7 @@ public class MaterialController {
 	}
 
 	@GetMapping("/{id}")
-	public ResponseEntity<?> getMaterial(@PathVariable Long id, @RequestHeader("Authorization") String token) {
+	public ResponseEntity<?> getPartnership(@PathVariable Long id, @RequestHeader("Authorization") String token) {
 		if (!commonUtils.validateToken(token)) {
 			throw new InvalidCredentialsException();
 		}
@@ -76,11 +76,11 @@ public class MaterialController {
 
 		ResponseEntity<?> response = null;
 		try {
-			response = materialService.getMaterialByIdAndOrg(id, orgId);
+			response = partnershipService.getPartnershipByIdAndOrg(id, orgId);
 		} catch (Exception e) {
 			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
 		} finally {
-			logger.log("/core/materials/{id}", HttpMethod.GET,
+			logger.log("/core/partnerships/{id}", HttpMethod.GET,
 					response != null ? response.getStatusCode() : HttpStatus.INTERNAL_SERVER_ERROR, id,
 					response != null ? response.getBody() : null, orgId);
 		}
@@ -89,7 +89,7 @@ public class MaterialController {
 	}
 
 	@GetMapping("/all")
-	public ResponseEntity<?> getAllMaterials(@RequestHeader("Authorization") String token) {
+	public ResponseEntity<?> getAllPartnerships(@RequestHeader("Authorization") String token) {
 		if (!commonUtils.validateToken(token)) {
 			throw new InvalidCredentialsException();
 		}
@@ -102,11 +102,11 @@ public class MaterialController {
 
 		ResponseEntity<?> response = null;
 		try {
-			response = materialService.getAllMaterialsByOrgId(orgId);
+			response = partnershipService.getAllPartnershipsByOrgId(orgId);
 		} catch (Exception e) {
 			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
 		} finally {
-			logger.log("/core/materials/all", HttpMethod.GET,
+			logger.log("/core/partnerships/all", HttpMethod.GET,
 					response != null ? response.getStatusCode() : HttpStatus.INTERNAL_SERVER_ERROR, orgId,
 					response != null ? response.getBody() : null, orgId);
 		}

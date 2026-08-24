@@ -19,24 +19,24 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class Logs {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+	@Id
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
+	private Long id;
 
-    private String requestUrl;
+	private String requestUrl;
 
-    private String httpMethod;
+	private String httpMethod;
 
-    private int responseStatus;
+	private int responseStatus;
 
-    @Column(columnDefinition = "jsonb")
-    private Object request;
+	@Column(columnDefinition = "jsonb")
+	private Object request;
 
-    @Column(columnDefinition = "jsonb")
-    private Object response;
+	@Column(columnDefinition = "jsonb")
+	private Object response;
 
-    private Long org;
+	private Long userId;
 
-    private Timestamp createdOn= new Timestamp(System.currentTimeMillis());
+	private Timestamp createdOn = new Timestamp(System.currentTimeMillis());
 
 }

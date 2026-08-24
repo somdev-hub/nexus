@@ -245,6 +245,56 @@ public class WebConstants {
 	@Value("${nexus.buddy.chat.url}")
 	private String nexusBuddyChatUrl;
 
+	// Core Service URL
+	@Value("${core.service.url:http://localhost:8082}")
+	private String coreServiceUrl;
+
+	// Core Service Endpoints
+	@Value("${core.product.add.url}")
+	private String coreProductAddUrl;
+
+	@Value("${core.product.get.url}")
+	private String coreProductGetUrl;
+
+	@Value("${core.product.all.url}")
+	private String coreProductAllUrl;
+
+	@Value("${core.material.add.url}")
+	private String coreMaterialAddUrl;
+
+	@Value("${core.material.get.url}")
+	private String coreMaterialGetUrl;
+
+	@Value("${core.material.all.url}")
+	private String coreMaterialAllUrl;
+
+	@Value("${core.warehouse.add.url}")
+	private String coreWarehouseAddUrl;
+
+	@Value("${core.warehouse.get.url}")
+	private String coreWarehouseGetUrl;
+
+	@Value("${core.warehouse.all.url}")
+	private String coreWarehouseAllUrl;
+
+	@Value("${core.order.add.url}")
+	private String coreOrderAddUrl;
+
+	@Value("${core.order.get.url}")
+	private String coreOrderGetUrl;
+
+	@Value("${core.order.all.url}")
+	private String coreOrderAllUrl;
+
+	@Value("${core.partnership.add.url}")
+	private String corePartnershipAddUrl;
+
+	@Value("${core.partnership.get.url}")
+	private String corePartnershipGetUrl;
+
+	@Value("${core.partnership.all.url}")
+	private String corePartnershipAllUrl;
+
 	// Keycloak URLs
 	public String getKeycloakAdminUrl() {
 		return keycloakServerUrl + "/admin/realms/" + keycloakRealm;
@@ -297,5 +347,70 @@ public class WebConstants {
 
 	public String getNexusBuddyClientConfigUrl() {
 		return nexusBuddyClientConfigUrl;
+	}
+
+	public String getCoreServiceUrl() {
+		return coreServiceUrl;
+	}
+
+	// Core Service Endpoints
+	public String getCoreProductAddUrl() {
+		return coreProductAddUrl;
+	}
+
+	public String getCoreProductGetUrl() {
+		return coreProductGetUrl;
+	}
+
+	public String getCoreProductAllUrl() {
+		return coreProductAllUrl;
+	}
+
+	public String getCoreMaterialAddUrl() {
+		return coreMaterialAddUrl;
+	}
+
+	public String getCoreMaterialGetUrl() {
+		return coreMaterialGetUrl;
+	}
+
+	public String getCoreMaterialAllUrl() {
+		return coreMaterialAllUrl;
+	}
+
+	public String getCoreWarehouseAddUrl() {
+		return coreWarehouseAddUrl;
+	}
+
+	public String getCoreWarehouseGetUrl() {
+		return coreWarehouseGetUrl;
+	}
+
+	public String getCoreWarehouseAllUrl() {
+		return coreWarehouseAllUrl;
+	}
+
+	public String getCoreOrderAddUrl() {
+		return coreOrderAddUrl;
+	}
+
+	public String getCoreOrderGetUrl() {
+		return coreOrderGetUrl;
+	}
+
+	public String getCoreOrderAllUrl() {
+		return coreOrderAllUrl;
+	}
+
+	public String getCorePartnershipAddUrl() {
+		return corePartnershipAddUrl;
+	}
+
+	public String getCorePartnershipGetUrl() {
+		return corePartnershipGetUrl;
+	}
+
+	public String getCorePartnershipAllUrl() {
+		return corePartnershipAllUrl;
 	}
 }

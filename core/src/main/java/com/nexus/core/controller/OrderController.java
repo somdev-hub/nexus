@@ -13,18 +13,18 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.nexus.core.exception.InvalidCredentialsException;
-import com.nexus.core.payload.MaterialDto;
+import com.nexus.core.payload.OrderDto;
 import com.nexus.core.security.OrganizationContextFilter;
-import com.nexus.core.service.MaterialService;
+import com.nexus.core.service.OrderService;
 import com.nexus.core.utils.CommonUtils;
 import com.nexus.core.utils.Logger;
 
 @RestController
-@RequestMapping("/core/materials")
-public class MaterialController {
+@RequestMapping("/core/orders")
+public class OrderController {
 
 	@Autowired
-	private MaterialService materialService;
+	private OrderService orderService;
 
 	@Autowired
 	private CommonUtils commonUtils;
@@ -33,8 +33,7 @@ public class MaterialController {
 	private Logger logger;
 
 	@PostMapping("/add")
-	public ResponseEntity<?> addMaterial(@RequestBody MaterialDto materialDto,
-			@RequestHeader("Authorization") String token) {
+	public ResponseEntity<?> addOrder(@RequestBody OrderDto orderDto, @RequestHeader("Authorization") String token) {
 		if (!commonUtils.validateToken(token)) {
 			throw new InvalidCredentialsException();
 		}
@@ -45,17 +44,17 @@ public class MaterialController {
 			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Organization context not found");
 		}
 
-		// Set organization ID on the material DTO
-		materialDto.setOrg(orgId);
+		// Set buyer organization ID on the order DTO
+		orderDto.setBuyerOrgId(orgId);
 
 		ResponseEntity<?> response = null;
 		try {
-			response = materialService.addMaterial(materialDto);
+			response = orderService.addOrder(orderDto);
 		} catch (Exception e) {
 			response = ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
 		} finally {
-			logger.log("/core/materials/add", HttpMethod.POST,
-					response != null ? response.getStatusCode() : HttpStatus.INTERNAL_SERVER_ERROR, materialDto,
+			logger.log("/core/orders/add", HttpMethod.POST,
+					response != null ? response.getStatusCode() : HttpStatus.INTERNAL_SERVER_ERROR, orderDto,
 					response != null ? response.getBody() : null, orgId);
 		}
 
@@ -63,7 +62,7 @@ public class MaterialController {
 	}
 
 	@GetMapping("/{id}")
-	public ResponseEntity<?> getMaterial(@PathVariable Long id, @RequestHeader("Authorization") String token) {
+	public ResponseEntity<?> getOrder(@PathVariable Long id, @RequestHeader("Authorization") String token) {
 		if (!commonUtils.validateToken(token)) {
 			throw new InvalidCredentialsException();
 		}
@@ -76,11 +75,11 @@ public class MaterialController {
 
 		ResponseEntity<?> response = null;
 		try {
-			response = materialService.getMaterialByIdAndOrg(id, orgId);
+			response = orderService.getOrderByIdAndOrg(id, orgId);
 		} catch (Exception e) {
 			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
 		} finally {
-			logger.log("/core/materials/{id}", HttpMethod.GET,
+			logger.log("/core/orders/{id}", HttpMethod.GET,
 					response != null ? response.getStatusCode() : HttpStatus.INTERNAL_SERVER_ERROR, id,
 					response != null ? response.getBody() : null, orgId);
 		}
@@ -89,7 +88,7 @@ public class MaterialController {
 	}
 
 	@GetMapping("/all")
-	public ResponseEntity<?> getAllMaterials(@RequestHeader("Authorization") String token) {
+	public ResponseEntity<?> getAllOrders(@RequestHeader("Authorization") String token) {
 		if (!commonUtils.validateToken(token)) {
 			throw new InvalidCredentialsException();
 		}
@@ -102,11 +101,11 @@ public class MaterialController {
 
 		ResponseEntity<?> response = null;
 		try {
-			response = materialService.getAllMaterialsByOrgId(orgId);
+			response = orderService.getAllOrdersByOrgId(orgId);
 		} catch (Exception e) {
 			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
 		} finally {
-			logger.log("/core/materials/all", HttpMethod.GET,
+			logger.log("/core/orders/all", HttpMethod.GET,
 					response != null ? response.getStatusCode() : HttpStatus.INTERNAL_SERVER_ERROR, orgId,
 					response != null ? response.getBody() : null, orgId);
 		}

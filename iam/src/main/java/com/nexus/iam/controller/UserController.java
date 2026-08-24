@@ -15,70 +15,81 @@ import org.springframework.web.multipart.MultipartFile;
 @RequestMapping("/iam/users")
 public class UserController {
 
-    @Autowired
-    private UserService userService;
+	@Autowired
+	private UserService userService;
 
-    @LogActivity("Add User")
-    @PostMapping(value = "/add", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<?> addUser(@RequestPart(value = "files", required = false) MultipartFile[] files, @RequestPart(value = "dto", required = true) UserProfileDto user) {
+	@LogActivity("Add User")
+	@PostMapping(value = "/add", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+	public ResponseEntity<?> addUser(@RequestPart(value = "files", required = false) MultipartFile[] files,
+			@RequestPart(value = "dto", required = true) UserProfileDto user) {
 
-        if (ObjectUtils.isEmpty(user)) {
-            return new ResponseEntity<>("Request body must not be null", HttpStatus.BAD_REQUEST);
-        }
+		if (ObjectUtils.isEmpty(user)) {
+			return new ResponseEntity<>("Request body must not be null", HttpStatus.BAD_REQUEST);
+		}
 
-        return userService.createUser(user, files);
-    }
+		return userService.createUser(user, files);
+	}
 
-    @LogActivity("Get All Employees")
-    @GetMapping("/employees")
-    public ResponseEntity<?> getAllEmployees(@RequestParam(value = "orgId", required = true) Long orgId,
-                                             @RequestParam(
-                                                     value = "page", defaultValue = "0", required = false
-                                             ) Integer page,
-                                             @RequestParam(value = "pageOffset", defaultValue = "10", required = false) Integer pageOffset
-    ) {
-        if (ObjectUtils.isEmpty(orgId)) {
-            return new ResponseEntity<>("Org id must not be null", HttpStatus.BAD_REQUEST);
-        }
+	@LogActivity("Get All Employees")
+	@GetMapping("/employees")
+	public ResponseEntity<?> getAllEmployees(@RequestParam(value = "orgId", required = true) Long orgId,
+			@RequestParam(value = "page", defaultValue = "0", required = false) Integer page,
+			@RequestParam(value = "pageOffset", defaultValue = "10", required = false) Integer pageOffset) {
+		if (ObjectUtils.isEmpty(orgId)) {
+			return new ResponseEntity<>("Org id must not be null", HttpStatus.BAD_REQUEST);
+		}
 
-        return userService.getAllEmployees(orgId, page, pageOffset);
-    }
+		return userService.getAllEmployees(orgId, page, pageOffset);
+	}
 
-    @LogActivity("Update Profile Photo")
-    @PostMapping(value = "/update/profile-photo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<?> updateProfilePhoto(@RequestParam("file") MultipartFile file,
-                                                @RequestParam("userId") Long userId) {
-        if (ObjectUtils.isEmpty(file) || ObjectUtils.isEmpty(userId)) {
-            return new ResponseEntity<>("File and User ID must not be null", HttpStatus.BAD_REQUEST);
-        }
+	@LogActivity("Update Profile Photo")
+	@PostMapping(value = "/update/profile-photo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+	public ResponseEntity<?> updateProfilePhoto(@RequestParam("file") MultipartFile file,
+			@RequestParam("userId") Long userId) {
+		if (ObjectUtils.isEmpty(file) || ObjectUtils.isEmpty(userId)) {
+			return new ResponseEntity<>("File and User ID must not be null", HttpStatus.BAD_REQUEST);
+		}
 
-        return userService.updateProfilePhoto(file, userId);
-    }
+		return userService.updateProfilePhoto(file, userId);
+	}
 
-    @LogActivity("Get User Details")
-    @GetMapping(value = "/get-user")
-    public ResponseEntity<?> getUserDetails(@RequestParam("userId") Long userId) {
-        if (ObjectUtils.isEmpty(userId)) {
-            return new ResponseEntity<>("User ID must not be null", HttpStatus.BAD_REQUEST);
-        }
+	@LogActivity("Get User Details")
+	@GetMapping(value = "/get-user")
+	public ResponseEntity<?> getUserDetails(@RequestParam("userId") Long userId) {
+		if (ObjectUtils.isEmpty(userId)) {
+			return new ResponseEntity<>("User ID must not be null", HttpStatus.BAD_REQUEST);
+		}
 
-        return userService.getUserDetails(userId);
-    }
+		return userService.getUserDetails(userId);
+	}
 
-    @DeleteMapping("/delete")
-    @LogActivity("Delete User")
-    public ResponseEntity<?> deleteUser(@RequestParam("userId") Long userId) {
-        if (ObjectUtils.isEmpty(userId)) {
-            return new ResponseEntity<>("User ID must not be null", HttpStatus.BAD_REQUEST);
-        }
-        return userService.deleteUser(userId);
-    }
+	@DeleteMapping("/delete")
+	@LogActivity("Delete User")
+	public ResponseEntity<?> deleteUser(@RequestParam("userId") Long userId) {
+		if (ObjectUtils.isEmpty(userId)) {
+			return new ResponseEntity<>("User ID must not be null", HttpStatus.BAD_REQUEST);
+		}
+		return userService.deleteUser(userId);
+	}
 
-    @GetMapping("/get-user-by-name")
-    public ResponseEntity<?> getUserByName(@RequestParam("name") String name) {
-        if (ObjectUtils.isEmpty(name)) {
-            return new ResponseEntity<>("Name must not be null", HttpStatus.BAD_REQUEST);
-        }
-        return userService.getUserByName(name);
-    }
+	@GetMapping("/get-user-by-name")
+	public ResponseEntity<?> getUserByName(@RequestParam("name") String name) {
+		if (ObjectUtils.isEmpty(name)) {
+			return new ResponseEntity<>("Name must not be null", HttpStatus.BAD_REQUEST);
+		}
+		return userService.getUserByName(name);
+	}
+
+	@LogActivity("Validate User Organization Access")
+	@GetMapping("/{userId}/organizations/{organizationId}/access")
+	public ResponseEntity<?> validateUserOrganizationAccess(@PathVariable Long userId,
+			@PathVariable Long organizationId) {
+		if (ObjectUtils.isEmpty(userId)) {
+			return new ResponseEntity<>("User ID must not be null", HttpStatus.BAD_REQUEST);
+		}
+		if (ObjectUtils.isEmpty(organizationId)) {
+			return new ResponseEntity<>("Organization ID must not be null", HttpStatus.BAD_REQUEST);
+		}
+		return userService.validateUserOrganizationAccess(userId, organizationId);
+	}
 }

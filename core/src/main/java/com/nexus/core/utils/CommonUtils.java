@@ -1,111 +1,128 @@
 package com.nexus.core.utils;
 
-import java.util.HashMap;
-import java.util.Map;
-
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.core.ParameterizedTypeReference;
-import org.springframework.http.HttpMethod;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
+import org.springframework.util.ObjectUtils;
 import org.springframework.web.client.RestClient;
 
-import com.nexus.core.payload.TokenPayloadDto;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
-@Component
+@Service
 public class CommonUtils {
 
-    @Autowired
-    private Logger logger;
+	private final ObjectMapper objectMapper;
+	private final CommonConstants commonConstants;
+	private final RestClient restClient;
 
-    @Autowired
-    private CommonConstants commonConstants;
+	public CommonUtils(ObjectMapper objectMapper, CommonConstants commonConstants, RestClient restClient) {
+		this.objectMapper = objectMapper;
+		this.commonConstants = commonConstants;
+		this.restClient = restClient;
+	}
 
-    public ResponseEntity<?> coreRestCall(String url, Map<String, String> headers, Object body, HttpMethod method,
-            Long orgId) {
+	/**
+	 * Validates JSON string and returns valid JSON.
+	 * If invalid, wraps the string in a JSON object with "message" key.
+	 */
+	public String jsonValidator(String jsonString) {
+		if (ObjectUtils.isEmpty(jsonString)) {
+			return "{}";
+		}
+		JsonNode jsonNode = null;
+		try {
+			jsonNode = objectMapper.readTree(jsonString);
+		} catch (JsonProcessingException ex) {
+			jsonNode = objectMapper.createObjectNode().put("message", jsonString);
+		}
+		try {
+			return objectMapper.writeValueAsString(jsonNode);
+		} catch (JsonProcessingException e) {
+			return "{}";
+		}
+	}
 
-        try {
-            RestClient restClient = RestClient.create();
-            RestClient.RequestBodySpec request = restClient.method(method).uri(url);
+	/**
+	 * Builds standard JSON headers with Authorization token.
+	 * If no token provided, attempts to get a generic service token from IAM.
+	 */
+	public Map<String, String> buildJsonHeaders(String authToken) {
+		Map<String, String> headers = new ConcurrentHashMap<>();
+		headers.put(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
+		if (!ObjectUtils.isEmpty(authToken)) {
+			headers.put(HttpHeaders.AUTHORIZATION, authToken);
+		}
+		return headers;
+	}
 
-            if (headers != null) {
-                headers.forEach(request::header);
-            }
+	/**
+	 * Builds headers with organization context for IAM calls.
+	 */
+	public Map<String, String> buildJsonHeadersWithOrg(String authToken, Long organizationId) {
+		Map<String, String> headers = buildJsonHeaders(authToken);
+		if (organizationId != null) {
+			headers.put(CommonConstants.X_ORGANIZATION_ID, organizationId.toString());
+		}
+		return headers;
+	}
 
-            ResponseEntity<?> response = request.body(body).retrieve().toEntity(Object.class);
-            logger.log(url, method, response.getStatusCode(), body, response.getBody(), orgId);
-            return response;
-        } catch (Exception e) {
+	/**
+	 * Validates a JWT token by calling IAM's token validation endpoint.
+	 */
+	public boolean validateToken(String token) {
+		if (ObjectUtils.isEmpty(token)) {
+			return false;
+		}
+		try {
+			String url = commonConstants.getIamServiceUrl() + commonConstants.getVerifyTokenUrl();
+			Map<String, String> headers = buildJsonHeaders(token);
+			ResponseEntity<String> response = restClient.post()
+					.uri(url)
+					.headers(h -> headers.forEach(h::set))
+					.retrieve()
+					.toEntity(String.class);
+			return response.getStatusCode().is2xxSuccessful();
+		} catch (Exception e) {
+			return false;
+		}
+	}
 
-            e.printStackTrace();
-            return new ResponseEntity<>(e.getMessage(), org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR);
-        }
+	/**
+	 * Calls IAM service to get organization details.
+	 */
+	public ResponseEntity<String> getOrganizationFromIam(Long organizationId, String authToken) {
+		String url = commonConstants.getIamServiceUrl() + commonConstants.getIamOrganizationUrl() + "/"
+				+ organizationId;
+		Map<String, String> headers = buildJsonHeaders(authToken);
+		return restClient.get()
+				.uri(url)
+				.headers(h -> headers.forEach(h::set))
+				.retrieve()
+				.toEntity(String.class);
+	}
 
-    }
-
-    public Boolean validateToken(String token) {
-        String authUrl = commonConstants.getVerifyTokenUrl();
-        Map<String, String> body = Map.of("token", token.substring(7));
-        try {
-            RestClient restClient = RestClient.create();
-            ResponseEntity<Map<String, String>> response = restClient.post().uri(authUrl)
-                    .body(body)
-                    .retrieve()
-                    .toEntity(new ParameterizedTypeReference<Map<String, String>>() {
-                    });
-            // extract isValid from response
-            return response.getStatusCode().is2xxSuccessful() &&
-                    response.getBody() != null &&
-                    Boolean.parseBoolean(response.getBody().get("isValid"));
-
-        } catch (Exception e) {
-            e.printStackTrace();
-            return false;
-        }
-    }
-
-    public String generateToken() {
-        String authUrl = commonConstants.getGenerateTokenUrl();
-        Map<String, String> body = new HashMap<>();
-        body.put("email", "user123@nexus.com");
-        body.put("password", "generic");
-        try {
-            RestClient restClient = RestClient.create();
-            ResponseEntity<Map<String, String>> response = restClient.post().uri(authUrl)
-                    .body(body)
-                    .retrieve()
-                    .toEntity(new ParameterizedTypeReference<Map<String, String>>() {
-                    });
-            // extract token from response
-            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
-                return response.getBody().get("accessToken");
-            } else {
-                return null;
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-            return null;
-        }
-    }
-
-    public TokenPayloadDto decryptToken(String token) {
-        String authUrl = commonConstants.getDecryptTokenUrl();
-        Map<String, String> body = Map.of("token", token.substring(7));
-        try {
-            RestClient restClient = RestClient.create();
-            ResponseEntity<TokenPayloadDto> response = restClient.post().uri(authUrl)
-                    .body(body)
-                    .retrieve()
-                    .toEntity(TokenPayloadDto.class);
-
-            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
-                return response.getBody();
-            } else {
-                return null;
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-            return null;
-        }
-    }
+	/**
+	 * Calls IAM service to validate user's access to an organization.
+	 */
+	public boolean validateUserOrganizationAccess(Long userId, Long organizationId, String authToken) {
+		try {
+			String url = commonConstants.getIamServiceUrl() + commonConstants.getIamUserUrl() + "/" + userId
+					+ "/organizations/" + organizationId + "/access";
+			Map<String, String> headers = buildJsonHeaders(authToken);
+			ResponseEntity<String> response = restClient.get()
+					.uri(url)
+					.headers(h -> headers.forEach(h::set))
+					.retrieve()
+					.toEntity(String.class);
+			return response.getStatusCode().is2xxSuccessful();
+		} catch (Exception e) {
+			return false;
+		}
+	}
 }

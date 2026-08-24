@@ -11,8 +11,10 @@ import com.nexus.core.entities.Product;
 @Repository
 public interface ProductRepo extends JpaRepository<Product, Long> {
 
-    Optional<Product> findById(Long id);
+	Optional<Product> findById(Long id);
 
-    Optional<List<Product>> findByOrg(Long orgId);
+	Optional<List<Product>> findByOrg(Long orgId);
+
+	Optional<Product> findByIdAndOrg(Long id, Long orgId);
 
 }
