@@ -1,7 +1,7 @@
 package com.nexus.core.controller;
 
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpMethod;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -12,27 +12,25 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.nexus.core.annotation.LogActivity;
 import com.nexus.core.exception.InvalidCredentialsException;
 import com.nexus.core.payload.OrderDto;
 import com.nexus.core.security.OrganizationContextFilter;
 import com.nexus.core.service.OrderService;
 import com.nexus.core.utils.CommonUtils;
-import com.nexus.core.utils.Logger;
+
+import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequestMapping("/core/orders")
+@RequiredArgsConstructor
 public class OrderController {
 
-	@Autowired
-	private OrderService orderService;
-
-	@Autowired
-	private CommonUtils commonUtils;
-
-	@Autowired
-	private Logger logger;
+	private final OrderService orderService;
+	private final CommonUtils commonUtils;
 
 	@PostMapping("/add")
+	@LogActivity("Create Order")
 	public ResponseEntity<?> addOrder(@RequestBody OrderDto orderDto, @RequestHeader("Authorization") String token) {
 		if (!commonUtils.validateToken(token)) {
 			throw new InvalidCredentialsException();
@@ -47,21 +45,11 @@ public class OrderController {
 		// Set buyer organization ID on the order DTO
 		orderDto.setBuyerOrgId(orgId);
 
-		ResponseEntity<?> response = null;
-		try {
-			response = orderService.addOrder(orderDto);
-		} catch (Exception e) {
-			response = ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
-		} finally {
-			logger.log("/core/orders/add", HttpMethod.POST,
-					response != null ? response.getStatusCode() : HttpStatus.INTERNAL_SERVER_ERROR, orderDto,
-					response != null ? response.getBody() : null, orgId);
-		}
-
-		return response;
+		return orderService.addOrder(orderDto);
 	}
 
 	@GetMapping("/{id}")
+	@LogActivity("Get Order")
 	public ResponseEntity<?> getOrder(@PathVariable Long id, @RequestHeader("Authorization") String token) {
 		if (!commonUtils.validateToken(token)) {
 			throw new InvalidCredentialsException();
@@ -73,22 +61,13 @@ public class OrderController {
 			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Organization context not found");
 		}
 
-		ResponseEntity<?> response = null;
-		try {
-			response = orderService.getOrderByIdAndOrg(id, orgId);
-		} catch (Exception e) {
-			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
-		} finally {
-			logger.log("/core/orders/{id}", HttpMethod.GET,
-					response != null ? response.getStatusCode() : HttpStatus.INTERNAL_SERVER_ERROR, id,
-					response != null ? response.getBody() : null, orgId);
-		}
-
-		return response;
+		return orderService.getOrderByIdAndOrg(id, orgId);
 	}
 
 	@GetMapping("/all")
-	public ResponseEntity<?> getAllOrders(@RequestHeader("Authorization") String token) {
+	@LogActivity("Get All Orders")
+	public ResponseEntity<?> getAllOrders(@RequestHeader("Authorization") String token,
+			@PageableDefault(size = 20) Pageable pageable) {
 		if (!commonUtils.validateToken(token)) {
 			throw new InvalidCredentialsException();
 		}
@@ -99,17 +78,7 @@ public class OrderController {
 			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Organization context not found");
 		}
 
-		ResponseEntity<?> response = null;
-		try {
-			response = orderService.getAllOrdersByOrgId(orgId);
-		} catch (Exception e) {
-			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
-		} finally {
-			logger.log("/core/orders/all", HttpMethod.GET,
-					response != null ? response.getStatusCode() : HttpStatus.INTERNAL_SERVER_ERROR, orgId,
-					response != null ? response.getBody() : null, orgId);
-		}
-		return response;
+		return orderService.getAllOrdersByOrgId(orgId, pageable);
 	}
 
 	/**

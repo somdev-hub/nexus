@@ -1,7 +1,7 @@
 package com.nexus.core.controller;
 
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpMethod;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -12,27 +12,25 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.nexus.core.annotation.LogActivity;
 import com.nexus.core.exception.InvalidCredentialsException;
 import com.nexus.core.payload.MaterialDto;
 import com.nexus.core.security.OrganizationContextFilter;
 import com.nexus.core.service.MaterialService;
 import com.nexus.core.utils.CommonUtils;
-import com.nexus.core.utils.Logger;
+
+import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequestMapping("/core/materials")
+@RequiredArgsConstructor
 public class MaterialController {
 
-	@Autowired
-	private MaterialService materialService;
-
-	@Autowired
-	private CommonUtils commonUtils;
-
-	@Autowired
-	private Logger logger;
+	private final MaterialService materialService;
+	private final CommonUtils commonUtils;
 
 	@PostMapping("/add")
+	@LogActivity("Create Material")
 	public ResponseEntity<?> addMaterial(@RequestBody MaterialDto materialDto,
 			@RequestHeader("Authorization") String token) {
 		if (!commonUtils.validateToken(token)) {
@@ -48,21 +46,11 @@ public class MaterialController {
 		// Set organization ID on the material DTO
 		materialDto.setOrg(orgId);
 
-		ResponseEntity<?> response = null;
-		try {
-			response = materialService.addMaterial(materialDto);
-		} catch (Exception e) {
-			response = ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
-		} finally {
-			logger.log("/core/materials/add", HttpMethod.POST,
-					response != null ? response.getStatusCode() : HttpStatus.INTERNAL_SERVER_ERROR, materialDto,
-					response != null ? response.getBody() : null, orgId);
-		}
-
-		return response;
+		return materialService.addMaterial(materialDto);
 	}
 
 	@GetMapping("/{id}")
+	@LogActivity("Get Material")
 	public ResponseEntity<?> getMaterial(@PathVariable Long id, @RequestHeader("Authorization") String token) {
 		if (!commonUtils.validateToken(token)) {
 			throw new InvalidCredentialsException();
@@ -74,22 +62,13 @@ public class MaterialController {
 			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Organization context not found");
 		}
 
-		ResponseEntity<?> response = null;
-		try {
-			response = materialService.getMaterialByIdAndOrg(id, orgId);
-		} catch (Exception e) {
-			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
-		} finally {
-			logger.log("/core/materials/{id}", HttpMethod.GET,
-					response != null ? response.getStatusCode() : HttpStatus.INTERNAL_SERVER_ERROR, id,
-					response != null ? response.getBody() : null, orgId);
-		}
-
-		return response;
+		return materialService.getMaterialByIdAndOrg(id, orgId);
 	}
 
 	@GetMapping("/all")
-	public ResponseEntity<?> getAllMaterials(@RequestHeader("Authorization") String token) {
+	@LogActivity("Get All Materials")
+	public ResponseEntity<?> getAllMaterials(@RequestHeader("Authorization") String token,
+			@PageableDefault(size = 20) Pageable pageable) {
 		if (!commonUtils.validateToken(token)) {
 			throw new InvalidCredentialsException();
 		}
@@ -100,17 +79,7 @@ public class MaterialController {
 			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Organization context not found");
 		}
 
-		ResponseEntity<?> response = null;
-		try {
-			response = materialService.getAllMaterialsByOrgId(orgId);
-		} catch (Exception e) {
-			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
-		} finally {
-			logger.log("/core/materials/all", HttpMethod.GET,
-					response != null ? response.getStatusCode() : HttpStatus.INTERNAL_SERVER_ERROR, orgId,
-					response != null ? response.getBody() : null, orgId);
-		}
-		return response;
+		return materialService.getAllMaterialsByOrgId(orgId, pageable);
 	}
 
 	/**

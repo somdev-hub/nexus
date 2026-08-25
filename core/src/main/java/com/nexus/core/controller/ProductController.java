@@ -1,7 +1,7 @@
 package com.nexus.core.controller;
 
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpMethod;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -12,27 +12,25 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.nexus.core.annotation.LogActivity;
 import com.nexus.core.exception.InvalidCredentialsException;
 import com.nexus.core.payload.ProductDto;
 import com.nexus.core.security.OrganizationContextFilter;
 import com.nexus.core.service.ProductService;
 import com.nexus.core.utils.CommonUtils;
-import com.nexus.core.utils.Logger;
+
+import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequestMapping("/core/products")
+@RequiredArgsConstructor
 public class ProductController {
 
-	@Autowired
-	private ProductService productService;
-
-	@Autowired
-	private CommonUtils commonUtils;
-
-	@Autowired
-	private Logger logger;
+	private final ProductService productService;
+	private final CommonUtils commonUtils;
 
 	@PostMapping("/add")
+	@LogActivity("Add Product")
 	public ResponseEntity<?> addProduct(@RequestBody ProductDto product, @RequestHeader("Authorization") String token) {
 		if (!commonUtils.validateToken(token)) {
 			throw new InvalidCredentialsException();
@@ -47,20 +45,11 @@ public class ProductController {
 		// Set organization ID on the product DTO
 		product.setOrg(orgId);
 
-		ResponseEntity<?> response = null;
-		try {
-			response = productService.addProduct(product);
-		} catch (Exception e) {
-			response = ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
-		} finally {
-			logger.log("/core/products/add", HttpMethod.POST,
-					response != null ? response.getStatusCode() : HttpStatus.INTERNAL_SERVER_ERROR, product,
-					response != null ? response.getBody() : null, orgId);
-		}
-		return response;
+		return productService.addProduct(product);
 	}
 
 	@GetMapping("/{id}")
+	@LogActivity("Get Product")
 	public ResponseEntity<?> getProduct(@PathVariable Long id, @RequestHeader("Authorization") String token) {
 		if (!commonUtils.validateToken(token)) {
 			throw new InvalidCredentialsException();
@@ -72,22 +61,13 @@ public class ProductController {
 			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Organization context not found");
 		}
 
-		ResponseEntity<?> response = null;
-		try {
-			response = productService.getProductByIdAndOrg(id, orgId);
-		} catch (Exception e) {
-			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
-		} finally {
-			logger.log("/core/products/{id}", HttpMethod.GET,
-					response != null ? response.getStatusCode() : HttpStatus.INTERNAL_SERVER_ERROR, id,
-					response != null ? response.getBody() : null, orgId);
-		}
-
-		return response;
+		return productService.getProductByIdAndOrg(id, orgId);
 	}
 
 	@GetMapping("/all")
-	public ResponseEntity<?> getAllProducts(@RequestHeader("Authorization") String token) {
+	@LogActivity("Get All Products")
+	public ResponseEntity<?> getAllProducts(@RequestHeader("Authorization") String token,
+			@PageableDefault(size = 20) Pageable pageable) {
 		if (!commonUtils.validateToken(token)) {
 			throw new InvalidCredentialsException();
 		}
@@ -98,17 +78,7 @@ public class ProductController {
 			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Organization context not found");
 		}
 
-		ResponseEntity<?> response = null;
-		try {
-			response = productService.getAllProductsByOrgId(orgId);
-		} catch (Exception e) {
-			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
-		} finally {
-			logger.log("/core/products/all", HttpMethod.GET,
-					response != null ? response.getStatusCode() : HttpStatus.INTERNAL_SERVER_ERROR, orgId,
-					response != null ? response.getBody() : null, orgId);
-		}
-		return response;
+		return productService.getAllProductsByOrgId(orgId, pageable);
 	}
 
 	/**

@@ -1,5 +1,6 @@
 package com.nexus.core.service;
 
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 
 import com.nexus.core.payload.OrderDto;
@@ -9,5 +10,5 @@ public interface OrderService {
 
 	public ResponseEntity<?> getOrderByIdAndOrg(Long id, Long orgId);
 
-	public ResponseEntity<?> getAllOrdersByOrgId(Long orgId);
+	public ResponseEntity<?> getAllOrdersByOrgId(Long orgId, Pageable pageable);
 }

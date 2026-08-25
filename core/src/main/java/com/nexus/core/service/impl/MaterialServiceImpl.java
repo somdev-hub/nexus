@@ -1,120 +1,46 @@
 package com.nexus.core.service.impl;
 
-import java.sql.Timestamp;
-import java.time.LocalDateTime;
-import java.util.List;
-
 import org.modelmapper.ModelMapper;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
-import org.springframework.util.ObjectUtils;
 
 import com.nexus.core.entities.Material;
 import com.nexus.core.exception.ResourceNotFoundException;
-import com.nexus.core.payload.ErrorResponse;
 import com.nexus.core.payload.MaterialDto;
 import com.nexus.core.repository.MaterialRepo;
 import com.nexus.core.service.MaterialService;
 
+import lombok.RequiredArgsConstructor;
+
 @Service
+@RequiredArgsConstructor
 public class MaterialServiceImpl implements MaterialService {
 
-	@Autowired
-	private MaterialRepo materialRepo;
-
-	@Autowired
-	private ModelMapper modelMapper;
+	private final MaterialRepo materialRepo;
+	private final ModelMapper modelMapper;
 
 	@Override
 	public ResponseEntity<?> addMaterial(MaterialDto materialDto) {
-		if (ObjectUtils.isEmpty(materialDto) || ObjectUtils.isEmpty(materialDto.getOrg())) {
-			return new ResponseEntity<ErrorResponse>(
-					new ErrorResponse("Empty Details sent", HttpStatus.BAD_REQUEST.value(),
-							Timestamp.valueOf(LocalDateTime.now()), "Necessary details are not sent!"),
-					HttpStatus.BAD_REQUEST);
-
-		}
-		try {
-
-			Material material = modelMapper.map(materialDto, Material.class);
-			Material savedMaterial = materialRepo.save(material);
-			return new ResponseEntity<>(modelMapper.map(savedMaterial, MaterialDto.class), HttpStatus.CREATED);
-
-		} catch (Exception e) {
-			return new ResponseEntity<ErrorResponse>(
-					new ErrorResponse("Failed to add material", HttpStatus.INTERNAL_SERVER_ERROR.value(),
-							Timestamp.valueOf(LocalDateTime.now()), e.getMessage()),
-					HttpStatus.INTERNAL_SERVER_ERROR);
-		}
-
+		Material material = modelMapper.map(materialDto, Material.class);
+		Material savedMaterial = materialRepo.save(material);
+		return new ResponseEntity<>(modelMapper.map(savedMaterial, MaterialDto.class), HttpStatus.CREATED);
 	}
 
 	@Override
 	public ResponseEntity<?> getMaterialByIdAndOrg(Long id, Long orgId) {
-		if (ObjectUtils.isEmpty(id) || ObjectUtils.isEmpty(orgId)) {
-			return new ResponseEntity<ErrorResponse>(
-					new ErrorResponse(
-							"Material ID and Organization ID cannot be null or empty",
-							HttpStatus.BAD_REQUEST.value(),
-							Timestamp.valueOf(LocalDateTime.now()),
-							"Invalid Material ID or Organization ID"),
-					HttpStatus.BAD_REQUEST);
-		}
-		try {
-			Material material = materialRepo.findByIdAndOrg(id, orgId).orElse(null);
-			if (ObjectUtils.isEmpty(material)) {
-				return new ResponseEntity<ErrorResponse>(
-						new ErrorResponse(
-								"Material not found in organization",
-								HttpStatus.NOT_FOUND.value(),
-								Timestamp.valueOf(LocalDateTime.now()),
-								"No material found with the given ID in the organization"),
-						HttpStatus.NOT_FOUND);
-			}
-			return new ResponseEntity<>(modelMapper.map(material, MaterialDto.class), HttpStatus.OK);
-		} catch (Exception e) {
-			return new ResponseEntity<ErrorResponse>(
-					new ErrorResponse(
-							"Failed to retrieve material",
-							HttpStatus.INTERNAL_SERVER_ERROR.value(),
-							Timestamp.valueOf(LocalDateTime.now()),
-							e.getMessage()),
-					HttpStatus.INTERNAL_SERVER_ERROR);
-		}
+		Material material = materialRepo.findByMaterialIdAndOrg(id, orgId)
+				.orElseThrow(() -> new ResourceNotFoundException("Material", "materialId", id));
+		return new ResponseEntity<>(modelMapper.map(material, MaterialDto.class), HttpStatus.OK);
 	}
 
 	@Override
-	public ResponseEntity<?> getAllMaterialsByOrgId(Long orgId) {
-		if (ObjectUtils.isEmpty(orgId)) {
-			return new ResponseEntity<ErrorResponse>(
-					new ErrorResponse(
-							"Organization ID cannot be null or empty",
-							HttpStatus.BAD_REQUEST.value(),
-							Timestamp.valueOf(LocalDateTime.now()),
-							"Invalid Organization ID"),
-					HttpStatus.BAD_REQUEST);
-
-		}
-		try {
-			List<Material> materials = materialRepo.findByOrg(orgId).orElseThrow(() -> {
-				throw new ResourceNotFoundException("Materials", "orgId", orgId);
-			});
-			List<MaterialDto> materialDtos = new java.util.ArrayList<>();
-			for (Material material : materials) {
-				materialDtos.add(modelMapper.map(material, MaterialDto.class));
-			}
-			return new ResponseEntity<>(materialDtos, HttpStatus.OK);
-		} catch (Exception e) {
-			return new ResponseEntity<ErrorResponse>(
-					new ErrorResponse(
-							"Failed to retrieve materials",
-							HttpStatus.INTERNAL_SERVER_ERROR.value(),
-							Timestamp.valueOf(LocalDateTime.now()),
-							e.getMessage()),
-					HttpStatus.INTERNAL_SERVER_ERROR);
-		}
+	public ResponseEntity<?> getAllMaterialsByOrgId(Long orgId, Pageable pageable) {
+		Page<Material> materials = materialRepo.findByOrg(orgId, pageable);
+		Page<MaterialDto> materialDtos = materials.map(m -> modelMapper.map(m, MaterialDto.class));
+		return new ResponseEntity<>(materialDtos, HttpStatus.OK);
 	}
 
 }

@@ -44,7 +44,7 @@ public class Logger {
 			log.setResponse(serializeObject(response));
 			log.setResponseStatus(httpStatus.value());
 			log.setUserId(userId != null ? userId : 0L);
-			log.setCreatedOn(new Timestamp(System.currentTimeMillis()));
+			log.setCreatedAt(new Timestamp(System.currentTimeMillis()));
 			logsRepo.save(log);
 		} catch (Exception e) {
 			throw new ServiceLevelException("Logger", "Failed to save logs", "saveLogs", e.getClass().getSimpleName(),

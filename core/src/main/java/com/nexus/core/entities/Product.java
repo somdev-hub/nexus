@@ -12,49 +12,58 @@ import jakarta.persistence.Id;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.ToString;
 
 @Entity
 @Data
+@EqualsAndHashCode(callSuper = true)
+@ToString(callSuper = true)
 @Table(name = "t_products", schema = "core")
-public class Product {
+public class Product extends BaseEntity {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+	@Id
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
+	@Column(name = "product_id")
+	private Long productId;
 
-    private String name;
+	private String name;
 
-    private String code;
+	private String code;
 
-    @Column(columnDefinition = "TEXT")
-    private String description;
+	@Column(columnDefinition = "TEXT")
+	private String description;
 
-    private List<String> productImages;
+	private List<String> productImages;
 
-    @OneToMany(mappedBy = "product")
-    private List<MaterialRequirement> materialRequirements;
+	@OneToMany(mappedBy = "product")
+	@ToString.Exclude
+	@EqualsAndHashCode.Exclude
+	private List<MaterialRequirement> materialRequirements;
 
-    private Long org;
+	private Long org;
 
-    private Long productManager;
+	private Long productManager;
 
-    private Double price;
+	private Double price;
 
-    private Double sellingPrice;
+	private Double sellingPrice;
 
-    private Double cost;
+	private Double cost;
 
-    private Boolean taxCharged;
+	private Boolean taxCharged;
 
-    private Double taxPercentage;
+	private Double taxPercentage;
 
-    @Enumerated(EnumType.STRING)
-    private ProductStatus productStatus;
+	@Enumerated(EnumType.STRING)
+	private ProductStatus productStatus;
 
-    @Enumerated(EnumType.STRING)
-    private ProductCategory productCategory;
+	@Enumerated(EnumType.STRING)
+	private ProductCategory productCategory;
 
-    @OneToMany(mappedBy = "product")
-    private List<Order> orders;
+	@OneToMany(mappedBy = "product")
+	@ToString.Exclude
+	@EqualsAndHashCode.Exclude
+	private List<Order> orders;
 
 }

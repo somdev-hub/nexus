@@ -1,5 +1,6 @@
 package com.nexus.core.service;
 
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 
 import com.nexus.core.payload.MaterialDto;
@@ -9,5 +10,5 @@ public interface MaterialService {
 
 	public ResponseEntity<?> getMaterialByIdAndOrg(Long id, Long orgId);
 
-	public ResponseEntity<?> getAllMaterialsByOrgId(Long orgId);
+	public ResponseEntity<?> getAllMaterialsByOrgId(Long orgId, Pageable pageable);
 }

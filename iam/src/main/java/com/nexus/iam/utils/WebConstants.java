@@ -295,6 +295,63 @@ public class WebConstants {
 	@Value("${core.partnership.all.url}")
 	private String corePartnershipAllUrl;
 
+	@Value("${core.partnership.status.url}")
+	private String corePartnershipStatusUrl;
+
+	@Value("${core.partnership.active.url}")
+	private String corePartnershipActiveUrl;
+
+	@Value("${core.partnership.update.status.url}")
+	private String corePartnershipUpdateStatusUrl;
+
+	// Partnership Invitation Endpoints
+	@Value("${core.partnership.invitation.create.url}")
+	private String corePartnershipInvitationCreateUrl;
+
+	@Value("${core.partnership.invitation.respond.url}")
+	private String corePartnershipInvitationRespondUrl;
+
+	@Value("${core.partnership.invitation.get.url}")
+	private String corePartnershipInvitationGetUrl;
+
+	@Value("${core.partnership.invitation.sent.url}")
+	private String corePartnershipInvitationSentUrl;
+
+	@Value("${core.partnership.invitation.received.url}")
+	private String corePartnershipInvitationReceivedUrl;
+
+	@Value("${core.partnership.invitation.pending.url}")
+	private String corePartnershipInvitationPendingUrl;
+
+	@Value("${core.partnership.invitation.withdraw.url}")
+	private String corePartnershipInvitationWithdrawUrl;
+
+	// Supplier Discovery Endpoints
+	@Value("${core.supplier.discover.url}")
+	private String coreSupplierDiscoverUrl;
+
+	@Value("${core.supplier.qualify.url}")
+	private String coreSupplierQualifyUrl;
+
+	@Value("${core.supplier.qualification.get.url}")
+	private String coreSupplierQualificationGetUrl;
+
+	@Value("${core.supplier.qualification.all.url}")
+	private String coreSupplierQualificationAllUrl;
+
+	// Supplier Management Endpoints
+	@Value("${core.supplier.add.url}")
+	private String coreSupplierAddUrl;
+
+	@Value("${core.supplier.get.url}")
+	private String coreSupplierGetUrl;
+
+	@Value("${core.supplier.all.url}")
+	private String coreSupplierAllUrl;
+
+	@Value("${core.supplier.by.account.url}")
+	private String coreSupplierByAccountUrl;
+
 	// Keycloak URLs
 	public String getKeycloakAdminUrl() {
 		return keycloakServerUrl + "/admin/realms/" + keycloakRealm;
@@ -412,5 +469,80 @@ public class WebConstants {
 
 	public String getCorePartnershipAllUrl() {
 		return corePartnershipAllUrl;
+	}
+
+	public String getCorePartnershipStatusUrl() {
+		return corePartnershipStatusUrl;
+	}
+
+	public String getCorePartnershipActiveUrl() {
+		return corePartnershipActiveUrl;
+	}
+
+	public String getCorePartnershipUpdateStatusUrl() {
+		return corePartnershipUpdateStatusUrl;
+	}
+
+	// Partnership Invitation Endpoints
+	public String getCorePartnershipInvitationCreateUrl() {
+		return corePartnershipInvitationCreateUrl;
+	}
+
+	public String getCorePartnershipInvitationRespondUrl() {
+		return corePartnershipInvitationRespondUrl;
+	}
+
+	public String getCorePartnershipInvitationGetUrl() {
+		return corePartnershipInvitationGetUrl;
+	}
+
+	public String getCorePartnershipInvitationSentUrl() {
+		return corePartnershipInvitationSentUrl;
+	}
+
+	public String getCorePartnershipInvitationReceivedUrl() {
+		return corePartnershipInvitationReceivedUrl;
+	}
+
+	public String getCorePartnershipInvitationPendingUrl() {
+		return corePartnershipInvitationPendingUrl;
+	}
+
+	public String getCorePartnershipInvitationWithdrawUrl() {
+		return corePartnershipInvitationWithdrawUrl;
+	}
+
+	// Supplier Discovery Endpoints
+	public String getCoreSupplierDiscoverUrl() {
+		return coreSupplierDiscoverUrl;
+	}
+
+	public String getCoreSupplierQualifyUrl() {
+		return coreSupplierQualifyUrl;
+	}
+
+	public String getCoreSupplierQualificationGetUrl() {
+		return coreSupplierQualificationGetUrl;
+	}
+
+	public String getCoreSupplierQualificationAllUrl() {
+		return coreSupplierQualificationAllUrl;
+	}
+
+	// Supplier Management Endpoints
+	public String getCoreSupplierAddUrl() {
+		return coreSupplierAddUrl;
+	}
+
+	public String getCoreSupplierGetUrl() {
+		return coreSupplierGetUrl;
+	}
+
+	public String getCoreSupplierAllUrl() {
+		return coreSupplierAllUrl;
+	}
+
+	public String getCoreSupplierByAccountUrl() {
+		return coreSupplierByAccountUrl;
 	}
 }

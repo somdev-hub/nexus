@@ -13,4 +13,6 @@ public interface AccountRepo extends JpaRepository<Account, Long> {
 
 	Optional<List<Account>> findByOrg(Long orgId);
 
+	Optional<Account> findByAccountId(Long accountId);
+
 }

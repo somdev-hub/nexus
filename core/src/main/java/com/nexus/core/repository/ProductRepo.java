@@ -1,8 +1,9 @@
 package com.nexus.core.repository;
 
-import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -11,10 +12,10 @@ import com.nexus.core.entities.Product;
 @Repository
 public interface ProductRepo extends JpaRepository<Product, Long> {
 
-	Optional<Product> findById(Long id);
+	Optional<Product> findByProductId(Long productId);
 
-	Optional<List<Product>> findByOrg(Long orgId);
+	Page<Product> findByOrg(Long orgId, Pageable pageable);
 
-	Optional<Product> findByIdAndOrg(Long id, Long orgId);
+	Optional<Product> findByProductIdAndOrg(Long productId, Long orgId);
 
 }

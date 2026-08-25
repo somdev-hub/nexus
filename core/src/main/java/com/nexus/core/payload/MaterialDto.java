@@ -1,24 +1,29 @@
 package com.nexus.core.payload;
 
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
 @Data
 public class MaterialDto {
-    private String name;
+	@NotBlank(message = "Material name is required")
+	private String name;
 
-    private String code;
+	@NotBlank(message = "Material code is required")
+	private String code;
 
-    private Long org;
+	@NotNull(message = "Organization is required")
+	private Long org;
 
-    private Long warehouseId;
+	private Long warehouseId;
 
-    private Double pricePerUnit;
+	private Double pricePerUnit;
 
-    private String unit;
+	private String unit;
 
-    private Double productionCostPerUnit;
+	private Double productionCostPerUnit;
 
-    private Double productionCapacityPerMonth;
+	private Double productionCapacityPerMonth;
 
-    private Double availableQuantity;
+	private Double availableQuantity;
 }

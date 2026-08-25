@@ -2,6 +2,7 @@ package com.nexus.core.entities;
 
 import java.sql.Timestamp;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -13,34 +14,49 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.ToString;
 
 @Entity
 @Data
+@EqualsAndHashCode(callSuper = true)
+@ToString(callSuper = true)
 @Table(name = "t_partnerships", schema = "core")
-public class Partnership {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+public class Partnership extends BaseEntity {
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "primary_org", referencedColumnName = "id")
-    private Account primaryOrg;
+	@Id
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
+	@Column(name = "partnership_id")
+	private Long partnershipId;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "secondary_org", referencedColumnName = "id")
-    private Account secondaryOrg;
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "primary_org_id", referencedColumnName = "account_id")
+	@ToString.Exclude
+	@EqualsAndHashCode.Exclude
+	private Account primaryOrg;
 
-    private String partnershipTerm;
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "secondary_org_id", referencedColumnName = "account_id")
+	@ToString.Exclude
+	@EqualsAndHashCode.Exclude
+	private Account secondaryOrg;
 
-    private Double discountRate;
+	private String partnershipTerm;
 
-    @Enumerated(EnumType.STRING)
-    private PartnershipStatus status;
+	private Double discountRate;
 
-    private Timestamp startDate;
+	@Enumerated(EnumType.STRING)
+	private PartnershipStatus status;
 
-    private Timestamp endDate;
+	private Timestamp startDate;
 
-    private Timestamp revivedDate;
+	private Timestamp endDate;
 
+	private Timestamp revivedDate;
+
+	// Partnership Agreement - DMS document reference
+	private Long agreementDocumentId;
+
+	// Partnership Invitation reference
+	private Long invitationId;
 }

@@ -7,35 +7,40 @@ import org.springframework.web.multipart.MultipartFile;
 import com.nexus.core.entities.ProductCategory;
 import com.nexus.core.entities.ProductStatus;
 
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
 @Data
 public class ProductDto {
-    private String name;
+	@NotBlank(message = "Product name is required")
+	private String name;
 
-    private String code;
+	@NotBlank(message = "Product code is required")
+	private String code;
 
-    private String description;
+	private String description;
 
-    private List<MultipartFile> productImages;
+	private List<MultipartFile> productImages;
 
-    private List<MaterialRequirementDto> materialRequirements;
+	private List<MaterialRequirementDto> materialRequirements;
 
-    private Long org;
+	@NotNull(message = "Organization is required")
+	private Long org;
 
-    private Long productManager;
+	private Long productManager;
 
-    private Double sellingPrice;
+	private Double sellingPrice;
 
-    private Double cost;
+	private Double cost;
 
-    private Boolean taxCharged;
+	private Boolean taxCharged;
 
-    private Double taxPercentage;
+	private Double taxPercentage;
 
-    private ProductStatus productStatus;
+	private ProductStatus productStatus;
 
-    private ProductCategory productCategory;
+	private ProductCategory productCategory;
 
-    private Double price;
+	private Double price;
 }

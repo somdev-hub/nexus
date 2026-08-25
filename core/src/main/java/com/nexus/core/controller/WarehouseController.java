@@ -1,7 +1,7 @@
 package com.nexus.core.controller;
 
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpMethod;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -12,27 +12,25 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.nexus.core.annotation.LogActivity;
 import com.nexus.core.exception.InvalidCredentialsException;
 import com.nexus.core.payload.WarehouseDto;
 import com.nexus.core.security.OrganizationContextFilter;
 import com.nexus.core.service.WarehouseService;
 import com.nexus.core.utils.CommonUtils;
-import com.nexus.core.utils.Logger;
+
+import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequestMapping("/core/warehouses")
+@RequiredArgsConstructor
 public class WarehouseController {
 
-	@Autowired
-	private WarehouseService warehouseService;
-
-	@Autowired
-	private CommonUtils commonUtils;
-
-	@Autowired
-	private Logger logger;
+	private final WarehouseService warehouseService;
+	private final CommonUtils commonUtils;
 
 	@PostMapping("/add")
+	@LogActivity("Create Warehouse")
 	public ResponseEntity<?> addWarehouse(@RequestBody WarehouseDto warehouseDto,
 			@RequestHeader("Authorization") String token) {
 		if (!commonUtils.validateToken(token)) {
@@ -48,21 +46,11 @@ public class WarehouseController {
 		// Set organization ID on the warehouse DTO
 		warehouseDto.setOrg(orgId);
 
-		ResponseEntity<?> response = null;
-		try {
-			response = warehouseService.addWarehouse(warehouseDto);
-		} catch (Exception e) {
-			response = ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
-		} finally {
-			logger.log("/core/warehouses/add", HttpMethod.POST,
-					response != null ? response.getStatusCode() : HttpStatus.INTERNAL_SERVER_ERROR, warehouseDto,
-					response != null ? response.getBody() : null, orgId);
-		}
-
-		return response;
+		return warehouseService.addWarehouse(warehouseDto);
 	}
 
 	@GetMapping("/{id}")
+	@LogActivity("Get Warehouse")
 	public ResponseEntity<?> getWarehouse(@PathVariable Long id, @RequestHeader("Authorization") String token) {
 		if (!commonUtils.validateToken(token)) {
 			throw new InvalidCredentialsException();
@@ -74,22 +62,13 @@ public class WarehouseController {
 			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Organization context not found");
 		}
 
-		ResponseEntity<?> response = null;
-		try {
-			response = warehouseService.getWarehouseByIdAndOrg(id, orgId);
-		} catch (Exception e) {
-			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
-		} finally {
-			logger.log("/core/warehouses/{id}", HttpMethod.GET,
-					response != null ? response.getStatusCode() : HttpStatus.INTERNAL_SERVER_ERROR, id,
-					response != null ? response.getBody() : null, orgId);
-		}
-
-		return response;
+		return warehouseService.getWarehouseByIdAndOrg(id, orgId);
 	}
 
 	@GetMapping("/all")
-	public ResponseEntity<?> getAllWarehouses(@RequestHeader("Authorization") String token) {
+	@LogActivity("Get All Warehouses")
+	public ResponseEntity<?> getAllWarehouses(@RequestHeader("Authorization") String token,
+			@PageableDefault(size = 20) Pageable pageable) {
 		if (!commonUtils.validateToken(token)) {
 			throw new InvalidCredentialsException();
 		}
@@ -100,17 +79,7 @@ public class WarehouseController {
 			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Organization context not found");
 		}
 
-		ResponseEntity<?> response = null;
-		try {
-			response = warehouseService.getAllWarehousesByOrgId(orgId);
-		} catch (Exception e) {
-			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
-		} finally {
-			logger.log("/core/warehouses/all", HttpMethod.GET,
-					response != null ? response.getStatusCode() : HttpStatus.INTERNAL_SERVER_ERROR, orgId,
-					response != null ? response.getBody() : null, orgId);
-		}
-		return response;
+		return warehouseService.getAllWarehousesByOrgId(orgId, pageable);
 	}
 
 	/**
