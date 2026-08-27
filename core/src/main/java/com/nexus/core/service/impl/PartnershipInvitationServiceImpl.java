@@ -10,7 +10,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 import com.nexus.core.entities.Account;
-import com.nexus.core.entities.Partnership;
 import com.nexus.core.entities.PartnershipInvitation;
 import com.nexus.core.entities.PartnershipInvitationStatus;
 import com.nexus.core.entities.PartnershipStatus;

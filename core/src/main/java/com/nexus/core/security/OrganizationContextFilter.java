@@ -9,7 +9,6 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
@@ -18,6 +17,8 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.util.Optional;
+
+import lombok.RequiredArgsConstructor;
 
 /**
  * Filter to validate and establish organization context from X-Organization-ID
@@ -30,20 +31,16 @@ import java.util.Optional;
  * - Sets organization context in request attributes for downstream use
  */
 @Component
+@RequiredArgsConstructor
 public class OrganizationContextFilter extends OncePerRequestFilter {
 
 	public static final String ORGANIZATION_ID_HEADER = "X-Organization-ID";
 	public static final String ORGANIZATION_CONTEXT_ATTRIBUTE = "suite.organizationContext";
 	public static final String ORGANIZATION_TYPE_ATTRIBUTE = "suite.organizationType";
 
-	@Autowired
-	private CommonUtils commonUtils;
-
-	@Autowired
-	private WebConstants webConstants;
-
-	@Autowired
-	private ObjectMapper objectMapper;
+	private final CommonUtils commonUtils;
+	private final WebConstants webConstants;
+	private final ObjectMapper objectMapper;
 
 	@Override
 	protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)

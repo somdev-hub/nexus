@@ -6,6 +6,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -13,7 +14,9 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 import com.nexus.iam.annotation.LogActivity;
 import com.nexus.iam.service.CoreRetailerService;
@@ -183,6 +186,44 @@ public class CoreRetailerController {
 		return coreRetailerService.updatePartnershipStatus(id, status, authToken, orgIdHeader);
 	}
 
+	// Partnership Agreement with DMS Integration
+	@LogActivity("Upload Partnership Agreement for Retailer")
+	@PostMapping("/partnerships/{id}/agreement")
+	public ResponseEntity<?> uploadPartnershipAgreement(@PathVariable Long id,
+			@RequestParam("file") MultipartFile file,
+			@RequestParam(value = "documentName", required = false) String documentName,
+			@RequestParam(value = "remarks", required = false) String remarks,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.uploadPartnershipAgreement(id, file, documentName, remarks, authToken, orgIdHeader);
+	}
+
+	@LogActivity("Get Partnership Agreement for Retailer")
+	@GetMapping("/partnerships/{id}/agreement")
+	public ResponseEntity<?> getPartnershipAgreement(@PathVariable Long id,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.getPartnershipAgreement(id, authToken, orgIdHeader);
+	}
+
+	@LogActivity("Delete Partnership Agreement for Retailer")
+	@DeleteMapping("/partnerships/{id}/agreement")
+	public ResponseEntity<?> deletePartnershipAgreement(@PathVariable Long id,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.deletePartnershipAgreement(id, authToken, orgIdHeader);
+	}
+
+	// Partnership Lifecycle Management
+	@LogActivity("Transition Partnership Status for Retailer")
+	@PostMapping("/partnerships/{id}/transition")
+	public ResponseEntity<?> transitionPartnershipStatus(@PathVariable Long id,
+			@RequestBody Map<String, Object> transitionDto,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.transitionPartnershipStatus(id, transitionDto, authToken, orgIdHeader);
+	}
+
 	// Partnership Invitation Endpoints
 	@LogActivity("Create Partnership Invitation for Retailer")
 	@PostMapping("/partnership-invitations/create")
@@ -307,5 +348,75 @@ public class CoreRetailerController {
 			@RequestHeader("X-Organization-ID") String orgIdHeader,
 			@PageableDefault(size = 20) Pageable pageable) {
 		return coreRetailerService.getSuppliersByAccount(accountId, authToken, orgIdHeader, pageable);
+	}
+
+	// Purchase Order Endpoints
+	@LogActivity("Create Purchase Order for Retailer")
+	@PostMapping("/purchase-orders/create")
+	public ResponseEntity<?> createPurchaseOrder(@RequestBody Map<String, Object> poDto,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.createPurchaseOrder(poDto, authToken, orgIdHeader);
+	}
+
+	@LogActivity("Get Purchase Order for Retailer")
+	@GetMapping("/purchase-orders/{id}")
+	public ResponseEntity<?> getPurchaseOrder(@PathVariable Long id,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.getPurchaseOrder(id, authToken, orgIdHeader);
+	}
+
+	@LogActivity("Get All Purchase Orders for Retailer")
+	@GetMapping("/purchase-orders/all")
+	public ResponseEntity<?> getAllPurchaseOrders(@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader,
+			@PageableDefault(size = 20) Pageable pageable) {
+		return coreRetailerService.getAllPurchaseOrders(authToken, orgIdHeader, pageable);
+	}
+
+	@LogActivity("Get Purchase Orders by Status for Retailer")
+	@GetMapping("/purchase-orders/status/{status}")
+	public ResponseEntity<?> getPurchaseOrdersByStatus(@PathVariable String status,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader,
+			@PageableDefault(size = 20) Pageable pageable) {
+		return coreRetailerService.getPurchaseOrdersByStatus(status, authToken, orgIdHeader, pageable);
+	}
+
+	@LogActivity("Update Purchase Order for Retailer")
+	@PutMapping("/purchase-orders/{id}/update")
+	public ResponseEntity<?> updatePurchaseOrder(@PathVariable Long id,
+			@RequestBody Map<String, Object> poDto,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.updatePurchaseOrder(id, poDto, authToken, orgIdHeader);
+	}
+
+	@LogActivity("Transition Purchase Order Status for Retailer")
+	@PutMapping("/purchase-orders/{id}/transition")
+	public ResponseEntity<?> transitionPurchaseOrderStatus(@PathVariable Long id,
+			@RequestParam String newStatus,
+			@RequestBody(required = false) Map<String, Object> params,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.transitionPurchaseOrderStatus(id, newStatus, params, authToken, orgIdHeader);
+	}
+
+	@LogActivity("Create Purchase Order Amendment for Retailer")
+	@PostMapping("/purchase-orders/{parentPoId}/amend")
+	public ResponseEntity<?> createPurchaseOrderAmendment(@PathVariable Long parentPoId,
+			@RequestBody Map<String, Object> amendmentDto,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.createPurchaseOrderAmendment(parentPoId, amendmentDto, authToken, orgIdHeader);
+	}
+
+	@LogActivity("Get Purchase Order Amendments for Retailer")
+	@GetMapping("/purchase-orders/{parentPoId}/amendments")
+	public ResponseEntity<?> getPurchaseOrderAmendments(@PathVariable Long parentPoId,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.getPurchaseOrderAmendments(parentPoId, authToken, orgIdHeader);
 	}
 }

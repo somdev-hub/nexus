@@ -1,7 +1,6 @@
 package com.nexus.core.config;
 
 import com.nexus.core.security.OrganizationContextFilter;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -17,6 +16,8 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.Arrays;
 
+import lombok.RequiredArgsConstructor;
+
 /**
  * Security Configuration for Nexus Core Service with Suite Foundation
  * <p>
@@ -30,10 +31,10 @@ import java.util.Arrays;
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity(prePostEnabled = true)
+@RequiredArgsConstructor
 public class SecurityConfig {
 
-	@Autowired
-	private OrganizationContextFilter organizationContextFilter;
+	private final OrganizationContextFilter organizationContextFilter;
 
 	/**
 	 * CORS Configuration Source

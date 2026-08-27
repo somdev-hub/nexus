@@ -32,4 +32,6 @@ public interface SupplierRepository extends JpaRepository<Supplier, Long> {
 	Page<Supplier> findByAccount(Account account, Pageable pageable);
 
 	Optional<Supplier> findBySupplierId(Long supplierId);
+
+	Optional<Supplier> findBySupplierIdAndAccountAccountId(Long supplierId, Long accountId);
 }

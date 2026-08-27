@@ -1,93 +1,91 @@
 package com.nexus.core.controller;
 
+import java.util.Map;
+
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.multipart.MultipartFile;
 
 import com.nexus.core.annotation.LogActivity;
 import com.nexus.core.exception.InvalidCredentialsException;
-import com.nexus.core.payload.PartnershipDto;
+import com.nexus.core.payload.PurchaseOrderDto;
 import com.nexus.core.security.OrganizationContextFilter;
-import com.nexus.core.service.PartnershipService;
+import com.nexus.core.service.PurchaseOrderService;
 import com.nexus.core.utils.CommonUtils;
 
 import lombok.RequiredArgsConstructor;
 
 @RestController
-@RequestMapping("/core/partnerships")
+@RequestMapping("/core/purchase-orders")
 @RequiredArgsConstructor
-public class PartnershipController {
+public class PurchaseOrderController {
 
-	private final PartnershipService partnershipService;
+	private final PurchaseOrderService purchaseOrderService;
 	private final CommonUtils commonUtils;
 
-	@PostMapping("/add")
-	@LogActivity("Create Partnership")
-	public ResponseEntity<?> addPartnership(@RequestBody PartnershipDto partnershipDto,
+	@PostMapping("/create")
+	@LogActivity("Create Purchase Order")
+	public ResponseEntity<?> createPurchaseOrder(@RequestBody PurchaseOrderDto poDto,
 			@RequestHeader("Authorization") String token) {
 		if (!commonUtils.validateToken(token)) {
 			throw new InvalidCredentialsException();
 		}
 
-		// Get organization ID from request context (set by OrganizationContextFilter)
 		Long orgId = getOrganizationIdFromContext();
 		if (orgId == null) {
 			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Organization context not found");
 		}
 
-		// Set primary organization ID on the partnership DTO
-		partnershipDto.setPrimaryOrg(orgId);
+		// Set buyer organization from context
+		poDto.setBuyerOrgId(orgId);
 
-		return partnershipService.addPartnership(partnershipDto);
+		return purchaseOrderService.createPurchaseOrder(poDto);
 	}
 
 	@GetMapping("/{id}")
-	@LogActivity("Get Partnership")
-	public ResponseEntity<?> getPartnership(@PathVariable Long id, @RequestHeader("Authorization") String token) {
+	@LogActivity("Get Purchase Order")
+	public ResponseEntity<?> getPurchaseOrder(@PathVariable Long id, @RequestHeader("Authorization") String token) {
 		if (!commonUtils.validateToken(token)) {
 			throw new InvalidCredentialsException();
 		}
 
-		// Get organization ID from request context
 		Long orgId = getOrganizationIdFromContext();
 		if (orgId == null) {
 			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Organization context not found");
 		}
 
-		return partnershipService.getPartnershipByIdAndOrg(id, orgId);
+		return purchaseOrderService.getPurchaseOrderByIdAndOrg(id, orgId);
 	}
 
 	@GetMapping("/all")
-	@LogActivity("Get All Partnerships")
-	public ResponseEntity<?> getAllPartnerships(@RequestHeader("Authorization") String token,
+	@LogActivity("Get All Purchase Orders")
+	public ResponseEntity<?> getAllPurchaseOrders(@RequestHeader("Authorization") String token,
 			@PageableDefault(size = 20) Pageable pageable) {
 		if (!commonUtils.validateToken(token)) {
 			throw new InvalidCredentialsException();
 		}
 
-		// Get organization ID from request context
 		Long orgId = getOrganizationIdFromContext();
 		if (orgId == null) {
 			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Organization context not found");
 		}
 
-		return partnershipService.getAllPartnershipsByOrgId(orgId, pageable);
+		return purchaseOrderService.getAllPurchaseOrdersByOrgId(orgId, pageable);
 	}
 
 	@GetMapping("/status/{status}")
-	@LogActivity("Get Partnerships By Status")
-	public ResponseEntity<?> getPartnershipsByStatus(@PathVariable com.nexus.core.entities.PartnershipStatus status,
+	@LogActivity("Get Purchase Orders by Status")
+	public ResponseEntity<?> getPurchaseOrdersByStatus(@PathVariable String status,
 			@RequestHeader("Authorization") String token,
 			@PageableDefault(size = 20) Pageable pageable) {
 		if (!commonUtils.validateToken(token)) {
@@ -99,29 +97,19 @@ public class PartnershipController {
 			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Organization context not found");
 		}
 
-		return partnershipService.getPartnershipsByStatus(orgId, status, pageable);
+		try {
+			com.nexus.core.entities.PurchaseOrderStatus poStatus = com.nexus.core.entities.PurchaseOrderStatus
+					.valueOf(status.toUpperCase());
+			return purchaseOrderService.getPurchaseOrdersByOrgIdAndStatus(orgId, poStatus, pageable);
+		} catch (IllegalArgumentException e) {
+			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid status: " + status);
+		}
 	}
 
-	@GetMapping("/active")
-	@LogActivity("Get Active Partnerships")
-	public ResponseEntity<?> getActivePartnerships(@RequestHeader("Authorization") String token,
-			@PageableDefault(size = 20) Pageable pageable) {
-		if (!commonUtils.validateToken(token)) {
-			throw new InvalidCredentialsException();
-		}
-
-		Long orgId = getOrganizationIdFromContext();
-		if (orgId == null) {
-			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Organization context not found");
-		}
-
-		return partnershipService.getActivePartnershipsByOrgId(orgId, pageable);
-	}
-
-	@PostMapping("/{id}/status")
-	@LogActivity("Update Partnership Status")
-	public ResponseEntity<?> updatePartnershipStatus(@PathVariable Long id,
-			@RequestBody com.nexus.core.entities.PartnershipStatus newStatus,
+	@PutMapping("/{id}/update")
+	@LogActivity("Update Purchase Order")
+	public ResponseEntity<?> updatePurchaseOrder(@PathVariable Long id,
+			@RequestBody PurchaseOrderDto poDto,
 			@RequestHeader("Authorization") String token) {
 		if (!commonUtils.validateToken(token)) {
 			throw new InvalidCredentialsException();
@@ -132,19 +120,14 @@ public class PartnershipController {
 			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Organization context not found");
 		}
 
-		return partnershipService.updatePartnershipStatus(id, orgId, newStatus);
+		return purchaseOrderService.updatePurchaseOrder(id, poDto, orgId);
 	}
 
-	// ============================================
-	// Partnership Agreement with DMS Integration
-	// ============================================
-
-	@PostMapping("/{id}/agreement")
-	@LogActivity("Upload Partnership Agreement")
-	public ResponseEntity<?> uploadPartnershipAgreement(@PathVariable Long id,
-			@RequestParam("file") MultipartFile file,
-			@RequestParam(value = "documentName", required = false) String documentName,
-			@RequestParam(value = "remarks", required = false) String remarks,
+	@PutMapping("/{id}/transition")
+	@LogActivity("Transition Purchase Order Status")
+	public ResponseEntity<?> transitionStatus(@PathVariable Long id,
+			@RequestParam String newStatus,
+			@RequestBody(required = false) Map<String, Object> params,
 			@RequestHeader("Authorization") String token) {
 		if (!commonUtils.validateToken(token)) {
 			throw new InvalidCredentialsException();
@@ -155,12 +138,19 @@ public class PartnershipController {
 			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Organization context not found");
 		}
 
-		return partnershipService.uploadPartnershipAgreement(id, orgId, file, documentName, remarks, token);
+		try {
+			com.nexus.core.entities.PurchaseOrderStatus targetStatus = com.nexus.core.entities.PurchaseOrderStatus
+					.valueOf(newStatus.toUpperCase());
+			return purchaseOrderService.transitionStatus(id, targetStatus, params, orgId);
+		} catch (IllegalArgumentException e) {
+			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid status: " + newStatus);
+		}
 	}
 
-	@GetMapping("/{id}/agreement")
-	@LogActivity("Get Partnership Agreement")
-	public ResponseEntity<?> getPartnershipAgreement(@PathVariable Long id,
+	@PostMapping("/{parentPoId}/amend")
+	@LogActivity("Create Purchase Order Amendment")
+	public ResponseEntity<?> createAmendment(@PathVariable Long parentPoId,
+			@RequestBody PurchaseOrderDto amendmentDto,
 			@RequestHeader("Authorization") String token) {
 		if (!commonUtils.validateToken(token)) {
 			throw new InvalidCredentialsException();
@@ -171,12 +161,12 @@ public class PartnershipController {
 			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Organization context not found");
 		}
 
-		return partnershipService.getPartnershipAgreement(id, orgId, token);
+		return purchaseOrderService.createAmendment(parentPoId, amendmentDto, orgId);
 	}
 
-	@DeleteMapping("/{id}/agreement")
-	@LogActivity("Delete Partnership Agreement")
-	public ResponseEntity<?> deletePartnershipAgreement(@PathVariable Long id,
+	@GetMapping("/{parentPoId}/amendments")
+	@LogActivity("Get Purchase Order Amendments")
+	public ResponseEntity<?> getAmendments(@PathVariable Long parentPoId,
 			@RequestHeader("Authorization") String token) {
 		if (!commonUtils.validateToken(token)) {
 			throw new InvalidCredentialsException();
@@ -187,29 +177,7 @@ public class PartnershipController {
 			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Organization context not found");
 		}
 
-		return partnershipService.deletePartnershipAgreement(id, orgId, token);
-	}
-
-	// ============================================
-	// Partnership Lifecycle Management
-	// ============================================
-
-	@PostMapping("/{id}/transition")
-	@LogActivity("Transition Partnership Status")
-	public ResponseEntity<?> transitionPartnershipStatus(@PathVariable Long id,
-			@RequestBody com.nexus.core.payload.PartnershipStatusTransitionDto transitionDto,
-			@RequestHeader("Authorization") String token) {
-		if (!commonUtils.validateToken(token)) {
-			throw new InvalidCredentialsException();
-		}
-
-		Long orgId = getOrganizationIdFromContext();
-		if (orgId == null) {
-			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Organization context not found");
-		}
-
-		return partnershipService.transitionPartnershipStatus(id, orgId, transitionDto.getNewStatus(),
-				transitionDto.getReason(), token);
+		return purchaseOrderService.getAmendmentsByParentPoId(parentPoId, orgId);
 	}
 
 	/**
@@ -233,5 +201,4 @@ public class PartnershipController {
 		}
 		return null;
 	}
-
 }

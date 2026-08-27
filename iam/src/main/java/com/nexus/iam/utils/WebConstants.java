@@ -304,6 +304,20 @@ public class WebConstants {
 	@Value("${core.partnership.update.status.url}")
 	private String corePartnershipUpdateStatusUrl;
 
+	// Partnership Agreement Endpoints
+	@Value("${core.partnership.agreement.upload.url}")
+	private String corePartnershipAgreementUploadUrl;
+
+	@Value("${core.partnership.agreement.get.url}")
+	private String corePartnershipAgreementGetUrl;
+
+	@Value("${core.partnership.agreement.delete.url}")
+	private String corePartnershipAgreementDeleteUrl;
+
+	// Partnership Lifecycle Transition Endpoint
+	@Value("${core.partnership.transition.url}")
+	private String corePartnershipTransitionUrl;
+
 	// Partnership Invitation Endpoints
 	@Value("${core.partnership.invitation.create.url}")
 	private String corePartnershipInvitationCreateUrl;
@@ -352,6 +366,31 @@ public class WebConstants {
 	@Value("${core.supplier.by.account.url}")
 	private String coreSupplierByAccountUrl;
 
+	// Purchase Order Endpoints
+	@Value("${core.purchase.order.create.url}")
+	private String corePurchaseOrderCreateUrl;
+
+	@Value("${core.purchase.order.get.url}")
+	private String corePurchaseOrderGetUrl;
+
+	@Value("${core.purchase.order.all.url}")
+	private String corePurchaseOrderAllUrl;
+
+	@Value("${core.purchase.order.by.status.url}")
+	private String corePurchaseOrderByStatusUrl;
+
+	@Value("${core.purchase.order.update.url}")
+	private String corePurchaseOrderUpdateUrl;
+
+	@Value("${core.purchase.order.transition.url}")
+	private String corePurchaseOrderTransitionUrl;
+
+	@Value("${core.purchase.order.amend.url}")
+	private String corePurchaseOrderAmendUrl;
+
+	@Value("${core.purchase.order.amendments.url}")
+	private String corePurchaseOrderAmendmentsUrl;
+
 	// Keycloak URLs
 	public String getKeycloakAdminUrl() {
 		return keycloakServerUrl + "/admin/realms/" + keycloakRealm;
@@ -377,172 +416,4 @@ public class WebConstants {
 		return keycloakServerUrl + "/realms/" + keycloakRealm + "/protocol/openid-connect/logout";
 	}
 
-	// Getters for OAuth2 properties
-	public String getKeycloakOAuth2ClientId() {
-		return keycloakOAuth2ClientId;
-	}
-
-	public String getKeycloakOAuth2ClientSecret() {
-		return keycloakOAuth2ClientSecret;
-	}
-
-	public String getKeycloakOAuth2RedirectUri() {
-		return keycloakOAuth2RedirectUri;
-	}
-
-	public boolean isKeycloakOAuth2Enabled() {
-		return keycloakOAuth2Enabled;
-	}
-
-	public String getNexusBuddyClientInsightsUrl() {
-		return nexusBuddyClientInsightsUrl;
-	}
-
-	public String getNexusBuddyChatUrl() {
-		return nexusBuddyChatUrl;
-	}
-
-	public String getNexusBuddyClientConfigUrl() {
-		return nexusBuddyClientConfigUrl;
-	}
-
-	public String getCoreServiceUrl() {
-		return coreServiceUrl;
-	}
-
-	// Core Service Endpoints
-	public String getCoreProductAddUrl() {
-		return coreProductAddUrl;
-	}
-
-	public String getCoreProductGetUrl() {
-		return coreProductGetUrl;
-	}
-
-	public String getCoreProductAllUrl() {
-		return coreProductAllUrl;
-	}
-
-	public String getCoreMaterialAddUrl() {
-		return coreMaterialAddUrl;
-	}
-
-	public String getCoreMaterialGetUrl() {
-		return coreMaterialGetUrl;
-	}
-
-	public String getCoreMaterialAllUrl() {
-		return coreMaterialAllUrl;
-	}
-
-	public String getCoreWarehouseAddUrl() {
-		return coreWarehouseAddUrl;
-	}
-
-	public String getCoreWarehouseGetUrl() {
-		return coreWarehouseGetUrl;
-	}
-
-	public String getCoreWarehouseAllUrl() {
-		return coreWarehouseAllUrl;
-	}
-
-	public String getCoreOrderAddUrl() {
-		return coreOrderAddUrl;
-	}
-
-	public String getCoreOrderGetUrl() {
-		return coreOrderGetUrl;
-	}
-
-	public String getCoreOrderAllUrl() {
-		return coreOrderAllUrl;
-	}
-
-	public String getCorePartnershipAddUrl() {
-		return corePartnershipAddUrl;
-	}
-
-	public String getCorePartnershipGetUrl() {
-		return corePartnershipGetUrl;
-	}
-
-	public String getCorePartnershipAllUrl() {
-		return corePartnershipAllUrl;
-	}
-
-	public String getCorePartnershipStatusUrl() {
-		return corePartnershipStatusUrl;
-	}
-
-	public String getCorePartnershipActiveUrl() {
-		return corePartnershipActiveUrl;
-	}
-
-	public String getCorePartnershipUpdateStatusUrl() {
-		return corePartnershipUpdateStatusUrl;
-	}
-
-	// Partnership Invitation Endpoints
-	public String getCorePartnershipInvitationCreateUrl() {
-		return corePartnershipInvitationCreateUrl;
-	}
-
-	public String getCorePartnershipInvitationRespondUrl() {
-		return corePartnershipInvitationRespondUrl;
-	}
-
-	public String getCorePartnershipInvitationGetUrl() {
-		return corePartnershipInvitationGetUrl;
-	}
-
-	public String getCorePartnershipInvitationSentUrl() {
-		return corePartnershipInvitationSentUrl;
-	}
-
-	public String getCorePartnershipInvitationReceivedUrl() {
-		return corePartnershipInvitationReceivedUrl;
-	}
-
-	public String getCorePartnershipInvitationPendingUrl() {
-		return corePartnershipInvitationPendingUrl;
-	}
-
-	public String getCorePartnershipInvitationWithdrawUrl() {
-		return corePartnershipInvitationWithdrawUrl;
-	}
-
-	// Supplier Discovery Endpoints
-	public String getCoreSupplierDiscoverUrl() {
-		return coreSupplierDiscoverUrl;
-	}
-
-	public String getCoreSupplierQualifyUrl() {
-		return coreSupplierQualifyUrl;
-	}
-
-	public String getCoreSupplierQualificationGetUrl() {
-		return coreSupplierQualificationGetUrl;
-	}
-
-	public String getCoreSupplierQualificationAllUrl() {
-		return coreSupplierQualificationAllUrl;
-	}
-
-	// Supplier Management Endpoints
-	public String getCoreSupplierAddUrl() {
-		return coreSupplierAddUrl;
-	}
-
-	public String getCoreSupplierGetUrl() {
-		return coreSupplierGetUrl;
-	}
-
-	public String getCoreSupplierAllUrl() {
-		return coreSupplierAllUrl;
-	}
-
-	public String getCoreSupplierByAccountUrl() {
-		return coreSupplierByAccountUrl;
-	}
 }

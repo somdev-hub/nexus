@@ -25,50 +25,76 @@ import java.util.concurrent.ConcurrentHashMap;
 @RequiredArgsConstructor
 public class CommonUtils {
 
-    private final JwtUtil jwtUtil;
-    private final ObjectProvider<AuthenticationService> authenticationServiceProvider;
-    private final ObjectMapper objectMapper;
-    private final WebConstants webConstants;
-    private final ObjectProvider<KeycloakAuthenticationService> keycloakAuthenticationServices;
+	private final JwtUtil jwtUtil;
+	private final ObjectProvider<AuthenticationService> authenticationServiceProvider;
+	private final ObjectMapper objectMapper;
+	private final WebConstants webConstants;
+	private final ObjectProvider<KeycloakAuthenticationService> keycloakAuthenticationServices;
 
-    public String jsonValidator(String jsonString) {
-        if (ObjectUtils.isEmpty(jsonString)) {
-            return "{}";
-        }
-        JsonNode jsonNode = null;
-        ObjectMapper objectMapper = new ObjectMapper();
-        try {
-            jsonNode = objectMapper.readTree(jsonString);
-        } catch (JsonProcessingException ex) {
-            jsonNode = objectMapper.createObjectNode().put("message", jsonString);
-        }
-        try {
-            return objectMapper.writeValueAsString(jsonNode);
-        } catch (JsonProcessingException e) {
-            return "{}";
-        }
-    }
+	public String jsonValidator(String jsonString) {
+		if (ObjectUtils.isEmpty(jsonString)) {
+			return "{}";
+		}
+		JsonNode jsonNode = null;
+		ObjectMapper objectMapper = new ObjectMapper();
+		try {
+			jsonNode = objectMapper.readTree(jsonString);
+		} catch (JsonProcessingException ex) {
+			jsonNode = objectMapper.createObjectNode().put("message", jsonString);
+		}
+		try {
+			return objectMapper.writeValueAsString(jsonNode);
+		} catch (JsonProcessingException e) {
+			return "{}";
+		}
+	}
 
-    public Map<String, String> buildJsonHeaders(String authToken) {
-        Map<String, String> headers = new ConcurrentHashMap<>();
-        headers.put(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
-        if (!ObjectUtils.isEmpty(authToken)) {
-            headers.put(HttpHeaders.AUTHORIZATION, authToken);
-        } else {
-//            AuthenticationService authenticationService = authenticationServiceProvider.getIfAvailable();
-            KeycloakAuthenticationService authenticationService = keycloakAuthenticationServices.getIfAvailable();
-            if (authenticationService != null) {
-                ResponseEntity<LoginResponse> loginResponse = authenticationService
-                        .login(webConstants.getGenericUserId(),
-                                webConstants.getGenericPassword());
-                if (loginResponse.getStatusCode().is2xxSuccessful() && loginResponse.getBody() != null) {
-                    headers.put(HttpHeaders.AUTHORIZATION, "Bearer " + loginResponse.getBody().getAccessToken());
-                }else{
-                    log.error("Failed to obtain generic user token. Status: {}, Body: {}", loginResponse.getStatusCode(), loginResponse.getBody());
-                }
-            }
-        }
+	public Map<String, String> buildJsonHeaders(String authToken) {
+		Map<String, String> headers = new ConcurrentHashMap<>();
+		headers.put(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
+		if (!ObjectUtils.isEmpty(authToken)) {
+			headers.put(HttpHeaders.AUTHORIZATION, authToken);
+		} else {
+			// AuthenticationService authenticationService =
+			// authenticationServiceProvider.getIfAvailable();
+			KeycloakAuthenticationService authenticationService = keycloakAuthenticationServices.getIfAvailable();
+			if (authenticationService != null) {
+				ResponseEntity<LoginResponse> loginResponse = authenticationService
+						.login(webConstants.getGenericUserId(),
+								webConstants.getGenericPassword());
+				if (loginResponse.getStatusCode().is2xxSuccessful() && loginResponse.getBody() != null) {
+					headers.put(HttpHeaders.AUTHORIZATION, "Bearer " + loginResponse.getBody().getAccessToken());
+				} else {
+					log.error("Failed to obtain generic user token. Status: {}, Body: {}",
+							loginResponse.getStatusCode(), loginResponse.getBody());
+				}
+			}
+		}
 
-        return headers;
-    }
+		return headers;
+	}
+
+	public Map<String, String> buildMultipartHeaders(String authToken) {
+		Map<String, String> headers = new ConcurrentHashMap<>();
+		// For multipart, we don't set Content-Type as it will be set automatically with
+		// boundary
+		if (!ObjectUtils.isEmpty(authToken)) {
+			headers.put(HttpHeaders.AUTHORIZATION, authToken);
+		} else {
+			KeycloakAuthenticationService authenticationService = keycloakAuthenticationServices.getIfAvailable();
+			if (authenticationService != null) {
+				ResponseEntity<LoginResponse> loginResponse = authenticationService
+						.login(webConstants.getGenericUserId(),
+								webConstants.getGenericPassword());
+				if (loginResponse.getStatusCode().is2xxSuccessful() && loginResponse.getBody() != null) {
+					headers.put(HttpHeaders.AUTHORIZATION, "Bearer " + loginResponse.getBody().getAccessToken());
+				} else {
+					log.error("Failed to obtain generic user token. Status: {}, Body: {}",
+							loginResponse.getStatusCode(), loginResponse.getBody());
+				}
+			}
+		}
+
+		return headers;
+	}
 }

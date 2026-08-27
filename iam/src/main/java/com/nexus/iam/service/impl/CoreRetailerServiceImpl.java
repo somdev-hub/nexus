@@ -6,6 +6,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import com.nexus.iam.service.CoreRetailerService;
@@ -14,6 +15,7 @@ import com.nexus.iam.utils.RestService;
 import com.nexus.iam.utils.WebConstants;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Core Retailer Service Implementation
@@ -23,6 +25,7 @@ import lombok.RequiredArgsConstructor;
  */
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class CoreRetailerServiceImpl implements CoreRetailerService {
 
 	private final RestService restService;
@@ -260,6 +263,82 @@ public class CoreRetailerServiceImpl implements CoreRetailerService {
 				null);
 	}
 
+	// Partnership Agreement with DMS Integration
+	@Override
+	public ResponseEntity<?> uploadPartnershipAgreement(Long id, MultipartFile file, String documentName,
+			String remarks, String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildMultipartHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCorePartnershipAgreementUploadUrl() + "/" + id + "/agreement";
+
+		org.springframework.util.MultiValueMap<String, Object> body = new org.springframework.util.LinkedMultiValueMap<>();
+		try {
+			body.add("file", new org.springframework.core.io.ByteArrayResource(file.getBytes()) {
+				@Override
+				public String getFilename() {
+					return file.getOriginalFilename();
+				}
+			});
+		} catch (java.io.IOException e) {
+			log.error("Failed to read file bytes: {}", e.getMessage());
+			return ResponseEntity.internalServerError().body(Map.of("error", "Failed to read file"));
+		}
+		if (documentName != null) {
+			body.add("documentName", documentName);
+		}
+		if (remarks != null) {
+			body.add("remarks", remarks);
+		}
+
+		return restService.iamRestCall(
+				url,
+				body,
+				headers,
+				HttpMethod.POST,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> getPartnershipAgreement(Long id, String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCorePartnershipAgreementGetUrl() + "/" + id + "/agreement";
+		return restService.iamRestCall(
+				url,
+				null,
+				headers,
+				HttpMethod.GET,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> deletePartnershipAgreement(Long id, String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCorePartnershipAgreementDeleteUrl() + "/" + id + "/agreement";
+		return restService.iamRestCall(
+				url,
+				null,
+				headers,
+				HttpMethod.DELETE,
+				null);
+	}
+
+	// Partnership Lifecycle Management
+	@Override
+	public ResponseEntity<?> transitionPartnershipStatus(Long id, Map<String, Object> transitionDto, String authToken,
+			String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCorePartnershipTransitionUrl() + "/" + id + "/transition";
+		return restService.iamRestCall(
+				url,
+				transitionDto,
+				headers,
+				HttpMethod.POST,
+				null);
+	}
+
 	// Partnership Invitation Endpoints
 	@Override
 	public ResponseEntity<?> createPartnershipInvitation(Map<String, Object> invitationDto, String authToken,
@@ -453,6 +532,114 @@ public class CoreRetailerServiceImpl implements CoreRetailerService {
 		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
 		headers.put("X-Organization-ID", orgIdHeader);
 		String url = buildPaginatedUrl(webConstants.getCoreSupplierByAccountUrl() + "/" + accountId, pageable);
+		return restService.iamRestCall(
+				url,
+				null,
+				headers,
+				HttpMethod.GET,
+				null);
+	}
+
+	// Purchase Order Endpoints
+	@Override
+	public ResponseEntity<?> createPurchaseOrder(Map<String, Object> poDto, String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		return restService.iamRestCall(
+				webConstants.getCorePurchaseOrderCreateUrl(),
+				poDto,
+				headers,
+				HttpMethod.POST,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> getPurchaseOrder(Long id, String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCorePurchaseOrderGetUrl() + "/" + id;
+		return restService.iamRestCall(
+				url,
+				null,
+				headers,
+				HttpMethod.GET,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> getAllPurchaseOrders(String authToken, String orgIdHeader, Pageable pageable) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = buildPaginatedUrl(webConstants.getCorePurchaseOrderAllUrl(), pageable);
+		return restService.iamRestCall(
+				url,
+				null,
+				headers,
+				HttpMethod.GET,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> getPurchaseOrdersByStatus(String status, String authToken, String orgIdHeader,
+			Pageable pageable) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = buildPaginatedUrl(webConstants.getCorePurchaseOrderByStatusUrl() + "/" + status, pageable);
+		return restService.iamRestCall(
+				url,
+				null,
+				headers,
+				HttpMethod.GET,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> updatePurchaseOrder(Long id, Map<String, Object> poDto, String authToken,
+			String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCorePurchaseOrderUpdateUrl() + "/" + id + "/update";
+		return restService.iamRestCall(
+				url,
+				poDto,
+				headers,
+				HttpMethod.PUT,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> transitionPurchaseOrderStatus(Long id, String newStatus, Map<String, Object> params,
+			String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCorePurchaseOrderTransitionUrl() + "/" + id + "/transition?newStatus=" + newStatus;
+		return restService.iamRestCall(
+				url,
+				params,
+				headers,
+				HttpMethod.PUT,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> createPurchaseOrderAmendment(Long parentPoId, Map<String, Object> amendmentDto,
+			String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCorePurchaseOrderAmendUrl() + "/" + parentPoId + "/amend";
+		return restService.iamRestCall(
+				url,
+				amendmentDto,
+				headers,
+				HttpMethod.POST,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> getPurchaseOrderAmendments(Long parentPoId, String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCorePurchaseOrderAmendmentsUrl() + "/" + parentPoId + "/amendments";
 		return restService.iamRestCall(
 				url,
 				null,

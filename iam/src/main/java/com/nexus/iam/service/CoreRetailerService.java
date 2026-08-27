@@ -4,6 +4,7 @@ import java.util.Map;
 
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.multipart.MultipartFile;
 
 /**
  * Core Retailer Service Interface
@@ -49,6 +50,18 @@ public interface CoreRetailerService {
 
 	ResponseEntity<?> updatePartnershipStatus(Long id, String status, String authToken, String orgIdHeader);
 
+	// Partnership Agreement with DMS Integration
+	ResponseEntity<?> uploadPartnershipAgreement(Long id, MultipartFile file, String documentName, String remarks,
+			String authToken, String orgIdHeader);
+
+	ResponseEntity<?> getPartnershipAgreement(Long id, String authToken, String orgIdHeader);
+
+	ResponseEntity<?> deletePartnershipAgreement(Long id, String authToken, String orgIdHeader);
+
+	// Partnership Lifecycle Management
+	ResponseEntity<?> transitionPartnershipStatus(Long id, Map<String, Object> transitionDto, String authToken,
+			String orgIdHeader);
+
 	// Partnership Invitation Endpoints
 	ResponseEntity<?> createPartnershipInvitation(Map<String, Object> invitationDto, String authToken,
 			String orgIdHeader);
@@ -84,4 +97,23 @@ public interface CoreRetailerService {
 	ResponseEntity<?> getAllSuppliers(String authToken, String orgIdHeader, Pageable pageable);
 
 	ResponseEntity<?> getSuppliersByAccount(Long accountId, String authToken, String orgIdHeader, Pageable pageable);
+
+	// Purchase Order Endpoints
+	ResponseEntity<?> createPurchaseOrder(Map<String, Object> poDto, String authToken, String orgIdHeader);
+
+	ResponseEntity<?> getPurchaseOrder(Long id, String authToken, String orgIdHeader);
+
+	ResponseEntity<?> getAllPurchaseOrders(String authToken, String orgIdHeader, Pageable pageable);
+
+	ResponseEntity<?> getPurchaseOrdersByStatus(String status, String authToken, String orgIdHeader, Pageable pageable);
+
+	ResponseEntity<?> updatePurchaseOrder(Long id, Map<String, Object> poDto, String authToken, String orgIdHeader);
+
+	ResponseEntity<?> transitionPurchaseOrderStatus(Long id, String newStatus, Map<String, Object> params,
+			String authToken, String orgIdHeader);
+
+	ResponseEntity<?> createPurchaseOrderAmendment(Long parentPoId, Map<String, Object> amendmentDto, String authToken,
+			String orgIdHeader);
+
+	ResponseEntity<?> getPurchaseOrderAmendments(Long parentPoId, String authToken, String orgIdHeader);
 }
