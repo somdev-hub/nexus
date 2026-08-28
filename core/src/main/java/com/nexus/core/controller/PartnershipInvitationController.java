@@ -12,12 +12,11 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.nexus.core.annotation.LogActivity;
-import com.nexus.core.exception.InvalidCredentialsException;
 import com.nexus.core.payload.PartnershipInvitationDto;
 import com.nexus.core.security.OrganizationContextFilter;
 import com.nexus.core.service.PartnershipInvitationService;
-import com.nexus.core.utils.CommonUtils;
 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 @RestController
@@ -26,15 +25,10 @@ import lombok.RequiredArgsConstructor;
 public class PartnershipInvitationController {
 
 	private final PartnershipInvitationService invitationService;
-	private final CommonUtils commonUtils;
-
+	
 	@PostMapping("/create")
 	@LogActivity("Create Partnership Invitation")
-	public ResponseEntity<?> createInvitation(@RequestBody PartnershipInvitationDto invitationDto,
-			@RequestHeader("Authorization") String token) {
-		if (!commonUtils.validateToken(token)) {
-			throw new InvalidCredentialsException();
-		}
+	public ResponseEntity<?> createInvitation(@Valid @RequestBody PartnershipInvitationDto invitationDto) {
 
 		Long orgId = getOrganizationIdFromContext();
 		if (orgId == null) {
@@ -50,11 +44,7 @@ public class PartnershipInvitationController {
 	@PutMapping("/{id}/respond")
 	@LogActivity("Respond to Partnership Invitation")
 	public ResponseEntity<?> respondToInvitation(@PathVariable Long id,
-			@RequestBody PartnershipInvitationDto responseDto,
-			@RequestHeader("Authorization") String token) {
-		if (!commonUtils.validateToken(token)) {
-			throw new InvalidCredentialsException();
-		}
+			@Valid @RequestBody PartnershipInvitationDto responseDto) {
 
 		Long orgId = getOrganizationIdFromContext();
 		if (orgId == null) {
@@ -70,9 +60,6 @@ public class PartnershipInvitationController {
 	@GetMapping("/{id}")
 	@LogActivity("Get Partnership Invitation")
 	public ResponseEntity<?> getInvitation(@PathVariable Long id, @RequestHeader("Authorization") String token) {
-		if (!commonUtils.validateToken(token)) {
-			throw new InvalidCredentialsException();
-		}
 
 		Long orgId = getOrganizationIdFromContext();
 		if (orgId == null) {
@@ -85,9 +72,6 @@ public class PartnershipInvitationController {
 	@GetMapping("/sent")
 	@LogActivity("Get Sent Partnership Invitations")
 	public ResponseEntity<?> getSentInvitations(@RequestHeader("Authorization") String token) {
-		if (!commonUtils.validateToken(token)) {
-			throw new InvalidCredentialsException();
-		}
 
 		Long orgId = getOrganizationIdFromContext();
 		if (orgId == null) {
@@ -100,9 +84,6 @@ public class PartnershipInvitationController {
 	@GetMapping("/received")
 	@LogActivity("Get Received Partnership Invitations")
 	public ResponseEntity<?> getReceivedInvitations(@RequestHeader("Authorization") String token) {
-		if (!commonUtils.validateToken(token)) {
-			throw new InvalidCredentialsException();
-		}
 
 		Long orgId = getOrganizationIdFromContext();
 		if (orgId == null) {
@@ -115,9 +96,6 @@ public class PartnershipInvitationController {
 	@GetMapping("/pending")
 	@LogActivity("Get Pending Partnership Invitations")
 	public ResponseEntity<?> getPendingInvitations(@RequestHeader("Authorization") String token) {
-		if (!commonUtils.validateToken(token)) {
-			throw new InvalidCredentialsException();
-		}
 
 		Long orgId = getOrganizationIdFromContext();
 		if (orgId == null) {
@@ -130,9 +108,6 @@ public class PartnershipInvitationController {
 	@PutMapping("/{id}/withdraw")
 	@LogActivity("Withdraw Partnership Invitation")
 	public ResponseEntity<?> withdrawInvitation(@PathVariable Long id, @RequestHeader("Authorization") String token) {
-		if (!commonUtils.validateToken(token)) {
-			throw new InvalidCredentialsException();
-		}
 
 		Long orgId = getOrganizationIdFromContext();
 		if (orgId == null) {

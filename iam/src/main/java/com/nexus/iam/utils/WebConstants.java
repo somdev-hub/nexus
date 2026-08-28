@@ -391,6 +391,92 @@ public class WebConstants {
 	@Value("${core.purchase.order.amendments.url}")
 	private String corePurchaseOrderAmendmentsUrl;
 
+	// Stock/Inventory Endpoints
+	@Value("${core.stock.add.url}")
+	private String coreStockAddUrl;
+
+	@Value("${core.stock.get.url}")
+	private String coreStockGetUrl;
+
+	@Value("${core.stock.all.url}")
+	private String coreStockAllUrl;
+
+	@Value("${core.stock.warehouse.url}")
+	private String coreStockWarehouseUrl;
+
+	@Value("${core.stock.material.url}")
+	private String coreStockMaterialUrl;
+
+	@Value("${core.stock.below-reorder-point.url}")
+	private String coreStockBelowReorderPointUrl;
+
+	@Value("${core.stock.min-level.url}")
+	private String coreStockMinLevelUrl;
+
+	@Value("${core.stock.valuation.url}")
+	private String coreStockValuationUrl;
+
+	@Value("${core.stock.warehouse-valuation.url}")
+	private String coreStockWarehouseValuationUrl;
+
+	@Value("${core.stock.adjust.url}")
+	private String coreStockAdjustUrl;
+
+	@Value("${core.stock.reserve.url}")
+	private String coreStockReserveUrl;
+
+	@Value("${core.stock.release-reservation.url}")
+	private String coreStockReleaseReservationUrl;
+
+	@Value("${core.stock.transfer.url}")
+	private String coreStockTransferUrl;
+
+	@Value("${core.stock.cycle-count.url}")
+	private String coreStockCycleCountUrl;
+
+	@Value("${core.stock.reorder-suggestions.url}")
+	private String coreStockReorderSuggestionsUrl;
+
+	@Value("${core.stock.settings.url}")
+	private String coreStockSettingsUrl;
+
+	// Stock Movement Endpoints
+	@Value("${core.stock-movement.add.url}")
+	private String coreStockMovementAddUrl;
+
+	@Value("${core.stock-movement.get.url}")
+	private String coreStockMovementGetUrl;
+
+	@Value("${core.stock-movement.stock.url}")
+	private String coreStockMovementStockUrl;
+
+	@Value("${core.stock-movement.all.url}")
+	private String coreStockMovementAllUrl;
+
+	@Value("${core.stock-movement.warehouse.url}")
+	private String coreStockMovementWarehouseUrl;
+
+	@Value("${core.stock-movement.type.url}")
+	private String coreStockMovementTypeUrl;
+
+	@Value("${core.stock-movement.reference.url}")
+	private String coreStockMovementReferenceUrl;
+
+	@Value("${core.stock-movement.batch.url}")
+	private String coreStockMovementBatchUrl;
+
+	@Value("${core.stock-movement.expiring.url}")
+	private String coreStockMovementExpiringUrl;
+
+	@Value("${core.stock-movement.date-range.url}")
+	private String coreStockMovementDateRangeUrl;
+
+	@Value("${core.stock-movement.material.url}")
+	private String coreStockMovementMaterialUrl;
+
+	@Value("${core.stock-movement.summary.url}")
+	private String coreStockMovementSummaryUrl;
+
 	// Keycloak URLs
 	public String getKeycloakAdminUrl() {
 		return keycloakServerUrl + "/admin/realms/" + keycloakRealm;

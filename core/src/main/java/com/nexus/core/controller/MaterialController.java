@@ -1,5 +1,6 @@
 package com.nexus.core.controller;
 
+import jakarta.validation.Valid;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
@@ -31,7 +32,7 @@ public class MaterialController {
 
 	@PostMapping("/add")
 	@LogActivity("Create Material")
-	public ResponseEntity<?> addMaterial(@RequestBody MaterialDto materialDto,
+	public ResponseEntity<?> addMaterial(@Valid @RequestBody MaterialDto materialDto,
 			@RequestHeader("Authorization") String token) {
 		if (!commonUtils.validateToken(token)) {
 			throw new InvalidCredentialsException();

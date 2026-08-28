@@ -1,5 +1,6 @@
 package com.nexus.core.controller;
 
+import jakarta.validation.Valid;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
@@ -18,6 +19,7 @@ import org.springframework.web.multipart.MultipartFile;
 import com.nexus.core.annotation.LogActivity;
 import com.nexus.core.exception.InvalidCredentialsException;
 import com.nexus.core.payload.PartnershipDto;
+import com.nexus.core.payload.PartnershipStatusTransitionDto;
 import com.nexus.core.security.OrganizationContextFilter;
 import com.nexus.core.service.PartnershipService;
 import com.nexus.core.utils.CommonUtils;
@@ -34,7 +36,7 @@ public class PartnershipController {
 
 	@PostMapping("/add")
 	@LogActivity("Create Partnership")
-	public ResponseEntity<?> addPartnership(@RequestBody PartnershipDto partnershipDto,
+	public ResponseEntity<?> addPartnership(@Valid @RequestBody PartnershipDto partnershipDto,
 			@RequestHeader("Authorization") String token) {
 		if (!commonUtils.validateToken(token)) {
 			throw new InvalidCredentialsException();
@@ -197,7 +199,7 @@ public class PartnershipController {
 	@PostMapping("/{id}/transition")
 	@LogActivity("Transition Partnership Status")
 	public ResponseEntity<?> transitionPartnershipStatus(@PathVariable Long id,
-			@RequestBody com.nexus.core.payload.PartnershipStatusTransitionDto transitionDto,
+			@Valid @RequestBody PartnershipStatusTransitionDto transitionDto,
 			@RequestHeader("Authorization") String token) {
 		if (!commonUtils.validateToken(token)) {
 			throw new InvalidCredentialsException();

@@ -1,5 +1,6 @@
 package com.nexus.core.controller;
 
+import jakarta.validation.Valid;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
@@ -31,7 +32,7 @@ public class WarehouseController {
 
 	@PostMapping("/add")
 	@LogActivity("Create Warehouse")
-	public ResponseEntity<?> addWarehouse(@RequestBody WarehouseDto warehouseDto,
+	public ResponseEntity<?> addWarehouse(@Valid @RequestBody WarehouseDto warehouseDto,
 			@RequestHeader("Authorization") String token) {
 		if (!commonUtils.validateToken(token)) {
 			throw new InvalidCredentialsException();

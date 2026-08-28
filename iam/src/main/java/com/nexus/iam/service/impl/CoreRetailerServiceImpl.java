@@ -648,6 +648,412 @@ public class CoreRetailerServiceImpl implements CoreRetailerService {
 				null);
 	}
 
+	// Stock/Inventory Endpoints
+	@Override
+	public ResponseEntity<?> addStock(Map<String, Object> stockDto, String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		return restService.iamRestCall(
+				webConstants.getCoreStockAddUrl(),
+				stockDto,
+				headers,
+				HttpMethod.POST,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> getStock(Long id, String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCoreStockGetUrl() + "/" + id;
+		return restService.iamRestCall(
+				url,
+				null,
+				headers,
+				HttpMethod.GET,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> getAllStocks(String authToken, String orgIdHeader, Pageable pageable) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = buildPaginatedUrl(webConstants.getCoreStockAllUrl(), pageable);
+		return restService.iamRestCall(
+				url,
+				null,
+				headers,
+				HttpMethod.GET,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> getStocksByWarehouse(Long warehouseId, String authToken, String orgIdHeader,
+			Pageable pageable) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = buildPaginatedUrl(webConstants.getCoreStockWarehouseUrl() + "/" + warehouseId, pageable);
+		return restService.iamRestCall(
+				url,
+				null,
+				headers,
+				HttpMethod.GET,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> getStocksByMaterial(Long materialId, String authToken, String orgIdHeader,
+			Pageable pageable) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = buildPaginatedUrl(webConstants.getCoreStockMaterialUrl() + "/" + materialId, pageable);
+		return restService.iamRestCall(
+				url,
+				null,
+				headers,
+				HttpMethod.GET,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> getStocksBelowReorderPoint(String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		return restService.iamRestCall(
+				webConstants.getCoreStockBelowReorderPointUrl(),
+				null,
+				headers,
+				HttpMethod.GET,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> getStocksAtOrBelowMinLevel(String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		return restService.iamRestCall(
+				webConstants.getCoreStockMinLevelUrl(),
+				null,
+				headers,
+				HttpMethod.GET,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> getInventoryValuation(String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		return restService.iamRestCall(
+				webConstants.getCoreStockValuationUrl(),
+				null,
+				headers,
+				HttpMethod.GET,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> getWarehouseInventoryValuation(Long warehouseId, String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCoreStockWarehouseValuationUrl() + "/" + warehouseId;
+		return restService.iamRestCall(
+				url,
+				null,
+				headers,
+				HttpMethod.GET,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> adjustStock(Long stockId, Double quantity, String reason, String referenceType,
+			Long referenceId,
+			String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCoreStockAdjustUrl() + "/" + stockId + "/adjust";
+		Map<String, Object> body = Map.of(
+				"quantity", quantity,
+				"reason", reason,
+				"referenceType", referenceType,
+				"referenceId", referenceId);
+		return restService.iamRestCall(
+				url,
+				body,
+				headers,
+				HttpMethod.POST,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> reserveStock(Long stockId, Double quantity, String referenceType, Long referenceId,
+			String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCoreStockReserveUrl() + "/" + stockId + "/reserve";
+		Map<String, Object> body = Map.of(
+				"quantity", quantity,
+				"referenceType", referenceType,
+				"referenceId", referenceId);
+		return restService.iamRestCall(
+				url,
+				body,
+				headers,
+				HttpMethod.POST,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> releaseReservation(Long stockId, Double quantity, String referenceType, Long referenceId,
+			String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCoreStockReleaseReservationUrl() + "/" + stockId + "/release-reservation";
+		Map<String, Object> body = Map.of(
+				"quantity", quantity,
+				"referenceType", referenceType,
+				"referenceId", referenceId);
+		return restService.iamRestCall(
+				url,
+				body,
+				headers,
+				HttpMethod.POST,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> transferStock(Long fromStockId, Long toWarehouseId, Double quantity, String reason,
+			String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCoreStockTransferUrl() + "/" + fromStockId + "/transfer";
+		Map<String, Object> body = Map.of(
+				"toWarehouseId", toWarehouseId,
+				"quantity", quantity,
+				"reason", reason);
+		return restService.iamRestCall(
+				url,
+				body,
+				headers,
+				HttpMethod.POST,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> recordCycleCount(Long stockId, Double countedQuantity, String countedBy,
+			String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCoreStockCycleCountUrl() + "/" + stockId + "/cycle-count";
+		Map<String, Object> body = Map.of(
+				"countedQuantity", countedQuantity,
+				"countedBy", countedBy);
+		return restService.iamRestCall(
+				url,
+				body,
+				headers,
+				HttpMethod.POST,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> getReorderSuggestions(String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		return restService.iamRestCall(
+				webConstants.getCoreStockReorderSuggestionsUrl(),
+				null,
+				headers,
+				HttpMethod.GET,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> updateStockSettings(Long stockId, Double reorderPoint, Double reorderQuantity,
+			Double minStockLevel, Double maxStockLevel, String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCoreStockSettingsUrl() + "/" + stockId + "/settings";
+		Map<String, Object> body = new java.util.HashMap<>();
+		if (reorderPoint != null)
+			body.put("reorderPoint", reorderPoint);
+		if (reorderQuantity != null)
+			body.put("reorderQuantity", reorderQuantity);
+		if (minStockLevel != null)
+			body.put("minStockLevel", minStockLevel);
+		if (maxStockLevel != null)
+			body.put("maxStockLevel", maxStockLevel);
+		return restService.iamRestCall(
+				url,
+				body,
+				headers,
+				HttpMethod.PUT,
+				null);
+	}
+
+	// Stock Movement Endpoints
+	@Override
+	public ResponseEntity<?> addStockMovement(Map<String, Object> movementDto, String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		return restService.iamRestCall(
+				webConstants.getCoreStockMovementAddUrl(),
+				movementDto,
+				headers,
+				HttpMethod.POST,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> getStockMovement(Long id, String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCoreStockMovementGetUrl() + "/" + id;
+		return restService.iamRestCall(
+				url,
+				null,
+				headers,
+				HttpMethod.GET,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> getMovementsByStock(Long stockId, String authToken, String orgIdHeader,
+			Pageable pageable) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = buildPaginatedUrl(webConstants.getCoreStockMovementStockUrl() + "/" + stockId, pageable);
+		return restService.iamRestCall(
+				url,
+				null,
+				headers,
+				HttpMethod.GET,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> getAllStockMovements(String authToken, String orgIdHeader, Pageable pageable) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = buildPaginatedUrl(webConstants.getCoreStockMovementAllUrl(), pageable);
+		return restService.iamRestCall(
+				url,
+				null,
+				headers,
+				HttpMethod.GET,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> getMovementsByWarehouse(Long warehouseId, String authToken, String orgIdHeader,
+			Pageable pageable) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = buildPaginatedUrl(webConstants.getCoreStockMovementWarehouseUrl() + "/" + warehouseId, pageable);
+		return restService.iamRestCall(
+				url,
+				null,
+				headers,
+				HttpMethod.GET,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> getMovementsByType(String type, String authToken, String orgIdHeader, Pageable pageable) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = buildPaginatedUrl(webConstants.getCoreStockMovementTypeUrl() + "/" + type, pageable);
+		return restService.iamRestCall(
+				url,
+				null,
+				headers,
+				HttpMethod.GET,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> getMovementsByReference(String referenceType, Long referenceId, String authToken,
+			String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCoreStockMovementReferenceUrl() + "?referenceType=" + referenceType
+				+ "&referenceId=" + referenceId;
+		return restService.iamRestCall(
+				url,
+				null,
+				headers,
+				HttpMethod.GET,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> getMovementsByBatchNumber(String batchNumber, String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCoreStockMovementBatchUrl() + "/" + batchNumber;
+		return restService.iamRestCall(
+				url,
+				null,
+				headers,
+				HttpMethod.GET,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> getExpiringStock(java.sql.Date beforeDate, String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCoreStockMovementExpiringUrl() + "?beforeDate=" + beforeDate;
+		return restService.iamRestCall(
+				url,
+				null,
+				headers,
+				HttpMethod.GET,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> getMovementsByDateRange(java.sql.Timestamp start, java.sql.Timestamp end, String authToken,
+			String orgIdHeader, Pageable pageable) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = buildPaginatedUrl(
+				webConstants.getCoreStockMovementDateRangeUrl() + "?start=" + start + "&end=" + end, pageable);
+		return restService.iamRestCall(
+				url,
+				null,
+				headers,
+				HttpMethod.GET,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> getMovementsByMaterial(Long materialId, String authToken, String orgIdHeader,
+			Pageable pageable) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = buildPaginatedUrl(webConstants.getCoreStockMovementMaterialUrl() + "/" + materialId, pageable);
+		return restService.iamRestCall(
+				url,
+				null,
+				headers,
+				HttpMethod.GET,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> getMovementSummary(java.sql.Timestamp start, java.sql.Timestamp end, String authToken,
+			String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCoreStockMovementSummaryUrl() + "?start=" + start + "&end=" + end;
+		return restService.iamRestCall(
+				url,
+				null,
+				headers,
+				HttpMethod.GET,
+				null);
+	}
+
 	/**
 	 * Builds a URL with pagination parameters from Pageable
 	 */

@@ -1,5 +1,6 @@
 package com.nexus.core.controller;
 
+import jakarta.validation.Valid;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
@@ -13,9 +14,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.nexus.core.annotation.LogActivity;
 import com.nexus.core.exception.InvalidCredentialsException;
-import com.nexus.core.payload.SupplierDto;
 import com.nexus.core.payload.SupplierDiscoveryDto;
-import com.nexus.core.security.OrganizationContextFilter;
+import com.nexus.core.payload.SupplierDto;
 import com.nexus.core.service.SupplierService;
 import com.nexus.core.utils.CommonUtils;
 
@@ -31,7 +31,7 @@ public class SupplierController {
 
 	@PostMapping("/add")
 	@LogActivity("Create Supplier")
-	public ResponseEntity<?> addSupplier(@RequestBody SupplierDto supplierDto,
+	public ResponseEntity<?> addSupplier(@Valid @RequestBody SupplierDto supplierDto,
 			@RequestHeader("Authorization") String token) {
 		if (!commonUtils.validateToken(token)) {
 			throw new InvalidCredentialsException();
@@ -75,7 +75,7 @@ public class SupplierController {
 
 	@PostMapping("/discover")
 	@LogActivity("Discover Suppliers")
-	public ResponseEntity<?> discoverSuppliers(@RequestBody SupplierDiscoveryDto discoveryDto,
+	public ResponseEntity<?> discoverSuppliers(@Valid @RequestBody SupplierDiscoveryDto discoveryDto,
 			@RequestHeader("Authorization") String token,
 			@PageableDefault(size = 20) Pageable pageable) {
 		if (!commonUtils.validateToken(token)) {

@@ -116,4 +116,72 @@ public interface CoreRetailerService {
 			String orgIdHeader);
 
 	ResponseEntity<?> getPurchaseOrderAmendments(Long parentPoId, String authToken, String orgIdHeader);
+
+	// Stock/Inventory Endpoints
+	ResponseEntity<?> addStock(Map<String, Object> stockDto, String authToken, String orgIdHeader);
+
+	ResponseEntity<?> getStock(Long id, String authToken, String orgIdHeader);
+
+	ResponseEntity<?> getAllStocks(String authToken, String orgIdHeader, Pageable pageable);
+
+	ResponseEntity<?> getStocksByWarehouse(Long warehouseId, String authToken, String orgIdHeader, Pageable pageable);
+
+	ResponseEntity<?> getStocksByMaterial(Long materialId, String authToken, String orgIdHeader, Pageable pageable);
+
+	ResponseEntity<?> getStocksBelowReorderPoint(String authToken, String orgIdHeader);
+
+	ResponseEntity<?> getStocksAtOrBelowMinLevel(String authToken, String orgIdHeader);
+
+	ResponseEntity<?> getInventoryValuation(String authToken, String orgIdHeader);
+
+	ResponseEntity<?> getWarehouseInventoryValuation(Long warehouseId, String authToken, String orgIdHeader);
+
+	ResponseEntity<?> adjustStock(Long stockId, Double quantity, String reason, String referenceType, Long referenceId,
+			String authToken, String orgIdHeader);
+
+	ResponseEntity<?> reserveStock(Long stockId, Double quantity, String referenceType, Long referenceId,
+			String authToken, String orgIdHeader);
+
+	ResponseEntity<?> releaseReservation(Long stockId, Double quantity, String referenceType, Long referenceId,
+			String authToken, String orgIdHeader);
+
+	ResponseEntity<?> transferStock(Long fromStockId, Long toWarehouseId, Double quantity, String reason,
+			String authToken, String orgIdHeader);
+
+	ResponseEntity<?> recordCycleCount(Long stockId, Double countedQuantity, String countedBy,
+			String authToken, String orgIdHeader);
+
+	ResponseEntity<?> getReorderSuggestions(String authToken, String orgIdHeader);
+
+	ResponseEntity<?> updateStockSettings(Long stockId, Double reorderPoint, Double reorderQuantity,
+			Double minStockLevel, Double maxStockLevel, String authToken, String orgIdHeader);
+
+	// Stock Movement Endpoints
+	ResponseEntity<?> addStockMovement(Map<String, Object> movementDto, String authToken, String orgIdHeader);
+
+	ResponseEntity<?> getStockMovement(Long id, String authToken, String orgIdHeader);
+
+	ResponseEntity<?> getMovementsByStock(Long stockId, String authToken, String orgIdHeader, Pageable pageable);
+
+	ResponseEntity<?> getAllStockMovements(String authToken, String orgIdHeader, Pageable pageable);
+
+	ResponseEntity<?> getMovementsByWarehouse(Long warehouseId, String authToken, String orgIdHeader,
+			Pageable pageable);
+
+	ResponseEntity<?> getMovementsByType(String type, String authToken, String orgIdHeader, Pageable pageable);
+
+	ResponseEntity<?> getMovementsByReference(String referenceType, Long referenceId, String authToken,
+			String orgIdHeader);
+
+	ResponseEntity<?> getMovementsByBatchNumber(String batchNumber, String authToken, String orgIdHeader);
+
+	ResponseEntity<?> getExpiringStock(java.sql.Date beforeDate, String authToken, String orgIdHeader);
+
+	ResponseEntity<?> getMovementsByDateRange(java.sql.Timestamp start, java.sql.Timestamp end, String authToken,
+			String orgIdHeader, Pageable pageable);
+
+	ResponseEntity<?> getMovementsByMaterial(Long materialId, String authToken, String orgIdHeader, Pageable pageable);
+
+	ResponseEntity<?> getMovementSummary(java.sql.Timestamp start, java.sql.Timestamp end, String authToken,
+			String orgIdHeader);
 }

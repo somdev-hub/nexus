@@ -1,5 +1,6 @@
 package com.nexus.core.controller;
 
+import jakarta.validation.Valid;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
@@ -31,7 +32,8 @@ public class OrderController {
 
 	@PostMapping("/add")
 	@LogActivity("Create Order")
-	public ResponseEntity<?> addOrder(@RequestBody OrderDto orderDto, @RequestHeader("Authorization") String token) {
+	public ResponseEntity<?> addOrder(@Valid @RequestBody OrderDto orderDto,
+			@RequestHeader("Authorization") String token) {
 		if (!commonUtils.validateToken(token)) {
 			throw new InvalidCredentialsException();
 		}

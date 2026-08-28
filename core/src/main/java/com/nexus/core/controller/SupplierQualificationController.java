@@ -1,5 +1,7 @@
 package com.nexus.core.controller;
 
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotNull;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
@@ -16,7 +18,6 @@ import com.nexus.core.annotation.LogActivity;
 import com.nexus.core.entities.QualificationStatus;
 import com.nexus.core.exception.InvalidCredentialsException;
 import com.nexus.core.payload.SupplierQualificationDto;
-import com.nexus.core.security.OrganizationContextFilter;
 import com.nexus.core.service.SupplierQualificationService;
 import com.nexus.core.utils.CommonUtils;
 
@@ -33,7 +34,7 @@ public class SupplierQualificationController {
 
 	@PostMapping("/create")
 	@LogActivity("Create Supplier Qualification")
-	public ResponseEntity<?> createQualification(@RequestBody SupplierQualificationDto qualificationDto,
+	public ResponseEntity<?> createQualification(@Valid @RequestBody SupplierQualificationDto qualificationDto,
 			@RequestHeader("Authorization") String token) {
 		if (!commonUtils.validateToken(token)) {
 			throw new InvalidCredentialsException();
@@ -90,7 +91,7 @@ public class SupplierQualificationController {
 	@PutMapping("/{id}/status")
 	@LogActivity("Update Supplier Qualification Status")
 	public ResponseEntity<?> updateQualificationStatus(@PathVariable Long id,
-			@RequestBody QualificationStatusUpdateDto statusDto,
+			@Valid @RequestBody QualificationStatusUpdateDto statusDto,
 			@RequestHeader("Authorization") String token) {
 		if (!commonUtils.validateToken(token)) {
 			throw new InvalidCredentialsException();
@@ -102,6 +103,7 @@ public class SupplierQualificationController {
 
 	@Data
 	public static class QualificationStatusUpdateDto {
+		@NotNull(message = "Status is required")
 		private QualificationStatus status;
 		private String rejectionReason;
 	}

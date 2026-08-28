@@ -1,5 +1,6 @@
 package com.nexus.core.controller;
 
+import jakarta.validation.Valid;
 import java.util.Map;
 
 import org.springframework.data.domain.Pageable;
@@ -35,7 +36,7 @@ public class PurchaseOrderController {
 
 	@PostMapping("/create")
 	@LogActivity("Create Purchase Order")
-	public ResponseEntity<?> createPurchaseOrder(@RequestBody PurchaseOrderDto poDto,
+	public ResponseEntity<?> createPurchaseOrder(@Valid @RequestBody PurchaseOrderDto poDto,
 			@RequestHeader("Authorization") String token) {
 		if (!commonUtils.validateToken(token)) {
 			throw new InvalidCredentialsException();
