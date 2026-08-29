@@ -18,5 +18,7 @@ public interface PurchaseOrderLineItemRepo extends JpaRepository<PurchaseOrderLi
 	Optional<PurchaseOrderLineItem> findByLineItemIdAndPurchaseOrderPurchaseOrderId(Long lineItemId,
 			Long purchaseOrderId);
 
+	Optional<PurchaseOrderLineItem> findByLineItemId(Long lineItemId);
+
 	Page<PurchaseOrderLineItem> findByPurchaseOrderPurchaseOrderId(Long purchaseOrderId, Pageable pageable);
 }

@@ -15,7 +15,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
-import org.springframework.web.client.RestClient;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -29,6 +28,7 @@ import com.nexus.core.repository.AccountRepo;
 import com.nexus.core.repository.PartnershipRepo;
 import com.nexus.core.service.PartnershipService;
 import com.nexus.core.utils.CommonUtils;
+import com.nexus.core.utils.RestService;
 import com.nexus.core.utils.WebConstants;
 
 import lombok.RequiredArgsConstructor;
@@ -44,7 +44,7 @@ public class PartnershipServiceImpl implements PartnershipService {
 	private final AccountRepo accountRepo;
 	private final WebConstants webConstants;
 	private final CommonUtils commonUtils;
-	private final RestClient restClient;
+	private final RestService restService;
 	private final ObjectMapper objectMapper;
 
 	@Override
@@ -129,40 +129,16 @@ public class PartnershipServiceImpl implements PartnershipService {
 				return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("File is required");
 			}
 
-			// Build DMS upload URL
-			String dmsUploadUrl = webConstants.getDmsServiceUrl() + "/dms/upload/org";
-
-			// Prepare headers
-			Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
-			headers.put("Content-Type", MediaType.MULTIPART_FORM_DATA_VALUE);
-
-			// Prepare multipart form data
-			MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
-			body.add("file", new org.springframework.core.io.ByteArrayResource(file.getBytes()) {
-				@Override
-				public String getFilename() {
-					return file.getOriginalFilename();
-				}
-			});
-
-			// Create DTO for org upload as a Map (DMS is a separate microservice)
-			Map<String, Object> dto = new HashMap<>();
-			dto.put("orgId", orgId);
-			dto.put("fileName", documentName != null ? documentName : file.getOriginalFilename());
-			dto.put("remarks",
-					remarks != null ? remarks : "Partnership agreement for partnership ID: " + partnershipId);
-			dto.put("documentType", "CONTRACT");
-			dto.put("orgType", "RETAILER"); // Default, could be determined from org
-
-			body.add("dto", dto);
-
-			// Call DMS service
-			ResponseEntity<String> dmsResponse = restClient.post()
-					.uri(dmsUploadUrl)
-					.headers(h -> headers.forEach(h::set))
-					.body(body)
-					.retrieve()
-					.toEntity(String.class);
+			// Use RestService to upload to DMS
+			ResponseEntity<String> dmsResponse = restService.uploadToDmsOrg(
+					file,
+					documentName != null ? documentName : file.getOriginalFilename(),
+					orgId,
+					remarks != null ? remarks : "Partnership agreement for partnership ID: " + partnershipId,
+					"CONTRACT",
+					"RETAILER", // Default, could be determined from org
+					authToken,
+					orgId);
 
 			if (dmsResponse.getStatusCode().is2xxSuccessful() && dmsResponse.getBody() != null) {
 				// Extract document ID from DMS response
@@ -202,19 +178,11 @@ public class PartnershipServiceImpl implements PartnershipService {
 						.body("No agreement document found for this partnership");
 			}
 
-			// Build DMS get URL
-			String dmsGetUrl = webConstants.getDmsServiceUrl() + "/dms/files/org/"
-					+ partnership.getAgreementDocumentId();
-
-			// Prepare headers
-			Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
-
-			// Call DMS service
-			ResponseEntity<String> dmsResponse = restClient.get()
-					.uri(dmsGetUrl)
-					.headers(h -> headers.forEach(h::set))
-					.retrieve()
-					.toEntity(String.class);
+			// Use RestService to get document from DMS
+			ResponseEntity<String> dmsResponse = restService.getFromDms(
+					partnership.getAgreementDocumentId().toString(),
+					authToken,
+					orgId);
 
 			return ResponseEntity.status(dmsResponse.getStatusCode()).body(dmsResponse.getBody());
 
@@ -237,19 +205,11 @@ public class PartnershipServiceImpl implements PartnershipService {
 						.body("No agreement document found for this partnership");
 			}
 
-			// Build DMS delete URL
-			String dmsDeleteUrl = webConstants.getDmsServiceUrl() + "/dms/files/org/"
-					+ partnership.getAgreementDocumentId();
-
-			// Prepare headers
-			Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
-
-			// Call DMS service
-			ResponseEntity<String> dmsResponse = restClient.delete()
-					.uri(dmsDeleteUrl)
-					.headers(h -> headers.forEach(h::set))
-					.retrieve()
-					.toEntity(String.class);
+			// Use RestService to delete document from DMS
+			ResponseEntity<String> dmsResponse = restService.deleteFromDms(
+					partnership.getAgreementDocumentId().toString(),
+					authToken,
+					orgId);
 
 			if (dmsResponse.getStatusCode().is2xxSuccessful()) {
 				// Clear agreement document ID from partnership

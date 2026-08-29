@@ -441,6 +441,91 @@ public class WebConstants {
 	@Value("${core.stock-movement.summary.url}")
 	private String coreStockMovementSummaryUrl;
 
+	// Goods Receipt Endpoints
+	@Value("${core.goods-receipt.create.url}")
+	private String coreGoodsReceiptCreateUrl;
+
+	@Value("${core.goods-receipt.get.url}")
+	private String coreGoodsReceiptGetUrl;
+
+	@Value("${core.goods-receipt.all.url}")
+	private String coreGoodsReceiptAllUrl;
+
+	@Value("${core.goods-receipt.update.url}")
+	private String coreGoodsReceiptUpdateUrl;
+
+	@Value("${core.goods-receipt.transition.url}")
+	private String coreGoodsReceiptTransitionUrl;
+
+	// Invoice Endpoints
+	@Value("${core.invoice.create.url}")
+	private String coreInvoiceCreateUrl;
+
+	@Value("${core.invoice.get.url}")
+	private String coreInvoiceGetUrl;
+
+	@Value("${core.invoice.all.url}")
+	private String coreInvoiceAllUrl;
+
+	@Value("${core.invoice.update.url}")
+	private String coreInvoiceUpdateUrl;
+
+	@Value("${core.invoice.transition.url}")
+	private String coreInvoiceTransitionUrl;
+
+	// Three-Way Matching Endpoints
+	@Value("${core.three-way-match.match.url}")
+	private String coreThreeWayMatchMatchUrl;
+
+	@Value("${core.three-way-match.can-invoice.url}")
+	private String coreThreeWayMatchCanInvoiceUrl;
+
+	@Value("${core.three-way-match.summary.url}")
+	private String coreThreeWayMatchSummaryUrl;
+
+	@Value("${core.three-way-match.validate-invoice.url}")
+	private String coreThreeWayMatchValidateInvoiceUrl;
+
+	// Supplier Performance Endpoints
+	@Value("${core.supplier-performance.create.url}")
+	private String coreSupplierPerformanceCreateUrl;
+
+	@Value("${core.supplier-performance.get.url}")
+	private String coreSupplierPerformanceGetUrl;
+
+	@Value("${core.supplier-performance.by-supplier.url}")
+	private String coreSupplierPerformanceBySupplierUrl;
+
+	@Value("${core.supplier-performance.all.url}")
+	private String coreSupplierPerformanceAllUrl;
+
+	@Value("${core.supplier-performance.by-period.url}")
+	private String coreSupplierPerformanceByPeriodUrl;
+
+	@Value("${core.supplier-performance.by-supplier-period.url}")
+	private String coreSupplierPerformanceBySupplierAndPeriodUrl;
+
+	@Value("${core.supplier-performance.by-tier.url}")
+	private String coreSupplierPerformanceByTierUrl;
+
+	@Value("${core.supplier-performance.latest.url}")
+	private String coreSupplierPerformanceLatestUrl;
+
+	@Value("${core.supplier-performance.summary.account.url}")
+	private String coreSupplierPerformanceSummaryAccountUrl;
+
+	@Value("${core.supplier-performance.summary.supplier.url}")
+	private String coreSupplierPerformanceSummarySupplierUrl;
+
+	@Value("${core.supplier-performance.calculate.url}")
+	private String coreSupplierPerformanceCalculateUrl;
+
+	@Value("${core.supplier-performance.update.url}")
+	private String coreSupplierPerformanceUpdateUrl;
+
+	@Value("${core.supplier-performance.delete.url}")
+	private String coreSupplierPerformanceDeleteUrl;
+
 	// Keycloak URLs
 	public String getKeycloakAdminUrl() {
 		return keycloakServerUrl + "/admin/realms/" + keycloakRealm;
@@ -464,6 +549,180 @@ public class WebConstants {
 
 	public String getKeycloakLogoutUrl() {
 		return keycloakServerUrl + "/realms/" + keycloakRealm + "/protocol/openid-connect/logout";
+	}
+
+	// Supplier Performance Getters
+	public String getCoreSupplierPerformanceCreateUrl() {
+		return coreServiceUrl + coreSupplierPerformanceCreateUrl;
+	}
+
+	public String getCoreSupplierPerformanceGetUrl() {
+		return coreServiceUrl + coreSupplierPerformanceGetUrl;
+	}
+
+	public String getCoreSupplierPerformanceBySupplierUrl() {
+		return coreServiceUrl + coreSupplierPerformanceBySupplierUrl;
+	}
+
+	public String getCoreSupplierPerformanceAllUrl() {
+		return coreServiceUrl + coreSupplierPerformanceAllUrl;
+	}
+
+	public String getCoreSupplierPerformanceByPeriodUrl() {
+		return coreServiceUrl + coreSupplierPerformanceByPeriodUrl;
+	}
+
+	public String getCoreSupplierPerformanceBySupplierAndPeriodUrl() {
+		return coreServiceUrl + coreSupplierPerformanceBySupplierAndPeriodUrl;
+	}
+
+	public String getCoreSupplierPerformanceByTierUrl() {
+		return coreServiceUrl + coreSupplierPerformanceByTierUrl;
+	}
+
+	public String getCoreSupplierPerformanceLatestUrl() {
+		return coreServiceUrl + coreSupplierPerformanceLatestUrl;
+	}
+
+	public String getCoreSupplierPerformanceSummaryAccountUrl() {
+		return coreServiceUrl + coreSupplierPerformanceSummaryAccountUrl;
+	}
+
+	public String getCoreSupplierPerformanceSummarySupplierUrl() {
+		return coreServiceUrl + coreSupplierPerformanceSummarySupplierUrl;
+	}
+
+	public String getCoreSupplierPerformanceCalculateUrl() {
+		return coreServiceUrl + coreSupplierPerformanceCalculateUrl;
+	}
+
+	public String getCoreSupplierPerformanceUpdateUrl() {
+		return coreServiceUrl + coreSupplierPerformanceUpdateUrl;
+	}
+
+	public String getCoreSupplierPerformanceDeleteUrl() {
+		return coreServiceUrl + coreSupplierPerformanceDeleteUrl;
+	}
+
+	// Supplier Contract Endpoints
+	@Value("${core.supplier-contract.create.url}")
+	private String coreSupplierContractCreateUrl;
+
+	@Value("${core.supplier-contract.get.url}")
+	private String coreSupplierContractGetUrl;
+
+	@Value("${core.supplier-contract.get-by-number.url}")
+	private String coreSupplierContractGetByNumberUrl;
+
+	@Value("${core.supplier-contract.all.url}")
+	private String coreSupplierContractAllUrl;
+
+	@Value("${core.supplier-contract.expiring.url}")
+	private String coreSupplierContractExpiringUrl;
+
+	@Value("${core.supplier-contract.auto-renewal.url}")
+	private String coreSupplierContractAutoRenewalUrl;
+
+	@Value("${core.supplier-contract.active-by-supplier.url}")
+	private String coreSupplierContractActiveBySupplierUrl;
+
+	@Value("${core.supplier-contract.summary.url}")
+	private String coreSupplierContractSummaryUrl;
+
+	@Value("${core.supplier-contract.update.url}")
+	private String coreSupplierContractUpdateUrl;
+
+	@Value("${core.supplier-contract.status.url}")
+	private String coreSupplierContractStatusUrl;
+
+	@Value("${core.supplier-contract.document.url}")
+	private String coreSupplierContractDocumentUrl;
+
+	@Value("${core.supplier-contract.approve.url}")
+	private String coreSupplierContractApproveUrl;
+
+	@Value("${core.supplier-contract.reject.url}")
+	private String coreSupplierContractRejectUrl;
+
+	@Value("${core.supplier-contract.terminate.url}")
+	private String coreSupplierContractTerminateUrl;
+
+	@Value("${core.supplier-contract.suspend.url}")
+	private String coreSupplierContractSuspendUrl;
+
+	@Value("${core.supplier-contract.renew.url}")
+	private String coreSupplierContractRenewUrl;
+
+	@Value("${core.supplier-contract.delete.url}")
+	private String coreSupplierContractDeleteUrl;
+
+	// Supplier Contract Getters
+	public String getCoreSupplierContractAddUrl() {
+		return coreServiceUrl + coreSupplierContractCreateUrl;
+	}
+
+	public String getCoreSupplierContractGetUrl() {
+		return coreServiceUrl + coreSupplierContractGetUrl;
+	}
+
+	public String getCoreSupplierContractGetByNumberUrl() {
+		return coreServiceUrl + coreSupplierContractGetByNumberUrl;
+	}
+
+	public String getCoreSupplierContractAllUrl() {
+		return coreServiceUrl + coreSupplierContractAllUrl;
+	}
+
+	public String getCoreSupplierContractExpiringUrl() {
+		return coreServiceUrl + coreSupplierContractExpiringUrl;
+	}
+
+	public String getCoreSupplierContractAutoRenewalUrl() {
+		return coreServiceUrl + coreSupplierContractAutoRenewalUrl;
+	}
+
+	public String getCoreSupplierContractActiveBySupplierUrl() {
+		return coreServiceUrl + coreSupplierContractActiveBySupplierUrl;
+	}
+
+	public String getCoreSupplierContractSummaryUrl() {
+		return coreServiceUrl + coreSupplierContractSummaryUrl;
+	}
+
+	public String getCoreSupplierContractUpdateUrl() {
+		return coreServiceUrl + coreSupplierContractUpdateUrl;
+	}
+
+	public String getCoreSupplierContractStatusUrl() {
+		return coreServiceUrl + coreSupplierContractStatusUrl;
+	}
+
+	public String getCoreSupplierContractDocumentUrl() {
+		return coreServiceUrl + coreSupplierContractDocumentUrl;
+	}
+
+	public String getCoreSupplierContractApproveUrl() {
+		return coreServiceUrl + coreSupplierContractApproveUrl;
+	}
+
+	public String getCoreSupplierContractRejectUrl() {
+		return coreServiceUrl + coreSupplierContractRejectUrl;
+	}
+
+	public String getCoreSupplierContractTerminateUrl() {
+		return coreServiceUrl + coreSupplierContractTerminateUrl;
+	}
+
+	public String getCoreSupplierContractSuspendUrl() {
+		return coreServiceUrl + coreSupplierContractSuspendUrl;
+	}
+
+	public String getCoreSupplierContractRenewUrl() {
+		return coreServiceUrl + coreSupplierContractRenewUrl;
+	}
+
+	public String getCoreSupplierContractDeleteUrl() {
+		return coreServiceUrl + coreSupplierContractDeleteUrl;
 	}
 
 }

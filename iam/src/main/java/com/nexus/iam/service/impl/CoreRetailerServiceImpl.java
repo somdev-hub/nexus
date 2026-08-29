@@ -906,6 +906,708 @@ public class CoreRetailerServiceImpl implements CoreRetailerService {
 				null);
 	}
 
+	// Goods Receipt Endpoints
+	@Override
+	public ResponseEntity<?> createGoodsReceipt(Map<String, Object> grDto, String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		return restService.iamRestCall(
+				webConstants.getCoreGoodsReceiptCreateUrl(),
+				grDto,
+				headers,
+				HttpMethod.POST,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> getGoodsReceipt(Long id, String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCoreGoodsReceiptGetUrl() + "/" + id;
+		return restService.iamRestCall(
+				url,
+				null,
+				headers,
+				HttpMethod.GET,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> getAllGoodsReceipts(String authToken, String orgIdHeader, Pageable pageable,
+			String status, Long purchaseOrderId, Long supplierId) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = buildPaginatedUrlWithFilters(webConstants.getCoreGoodsReceiptAllUrl(), pageable,
+				"status", status,
+				"purchaseOrderId", purchaseOrderId,
+				"supplierId", supplierId);
+		return restService.iamRestCall(
+				url,
+				null,
+				headers,
+				HttpMethod.GET,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> updateGoodsReceipt(Long id, Map<String, Object> grDto, String authToken,
+			String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCoreGoodsReceiptUpdateUrl() + "/" + id + "/update";
+		return restService.iamRestCall(
+				url,
+				grDto,
+				headers,
+				HttpMethod.PUT,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> transitionGoodsReceiptStatus(Long id, String newStatus, Map<String, Object> params,
+			String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCoreGoodsReceiptTransitionUrl() + "/" + id + "/transition?newStatus=" + newStatus;
+		return restService.iamRestCall(
+				url,
+				params,
+				headers,
+				HttpMethod.PUT,
+				null);
+	}
+
+	// Invoice Endpoints
+	@Override
+	public ResponseEntity<?> createInvoice(Map<String, Object> invoiceDto, String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		return restService.iamRestCall(
+				webConstants.getCoreInvoiceCreateUrl(),
+				invoiceDto,
+				headers,
+				HttpMethod.POST,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> getInvoice(Long id, String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCoreInvoiceGetUrl() + "/" + id;
+		return restService.iamRestCall(
+				url,
+				null,
+				headers,
+				HttpMethod.GET,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> getAllInvoices(String authToken, String orgIdHeader, Pageable pageable,
+			String status, Long purchaseOrderId, Long supplierId) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = buildPaginatedUrlWithFilters(webConstants.getCoreInvoiceAllUrl(), pageable,
+				"status", status,
+				"purchaseOrderId", purchaseOrderId,
+				"supplierId", supplierId);
+		return restService.iamRestCall(
+				url,
+				null,
+				headers,
+				HttpMethod.GET,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> updateInvoice(Long id, Map<String, Object> invoiceDto, String authToken,
+			String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCoreInvoiceUpdateUrl() + "/" + id + "/update";
+		return restService.iamRestCall(
+				url,
+				invoiceDto,
+				headers,
+				HttpMethod.PUT,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> transitionInvoiceStatus(Long id, String newStatus, Map<String, Object> params,
+			String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCoreInvoiceTransitionUrl() + "/" + id + "/transition?newStatus=" + newStatus;
+		return restService.iamRestCall(
+				url,
+				params,
+				headers,
+				HttpMethod.PUT,
+				null);
+	}
+
+	// Three-Way Matching Endpoints
+	@Override
+	public ResponseEntity<?> performThreeWayMatch(Long purchaseOrderId, String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCoreThreeWayMatchMatchUrl() + "/match/" + purchaseOrderId;
+		return restService.iamRestCall(
+				url,
+				null,
+				headers,
+				HttpMethod.GET,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> canInvoice(Long purchaseOrderId, String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCoreThreeWayMatchCanInvoiceUrl() + "/can-invoice/" + purchaseOrderId;
+		return restService.iamRestCall(
+				url,
+				null,
+				headers,
+				HttpMethod.GET,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> getMatchingSummary(Long purchaseOrderId, String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCoreThreeWayMatchSummaryUrl() + "/summary/" + purchaseOrderId;
+		return restService.iamRestCall(
+				url,
+				null,
+				headers,
+				HttpMethod.GET,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> validateInvoiceMatch(Map<String, Object> invoiceDto, String authToken,
+			String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		return restService.iamRestCall(
+				webConstants.getCoreThreeWayMatchValidateInvoiceUrl(),
+				invoiceDto,
+				headers,
+				HttpMethod.POST,
+				null);
+	}
+
+	// Supplier Performance Endpoints
+	@Override
+	public ResponseEntity<?> createSupplierPerformance(Map<String, Object> performanceDto, String authToken,
+			String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		return restService.iamRestCall(
+				webConstants.getCoreSupplierPerformanceCreateUrl(),
+				performanceDto,
+				headers,
+				HttpMethod.POST,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> getSupplierPerformance(Long id, String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCoreSupplierPerformanceGetUrl() + "/" + id;
+		return restService.iamRestCall(
+				url,
+				null,
+				headers,
+				HttpMethod.GET,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> getSupplierPerformanceBySupplier(Long supplierId, String authToken, String orgIdHeader,
+			Pageable pageable) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = buildPaginatedUrl(webConstants.getCoreSupplierPerformanceBySupplierUrl() + "/" + supplierId,
+				pageable);
+		return restService.iamRestCall(
+				url,
+				null,
+				headers,
+				HttpMethod.GET,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> getAllSupplierPerformance(String authToken, String orgIdHeader, Pageable pageable) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = buildPaginatedUrl(webConstants.getCoreSupplierPerformanceAllUrl(), pageable);
+		return restService.iamRestCall(
+				url,
+				null,
+				headers,
+				HttpMethod.GET,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> getSupplierPerformanceByPeriod(String authToken, String orgIdHeader, Pageable pageable,
+			java.sql.Date startDate, java.sql.Date endDate) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = buildPaginatedUrlWithFilters(webConstants.getCoreSupplierPerformanceByPeriodUrl(), pageable,
+				"startDate", startDate,
+				"endDate", endDate);
+		return restService.iamRestCall(
+				url,
+				null,
+				headers,
+				HttpMethod.GET,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> getSupplierPerformanceBySupplierAndPeriod(Long supplierId, String authToken,
+			String orgIdHeader, Pageable pageable,
+			java.sql.Date startDate, java.sql.Date endDate) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = buildPaginatedUrlWithFilters(
+				webConstants.getCoreSupplierPerformanceBySupplierAndPeriodUrl() + "/" + supplierId, pageable,
+				"startDate", startDate,
+				"endDate", endDate);
+		return restService.iamRestCall(
+				url,
+				null,
+				headers,
+				HttpMethod.GET,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> getSupplierPerformanceByTier(String authToken, String orgIdHeader, Pageable pageable,
+			String tier) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = buildPaginatedUrl(webConstants.getCoreSupplierPerformanceByTierUrl() + "/" + tier, pageable);
+		return restService.iamRestCall(
+				url,
+				null,
+				headers,
+				HttpMethod.GET,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> getLatestSupplierPerformance(Long supplierId, String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCoreSupplierPerformanceLatestUrl() + "/" + supplierId + "/latest";
+		return restService.iamRestCall(
+				url,
+				null,
+				headers,
+				HttpMethod.GET,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> getSupplierPerformanceSummaryByAccount(String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		return restService.iamRestCall(
+				webConstants.getCoreSupplierPerformanceSummaryAccountUrl(),
+				null,
+				headers,
+				HttpMethod.GET,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> getSupplierPerformanceSummaryBySupplier(Long supplierId, String authToken,
+			String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCoreSupplierPerformanceSummarySupplierUrl() + "/" + supplierId + "/summary";
+		return restService.iamRestCall(
+				url,
+				null,
+				headers,
+				HttpMethod.GET,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> calculateSupplierPerformance(Long supplierId, String authToken, String orgIdHeader,
+			java.sql.Date startDate, java.sql.Date endDate, String calculatedBy) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = buildPaginatedUrlWithFilters(webConstants.getCoreSupplierPerformanceCalculateUrl(), null,
+				"supplierId", supplierId,
+				"startDate", startDate,
+				"endDate", endDate,
+				"calculatedBy", calculatedBy);
+		return restService.iamRestCall(
+				url,
+				null,
+				headers,
+				HttpMethod.POST,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> updateSupplierPerformance(Long id, Map<String, Object> performanceDto, String authToken,
+			String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCoreSupplierPerformanceUpdateUrl() + "/" + id + "/update";
+		return restService.iamRestCall(
+				url,
+				performanceDto,
+				headers,
+				HttpMethod.PUT,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> deleteSupplierPerformance(Long id, String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCoreSupplierPerformanceDeleteUrl() + "/" + id + "/delete";
+		return restService.iamRestCall(
+				url,
+				null,
+				headers,
+				HttpMethod.DELETE,
+				null);
+	}
+
+	// Supplier Contract Endpoints
+	@Override
+	public ResponseEntity<?> createSupplierContract(Map<String, Object> contractDto, String authToken,
+			String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		return restService.iamRestCall(
+				webConstants.getCoreSupplierContractAddUrl(),
+				contractDto,
+				headers,
+				HttpMethod.POST,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> getSupplierContract(Long id, String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCoreSupplierContractGetUrl() + "/" + id;
+		return restService.iamRestCall(
+				url,
+				null,
+				headers,
+				HttpMethod.GET,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> getSupplierContractByNumber(String contractNumber, String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCoreSupplierContractGetByNumberUrl() + "/" + contractNumber;
+		return restService.iamRestCall(
+				url,
+				null,
+				headers,
+				HttpMethod.GET,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> getAllSupplierContracts(
+			String authToken, String orgIdHeader, Pageable pageable,
+			String status, Long supplierId, String contractType,
+			java.sql.Date effectiveStartDate, java.sql.Date effectiveEndDate,
+			java.sql.Date expiryStartDate, java.sql.Date expiryEndDate,
+			Boolean expiringOnly, java.sql.Date expiringBeforeDate,
+			Boolean autoRenewalOnly, java.sql.Date autoRenewalBeforeDate) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = buildPaginatedUrlWithFilters(webConstants.getCoreSupplierContractAllUrl(), pageable,
+				"status", status,
+				"supplierId", supplierId,
+				"contractType", contractType,
+				"effectiveStartDate", effectiveStartDate,
+				"effectiveEndDate", effectiveEndDate,
+				"expiryStartDate", expiryStartDate,
+				"expiryEndDate", expiryEndDate,
+				"expiringOnly", expiringOnly,
+				"expiringBeforeDate", expiringBeforeDate,
+				"autoRenewalOnly", autoRenewalOnly,
+				"autoRenewalBeforeDate", autoRenewalBeforeDate);
+		return restService.iamRestCall(
+				url,
+				null,
+				headers,
+				HttpMethod.GET,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> getExpiringSupplierContracts(String authToken, String orgIdHeader,
+			java.sql.Date beforeDate) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = UriComponentsBuilder.fromUriString(webConstants.getCoreSupplierContractExpiringUrl())
+				.queryParam("beforeDate", beforeDate)
+				.toUriString();
+		return restService.iamRestCall(
+				url,
+				null,
+				headers,
+				HttpMethod.GET,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> getAutoRenewalSupplierContracts(String authToken, String orgIdHeader,
+			java.sql.Date beforeDate) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = UriComponentsBuilder.fromUriString(webConstants.getCoreSupplierContractAutoRenewalUrl())
+				.queryParam("beforeDate", beforeDate)
+				.toUriString();
+		return restService.iamRestCall(
+				url,
+				null,
+				headers,
+				HttpMethod.GET,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> getActiveSupplierContractBySupplierAndDate(Long supplierId, String authToken,
+			String orgIdHeader,
+			java.sql.Date date) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = UriComponentsBuilder
+				.fromUriString(webConstants.getCoreSupplierContractActiveBySupplierUrl() + "/" + supplierId)
+				.queryParam("date", date)
+				.toUriString();
+		return restService.iamRestCall(
+				url,
+				null,
+				headers,
+				HttpMethod.GET,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> getSupplierContractSummary(String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		return restService.iamRestCall(
+				webConstants.getCoreSupplierContractSummaryUrl(),
+				null,
+				headers,
+				HttpMethod.GET,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> updateSupplierContract(Long id, Map<String, Object> contractDto, String authToken,
+			String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCoreSupplierContractUpdateUrl() + "/" + id + "/update";
+		return restService.iamRestCall(
+				url,
+				contractDto,
+				headers,
+				HttpMethod.PUT,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> updateSupplierContractStatus(Long id, String status, String reason, String authToken,
+			String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = UriComponentsBuilder
+				.fromUriString(webConstants.getCoreSupplierContractStatusUrl() + "/" + id + "/status")
+				.queryParam("status", status)
+				.queryParamIfPresent("reason", java.util.Optional.ofNullable(reason))
+				.toUriString();
+		return restService.iamRestCall(
+				url,
+				null,
+				headers,
+				HttpMethod.PUT,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> uploadSupplierContractDocument(Long id, MultipartFile file, String documentName,
+			String remarks,
+			String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildMultipartHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCoreSupplierContractDocumentUrl() + "/" + id + "/documents";
+
+		org.springframework.util.MultiValueMap<String, Object> body = new org.springframework.util.LinkedMultiValueMap<>();
+		try {
+			body.add("file", new org.springframework.core.io.ByteArrayResource(file.getBytes()) {
+				@Override
+				public String getFilename() {
+					return file.getOriginalFilename();
+				}
+			});
+		} catch (java.io.IOException e) {
+			log.error("Failed to read file bytes: {}", e.getMessage());
+			return ResponseEntity.internalServerError().body(Map.of("error", "Failed to read file"));
+		}
+		if (documentName != null) {
+			body.add("documentName", documentName);
+		}
+		if (remarks != null) {
+			body.add("remarks", remarks);
+		}
+
+		return restService.iamRestCall(
+				url,
+				body,
+				headers,
+				HttpMethod.POST,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> getSupplierContractDocument(Long id, String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCoreSupplierContractDocumentUrl() + "/" + id + "/documents";
+		return restService.iamRestCall(
+				url,
+				null,
+				headers,
+				HttpMethod.GET,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> deleteSupplierContractDocument(Long id, String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCoreSupplierContractDocumentUrl() + "/" + id + "/documents";
+		return restService.iamRestCall(
+				url,
+				null,
+				headers,
+				HttpMethod.DELETE,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> approveSupplierContract(Long id, String approvedBy, String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = UriComponentsBuilder
+				.fromUriString(webConstants.getCoreSupplierContractApproveUrl() + "/" + id + "/approve")
+				.queryParam("approvedBy", approvedBy)
+				.toUriString();
+		return restService.iamRestCall(
+				url,
+				null,
+				headers,
+				HttpMethod.POST,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> rejectSupplierContract(Long id, String rejectionReason, String authToken,
+			String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = UriComponentsBuilder
+				.fromUriString(webConstants.getCoreSupplierContractRejectUrl() + "/" + id + "/reject")
+				.queryParam("rejectionReason", rejectionReason)
+				.toUriString();
+		return restService.iamRestCall(
+				url,
+				null,
+				headers,
+				HttpMethod.POST,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> terminateSupplierContract(Long id, String reason, String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = UriComponentsBuilder
+				.fromUriString(webConstants.getCoreSupplierContractTerminateUrl() + "/" + id + "/terminate")
+				.queryParam("reason", reason)
+				.toUriString();
+		return restService.iamRestCall(
+				url,
+				null,
+				headers,
+				HttpMethod.POST,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> suspendSupplierContract(Long id, String reason, String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = UriComponentsBuilder
+				.fromUriString(webConstants.getCoreSupplierContractSuspendUrl() + "/" + id + "/suspend")
+				.queryParam("reason", reason)
+				.toUriString();
+		return restService.iamRestCall(
+				url,
+				null,
+				headers,
+				HttpMethod.POST,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> renewSupplierContract(Long id, java.sql.Date newExpiryDate, String authToken,
+			String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = UriComponentsBuilder
+				.fromUriString(webConstants.getCoreSupplierContractRenewUrl() + "/" + id + "/renew")
+				.queryParam("newExpiryDate", newExpiryDate)
+				.toUriString();
+		return restService.iamRestCall(
+				url,
+				null,
+				headers,
+				HttpMethod.POST,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> deleteSupplierContract(Long id, String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCoreSupplierContractDeleteUrl() + "/" + id + "/delete";
+		return restService.iamRestCall(
+				url,
+				null,
+				headers,
+				HttpMethod.DELETE,
+				null);
+	}
+
 	/**
 	 * Builds a URL with pagination parameters from Pageable
 	 */

@@ -67,6 +67,15 @@ public class GoodsReceipt extends BaseEntity {
 	@Column(name = "notes")
 	private String notes;
 
+	@Column(name = "received_at")
+	private java.sql.Timestamp receivedAt;
+
+	@Column(name = "returned_at")
+	private java.sql.Timestamp returnedAt;
+
+	@Column(name = "cancelled_at")
+	private java.sql.Timestamp cancelledAt;
+
 	@Version
 	private Long version = 0L;
 

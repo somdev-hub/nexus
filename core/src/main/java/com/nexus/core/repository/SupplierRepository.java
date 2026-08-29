@@ -35,6 +35,8 @@ public interface SupplierRepository extends JpaRepository<Supplier, Long> {
 
 	Optional<Supplier> findBySupplierIdAndAccountAccountId(Long supplierId, Long accountId);
 
+	Optional<Supplier> findByIdAndAccountIdAndIsActiveTrue(Long supplierId, Long accountId);
+
 	// New methods for organization-scoped queries
 	Page<Supplier> findByAccountAccountId(Long accountId, Pageable pageable);
 

@@ -586,4 +586,433 @@ public class CoreRetailerController {
 			@RequestHeader("X-Organization-ID") String orgIdHeader) {
 		return coreRetailerService.getMovementSummary(start, end, authToken, orgIdHeader);
 	}
+
+	// Goods Receipt Endpoints
+	@LogActivity("Create Goods Receipt for Retailer")
+	@PostMapping("/goods-receipts/add")
+	public ResponseEntity<?> createGoodsReceipt(@RequestBody Map<String, Object> grDto,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.createGoodsReceipt(grDto, authToken, orgIdHeader);
+	}
+
+	@LogActivity("Get Goods Receipt for Retailer")
+	@GetMapping("/goods-receipts/{id}")
+	public ResponseEntity<?> getGoodsReceipt(@PathVariable Long id,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.getGoodsReceipt(id, authToken, orgIdHeader);
+	}
+
+	@LogActivity("Get All Goods Receipts for Retailer")
+	@GetMapping("/goods-receipts/all")
+	public ResponseEntity<?> getAllGoodsReceipts(@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader,
+			@PageableDefault(size = 20) Pageable pageable,
+			@RequestParam(required = false) String status,
+			@RequestParam(required = false) Long purchaseOrderId,
+			@RequestParam(required = false) Long supplierId) {
+		return coreRetailerService.getAllGoodsReceipts(authToken, orgIdHeader, pageable, status, purchaseOrderId,
+				supplierId);
+	}
+
+	@LogActivity("Update Goods Receipt for Retailer")
+	@PutMapping("/goods-receipts/{id}/update")
+	public ResponseEntity<?> updateGoodsReceipt(@PathVariable Long id,
+			@RequestBody Map<String, Object> grDto,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.updateGoodsReceipt(id, grDto, authToken, orgIdHeader);
+	}
+
+	@LogActivity("Transition Goods Receipt Status for Retailer")
+	@PutMapping("/goods-receipts/{id}/transition")
+	public ResponseEntity<?> transitionGoodsReceiptStatus(@PathVariable Long id,
+			@RequestParam String newStatus,
+			@RequestBody(required = false) Map<String, Object> params,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.transitionGoodsReceiptStatus(id, newStatus, params, authToken, orgIdHeader);
+	}
+
+	// Invoice Endpoints
+	@LogActivity("Create Invoice for Retailer")
+	@PostMapping("/invoices/add")
+	public ResponseEntity<?> createInvoice(@RequestBody Map<String, Object> invoiceDto,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.createInvoice(invoiceDto, authToken, orgIdHeader);
+	}
+
+	@LogActivity("Get Invoice for Retailer")
+	@GetMapping("/invoices/{id}")
+	public ResponseEntity<?> getInvoice(@PathVariable Long id,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.getInvoice(id, authToken, orgIdHeader);
+	}
+
+	@LogActivity("Get All Invoices for Retailer")
+	@GetMapping("/invoices/all")
+	public ResponseEntity<?> getAllInvoices(@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader,
+			@PageableDefault(size = 20) Pageable pageable,
+			@RequestParam(required = false) String status,
+			@RequestParam(required = false) Long purchaseOrderId,
+			@RequestParam(required = false) Long supplierId) {
+		return coreRetailerService.getAllInvoices(authToken, orgIdHeader, pageable, status, purchaseOrderId,
+				supplierId);
+	}
+
+	@LogActivity("Update Invoice for Retailer")
+	@PutMapping("/invoices/{id}/update")
+	public ResponseEntity<?> updateInvoice(@PathVariable Long id,
+			@RequestBody Map<String, Object> invoiceDto,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.updateInvoice(id, invoiceDto, authToken, orgIdHeader);
+	}
+
+	@LogActivity("Transition Invoice Status for Retailer")
+	@PutMapping("/invoices/{id}/transition")
+	public ResponseEntity<?> transitionInvoiceStatus(@PathVariable Long id,
+			@RequestParam String newStatus,
+			@RequestBody(required = false) Map<String, Object> params,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.transitionInvoiceStatus(id, newStatus, params, authToken, orgIdHeader);
+	}
+
+	// Three-Way Matching Endpoints
+	@LogActivity("Perform Three-Way Match for Retailer")
+	@GetMapping("/three-way-match/match/{purchaseOrderId}")
+	public ResponseEntity<?> performThreeWayMatch(@PathVariable Long purchaseOrderId,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.performThreeWayMatch(purchaseOrderId, authToken, orgIdHeader);
+	}
+
+	@LogActivity("Check Can Invoice for Retailer")
+	@GetMapping("/three-way-match/can-invoice/{purchaseOrderId}")
+	public ResponseEntity<?> canInvoice(@PathVariable Long purchaseOrderId,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.canInvoice(purchaseOrderId, authToken, orgIdHeader);
+	}
+
+	@LogActivity("Get Matching Summary for Retailer")
+	@GetMapping("/three-way-match/summary/{purchaseOrderId}")
+	public ResponseEntity<?> getMatchingSummary(@PathVariable Long purchaseOrderId,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.getMatchingSummary(purchaseOrderId, authToken, orgIdHeader);
+	}
+
+	@LogActivity("Validate Invoice Match for Retailer")
+	@PostMapping("/three-way-match/validate-invoice")
+	public ResponseEntity<?> validateInvoiceMatch(@RequestBody Map<String, Object> invoiceDto,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.validateInvoiceMatch(invoiceDto, authToken, orgIdHeader);
+	}
+
+	// Supplier Performance Endpoints
+	@LogActivity("Create Supplier Performance for Retailer")
+	@PostMapping("/supplier-performance/create")
+	public ResponseEntity<?> createSupplierPerformance(@RequestBody Map<String, Object> performanceDto,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.createSupplierPerformance(performanceDto, authToken, orgIdHeader);
+	}
+
+	@LogActivity("Get Supplier Performance for Retailer")
+	@GetMapping("/supplier-performance/{id}")
+	public ResponseEntity<?> getSupplierPerformance(@PathVariable Long id,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.getSupplierPerformance(id, authToken, orgIdHeader);
+	}
+
+	@LogActivity("Get Supplier Performance by Supplier for Retailer")
+	@GetMapping("/supplier-performance/supplier/{supplierId}")
+	public ResponseEntity<?> getSupplierPerformanceBySupplier(@PathVariable Long supplierId,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader,
+			@PageableDefault(size = 20) Pageable pageable) {
+		return coreRetailerService.getSupplierPerformanceBySupplier(supplierId, authToken, orgIdHeader, pageable);
+	}
+
+	@LogActivity("Get All Supplier Performance for Retailer")
+	@GetMapping("/supplier-performance/all")
+	public ResponseEntity<?> getAllSupplierPerformance(@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader,
+			@PageableDefault(size = 20) Pageable pageable) {
+		return coreRetailerService.getAllSupplierPerformance(authToken, orgIdHeader, pageable);
+	}
+
+	@LogActivity("Get Supplier Performance by Period for Retailer")
+	@GetMapping("/supplier-performance/period")
+	public ResponseEntity<?> getSupplierPerformanceByPeriod(@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader,
+			@PageableDefault(size = 20) Pageable pageable,
+			@RequestParam java.sql.Date startDate,
+			@RequestParam java.sql.Date endDate) {
+		return coreRetailerService.getSupplierPerformanceByPeriod(authToken, orgIdHeader, pageable, startDate, endDate);
+	}
+
+	@LogActivity("Get Supplier Performance by Supplier and Period for Retailer")
+	@GetMapping("/supplier-performance/supplier/{supplierId}/period")
+	public ResponseEntity<?> getSupplierPerformanceBySupplierAndPeriod(@PathVariable Long supplierId,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader,
+			@PageableDefault(size = 20) Pageable pageable,
+			@RequestParam java.sql.Date startDate,
+			@RequestParam java.sql.Date endDate) {
+		return coreRetailerService.getSupplierPerformanceBySupplierAndPeriod(supplierId, authToken, orgIdHeader,
+				pageable, startDate, endDate);
+	}
+
+	@LogActivity("Get Supplier Performance by Tier for Retailer")
+	@GetMapping("/supplier-performance/tier/{tier}")
+	public ResponseEntity<?> getSupplierPerformanceByTier(@PathVariable String tier,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader,
+			@PageableDefault(size = 20) Pageable pageable) {
+		return coreRetailerService.getSupplierPerformanceByTier(authToken, orgIdHeader, pageable, tier);
+	}
+
+	@LogActivity("Get Latest Supplier Performance for Retailer")
+	@GetMapping("/supplier-performance/supplier/{supplierId}/latest")
+	public ResponseEntity<?> getLatestSupplierPerformance(@PathVariable Long supplierId,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.getLatestSupplierPerformance(supplierId, authToken, orgIdHeader);
+	}
+
+	@LogActivity("Get Supplier Performance Summary by Account for Retailer")
+	@GetMapping("/supplier-performance/summary/account")
+	public ResponseEntity<?> getSupplierPerformanceSummaryByAccount(@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.getSupplierPerformanceSummaryByAccount(authToken, orgIdHeader);
+	}
+
+	@LogActivity("Get Supplier Performance Summary by Supplier for Retailer")
+	@GetMapping("/supplier-performance/summary/supplier/{supplierId}")
+	public ResponseEntity<?> getSupplierPerformanceSummaryBySupplier(@PathVariable Long supplierId,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.getSupplierPerformanceSummaryBySupplier(supplierId, authToken, orgIdHeader);
+	}
+
+	@LogActivity("Calculate Supplier Performance for Retailer")
+	@PostMapping("/supplier-performance/calculate")
+	public ResponseEntity<?> calculateSupplierPerformance(@RequestParam Long supplierId,
+			@RequestParam java.sql.Date startDate,
+			@RequestParam java.sql.Date endDate,
+			@RequestParam String calculatedBy,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.calculateSupplierPerformance(supplierId, authToken, orgIdHeader, startDate, endDate,
+				calculatedBy);
+	}
+
+	@LogActivity("Update Supplier Performance for Retailer")
+	@PutMapping("/supplier-performance/{id}/update")
+	public ResponseEntity<?> updateSupplierPerformance(@PathVariable Long id,
+			@RequestBody Map<String, Object> performanceDto,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.updateSupplierPerformance(id, performanceDto, authToken, orgIdHeader);
+	}
+
+	@LogActivity("Delete Supplier Performance for Retailer")
+	@DeleteMapping("/supplier-performance/{id}/delete")
+	public ResponseEntity<?> deleteSupplierPerformance(@PathVariable Long id,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.deleteSupplierPerformance(id, authToken, orgIdHeader);
+	}
+
+	// Supplier Contract Endpoints
+	@LogActivity("Create Supplier Contract for Retailer")
+	@PostMapping("/supplier-contracts/create")
+	public ResponseEntity<?> createSupplierContract(@RequestBody Map<String, Object> contractDto,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.createSupplierContract(contractDto, authToken, orgIdHeader);
+	}
+
+	@LogActivity("Get Supplier Contract for Retailer")
+	@GetMapping("/supplier-contracts/{id}")
+	public ResponseEntity<?> getSupplierContract(@PathVariable Long id,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.getSupplierContract(id, authToken, orgIdHeader);
+	}
+
+	@LogActivity("Get Supplier Contract by Number for Retailer")
+	@GetMapping("/supplier-contracts/number/{contractNumber}")
+	public ResponseEntity<?> getSupplierContractByNumber(@PathVariable String contractNumber,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.getSupplierContractByNumber(contractNumber, authToken, orgIdHeader);
+	}
+
+	@LogActivity("Get All Supplier Contracts for Retailer")
+	@GetMapping("/supplier-contracts/all")
+	public ResponseEntity<?> getAllSupplierContracts(
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader,
+			@PageableDefault(size = 20) Pageable pageable,
+			@RequestParam(required = false) String status,
+			@RequestParam(required = false) Long supplierId,
+			@RequestParam(required = false) String contractType,
+			@RequestParam(required = false) java.sql.Date effectiveStartDate,
+			@RequestParam(required = false) java.sql.Date effectiveEndDate,
+			@RequestParam(required = false) java.sql.Date expiryStartDate,
+			@RequestParam(required = false) java.sql.Date expiryEndDate,
+			@RequestParam(required = false) Boolean expiringOnly,
+			@RequestParam(required = false) java.sql.Date expiringBeforeDate,
+			@RequestParam(required = false) Boolean autoRenewalOnly,
+			@RequestParam(required = false) java.sql.Date autoRenewalBeforeDate) {
+		return coreRetailerService.getAllSupplierContracts(
+				authToken, orgIdHeader, pageable,
+				status, supplierId, contractType,
+				effectiveStartDate, effectiveEndDate,
+				expiryStartDate, expiryEndDate,
+				expiringOnly, expiringBeforeDate,
+				autoRenewalOnly, autoRenewalBeforeDate);
+	}
+
+	@LogActivity("Get Expiring Supplier Contracts for Retailer")
+	@GetMapping("/supplier-contracts/expiring")
+	public ResponseEntity<?> getExpiringSupplierContracts(@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader,
+			@RequestParam java.sql.Date beforeDate) {
+		return coreRetailerService.getExpiringSupplierContracts(authToken, orgIdHeader, beforeDate);
+	}
+
+	@LogActivity("Get Auto Renewal Supplier Contracts for Retailer")
+	@GetMapping("/supplier-contracts/auto-renewal")
+	public ResponseEntity<?> getAutoRenewalSupplierContracts(@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader,
+			@RequestParam java.sql.Date beforeDate) {
+		return coreRetailerService.getAutoRenewalSupplierContracts(authToken, orgIdHeader, beforeDate);
+	}
+
+	@LogActivity("Get Active Supplier Contract by Supplier and Date for Retailer")
+	@GetMapping("/supplier-contracts/supplier/{supplierId}/active")
+	public ResponseEntity<?> getActiveSupplierContractBySupplierAndDate(@PathVariable Long supplierId,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader,
+			@RequestParam java.sql.Date date) {
+		return coreRetailerService.getActiveSupplierContractBySupplierAndDate(supplierId, authToken, orgIdHeader, date);
+	}
+
+	@LogActivity("Get Supplier Contract Summary for Retailer")
+	@GetMapping("/supplier-contracts/summary")
+	public ResponseEntity<?> getSupplierContractSummary(@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.getSupplierContractSummary(authToken, orgIdHeader);
+	}
+
+	@LogActivity("Update Supplier Contract for Retailer")
+	@PutMapping("/supplier-contracts/{id}/update")
+	public ResponseEntity<?> updateSupplierContract(@PathVariable Long id,
+			@RequestBody Map<String, Object> contractDto,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.updateSupplierContract(id, contractDto, authToken, orgIdHeader);
+	}
+
+	@LogActivity("Update Supplier Contract Status for Retailer")
+	@PutMapping("/supplier-contracts/{id}/status")
+	public ResponseEntity<?> updateSupplierContractStatus(@PathVariable Long id,
+			@RequestParam String status,
+			@RequestParam(required = false) String reason,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.updateSupplierContractStatus(id, status, reason, authToken, orgIdHeader);
+	}
+
+	@LogActivity("Upload Supplier Contract Document for Retailer")
+	@PostMapping("/supplier-contracts/{id}/documents")
+	public ResponseEntity<?> uploadSupplierContractDocument(@PathVariable Long id,
+			@RequestParam MultipartFile file,
+			@RequestParam String documentName,
+			@RequestParam(required = false) String remarks,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.uploadSupplierContractDocument(id, file, documentName, remarks, authToken,
+				orgIdHeader);
+	}
+
+	@LogActivity("Get Supplier Contract Document for Retailer")
+	@GetMapping("/supplier-contracts/{id}/documents")
+	public ResponseEntity<?> getSupplierContractDocument(@PathVariable Long id,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.getSupplierContractDocument(id, authToken, orgIdHeader);
+	}
+
+	@LogActivity("Delete Supplier Contract Document for Retailer")
+	@DeleteMapping("/supplier-contracts/{id}/documents")
+	public ResponseEntity<?> deleteSupplierContractDocument(@PathVariable Long id,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.deleteSupplierContractDocument(id, authToken, orgIdHeader);
+	}
+
+	@LogActivity("Approve Supplier Contract for Retailer")
+	@PostMapping("/supplier-contracts/{id}/approve")
+	public ResponseEntity<?> approveSupplierContract(@PathVariable Long id,
+			@RequestParam String approvedBy,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.approveSupplierContract(id, approvedBy, authToken, orgIdHeader);
+	}
+
+	@LogActivity("Reject Supplier Contract for Retailer")
+	@PostMapping("/supplier-contracts/{id}/reject")
+	public ResponseEntity<?> rejectSupplierContract(@PathVariable Long id,
+			@RequestParam String rejectionReason,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.rejectSupplierContract(id, rejectionReason, authToken, orgIdHeader);
+	}
+
+	@LogActivity("Terminate Supplier Contract for Retailer")
+	@PostMapping("/supplier-contracts/{id}/terminate")
+	public ResponseEntity<?> terminateSupplierContract(@PathVariable Long id,
+			@RequestParam String reason,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.terminateSupplierContract(id, reason, authToken, orgIdHeader);
+	}
+
+	@LogActivity("Suspend Supplier Contract for Retailer")
+	@PostMapping("/supplier-contracts/{id}/suspend")
+	public ResponseEntity<?> suspendSupplierContract(@PathVariable Long id,
+			@RequestParam String reason,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.suspendSupplierContract(id, reason, authToken, orgIdHeader);
+	}
+
+	@LogActivity("Renew Supplier Contract for Retailer")
+	@PostMapping("/supplier-contracts/{id}/renew")
+	public ResponseEntity<?> renewSupplierContract(@PathVariable Long id,
+			@RequestParam java.sql.Date newExpiryDate,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.renewSupplierContract(id, newExpiryDate, authToken, orgIdHeader);
+	}
+
+	@LogActivity("Delete Supplier Contract for Retailer")
+	@DeleteMapping("/supplier-contracts/{id}/delete")
+	public ResponseEntity<?> deleteSupplierContract(@PathVariable Long id,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.deleteSupplierContract(id, authToken, orgIdHeader);
+	}
 }

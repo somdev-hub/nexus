@@ -162,4 +162,123 @@ public interface CoreRetailerService {
 
 	ResponseEntity<?> getMovementSummary(java.sql.Timestamp start, java.sql.Timestamp end, String authToken,
 			String orgIdHeader);
+
+	// Goods Receipt Endpoints
+	ResponseEntity<?> createGoodsReceipt(Map<String, Object> grDto, String authToken, String orgIdHeader);
+
+	ResponseEntity<?> getGoodsReceipt(Long id, String authToken, String orgIdHeader);
+
+	ResponseEntity<?> getAllGoodsReceipts(String authToken, String orgIdHeader, Pageable pageable,
+			String status, Long purchaseOrderId, Long supplierId);
+
+	ResponseEntity<?> updateGoodsReceipt(Long id, Map<String, Object> grDto, String authToken, String orgIdHeader);
+
+	ResponseEntity<?> transitionGoodsReceiptStatus(Long id, String newStatus, Map<String, Object> params,
+			String authToken, String orgIdHeader);
+
+	// Invoice Endpoints
+	ResponseEntity<?> createInvoice(Map<String, Object> invoiceDto, String authToken, String orgIdHeader);
+
+	ResponseEntity<?> getInvoice(Long id, String authToken, String orgIdHeader);
+
+	ResponseEntity<?> getAllInvoices(String authToken, String orgIdHeader, Pageable pageable,
+			String status, Long purchaseOrderId, Long supplierId);
+
+	ResponseEntity<?> updateInvoice(Long id, Map<String, Object> invoiceDto, String authToken, String orgIdHeader);
+
+	ResponseEntity<?> transitionInvoiceStatus(Long id, String newStatus, Map<String, Object> params,
+			String authToken, String orgIdHeader);
+
+	// Three-Way Matching Endpoints
+	ResponseEntity<?> performThreeWayMatch(Long purchaseOrderId, String authToken, String orgIdHeader);
+
+	ResponseEntity<?> canInvoice(Long purchaseOrderId, String authToken, String orgIdHeader);
+
+	ResponseEntity<?> getMatchingSummary(Long purchaseOrderId, String authToken, String orgIdHeader);
+
+	ResponseEntity<?> validateInvoiceMatch(Map<String, Object> invoiceDto, String authToken, String orgIdHeader);
+
+	// Supplier Performance Endpoints
+	ResponseEntity<?> createSupplierPerformance(Map<String, Object> performanceDto, String authToken,
+			String orgIdHeader);
+
+	ResponseEntity<?> getSupplierPerformance(Long id, String authToken, String orgIdHeader);
+
+	ResponseEntity<?> getSupplierPerformanceBySupplier(Long supplierId, String authToken, String orgIdHeader,
+			Pageable pageable);
+
+	ResponseEntity<?> getAllSupplierPerformance(String authToken, String orgIdHeader, Pageable pageable);
+
+	ResponseEntity<?> getSupplierPerformanceByPeriod(String authToken, String orgIdHeader, Pageable pageable,
+			java.sql.Date startDate, java.sql.Date endDate);
+
+	ResponseEntity<?> getSupplierPerformanceBySupplierAndPeriod(Long supplierId, String authToken, String orgIdHeader,
+			Pageable pageable,
+			java.sql.Date startDate, java.sql.Date endDate);
+
+	ResponseEntity<?> getSupplierPerformanceByTier(String authToken, String orgIdHeader, Pageable pageable,
+			String tier);
+
+	ResponseEntity<?> getLatestSupplierPerformance(Long supplierId, String authToken, String orgIdHeader);
+
+	ResponseEntity<?> getSupplierPerformanceSummaryByAccount(String authToken, String orgIdHeader);
+
+	ResponseEntity<?> getSupplierPerformanceSummaryBySupplier(Long supplierId, String authToken, String orgIdHeader);
+
+	ResponseEntity<?> calculateSupplierPerformance(Long supplierId, String authToken, String orgIdHeader,
+			java.sql.Date startDate, java.sql.Date endDate, String calculatedBy);
+
+	ResponseEntity<?> updateSupplierPerformance(Long id, Map<String, Object> performanceDto, String authToken,
+			String orgIdHeader);
+
+	ResponseEntity<?> deleteSupplierPerformance(Long id, String authToken, String orgIdHeader);
+
+	// Supplier Contract Endpoints
+	ResponseEntity<?> createSupplierContract(Map<String, Object> contractDto, String authToken, String orgIdHeader);
+
+	ResponseEntity<?> getSupplierContract(Long id, String authToken, String orgIdHeader);
+
+	ResponseEntity<?> getSupplierContractByNumber(String contractNumber, String authToken, String orgIdHeader);
+
+	ResponseEntity<?> getAllSupplierContracts(
+			String authToken, String orgIdHeader, Pageable pageable,
+			String status, Long supplierId, String contractType,
+			java.sql.Date effectiveStartDate, java.sql.Date effectiveEndDate,
+			java.sql.Date expiryStartDate, java.sql.Date expiryEndDate,
+			Boolean expiringOnly, java.sql.Date expiringBeforeDate,
+			Boolean autoRenewalOnly, java.sql.Date autoRenewalBeforeDate);
+
+	ResponseEntity<?> getExpiringSupplierContracts(String authToken, String orgIdHeader, java.sql.Date beforeDate);
+
+	ResponseEntity<?> getAutoRenewalSupplierContracts(String authToken, String orgIdHeader, java.sql.Date beforeDate);
+
+	ResponseEntity<?> getActiveSupplierContractBySupplierAndDate(Long supplierId, String authToken, String orgIdHeader,
+			java.sql.Date date);
+
+	ResponseEntity<?> getSupplierContractSummary(String authToken, String orgIdHeader);
+
+	ResponseEntity<?> updateSupplierContract(Long id, Map<String, Object> contractDto, String authToken,
+			String orgIdHeader);
+
+	ResponseEntity<?> updateSupplierContractStatus(Long id, String status, String reason, String authToken,
+			String orgIdHeader);
+
+	ResponseEntity<?> uploadSupplierContractDocument(Long id, MultipartFile file, String documentName, String remarks,
+			String authToken, String orgIdHeader);
+
+	ResponseEntity<?> getSupplierContractDocument(Long id, String authToken, String orgIdHeader);
+
+	ResponseEntity<?> deleteSupplierContractDocument(Long id, String authToken, String orgIdHeader);
+
+	ResponseEntity<?> approveSupplierContract(Long id, String approvedBy, String authToken, String orgIdHeader);
+
+	ResponseEntity<?> rejectSupplierContract(Long id, String rejectionReason, String authToken, String orgIdHeader);
+
+	ResponseEntity<?> terminateSupplierContract(Long id, String reason, String authToken, String orgIdHeader);
+
+	ResponseEntity<?> suspendSupplierContract(Long id, String reason, String authToken, String orgIdHeader);
+
+	ResponseEntity<?> renewSupplierContract(Long id, java.sql.Date newExpiryDate, String authToken, String orgIdHeader);
+
+	ResponseEntity<?> deleteSupplierContract(Long id, String authToken, String orgIdHeader);
 }

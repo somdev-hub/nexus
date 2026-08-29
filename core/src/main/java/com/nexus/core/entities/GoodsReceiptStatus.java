@@ -4,6 +4,7 @@ public enum GoodsReceiptStatus {
 	DRAFT,
 	RECEIVED,
 	PARTIALLY_RECEIVED,
+	RETURNED,
 	REJECTED,
 	CANCELLED
 }

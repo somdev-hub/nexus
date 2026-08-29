@@ -44,13 +44,13 @@ public class WebConstants {
 	@Value("${dms.service.url:http://localhost:8083}")
 	private String dmsServiceUrl;
 
-	@Value("${individual.dms.url}")
+	@Value("${individual.dms.url:/dms/upload/individual}")
 	private String individualFileUploadUrl;
 
-	@Value("${org.dms.url}")
+	@Value("${org.dms.url:/dms/upload/org}")
 	private String orgFileUploadUrl;
 
-	@Value("${common.dms.url}")
+	@Value("${common.dms.url:/dms/upload/common}")
 	private String commonDmsUrl;
 
 	// HR Service URLs
@@ -123,5 +123,18 @@ public class WebConstants {
 
 	public String getKeycloakLogoutUrl() {
 		return keycloakServerUrl + "/realms/" + keycloakRealm + "/protocol/openid-connect/logout";
+	}
+
+	// DMS URL helper methods
+	public String getIndividualFileUploadUrl() {
+		return dmsServiceUrl + individualFileUploadUrl;
+	}
+
+	public String getOrgFileUploadUrl() {
+		return dmsServiceUrl + orgFileUploadUrl;
+	}
+
+	public String getCommonFileUploadUrl() {
+		return dmsServiceUrl + commonDmsUrl;
 	}
 }

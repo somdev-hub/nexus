@@ -26,6 +26,8 @@ public interface PurchaseOrderRepo extends JpaRepository<PurchaseOrder, Long> {
 
 	List<PurchaseOrder> findBySupplierIdAndBuyerOrgId(Long supplierId, Long orgId);
 
+	Optional<List<PurchaseOrder>> findBySupplierSupplierIdAndAccountId(Long supplierId, Long accountId);
+
 	List<PurchaseOrder> findByPartnershipIdAndBuyerOrgId(Long partnershipId, Long orgId);
 
 	@Query("SELECT po FROM PurchaseOrder po WHERE po.buyerOrg.accountId = :orgId AND po.parentPoId = :parentPoId ORDER BY po.revisionNumber DESC")

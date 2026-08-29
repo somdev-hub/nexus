@@ -1,31 +1,27 @@
 package com.nexus.core.utils;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import org.springframework.beans.factory.ObjectProvider;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.util.ObjectUtils;
-import org.springframework.web.client.RestClient;
 
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import lombok.RequiredArgsConstructor;
 
 @Service
+@RequiredArgsConstructor
 public class CommonUtils {
 
 	private final ObjectMapper objectMapper;
 	private final CommonConstants commonConstants;
-	private final RestClient restClient;
-
-	public CommonUtils(ObjectMapper objectMapper, CommonConstants commonConstants, RestClient restClient) {
-		this.objectMapper = objectMapper;
-		this.commonConstants = commonConstants;
-		this.restClient = restClient;
-	}
+	private final RestService restService;
 
 	/**
 	 * Validates JSON string and returns valid JSON.
@@ -82,11 +78,8 @@ public class CommonUtils {
 		try {
 			String url = commonConstants.getIamServiceUrl() + commonConstants.getVerifyTokenUrl();
 			Map<String, String> headers = buildJsonHeaders(token);
-			ResponseEntity<String> response = restClient.post()
-					.uri(url)
-					.headers(h -> headers.forEach(h::set))
-					.retrieve()
-					.toEntity(String.class);
+			ResponseEntity<String> response = restService.coreRestCall(url, null, headers,
+					org.springframework.http.HttpMethod.POST, null);
 			return response.getStatusCode().is2xxSuccessful();
 		} catch (Exception e) {
 			return false;
@@ -100,11 +93,7 @@ public class CommonUtils {
 		String url = commonConstants.getIamServiceUrl() + commonConstants.getIamOrganizationUrl() + "/"
 				+ organizationId;
 		Map<String, String> headers = buildJsonHeaders(authToken);
-		return restClient.get()
-				.uri(url)
-				.headers(h -> headers.forEach(h::set))
-				.retrieve()
-				.toEntity(String.class);
+		return restService.coreRestCall(url, null, headers, org.springframework.http.HttpMethod.GET, null);
 	}
 
 	/**
@@ -115,11 +104,8 @@ public class CommonUtils {
 			String url = commonConstants.getIamServiceUrl() + commonConstants.getIamUserUrl() + "/" + userId
 					+ "/organizations/" + organizationId + "/access";
 			Map<String, String> headers = buildJsonHeaders(authToken);
-			ResponseEntity<String> response = restClient.get()
-					.uri(url)
-					.headers(h -> headers.forEach(h::set))
-					.retrieve()
-					.toEntity(String.class);
+			ResponseEntity<String> response = restService.coreRestCall(url, null, headers,
+					org.springframework.http.HttpMethod.GET, null);
 			return response.getStatusCode().is2xxSuccessful();
 		} catch (Exception e) {
 			return false;

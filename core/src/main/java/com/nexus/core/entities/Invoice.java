@@ -74,6 +74,27 @@ public class Invoice extends BaseEntity {
 	@Column(name = "notes")
 	private String notes;
 
+	@Column(name = "submitted_at")
+	private java.sql.Timestamp submittedAt;
+
+	@Column(name = "approved_at")
+	private java.sql.Timestamp approvedAt;
+
+	@Column(name = "approved_by")
+	private String approvedBy;
+
+	@Column(name = "rejection_reason")
+	private String rejectionReason;
+
+	@Column(name = "paid_at")
+	private java.sql.Timestamp paidAt;
+
+	@Column(name = "closed_at")
+	private java.sql.Timestamp closedAt;
+
+	@Column(name = "cancelled_at")
+	private java.sql.Timestamp cancelledAt;
+
 	@Version
 	private Long version = 0L;
 
