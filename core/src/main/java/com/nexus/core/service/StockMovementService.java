@@ -19,23 +19,9 @@ public interface StockMovementService {
 
 	ResponseEntity<?> getStockMovementById(Long id);
 
-	ResponseEntity<?> getMovementsByStock(Long stockId, Pageable pageable);
-
-	ResponseEntity<?> getMovementsByOrg(Pageable pageable);
-
-	ResponseEntity<?> getMovementsByWarehouse(Long warehouseId, Pageable pageable);
-
-	ResponseEntity<?> getMovementsByType(StockMovement.MovementType type, Pageable pageable);
-
-	ResponseEntity<?> getMovementsByReference(String referenceType, Long referenceId);
-
-	ResponseEntity<?> getMovementsByBatchNumber(String batchNumber);
-
-	ResponseEntity<?> getExpiringStock(Timestamp beforeDate);
-
-	ResponseEntity<?> getMovementsByDateRange(Timestamp start, Timestamp end, Pageable pageable);
-
-	ResponseEntity<?> getMovementsByMaterial(Long materialId, Pageable pageable);
+	ResponseEntity<?> getMovementsByOrg(Long stockId, Long warehouseId, String type, String referenceType,
+			Long referenceId, String batchNumber, Timestamp beforeDate, Timestamp start, Timestamp end, Long materialId,
+			Pageable pageable);
 
 	ResponseEntity<?> getMovementSummary(Timestamp start, Timestamp end);
 }

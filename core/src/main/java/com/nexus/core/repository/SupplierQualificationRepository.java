@@ -32,4 +32,11 @@ public interface SupplierQualificationRepository extends JpaRepository<SupplierQ
 			@Param("retailerOrg") Account retailerOrg, @Param("status") QualificationStatus status);
 
 	Optional<SupplierQualification> findByQualificationId(Long qualificationId);
+
+	// New methods for organization-scoped queries
+	Page<SupplierQualification> findByRetailerOrgAccountId(Long accountId, Pageable pageable);
+
+	@Query("SELECT sq FROM SupplierQualification sq WHERE sq.status = :status AND sq.retailerOrg.accountId = :accountId")
+	Page<SupplierQualification> findByStatusAndRetailerOrgAccountId(@Param("status") QualificationStatus status,
+			@Param("accountId") Long accountId, Pageable pageable);
 }

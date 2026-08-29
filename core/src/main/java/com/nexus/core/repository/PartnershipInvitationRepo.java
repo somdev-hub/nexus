@@ -3,6 +3,8 @@ package com.nexus.core.repository;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -30,4 +32,12 @@ public interface PartnershipInvitationRepo extends JpaRepository<PartnershipInvi
 
 	@Query("SELECT i FROM PartnershipInvitation i WHERE i.invitedOrg.accountId = :orgId AND i.status = 'PENDING' AND i.expiresAt > CURRENT_TIMESTAMP AND i.isActive = true")
 	Optional<List<PartnershipInvitation>> findPendingInvitationsForOrg(@Param("orgId") Long orgId);
+
+	// New methods with Pageable support
+	Page<PartnershipInvitation> findByInvitingOrgAccountId(Long orgId, Pageable pageable);
+
+	Page<PartnershipInvitation> findByInvitedOrgAccountId(Long orgId, Pageable pageable);
+
+	@Query("SELECT i FROM PartnershipInvitation i WHERE i.invitedOrg.accountId = :orgId AND i.status = 'PENDING' AND i.expiresAt > CURRENT_TIMESTAMP AND i.isActive = true")
+	Page<PartnershipInvitation> findPendingInvitationsForOrg(@Param("orgId") Long orgId, Pageable pageable);
 }

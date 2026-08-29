@@ -121,68 +121,77 @@ public class StockServiceImpl implements StockService {
 	}
 
 	@Override
-	public ResponseEntity<?> getAllStockByOrgId(Pageable pageable) {
+	public ResponseEntity<?> getAllStockByOrgId(Long warehouseId, Long materialId, Boolean belowReorderPoint,
+			Boolean atOrBelowMinLevel, Pageable pageable) {
 		Long orgId = OrganizationContextHolder.requireOrganizationId();
+
+		// If warehouseId is provided, validate it belongs to the organization
+		if (warehouseId != null) {
+			Warehouse warehouse = warehouseRepo.findById(warehouseId)
+					.orElseThrow(() -> new ResourceNotFoundException("Warehouse", "warehouseId", warehouseId));
+			if (!warehouse.getOrg().equals(orgId)) {
+				return ResponseEntity.status(HttpStatus.FORBIDDEN)
+						.body("Warehouse does not belong to this organization");
+			}
+		}
+
+		// If materialId is provided, validate it belongs to the organization
+		if (materialId != null) {
+			Material material = materialRepo.findById(materialId)
+					.orElseThrow(() -> new ResourceNotFoundException("Material", "materialId", materialId));
+			if (!material.getOrg().equals(orgId)) {
+				return ResponseEntity.status(HttpStatus.FORBIDDEN)
+						.body("Material does not belong to this organization");
+			}
+		}
+
+		// Build dynamic query based on filters
+		if (warehouseId != null && materialId != null) {
+			Warehouse warehouse = warehouseRepo.findById(warehouseId).orElseThrow();
+			Material material = materialRepo.findById(materialId).orElseThrow();
+			Stock stock = stockRepo.findByMaterialAndWarehouse(material, warehouse)
+					.orElseThrow(() -> new ResourceNotFoundException("Stock", "materialId/warehouseId",
+							materialId + "/" + warehouseId));
+			return new ResponseEntity<>(mapToStockDto(stock), HttpStatus.OK);
+		}
+
+		if (warehouseId != null) {
+			Warehouse warehouse = warehouseRepo.findById(warehouseId).orElseThrow();
+			List<Stock> stocks = stockRepo.findActiveByWarehouse(warehouse);
+			List<StockDto> stockDtos = stocks.stream()
+					.map(this::mapToStockDto)
+					.collect(Collectors.toList());
+			return new ResponseEntity<>(stockDtos, HttpStatus.OK);
+		}
+
+		if (materialId != null) {
+			Material material = materialRepo.findById(materialId).orElseThrow();
+			List<Stock> stocks = stockRepo.findActiveByMaterial(material);
+			List<StockDto> stockDtos = stocks.stream()
+					.map(this::mapToStockDto)
+					.collect(Collectors.toList());
+			return new ResponseEntity<>(stockDtos, HttpStatus.OK);
+		}
+
+		if (Boolean.TRUE.equals(belowReorderPoint)) {
+			List<Stock> stocks = stockRepo.findBelowReorderPoint(orgId);
+			List<StockDto> stockDtos = stocks.stream()
+					.map(this::mapToStockDto)
+					.collect(Collectors.toList());
+			return new ResponseEntity<>(stockDtos, HttpStatus.OK);
+		}
+
+		if (Boolean.TRUE.equals(atOrBelowMinLevel)) {
+			List<Stock> stocks = stockRepo.findAtOrBelowMinLevel(orgId);
+			List<StockDto> stockDtos = stocks.stream()
+					.map(this::mapToStockDto)
+					.collect(Collectors.toList());
+			return new ResponseEntity<>(stockDtos, HttpStatus.OK);
+		}
+
+		// No filters - return all stocks for the organization with pagination
 		Page<Stock> stocks = stockRepo.findActiveByOrgId(orgId, pageable);
 		Page<StockDto> stockDtos = stocks.map(this::mapToStockDto);
-		return new ResponseEntity<>(stockDtos, HttpStatus.OK);
-	}
-
-	@Override
-	public ResponseEntity<?> getAllStockByWarehouse(Long warehouseId, Pageable pageable) {
-		Long orgId = OrganizationContextHolder.requireOrganizationId();
-
-		Warehouse warehouse = warehouseRepo.findById(warehouseId)
-				.orElseThrow(() -> new ResourceNotFoundException("Warehouse", "warehouseId", warehouseId));
-
-		// Verify warehouse belongs to the organization
-		if (!warehouse.getOrg().equals(orgId)) {
-			return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Warehouse does not belong to this organization");
-		}
-
-		List<Stock> stocks = stockRepo.findActiveByWarehouse(warehouse);
-		List<StockDto> stockDtos = stocks.stream()
-				.map(this::mapToStockDto)
-				.collect(Collectors.toList());
-		return new ResponseEntity<>(stockDtos, HttpStatus.OK);
-	}
-
-	@Override
-	public ResponseEntity<?> getAllStockByMaterial(Long materialId, Pageable pageable) {
-		Long orgId = OrganizationContextHolder.requireOrganizationId();
-
-		Material material = materialRepo.findById(materialId)
-				.orElseThrow(() -> new ResourceNotFoundException("Material", "materialId", materialId));
-
-		// Verify material belongs to the organization
-		if (!material.getOrg().equals(orgId)) {
-			return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Material does not belong to this organization");
-		}
-
-		List<Stock> stocks = stockRepo.findActiveByMaterial(material);
-		List<StockDto> stockDtos = stocks.stream()
-				.map(this::mapToStockDto)
-				.collect(Collectors.toList());
-		return new ResponseEntity<>(stockDtos, HttpStatus.OK);
-	}
-
-	@Override
-	public ResponseEntity<?> getStockBelowReorderPoint() {
-		Long orgId = OrganizationContextHolder.requireOrganizationId();
-		List<Stock> stocks = stockRepo.findBelowReorderPoint(orgId);
-		List<StockDto> stockDtos = stocks.stream()
-				.map(this::mapToStockDto)
-				.collect(Collectors.toList());
-		return new ResponseEntity<>(stockDtos, HttpStatus.OK);
-	}
-
-	@Override
-	public ResponseEntity<?> getStockAtOrBelowMinLevel() {
-		Long orgId = OrganizationContextHolder.requireOrganizationId();
-		List<Stock> stocks = stockRepo.findAtOrBelowMinLevel(orgId);
-		List<StockDto> stockDtos = stocks.stream()
-				.map(this::mapToStockDto)
-				.collect(Collectors.toList());
 		return new ResponseEntity<>(stockDtos, HttpStatus.OK);
 	}
 

@@ -11,9 +11,8 @@ public interface SupplierService {
 
 	public ResponseEntity<?> getSupplierById(Long id);
 
-	public ResponseEntity<?> getAllSuppliers(Pageable pageable);
-
-	public ResponseEntity<?> getSuppliersByAccount(Long accountId, Pageable pageable);
+	public ResponseEntity<?> getAllSuppliers(Long accountId, String category, String location, Double minRating,
+			String certification, Pageable pageable);
 
 	public ResponseEntity<?> discoverSuppliers(SupplierDiscoveryDto discoveryDto, Pageable pageable);
 }

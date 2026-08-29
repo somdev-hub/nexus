@@ -78,122 +78,110 @@ public class StockMovementServiceImpl implements StockMovementService {
 	}
 
 	@Override
-	public ResponseEntity<?> getMovementsByStock(Long stockId, Pageable pageable) {
+	public ResponseEntity<?> getMovementsByOrg(Long stockId, Long warehouseId, String type, String referenceType,
+			Long referenceId, String batchNumber, Timestamp beforeDate, Timestamp start, Timestamp end, Long materialId,
+			Pageable pageable) {
 		Long orgId = OrganizationContextHolder.requireOrganizationId();
 
-		Stock stock = stockRepo.findById(stockId)
-				.orElseThrow(() -> new ResourceNotFoundException("Stock", "stockId", stockId));
-
-		// Verify stock belongs to the organization
-		if (!stock.getMaterial().getOrg().equals(orgId) || !stock.getWarehouse().getOrg().equals(orgId)) {
-			return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Stock does not belong to this organization");
+		// If stockId is provided, validate it belongs to the organization
+		if (stockId != null) {
+			Stock stock = stockRepo.findById(stockId)
+					.orElseThrow(() -> new ResourceNotFoundException("Stock", "stockId", stockId));
+			if (!stock.getMaterial().getOrg().equals(orgId) || !stock.getWarehouse().getOrg().equals(orgId)) {
+				return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Stock does not belong to this organization");
+			}
+			Page<StockMovement> movements = stockMovementRepo.findByStockOrderByCreatedAtDesc(stock, pageable);
+			Page<StockMovementDto> movementDtos = movements.map(this::mapToMovementDto);
+			return new ResponseEntity<>(movementDtos, HttpStatus.OK);
 		}
 
-		Page<StockMovement> movements = stockMovementRepo.findByStockOrderByCreatedAtDesc(stock, pageable);
-		Page<StockMovementDto> movementDtos = movements.map(this::mapToMovementDto);
-		return new ResponseEntity<>(movementDtos, HttpStatus.OK);
-	}
+		// If warehouseId is provided, validate it belongs to the organization
+		if (warehouseId != null) {
+			Warehouse warehouse = warehouseRepo.findById(warehouseId)
+					.orElseThrow(() -> new ResourceNotFoundException("Warehouse", "warehouseId", warehouseId));
+			if (!warehouse.getOrg().equals(orgId)) {
+				return ResponseEntity.status(HttpStatus.FORBIDDEN)
+						.body("Warehouse does not belong to this organization");
+			}
+			List<StockMovement> movements = stockMovementRepo.findByWarehouseOrderByCreatedAtDesc(warehouse);
+			List<StockMovementDto> movementDtos = movements.stream()
+					.map(this::mapToMovementDto)
+					.collect(Collectors.toList());
+			return new ResponseEntity<>(movementDtos, HttpStatus.OK);
+		}
 
-	@Override
-	public ResponseEntity<?> getMovementsByOrg(Pageable pageable) {
-		Long orgId = OrganizationContextHolder.requireOrganizationId();
+		// If type is provided, filter by movement type
+		if (type != null && !type.isBlank()) {
+			try {
+				StockMovement.MovementType movementType = StockMovement.MovementType.valueOf(type.toUpperCase());
+				List<StockMovement> movements = stockMovementRepo.findByMovementTypeAndOrg(movementType, orgId);
+				List<StockMovementDto> movementDtos = movements.stream()
+						.map(this::mapToMovementDto)
+						.collect(Collectors.toList());
+				return new ResponseEntity<>(movementDtos, HttpStatus.OK);
+			} catch (IllegalArgumentException e) {
+				return ResponseEntity.badRequest().body("Invalid movement type: " + type);
+			}
+		}
+
+		// If referenceType and referenceId are provided, filter by reference
+		if (referenceType != null && !referenceType.isBlank() && referenceId != null) {
+			List<StockMovement> movements = stockMovementRepo.findByReference(referenceType, referenceId);
+			List<StockMovement> filteredMovements = movements.stream()
+					.filter(m -> m.getStock().getMaterial().getOrg().equals(orgId)
+							&& m.getStock().getWarehouse().getOrg().equals(orgId))
+					.collect(Collectors.toList());
+			List<StockMovementDto> movementDtos = filteredMovements.stream()
+					.map(this::mapToMovementDto)
+					.collect(Collectors.toList());
+			return new ResponseEntity<>(movementDtos, HttpStatus.OK);
+		}
+
+		// If batchNumber is provided, filter by batch
+		if (batchNumber != null && !batchNumber.isBlank()) {
+			List<StockMovement> movements = stockMovementRepo.findByBatchNumberAndOrg(batchNumber, orgId);
+			List<StockMovementDto> movementDtos = movements.stream()
+					.map(this::mapToMovementDto)
+					.collect(Collectors.toList());
+			return new ResponseEntity<>(movementDtos, HttpStatus.OK);
+		}
+
+		// If beforeDate is provided, get expiring stock
+		if (beforeDate != null) {
+			List<StockMovement> movements = stockMovementRepo.findExpiringBeforeDate(beforeDate, orgId);
+			List<StockMovementDto> movementDtos = movements.stream()
+					.map(this::mapToMovementDto)
+					.collect(Collectors.toList());
+			return new ResponseEntity<>(movementDtos, HttpStatus.OK);
+		}
+
+		// If start and end are provided, filter by date range
+		if (start != null && end != null) {
+			List<StockMovement> movements = stockMovementRepo.findByDateRangeAndOrg(start, end, orgId);
+			List<StockMovementDto> movementDtos = movements.stream()
+					.map(this::mapToMovementDto)
+					.collect(Collectors.toList());
+			return new ResponseEntity<>(movementDtos, HttpStatus.OK);
+		}
+
+		// If materialId is provided, validate it belongs to the organization
+		if (materialId != null) {
+			Material material = materialRepo.findById(materialId)
+					.orElseThrow(() -> new ResourceNotFoundException("Material", "materialId", materialId));
+			if (!material.getOrg().equals(orgId)) {
+				return ResponseEntity.status(HttpStatus.FORBIDDEN)
+						.body("Material does not belong to this organization");
+			}
+			List<StockMovement> movements = stockMovementRepo.findByMaterialAndOrg(material, orgId);
+			List<StockMovementDto> movementDtos = movements.stream()
+					.map(this::mapToMovementDto)
+					.collect(Collectors.toList());
+			return new ResponseEntity<>(movementDtos, HttpStatus.OK);
+		}
+
+		// No filters - return all movements for the organization with pagination
 		Page<StockMovement> movements = stockMovementRepo.findByOrgIdOrderByCreatedAtDesc(orgId, pageable);
 		Page<StockMovementDto> movementDtos = movements.map(this::mapToMovementDto);
-		return new ResponseEntity<>(movementDtos, HttpStatus.OK);
-	}
-
-	@Override
-	public ResponseEntity<?> getMovementsByWarehouse(Long warehouseId, Pageable pageable) {
-		Long orgId = OrganizationContextHolder.requireOrganizationId();
-
-		Warehouse warehouse = warehouseRepo.findById(warehouseId)
-				.orElseThrow(() -> new ResourceNotFoundException("Warehouse", "warehouseId", warehouseId));
-
-		// Verify warehouse belongs to the organization
-		if (!warehouse.getOrg().equals(orgId)) {
-			return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Warehouse does not belong to this organization");
-		}
-
-		List<StockMovement> movements = stockMovementRepo.findByWarehouseOrderByCreatedAtDesc(warehouse);
-		List<StockMovementDto> movementDtos = movements.stream()
-				.map(this::mapToMovementDto)
-				.collect(Collectors.toList());
-		return new ResponseEntity<>(movementDtos, HttpStatus.OK);
-	}
-
-	@Override
-	public ResponseEntity<?> getMovementsByType(StockMovement.MovementType type, Pageable pageable) {
-		Long orgId = OrganizationContextHolder.requireOrganizationId();
-		List<StockMovement> movements = stockMovementRepo.findByMovementTypeAndOrg(type, orgId);
-		List<StockMovementDto> movementDtos = movements.stream()
-				.map(this::mapToMovementDto)
-				.collect(Collectors.toList());
-		return new ResponseEntity<>(movementDtos, HttpStatus.OK);
-	}
-
-	@Override
-	public ResponseEntity<?> getMovementsByReference(String referenceType, Long referenceId) {
-		Long orgId = OrganizationContextHolder.requireOrganizationId();
-		List<StockMovement> movements = stockMovementRepo.findByReference(referenceType, referenceId);
-
-		// Filter by organization
-		List<StockMovement> filteredMovements = movements.stream()
-				.filter(m -> m.getStock().getMaterial().getOrg().equals(orgId)
-						&& m.getStock().getWarehouse().getOrg().equals(orgId))
-				.collect(Collectors.toList());
-
-		List<StockMovementDto> movementDtos = filteredMovements.stream()
-				.map(this::mapToMovementDto)
-				.collect(Collectors.toList());
-		return new ResponseEntity<>(movementDtos, HttpStatus.OK);
-	}
-
-	@Override
-	public ResponseEntity<?> getMovementsByBatchNumber(String batchNumber) {
-		Long orgId = OrganizationContextHolder.requireOrganizationId();
-		List<StockMovement> movements = stockMovementRepo.findByBatchNumberAndOrg(batchNumber, orgId);
-		List<StockMovementDto> movementDtos = movements.stream()
-				.map(this::mapToMovementDto)
-				.collect(Collectors.toList());
-		return new ResponseEntity<>(movementDtos, HttpStatus.OK);
-	}
-
-	@Override
-	public ResponseEntity<?> getExpiringStock(Timestamp beforeDate) {
-		Long orgId = OrganizationContextHolder.requireOrganizationId();
-		List<StockMovement> movements = stockMovementRepo.findExpiringBeforeDate(beforeDate, orgId);
-		List<StockMovementDto> movementDtos = movements.stream()
-				.map(this::mapToMovementDto)
-				.collect(Collectors.toList());
-		return new ResponseEntity<>(movementDtos, HttpStatus.OK);
-	}
-
-	@Override
-	public ResponseEntity<?> getMovementsByDateRange(Timestamp start, Timestamp end, Pageable pageable) {
-		Long orgId = OrganizationContextHolder.requireOrganizationId();
-		List<StockMovement> movements = stockMovementRepo.findByDateRangeAndOrg(start, end, orgId);
-		List<StockMovementDto> movementDtos = movements.stream()
-				.map(this::mapToMovementDto)
-				.collect(Collectors.toList());
-		return new ResponseEntity<>(movementDtos, HttpStatus.OK);
-	}
-
-	@Override
-	public ResponseEntity<?> getMovementsByMaterial(Long materialId, Pageable pageable) {
-		Long orgId = OrganizationContextHolder.requireOrganizationId();
-
-		Material material = materialRepo.findById(materialId)
-				.orElseThrow(() -> new ResourceNotFoundException("Material", "materialId", materialId));
-
-		// Verify material belongs to the organization
-		if (!material.getOrg().equals(orgId)) {
-			return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Material does not belong to this organization");
-		}
-
-		List<StockMovement> movements = stockMovementRepo.findByMaterialAndOrg(material, orgId);
-		List<StockMovementDto> movementDtos = movements.stream()
-				.map(this::mapToMovementDto)
-				.collect(Collectors.toList());
 		return new ResponseEntity<>(movementDtos, HttpStatus.OK);
 	}
 

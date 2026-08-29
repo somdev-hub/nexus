@@ -487,6 +487,23 @@ public class CoreRetailerServiceImpl implements CoreRetailerService {
 				null);
 	}
 
+	@Override
+	public ResponseEntity<?> updateSupplierQualificationStatus(Long id, String status, String rejectionReason,
+			String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCoreSupplierQualificationUpdateStatusUrl() + "/" + id + "/status";
+		Map<String, Object> body = Map.of(
+				"status", status,
+				"rejectionReason", rejectionReason);
+		return restService.iamRestCall(
+				url,
+				body,
+				headers,
+				HttpMethod.PUT,
+				null);
+	}
+
 	// Supplier Management Endpoints
 	@Override
 	public ResponseEntity<?> addSupplier(Map<String, Object> supplierDto, String authToken, String orgIdHeader) {
@@ -514,24 +531,16 @@ public class CoreRetailerServiceImpl implements CoreRetailerService {
 	}
 
 	@Override
-	public ResponseEntity<?> getAllSuppliers(String authToken, String orgIdHeader, Pageable pageable) {
+	public ResponseEntity<?> getAllSuppliers(String authToken, String orgIdHeader, Pageable pageable,
+			Long accountId, String category, String location, Double minRating, String certification) {
 		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
 		headers.put("X-Organization-ID", orgIdHeader);
-		String url = buildPaginatedUrl(webConstants.getCoreSupplierAllUrl(), pageable);
-		return restService.iamRestCall(
-				url,
-				null,
-				headers,
-				HttpMethod.GET,
-				null);
-	}
-
-	@Override
-	public ResponseEntity<?> getSuppliersByAccount(Long accountId, String authToken, String orgIdHeader,
-			Pageable pageable) {
-		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
-		headers.put("X-Organization-ID", orgIdHeader);
-		String url = buildPaginatedUrl(webConstants.getCoreSupplierByAccountUrl() + "/" + accountId, pageable);
+		String url = buildPaginatedUrlWithFilters(webConstants.getCoreSupplierAllUrl(), pageable,
+				"accountId", accountId,
+				"category", category,
+				"location", location,
+				"minRating", minRating,
+				"certification", certification);
 		return restService.iamRestCall(
 				url,
 				null,
@@ -567,24 +576,12 @@ public class CoreRetailerServiceImpl implements CoreRetailerService {
 	}
 
 	@Override
-	public ResponseEntity<?> getAllPurchaseOrders(String authToken, String orgIdHeader, Pageable pageable) {
+	public ResponseEntity<?> getAllPurchaseOrders(String authToken, String orgIdHeader, Pageable pageable,
+			String status) {
 		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
 		headers.put("X-Organization-ID", orgIdHeader);
-		String url = buildPaginatedUrl(webConstants.getCorePurchaseOrderAllUrl(), pageable);
-		return restService.iamRestCall(
-				url,
-				null,
-				headers,
-				HttpMethod.GET,
-				null);
-	}
-
-	@Override
-	public ResponseEntity<?> getPurchaseOrdersByStatus(String status, String authToken, String orgIdHeader,
-			Pageable pageable) {
-		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
-		headers.put("X-Organization-ID", orgIdHeader);
-		String url = buildPaginatedUrl(webConstants.getCorePurchaseOrderByStatusUrl() + "/" + status, pageable);
+		String url = buildPaginatedUrlWithFilters(webConstants.getCorePurchaseOrderAllUrl(), pageable,
+				"status", status);
 		return restService.iamRestCall(
 				url,
 				null,
@@ -675,64 +672,17 @@ public class CoreRetailerServiceImpl implements CoreRetailerService {
 	}
 
 	@Override
-	public ResponseEntity<?> getAllStocks(String authToken, String orgIdHeader, Pageable pageable) {
+	public ResponseEntity<?> getAllStocks(String authToken, String orgIdHeader, Pageable pageable,
+			Long warehouseId, Long materialId, Boolean belowReorderPoint, Boolean atOrBelowMinLevel) {
 		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
 		headers.put("X-Organization-ID", orgIdHeader);
-		String url = buildPaginatedUrl(webConstants.getCoreStockAllUrl(), pageable);
+		String url = buildPaginatedUrlWithFilters(webConstants.getCoreStockAllUrl(), pageable,
+				"warehouseId", warehouseId,
+				"materialId", materialId,
+				"belowReorderPoint", belowReorderPoint,
+				"atOrBelowMinLevel", atOrBelowMinLevel);
 		return restService.iamRestCall(
 				url,
-				null,
-				headers,
-				HttpMethod.GET,
-				null);
-	}
-
-	@Override
-	public ResponseEntity<?> getStocksByWarehouse(Long warehouseId, String authToken, String orgIdHeader,
-			Pageable pageable) {
-		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
-		headers.put("X-Organization-ID", orgIdHeader);
-		String url = buildPaginatedUrl(webConstants.getCoreStockWarehouseUrl() + "/" + warehouseId, pageable);
-		return restService.iamRestCall(
-				url,
-				null,
-				headers,
-				HttpMethod.GET,
-				null);
-	}
-
-	@Override
-	public ResponseEntity<?> getStocksByMaterial(Long materialId, String authToken, String orgIdHeader,
-			Pageable pageable) {
-		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
-		headers.put("X-Organization-ID", orgIdHeader);
-		String url = buildPaginatedUrl(webConstants.getCoreStockMaterialUrl() + "/" + materialId, pageable);
-		return restService.iamRestCall(
-				url,
-				null,
-				headers,
-				HttpMethod.GET,
-				null);
-	}
-
-	@Override
-	public ResponseEntity<?> getStocksBelowReorderPoint(String authToken, String orgIdHeader) {
-		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
-		headers.put("X-Organization-ID", orgIdHeader);
-		return restService.iamRestCall(
-				webConstants.getCoreStockBelowReorderPointUrl(),
-				null,
-				headers,
-				HttpMethod.GET,
-				null);
-	}
-
-	@Override
-	public ResponseEntity<?> getStocksAtOrBelowMinLevel(String authToken, String orgIdHeader) {
-		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
-		headers.put("X-Organization-ID", orgIdHeader);
-		return restService.iamRestCall(
-				webConstants.getCoreStockMinLevelUrl(),
 				null,
 				headers,
 				HttpMethod.GET,
@@ -917,121 +867,23 @@ public class CoreRetailerServiceImpl implements CoreRetailerService {
 	}
 
 	@Override
-	public ResponseEntity<?> getMovementsByStock(Long stockId, String authToken, String orgIdHeader,
-			Pageable pageable) {
+	public ResponseEntity<?> getAllStockMovements(String authToken, String orgIdHeader, Pageable pageable,
+			Long stockId, Long warehouseId, String type, String referenceType, Long referenceId,
+			String batchNumber, java.sql.Timestamp beforeDate, java.sql.Timestamp start,
+			java.sql.Timestamp end, Long materialId) {
 		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
 		headers.put("X-Organization-ID", orgIdHeader);
-		String url = buildPaginatedUrl(webConstants.getCoreStockMovementStockUrl() + "/" + stockId, pageable);
-		return restService.iamRestCall(
-				url,
-				null,
-				headers,
-				HttpMethod.GET,
-				null);
-	}
-
-	@Override
-	public ResponseEntity<?> getAllStockMovements(String authToken, String orgIdHeader, Pageable pageable) {
-		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
-		headers.put("X-Organization-ID", orgIdHeader);
-		String url = buildPaginatedUrl(webConstants.getCoreStockMovementAllUrl(), pageable);
-		return restService.iamRestCall(
-				url,
-				null,
-				headers,
-				HttpMethod.GET,
-				null);
-	}
-
-	@Override
-	public ResponseEntity<?> getMovementsByWarehouse(Long warehouseId, String authToken, String orgIdHeader,
-			Pageable pageable) {
-		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
-		headers.put("X-Organization-ID", orgIdHeader);
-		String url = buildPaginatedUrl(webConstants.getCoreStockMovementWarehouseUrl() + "/" + warehouseId, pageable);
-		return restService.iamRestCall(
-				url,
-				null,
-				headers,
-				HttpMethod.GET,
-				null);
-	}
-
-	@Override
-	public ResponseEntity<?> getMovementsByType(String type, String authToken, String orgIdHeader, Pageable pageable) {
-		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
-		headers.put("X-Organization-ID", orgIdHeader);
-		String url = buildPaginatedUrl(webConstants.getCoreStockMovementTypeUrl() + "/" + type, pageable);
-		return restService.iamRestCall(
-				url,
-				null,
-				headers,
-				HttpMethod.GET,
-				null);
-	}
-
-	@Override
-	public ResponseEntity<?> getMovementsByReference(String referenceType, Long referenceId, String authToken,
-			String orgIdHeader) {
-		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
-		headers.put("X-Organization-ID", orgIdHeader);
-		String url = webConstants.getCoreStockMovementReferenceUrl() + "?referenceType=" + referenceType
-				+ "&referenceId=" + referenceId;
-		return restService.iamRestCall(
-				url,
-				null,
-				headers,
-				HttpMethod.GET,
-				null);
-	}
-
-	@Override
-	public ResponseEntity<?> getMovementsByBatchNumber(String batchNumber, String authToken, String orgIdHeader) {
-		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
-		headers.put("X-Organization-ID", orgIdHeader);
-		String url = webConstants.getCoreStockMovementBatchUrl() + "/" + batchNumber;
-		return restService.iamRestCall(
-				url,
-				null,
-				headers,
-				HttpMethod.GET,
-				null);
-	}
-
-	@Override
-	public ResponseEntity<?> getExpiringStock(java.sql.Date beforeDate, String authToken, String orgIdHeader) {
-		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
-		headers.put("X-Organization-ID", orgIdHeader);
-		String url = webConstants.getCoreStockMovementExpiringUrl() + "?beforeDate=" + beforeDate;
-		return restService.iamRestCall(
-				url,
-				null,
-				headers,
-				HttpMethod.GET,
-				null);
-	}
-
-	@Override
-	public ResponseEntity<?> getMovementsByDateRange(java.sql.Timestamp start, java.sql.Timestamp end, String authToken,
-			String orgIdHeader, Pageable pageable) {
-		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
-		headers.put("X-Organization-ID", orgIdHeader);
-		String url = buildPaginatedUrl(
-				webConstants.getCoreStockMovementDateRangeUrl() + "?start=" + start + "&end=" + end, pageable);
-		return restService.iamRestCall(
-				url,
-				null,
-				headers,
-				HttpMethod.GET,
-				null);
-	}
-
-	@Override
-	public ResponseEntity<?> getMovementsByMaterial(Long materialId, String authToken, String orgIdHeader,
-			Pageable pageable) {
-		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
-		headers.put("X-Organization-ID", orgIdHeader);
-		String url = buildPaginatedUrl(webConstants.getCoreStockMovementMaterialUrl() + "/" + materialId, pageable);
+		String url = buildPaginatedUrlWithFilters(webConstants.getCoreStockMovementAllUrl(), pageable,
+				"stockId", stockId,
+				"warehouseId", warehouseId,
+				"type", type,
+				"referenceType", referenceType,
+				"referenceId", referenceId,
+				"batchNumber", batchNumber,
+				"beforeDate", beforeDate,
+				"start", start,
+				"end", end,
+				"materialId", materialId);
 		return restService.iamRestCall(
 				url,
 				null,
@@ -1063,5 +915,24 @@ public class CoreRetailerServiceImpl implements CoreRetailerService {
 				.queryParam("size", pageable.getPageSize())
 				.queryParam("sort", pageable.getSort().toString())
 				.toUriString();
+	}
+
+	/**
+	 * Builds a URL with pagination and optional filter parameters
+	 */
+	private String buildPaginatedUrlWithFilters(String baseUrl, Pageable pageable, Object... filterParams) {
+		UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(baseUrl)
+				.queryParam("page", pageable.getPageNumber())
+				.queryParam("size", pageable.getPageSize())
+				.queryParam("sort", pageable.getSort().toString());
+
+		// filterParams should be key-value pairs: key1, value1, key2, value2, ...
+		for (int i = 0; i < filterParams.length; i += 2) {
+			if (i + 1 < filterParams.length && filterParams[i + 1] != null) {
+				builder.queryParam((String) filterParams[i], filterParams[i + 1]);
+			}
+		}
+
+		return builder.toUriString();
 	}
 }

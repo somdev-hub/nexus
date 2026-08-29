@@ -53,46 +53,23 @@ public class StockController {
 
 	@GetMapping("/all")
 	@LogActivity("Get All Stocks")
-	public ResponseEntity<?> getAllStocks(@PageableDefault(size = 20) Pageable pageable) {
-		return stockService.getAllStockByOrgId(pageable);
-	}
-
-	@GetMapping("/warehouse/{warehouseId}")
-	@LogActivity("Get Stocks by Warehouse")
-	public ResponseEntity<?> getStocksByWarehouse(@PathVariable Long warehouseId,
+	public ResponseEntity<?> getAllStocks(
+			@RequestParam(required = false) Long warehouseId,
+			@RequestParam(required = false) Long materialId,
+			@RequestParam(required = false) Boolean belowReorderPoint,
+			@RequestParam(required = false) Boolean atOrBelowMinLevel,
 			@PageableDefault(size = 20) Pageable pageable) {
-		return stockService.getAllStockByWarehouse(warehouseId, pageable);
-	}
-
-	@GetMapping("/material/{materialId}")
-	@LogActivity("Get Stocks by Material")
-	public ResponseEntity<?> getStocksByMaterial(@PathVariable Long materialId,
-			@PageableDefault(size = 20) Pageable pageable) {
-		return stockService.getAllStockByMaterial(materialId, pageable);
-	}
-
-	@GetMapping("/reorder-point")
-	@LogActivity("Get Stocks Below Reorder Point")
-	public ResponseEntity<?> getStocksBelowReorderPoint() {
-		return stockService.getStockBelowReorderPoint();
-	}
-
-	@GetMapping("/min-level")
-	@LogActivity("Get Stocks At or Below Min Level")
-	public ResponseEntity<?> getStocksAtOrBelowMinLevel() {
-		return stockService.getStockAtOrBelowMinLevel();
+		return stockService.getAllStockByOrgId(warehouseId, materialId, belowReorderPoint, atOrBelowMinLevel, pageable);
 	}
 
 	@GetMapping("/valuation")
 	@LogActivity("Get Inventory Valuation")
-	public ResponseEntity<?> getInventoryValuation() {
+	public ResponseEntity<?> getInventoryValuation(
+			@RequestParam(required = false) Long warehouseId) {
+		if (warehouseId != null) {
+			return stockService.getWarehouseInventoryValuation(warehouseId);
+		}
 		return stockService.getInventoryValuation();
-	}
-
-	@GetMapping("/valuation/warehouse/{warehouseId}")
-	@LogActivity("Get Warehouse Inventory Valuation")
-	public ResponseEntity<?> getWarehouseInventoryValuation(@PathVariable Long warehouseId) {
-		return stockService.getWarehouseInventoryValuation(warehouseId);
 	}
 
 	@PostMapping("/{stockId}/adjust")

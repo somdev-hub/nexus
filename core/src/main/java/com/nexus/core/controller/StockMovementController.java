@@ -43,70 +43,22 @@ public class StockMovementController {
 		return stockMovementService.getStockMovementById(id);
 	}
 
-	@GetMapping("/stock/{stockId}")
-	@LogActivity("Get Stock Movements by Stock")
-	public ResponseEntity<?> getMovementsByStock(@PathVariable Long stockId,
-			@PageableDefault(size = 20) Pageable pageable) {
-		return stockMovementService.getMovementsByStock(stockId, pageable);
-	}
-
 	@GetMapping("/all")
 	@LogActivity("Get All Stock Movements")
-	public ResponseEntity<?> getAllMovements(@PageableDefault(size = 20) Pageable pageable) {
-		return stockMovementService.getMovementsByOrg(pageable);
-	}
-
-	@GetMapping("/warehouse/{warehouseId}")
-	@LogActivity("Get Stock Movements by Warehouse")
-	public ResponseEntity<?> getMovementsByWarehouse(@PathVariable Long warehouseId,
+	public ResponseEntity<?> getAllStockMovements(
+			@RequestParam(required = false) Long stockId,
+			@RequestParam(required = false) Long warehouseId,
+			@RequestParam(required = false) String type,
+			@RequestParam(required = false) String referenceType,
+			@RequestParam(required = false) Long referenceId,
+			@RequestParam(required = false) String batchNumber,
+			@RequestParam(required = false) Timestamp beforeDate,
+			@RequestParam(required = false) Timestamp start,
+			@RequestParam(required = false) Timestamp end,
+			@RequestParam(required = false) Long materialId,
 			@PageableDefault(size = 20) Pageable pageable) {
-		return stockMovementService.getMovementsByWarehouse(warehouseId, pageable);
-	}
-
-	@GetMapping("/type/{type}")
-	@LogActivity("Get Stock Movements by Type")
-	public ResponseEntity<?> getMovementsByType(@PathVariable String type,
-			@PageableDefault(size = 20) Pageable pageable) {
-		try {
-			com.nexus.core.entities.StockMovement.MovementType movementType = com.nexus.core.entities.StockMovement.MovementType
-					.valueOf(type.toUpperCase());
-			return stockMovementService.getMovementsByType(movementType, pageable);
-		} catch (IllegalArgumentException e) {
-			return ResponseEntity.badRequest().body("Invalid movement type: " + type);
-		}
-	}
-
-	@GetMapping("/reference")
-	@LogActivity("Get Stock Movements by Reference")
-	public ResponseEntity<?> getMovementsByReference(@RequestParam String referenceType,
-			@RequestParam Long referenceId) {
-		return stockMovementService.getMovementsByReference(referenceType, referenceId);
-	}
-
-	@GetMapping("/batch/{batchNumber}")
-	@LogActivity("Get Stock Movements by Batch Number")
-	public ResponseEntity<?> getMovementsByBatchNumber(@PathVariable String batchNumber) {
-		return stockMovementService.getMovementsByBatchNumber(batchNumber);
-	}
-
-	@GetMapping("/expiring")
-	@LogActivity("Get Expiring Stock")
-	public ResponseEntity<?> getExpiringStock(@RequestParam Timestamp beforeDate) {
-		return stockMovementService.getExpiringStock(beforeDate);
-	}
-
-	@GetMapping("/date-range")
-	@LogActivity("Get Stock Movements by Date Range")
-	public ResponseEntity<?> getMovementsByDateRange(@RequestParam Timestamp start,
-			@RequestParam Timestamp end, @PageableDefault(size = 20) Pageable pageable) {
-		return stockMovementService.getMovementsByDateRange(start, end, pageable);
-	}
-
-	@GetMapping("/material/{materialId}")
-	@LogActivity("Get Stock Movements by Material")
-	public ResponseEntity<?> getMovementsByMaterial(@PathVariable Long materialId,
-			@PageableDefault(size = 20) Pageable pageable) {
-		return stockMovementService.getMovementsByMaterial(materialId, pageable);
+		return stockMovementService.getMovementsByOrg(stockId, warehouseId, type, referenceType, referenceId,
+				batchNumber, beforeDate, start, end, materialId, pageable);
 	}
 
 	@GetMapping("/summary")

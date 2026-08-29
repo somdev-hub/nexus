@@ -89,23 +89,24 @@ public interface CoreRetailerService {
 
 	ResponseEntity<?> getAllSupplierQualifications(String authToken, String orgIdHeader, Pageable pageable);
 
+	ResponseEntity<?> updateSupplierQualificationStatus(Long id, String status, String rejectionReason,
+			String authToken, String orgIdHeader);
+
 	// Supplier Management Endpoints
 	ResponseEntity<?> addSupplier(Map<String, Object> supplierDto, String authToken, String orgIdHeader);
 
 	ResponseEntity<?> getSupplier(Long id, String authToken, String orgIdHeader);
 
-	ResponseEntity<?> getAllSuppliers(String authToken, String orgIdHeader, Pageable pageable);
-
-	ResponseEntity<?> getSuppliersByAccount(Long accountId, String authToken, String orgIdHeader, Pageable pageable);
+	ResponseEntity<?> getAllSuppliers(String authToken, String orgIdHeader, Pageable pageable,
+			Long accountId, String category, String location, Double minRating, String certification);
 
 	// Purchase Order Endpoints
 	ResponseEntity<?> createPurchaseOrder(Map<String, Object> poDto, String authToken, String orgIdHeader);
 
 	ResponseEntity<?> getPurchaseOrder(Long id, String authToken, String orgIdHeader);
 
-	ResponseEntity<?> getAllPurchaseOrders(String authToken, String orgIdHeader, Pageable pageable);
-
-	ResponseEntity<?> getPurchaseOrdersByStatus(String status, String authToken, String orgIdHeader, Pageable pageable);
+	ResponseEntity<?> getAllPurchaseOrders(String authToken, String orgIdHeader, Pageable pageable,
+			String status);
 
 	ResponseEntity<?> updatePurchaseOrder(Long id, Map<String, Object> poDto, String authToken, String orgIdHeader);
 
@@ -122,15 +123,8 @@ public interface CoreRetailerService {
 
 	ResponseEntity<?> getStock(Long id, String authToken, String orgIdHeader);
 
-	ResponseEntity<?> getAllStocks(String authToken, String orgIdHeader, Pageable pageable);
-
-	ResponseEntity<?> getStocksByWarehouse(Long warehouseId, String authToken, String orgIdHeader, Pageable pageable);
-
-	ResponseEntity<?> getStocksByMaterial(Long materialId, String authToken, String orgIdHeader, Pageable pageable);
-
-	ResponseEntity<?> getStocksBelowReorderPoint(String authToken, String orgIdHeader);
-
-	ResponseEntity<?> getStocksAtOrBelowMinLevel(String authToken, String orgIdHeader);
+	ResponseEntity<?> getAllStocks(String authToken, String orgIdHeader, Pageable pageable,
+			Long warehouseId, Long materialId, Boolean belowReorderPoint, Boolean atOrBelowMinLevel);
 
 	ResponseEntity<?> getInventoryValuation(String authToken, String orgIdHeader);
 
@@ -161,26 +155,10 @@ public interface CoreRetailerService {
 
 	ResponseEntity<?> getStockMovement(Long id, String authToken, String orgIdHeader);
 
-	ResponseEntity<?> getMovementsByStock(Long stockId, String authToken, String orgIdHeader, Pageable pageable);
-
-	ResponseEntity<?> getAllStockMovements(String authToken, String orgIdHeader, Pageable pageable);
-
-	ResponseEntity<?> getMovementsByWarehouse(Long warehouseId, String authToken, String orgIdHeader,
-			Pageable pageable);
-
-	ResponseEntity<?> getMovementsByType(String type, String authToken, String orgIdHeader, Pageable pageable);
-
-	ResponseEntity<?> getMovementsByReference(String referenceType, Long referenceId, String authToken,
-			String orgIdHeader);
-
-	ResponseEntity<?> getMovementsByBatchNumber(String batchNumber, String authToken, String orgIdHeader);
-
-	ResponseEntity<?> getExpiringStock(java.sql.Date beforeDate, String authToken, String orgIdHeader);
-
-	ResponseEntity<?> getMovementsByDateRange(java.sql.Timestamp start, java.sql.Timestamp end, String authToken,
-			String orgIdHeader, Pageable pageable);
-
-	ResponseEntity<?> getMovementsByMaterial(Long materialId, String authToken, String orgIdHeader, Pageable pageable);
+	ResponseEntity<?> getAllStockMovements(String authToken, String orgIdHeader, Pageable pageable,
+			Long stockId, Long warehouseId, String type, String referenceType, Long referenceId,
+			String batchNumber, java.sql.Timestamp beforeDate, java.sql.Timestamp start,
+			java.sql.Timestamp end, Long materialId);
 
 	ResponseEntity<?> getMovementSummary(java.sql.Timestamp start, java.sql.Timestamp end, String authToken,
 			String orgIdHeader);

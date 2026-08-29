@@ -5,6 +5,8 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import org.modelmapper.ModelMapper;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -19,6 +21,7 @@ import com.nexus.core.payload.PartnershipInvitationDto;
 import com.nexus.core.repository.AccountRepo;
 import com.nexus.core.repository.PartnershipInvitationRepo;
 import com.nexus.core.repository.PartnershipRepo;
+import com.nexus.core.security.OrganizationContextHolder;
 import com.nexus.core.service.PartnershipInvitationService;
 import com.nexus.core.service.PartnershipService;
 
@@ -36,18 +39,17 @@ public class PartnershipInvitationServiceImpl implements PartnershipInvitationSe
 
 	@Override
 	public ResponseEntity<?> createInvitation(PartnershipInvitationDto invitationDto) {
+		Long orgId = OrganizationContextHolder.requireOrganizationId();
+
 		PartnershipInvitation invitation = modelMapper.map(invitationDto, PartnershipInvitation.class);
 
-		// Set inviting and invited organizations
-		if (invitationDto.getInvitingOrg() != null) {
-			Account invitingOrg = accountRepo.findByAccountId(invitationDto.getInvitingOrg())
-					.orElseThrow(() -> new ResourceNotFoundException("Account", "accountId",
-							invitationDto.getInvitingOrg()));
-			invitation.setInvitingOrg(invitingOrg);
-		}
+		// Set inviting organization from context
+		Account invitingOrg = accountRepo.findById(orgId)
+				.orElseThrow(() -> new ResourceNotFoundException("Account", "accountId", orgId));
+		invitation.setInvitingOrg(invitingOrg);
 
 		if (invitationDto.getInvitedOrg() != null) {
-			Account invitedOrg = accountRepo.findByAccountId(invitationDto.getInvitedOrg())
+			Account invitedOrg = accountRepo.findById(invitationDto.getInvitedOrg())
 					.orElseThrow(
 							() -> new ResourceNotFoundException("Account", "accountId", invitationDto.getInvitedOrg()));
 			invitation.setInvitedOrg(invitedOrg);
@@ -65,8 +67,9 @@ public class PartnershipInvitationServiceImpl implements PartnershipInvitationSe
 
 	@Override
 	public ResponseEntity<?> respondToInvitation(Long invitationId, PartnershipInvitationDto responseDto) {
-		PartnershipInvitation invitation = invitationRepo
-				.findByInvitationIdAndInvitingOrgAccountId(invitationId, responseDto.getInvitingOrg())
+		Long orgId = OrganizationContextHolder.requireOrganizationId();
+
+		PartnershipInvitation invitation = invitationRepo.findByInvitationIdAndInvitedOrgAccountId(invitationId, orgId)
 				.orElseThrow(
 						() -> new ResourceNotFoundException("PartnershipInvitation", "invitationId", invitationId));
 
@@ -96,7 +99,9 @@ public class PartnershipInvitationServiceImpl implements PartnershipInvitationSe
 	}
 
 	@Override
-	public ResponseEntity<?> getInvitationById(Long id, Long orgId) {
+	public ResponseEntity<?> getInvitationById(Long id) {
+		Long orgId = OrganizationContextHolder.requireOrganizationId();
+
 		// Check if user belongs to either inviting or invited org
 		var invitationOpt = invitationRepo.findByInvitationIdAndInvitingOrgAccountId(id, orgId);
 		if (invitationOpt.isEmpty()) {
@@ -110,9 +115,9 @@ public class PartnershipInvitationServiceImpl implements PartnershipInvitationSe
 	}
 
 	@Override
-	public ResponseEntity<?> getInvitationsByInvitingOrg(Long orgId) {
-		List<PartnershipInvitation> invitations = invitationRepo.findByInvitingOrgAccountId(orgId)
-				.orElseThrow(() -> new ResourceNotFoundException("Invitations", "orgId", orgId));
+	public ResponseEntity<?> getInvitationsByInvitingOrg(Pageable pageable) {
+		Long orgId = OrganizationContextHolder.requireOrganizationId();
+		Page<PartnershipInvitation> invitations = invitationRepo.findByInvitingOrgAccountId(orgId, pageable);
 		List<PartnershipInvitationDto> invitationDtos = invitations.stream()
 				.map(invitation -> modelMapper.map(invitation, PartnershipInvitationDto.class))
 				.toList();
@@ -120,9 +125,9 @@ public class PartnershipInvitationServiceImpl implements PartnershipInvitationSe
 	}
 
 	@Override
-	public ResponseEntity<?> getInvitationsByInvitedOrg(Long orgId) {
-		List<PartnershipInvitation> invitations = invitationRepo.findByInvitedOrgAccountId(orgId)
-				.orElseThrow(() -> new ResourceNotFoundException("Invitations", "orgId", orgId));
+	public ResponseEntity<?> getInvitationsByInvitedOrg(Pageable pageable) {
+		Long orgId = OrganizationContextHolder.requireOrganizationId();
+		Page<PartnershipInvitation> invitations = invitationRepo.findByInvitedOrgAccountId(orgId, pageable);
 		List<PartnershipInvitationDto> invitationDtos = invitations.stream()
 				.map(invitation -> modelMapper.map(invitation, PartnershipInvitationDto.class))
 				.toList();
@@ -130,9 +135,9 @@ public class PartnershipInvitationServiceImpl implements PartnershipInvitationSe
 	}
 
 	@Override
-	public ResponseEntity<?> getPendingInvitationsForOrg(Long orgId) {
-		List<PartnershipInvitation> invitations = invitationRepo.findPendingInvitationsForOrg(orgId)
-				.orElseThrow(() -> new ResourceNotFoundException("Invitations", "orgId", orgId));
+	public ResponseEntity<?> getPendingInvitationsForOrg(Pageable pageable) {
+		Long orgId = OrganizationContextHolder.requireOrganizationId();
+		Page<PartnershipInvitation> invitations = invitationRepo.findPendingInvitationsForOrg(orgId, pageable);
 		List<PartnershipInvitationDto> invitationDtos = invitations.stream()
 				.map(invitation -> modelMapper.map(invitation, PartnershipInvitationDto.class))
 				.toList();
@@ -140,7 +145,8 @@ public class PartnershipInvitationServiceImpl implements PartnershipInvitationSe
 	}
 
 	@Override
-	public ResponseEntity<?> withdrawInvitation(Long invitationId, Long orgId) {
+	public ResponseEntity<?> withdrawInvitation(Long invitationId) {
+		Long orgId = OrganizationContextHolder.requireOrganizationId();
 		PartnershipInvitation invitation = invitationRepo.findByInvitationIdAndInvitingOrgAccountId(invitationId, orgId)
 				.orElseThrow(
 						() -> new ResourceNotFoundException("PartnershipInvitation", "invitationId", invitationId));

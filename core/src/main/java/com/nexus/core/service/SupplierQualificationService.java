@@ -18,4 +18,7 @@ public interface SupplierQualificationService {
 
 	public ResponseEntity<?> updateQualificationStatus(Long id, com.nexus.core.entities.QualificationStatus status,
 			String rejectionReason);
+
+	public ResponseEntity<?> getQualificationsByStatus(com.nexus.core.entities.QualificationStatus status,
+			Pageable pageable);
 }

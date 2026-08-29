@@ -34,4 +34,17 @@ public interface SupplierRepository extends JpaRepository<Supplier, Long> {
 	Optional<Supplier> findBySupplierId(Long supplierId);
 
 	Optional<Supplier> findBySupplierIdAndAccountAccountId(Long supplierId, Long accountId);
+
+	// New methods for organization-scoped queries
+	Page<Supplier> findByAccountAccountId(Long accountId, Pageable pageable);
+
+	Page<Supplier> findByCategoryAndAccountAccountId(String category, Long accountId, Pageable pageable);
+
+	Page<Supplier> findByLocationAndAccountAccountId(String location, Long accountId, Pageable pageable);
+
+	Page<Supplier> findByRatingGreaterThanEqualAndAccountAccountId(Double rating, Long accountId, Pageable pageable);
+
+	@Query("SELECT s FROM Supplier s WHERE :certification MEMBER OF s.certifications AND s.account.accountId = :accountId")
+	Page<Supplier> findByCertificationAndAccountAccountId(@Param("certification") String certification,
+			@Param("accountId") Long accountId, Pageable pageable);
 }

@@ -13,6 +13,7 @@ import com.nexus.core.payload.SupplierDto;
 import com.nexus.core.payload.SupplierDiscoveryDto;
 import com.nexus.core.repository.AccountRepository;
 import com.nexus.core.repository.SupplierRepository;
+import com.nexus.core.security.OrganizationContextHolder;
 import com.nexus.core.service.SupplierService;
 
 import lombok.RequiredArgsConstructor;
@@ -58,28 +59,71 @@ public class SupplierServiceImpl implements SupplierService {
 	}
 
 	@Override
-	public ResponseEntity<?> getAllSuppliers(Pageable pageable) {
-		Page<Supplier> suppliers = supplierRepository.findAll(pageable);
-		return ResponseEntity.ok(suppliers);
-	}
+	public ResponseEntity<?> getAllSuppliers(Long accountId, String category, String location, Double minRating,
+			String certification, Pageable pageable) {
+		Long orgId = OrganizationContextHolder.requireOrganizationId();
 
-	@Override
-	public ResponseEntity<?> getSuppliersByAccount(Long accountId, Pageable pageable) {
-		Account account = accountRepository.findById(accountId)
-				.orElseThrow(() -> new IllegalArgumentException("Account not found with ID: " + accountId));
-		Page<Supplier> suppliers = supplierRepository.findByAccount(account, pageable);
+		// If accountId is provided, validate it belongs to the organization
+		if (accountId != null) {
+			Account account = accountRepository.findById(accountId)
+					.orElseThrow(() -> new IllegalArgumentException("Account not found with ID: " + accountId));
+			if (!account.getAccountId().equals(orgId)) {
+				return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Access denied to this account");
+			}
+			Page<Supplier> suppliers = supplierRepository.findByAccount(account, pageable);
+			return ResponseEntity.ok(suppliers);
+		}
+
+		// Build dynamic query based on filters
+		if (category != null && !category.isBlank()) {
+			return ResponseEntity.ok(supplierRepository.findByCategoryAndAccountAccountId(category, orgId, pageable));
+		}
+		if (location != null && !location.isBlank()) {
+			return ResponseEntity.ok(supplierRepository.findByLocationAndAccountAccountId(location, orgId, pageable));
+		}
+		if (minRating != null) {
+			return ResponseEntity
+					.ok(supplierRepository.findByRatingGreaterThanEqualAndAccountAccountId(minRating, orgId, pageable));
+		}
+		if (certification != null && !certification.isBlank()) {
+			return ResponseEntity
+					.ok(supplierRepository.findByCertificationAndAccountAccountId(certification, orgId, pageable));
+		}
+
+		// No filters - return all suppliers for the organization
+		Page<Supplier> suppliers = supplierRepository.findByAccountAccountId(orgId, pageable);
 		return ResponseEntity.ok(suppliers);
 	}
 
 	@Override
 	public ResponseEntity<?> discoverSuppliers(SupplierDiscoveryDto discoveryDto, Pageable pageable) {
-		Page<Supplier> suppliers = supplierRepository.findAll(pageable);
+		Long orgId = OrganizationContextHolder.requireOrganizationId();
 
-		// Apply filters - we need to filter in memory since we're using pagination
-		// For better performance, we could add custom query methods to the repository
-		// For now, we'll filter the page content
-		// Note: This is a simplified approach; in production, you'd want to push
-		// filters to the database
+		// Build dynamic query based on filters
+		if (discoveryDto.getCategory() != null && !discoveryDto.getCategory().isBlank()) {
+			return ResponseEntity.ok(
+					supplierRepository.findByCategoryAndAccountAccountId(discoveryDto.getCategory(), orgId, pageable));
+		}
+		if (discoveryDto.getLocation() != null && !discoveryDto.getLocation().isBlank()) {
+			return ResponseEntity.ok(
+					supplierRepository.findByLocationAndAccountAccountId(discoveryDto.getLocation(), orgId, pageable));
+		}
+		if (discoveryDto.getMinRating() != null) {
+			return ResponseEntity.ok(supplierRepository
+					.findByRatingGreaterThanEqualAndAccountAccountId(discoveryDto.getMinRating(), orgId, pageable));
+		}
+		if (discoveryDto.getCertifications() != null && !discoveryDto.getCertifications().isBlank()) {
+			return ResponseEntity.ok(supplierRepository
+					.findByCertificationAndAccountAccountId(discoveryDto.getCertifications(), orgId, pageable));
+		}
+		if (discoveryDto.getCertificationList() != null && !discoveryDto.getCertificationList().isEmpty()) {
+			// For multiple certifications, we'll use the first one for now
+			return ResponseEntity.ok(supplierRepository.findByCertificationAndAccountAccountId(
+					discoveryDto.getCertificationList().get(0), orgId, pageable));
+		}
+
+		// No filters - return all suppliers for the organization
+		Page<Supplier> suppliers = supplierRepository.findByAccountAccountId(orgId, pageable);
 		return ResponseEntity.ok(suppliers);
 	}
 }

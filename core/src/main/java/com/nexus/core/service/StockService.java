@@ -22,15 +22,8 @@ public interface StockService {
 
 	ResponseEntity<?> getStockByMaterialAndWarehouse(Long materialId, Long warehouseId);
 
-	ResponseEntity<?> getAllStockByOrgId(Pageable pageable);
-
-	ResponseEntity<?> getAllStockByWarehouse(Long warehouseId, Pageable pageable);
-
-	ResponseEntity<?> getAllStockByMaterial(Long materialId, Pageable pageable);
-
-	ResponseEntity<?> getStockBelowReorderPoint();
-
-	ResponseEntity<?> getStockAtOrBelowMinLevel();
+	ResponseEntity<?> getAllStockByOrgId(Long warehouseId, Long materialId, Boolean belowReorderPoint,
+			Boolean atOrBelowMinLevel, Pageable pageable);
 
 	ResponseEntity<?> getInventoryValuation();
 

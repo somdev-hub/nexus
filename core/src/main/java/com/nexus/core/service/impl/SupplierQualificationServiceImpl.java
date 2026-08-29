@@ -14,6 +14,7 @@ import com.nexus.core.payload.SupplierQualificationDto;
 import com.nexus.core.repository.AccountRepository;
 import com.nexus.core.repository.SupplierQualificationRepository;
 import com.nexus.core.repository.SupplierRepository;
+import com.nexus.core.security.OrganizationContextHolder;
 import com.nexus.core.service.SupplierQualificationService;
 
 import lombok.RequiredArgsConstructor;
@@ -77,7 +78,9 @@ public class SupplierQualificationServiceImpl implements SupplierQualificationSe
 
 	@Override
 	public ResponseEntity<?> getAllQualifications(Pageable pageable) {
-		Page<SupplierQualification> qualifications = qualificationRepository.findAll(pageable);
+		Long orgId = OrganizationContextHolder.requireOrganizationId();
+		Page<SupplierQualification> qualifications = qualificationRepository.findByRetailerOrgAccountId(orgId,
+				pageable);
 		return ResponseEntity.ok(qualifications);
 	}
 
@@ -119,5 +122,13 @@ public class SupplierQualificationServiceImpl implements SupplierQualificationSe
 
 		SupplierQualification saved = qualificationRepository.save(qualification);
 		return ResponseEntity.ok(saved);
+	}
+
+	@Override
+	public ResponseEntity<?> getQualificationsByStatus(QualificationStatus status, Pageable pageable) {
+		Long orgId = OrganizationContextHolder.requireOrganizationId();
+		Page<SupplierQualification> qualifications = qualificationRepository.findByStatusAndRetailerOrgAccountId(status,
+				orgId, pageable);
+		return ResponseEntity.ok(qualifications);
 	}
 }

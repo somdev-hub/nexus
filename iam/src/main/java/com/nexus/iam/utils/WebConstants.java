@@ -353,6 +353,9 @@ public class WebConstants {
 	@Value("${core.supplier.qualification.all.url}")
 	private String coreSupplierQualificationAllUrl;
 
+	@Value("${core.supplier.qualification.update-status.url}")
+	private String coreSupplierQualificationUpdateStatusUrl;
+
 	// Supplier Management Endpoints
 	@Value("${core.supplier.add.url}")
 	private String coreSupplierAddUrl;
@@ -363,9 +366,6 @@ public class WebConstants {
 	@Value("${core.supplier.all.url}")
 	private String coreSupplierAllUrl;
 
-	@Value("${core.supplier.by.account.url}")
-	private String coreSupplierByAccountUrl;
-
 	// Purchase Order Endpoints
 	@Value("${core.purchase.order.create.url}")
 	private String corePurchaseOrderCreateUrl;
@@ -375,9 +375,6 @@ public class WebConstants {
 
 	@Value("${core.purchase.order.all.url}")
 	private String corePurchaseOrderAllUrl;
-
-	@Value("${core.purchase.order.by.status.url}")
-	private String corePurchaseOrderByStatusUrl;
 
 	@Value("${core.purchase.order.update.url}")
 	private String corePurchaseOrderUpdateUrl;
@@ -400,18 +397,6 @@ public class WebConstants {
 
 	@Value("${core.stock.all.url}")
 	private String coreStockAllUrl;
-
-	@Value("${core.stock.warehouse.url}")
-	private String coreStockWarehouseUrl;
-
-	@Value("${core.stock.material.url}")
-	private String coreStockMaterialUrl;
-
-	@Value("${core.stock.below-reorder-point.url}")
-	private String coreStockBelowReorderPointUrl;
-
-	@Value("${core.stock.min-level.url}")
-	private String coreStockMinLevelUrl;
 
 	@Value("${core.stock.valuation.url}")
 	private String coreStockValuationUrl;
@@ -452,27 +437,6 @@ public class WebConstants {
 
 	@Value("${core.stock-movement.all.url}")
 	private String coreStockMovementAllUrl;
-
-	@Value("${core.stock-movement.warehouse.url}")
-	private String coreStockMovementWarehouseUrl;
-
-	@Value("${core.stock-movement.type.url}")
-	private String coreStockMovementTypeUrl;
-
-	@Value("${core.stock-movement.reference.url}")
-	private String coreStockMovementReferenceUrl;
-
-	@Value("${core.stock-movement.batch.url}")
-	private String coreStockMovementBatchUrl;
-
-	@Value("${core.stock-movement.expiring.url}")
-	private String coreStockMovementExpiringUrl;
-
-	@Value("${core.stock-movement.date-range.url}")
-	private String coreStockMovementDateRangeUrl;
-
-	@Value("${core.stock-movement.material.url}")
-	private String coreStockMovementMaterialUrl;
 
 	@Value("${core.stock-movement.summary.url}")
 	private String coreStockMovementSummaryUrl;

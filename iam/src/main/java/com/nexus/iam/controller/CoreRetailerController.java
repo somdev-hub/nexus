@@ -316,6 +316,17 @@ public class CoreRetailerController {
 		return coreRetailerService.getAllSupplierQualifications(authToken, orgIdHeader, pageable);
 	}
 
+	@LogActivity("Update Supplier Qualification Status for Retailer")
+	@PutMapping("/suppliers/qualification/{id}/status")
+	public ResponseEntity<?> updateSupplierQualificationStatus(@PathVariable Long id,
+			@RequestParam String status,
+			@RequestParam(required = false) String rejectionReason,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.updateSupplierQualificationStatus(id, status, rejectionReason, authToken,
+				orgIdHeader);
+	}
+
 	// Supplier Management Endpoints
 	@LogActivity("Create Supplier for Retailer")
 	@PostMapping("/suppliers/add")
@@ -337,17 +348,14 @@ public class CoreRetailerController {
 	@GetMapping("/suppliers/all")
 	public ResponseEntity<?> getAllSuppliers(@RequestHeader("Authorization") String authToken,
 			@RequestHeader("X-Organization-ID") String orgIdHeader,
-			@PageableDefault(size = 20) Pageable pageable) {
-		return coreRetailerService.getAllSuppliers(authToken, orgIdHeader, pageable);
-	}
-
-	@LogActivity("Get Suppliers By Account for Retailer")
-	@GetMapping("/suppliers/account/{accountId}")
-	public ResponseEntity<?> getSuppliersByAccount(@PathVariable Long accountId,
-			@RequestHeader("Authorization") String authToken,
-			@RequestHeader("X-Organization-ID") String orgIdHeader,
-			@PageableDefault(size = 20) Pageable pageable) {
-		return coreRetailerService.getSuppliersByAccount(accountId, authToken, orgIdHeader, pageable);
+			@PageableDefault(size = 20) Pageable pageable,
+			@RequestParam(required = false) Long accountId,
+			@RequestParam(required = false) String category,
+			@RequestParam(required = false) String location,
+			@RequestParam(required = false) Double minRating,
+			@RequestParam(required = false) String certification) {
+		return coreRetailerService.getAllSuppliers(authToken, orgIdHeader, pageable, accountId, category, location,
+				minRating, certification);
 	}
 
 	// Purchase Order Endpoints
@@ -371,17 +379,9 @@ public class CoreRetailerController {
 	@GetMapping("/purchase-orders/all")
 	public ResponseEntity<?> getAllPurchaseOrders(@RequestHeader("Authorization") String authToken,
 			@RequestHeader("X-Organization-ID") String orgIdHeader,
-			@PageableDefault(size = 20) Pageable pageable) {
-		return coreRetailerService.getAllPurchaseOrders(authToken, orgIdHeader, pageable);
-	}
-
-	@LogActivity("Get Purchase Orders by Status for Retailer")
-	@GetMapping("/purchase-orders/status/{status}")
-	public ResponseEntity<?> getPurchaseOrdersByStatus(@PathVariable String status,
-			@RequestHeader("Authorization") String authToken,
-			@RequestHeader("X-Organization-ID") String orgIdHeader,
-			@PageableDefault(size = 20) Pageable pageable) {
-		return coreRetailerService.getPurchaseOrdersByStatus(status, authToken, orgIdHeader, pageable);
+			@PageableDefault(size = 20) Pageable pageable,
+			@RequestParam(required = false) String status) {
+		return coreRetailerService.getAllPurchaseOrders(authToken, orgIdHeader, pageable, status);
 	}
 
 	@LogActivity("Update Purchase Order for Retailer")
@@ -441,40 +441,13 @@ public class CoreRetailerController {
 	@GetMapping("/stock/all")
 	public ResponseEntity<?> getAllStocks(@RequestHeader("Authorization") String authToken,
 			@RequestHeader("X-Organization-ID") String orgIdHeader,
-			@PageableDefault(size = 20) Pageable pageable) {
-		return coreRetailerService.getAllStocks(authToken, orgIdHeader, pageable);
-	}
-
-	@LogActivity("Get Stocks By Warehouse for Retailer")
-	@GetMapping("/stock/warehouse/{warehouseId}")
-	public ResponseEntity<?> getStocksByWarehouse(@PathVariable Long warehouseId,
-			@RequestHeader("Authorization") String authToken,
-			@RequestHeader("X-Organization-ID") String orgIdHeader,
-			@PageableDefault(size = 20) Pageable pageable) {
-		return coreRetailerService.getStocksByWarehouse(warehouseId, authToken, orgIdHeader, pageable);
-	}
-
-	@LogActivity("Get Stocks By Material for Retailer")
-	@GetMapping("/stock/material/{materialId}")
-	public ResponseEntity<?> getStocksByMaterial(@PathVariable Long materialId,
-			@RequestHeader("Authorization") String authToken,
-			@RequestHeader("X-Organization-ID") String orgIdHeader,
-			@PageableDefault(size = 20) Pageable pageable) {
-		return coreRetailerService.getStocksByMaterial(materialId, authToken, orgIdHeader, pageable);
-	}
-
-	@LogActivity("Get Stocks Below Reorder Point for Retailer")
-	@GetMapping("/stock/below-reorder-point")
-	public ResponseEntity<?> getStocksBelowReorderPoint(@RequestHeader("Authorization") String authToken,
-			@RequestHeader("X-Organization-ID") String orgIdHeader) {
-		return coreRetailerService.getStocksBelowReorderPoint(authToken, orgIdHeader);
-	}
-
-	@LogActivity("Get Stocks At Or Below Min Level for Retailer")
-	@GetMapping("/stock/at-or-below-min-level")
-	public ResponseEntity<?> getStocksAtOrBelowMinLevel(@RequestHeader("Authorization") String authToken,
-			@RequestHeader("X-Organization-ID") String orgIdHeader) {
-		return coreRetailerService.getStocksAtOrBelowMinLevel(authToken, orgIdHeader);
+			@PageableDefault(size = 20) Pageable pageable,
+			@RequestParam(required = false) Long warehouseId,
+			@RequestParam(required = false) Long materialId,
+			@RequestParam(required = false) Boolean belowReorderPoint,
+			@RequestParam(required = false) Boolean atOrBelowMinLevel) {
+		return coreRetailerService.getAllStocks(authToken, orgIdHeader, pageable, warehouseId, materialId,
+				belowReorderPoint, atOrBelowMinLevel);
 	}
 
 	@LogActivity("Get Inventory Valuation for Retailer")
@@ -586,83 +559,23 @@ public class CoreRetailerController {
 		return coreRetailerService.getStockMovement(id, authToken, orgIdHeader);
 	}
 
-	@LogActivity("Get Movements By Stock for Retailer")
-	@GetMapping("/stock-movements/stock/{stockId}")
-	public ResponseEntity<?> getMovementsByStock(@PathVariable Long stockId,
-			@RequestHeader("Authorization") String authToken,
-			@RequestHeader("X-Organization-ID") String orgIdHeader,
-			@PageableDefault(size = 20) Pageable pageable) {
-		return coreRetailerService.getMovementsByStock(stockId, authToken, orgIdHeader, pageable);
-	}
-
 	@LogActivity("Get All Stock Movements for Retailer")
 	@GetMapping("/stock-movements/all")
 	public ResponseEntity<?> getAllStockMovements(@RequestHeader("Authorization") String authToken,
 			@RequestHeader("X-Organization-ID") String orgIdHeader,
-			@PageableDefault(size = 20) Pageable pageable) {
-		return coreRetailerService.getAllStockMovements(authToken, orgIdHeader, pageable);
-	}
-
-	@LogActivity("Get Movements By Warehouse for Retailer")
-	@GetMapping("/stock-movements/warehouse/{warehouseId}")
-	public ResponseEntity<?> getMovementsByWarehouse(@PathVariable Long warehouseId,
-			@RequestHeader("Authorization") String authToken,
-			@RequestHeader("X-Organization-ID") String orgIdHeader,
-			@PageableDefault(size = 20) Pageable pageable) {
-		return coreRetailerService.getMovementsByWarehouse(warehouseId, authToken, orgIdHeader, pageable);
-	}
-
-	@LogActivity("Get Movements By Type for Retailer")
-	@GetMapping("/stock-movements/type/{type}")
-	public ResponseEntity<?> getMovementsByType(@PathVariable String type,
-			@RequestHeader("Authorization") String authToken,
-			@RequestHeader("X-Organization-ID") String orgIdHeader,
-			@PageableDefault(size = 20) Pageable pageable) {
-		return coreRetailerService.getMovementsByType(type, authToken, orgIdHeader, pageable);
-	}
-
-	@LogActivity("Get Movements By Reference for Retailer")
-	@GetMapping("/stock-movements/reference")
-	public ResponseEntity<?> getMovementsByReference(@RequestParam String referenceType,
-			@RequestParam Long referenceId,
-			@RequestHeader("Authorization") String authToken,
-			@RequestHeader("X-Organization-ID") String orgIdHeader) {
-		return coreRetailerService.getMovementsByReference(referenceType, referenceId, authToken, orgIdHeader);
-	}
-
-	@LogActivity("Get Movements By Batch Number for Retailer")
-	@GetMapping("/stock-movements/batch/{batchNumber}")
-	public ResponseEntity<?> getMovementsByBatchNumber(@PathVariable String batchNumber,
-			@RequestHeader("Authorization") String authToken,
-			@RequestHeader("X-Organization-ID") String orgIdHeader) {
-		return coreRetailerService.getMovementsByBatchNumber(batchNumber, authToken, orgIdHeader);
-	}
-
-	@LogActivity("Get Expiring Stock for Retailer")
-	@GetMapping("/stock-movements/expiring")
-	public ResponseEntity<?> getExpiringStock(@RequestParam java.sql.Date beforeDate,
-			@RequestHeader("Authorization") String authToken,
-			@RequestHeader("X-Organization-ID") String orgIdHeader) {
-		return coreRetailerService.getExpiringStock(beforeDate, authToken, orgIdHeader);
-	}
-
-	@LogActivity("Get Movements By Date Range for Retailer")
-	@GetMapping("/stock-movements/date-range")
-	public ResponseEntity<?> getMovementsByDateRange(@RequestParam java.sql.Timestamp start,
-			@RequestParam java.sql.Timestamp end,
-			@RequestHeader("Authorization") String authToken,
-			@RequestHeader("X-Organization-ID") String orgIdHeader,
-			@PageableDefault(size = 20) Pageable pageable) {
-		return coreRetailerService.getMovementsByDateRange(start, end, authToken, orgIdHeader, pageable);
-	}
-
-	@LogActivity("Get Movements By Material for Retailer")
-	@GetMapping("/stock-movements/material/{materialId}")
-	public ResponseEntity<?> getMovementsByMaterial(@PathVariable Long materialId,
-			@RequestHeader("Authorization") String authToken,
-			@RequestHeader("X-Organization-ID") String orgIdHeader,
-			@PageableDefault(size = 20) Pageable pageable) {
-		return coreRetailerService.getMovementsByMaterial(materialId, authToken, orgIdHeader, pageable);
+			@PageableDefault(size = 20) Pageable pageable,
+			@RequestParam(required = false) Long stockId,
+			@RequestParam(required = false) Long warehouseId,
+			@RequestParam(required = false) String type,
+			@RequestParam(required = false) String referenceType,
+			@RequestParam(required = false) Long referenceId,
+			@RequestParam(required = false) String batchNumber,
+			@RequestParam(required = false) java.sql.Timestamp beforeDate,
+			@RequestParam(required = false) java.sql.Timestamp start,
+			@RequestParam(required = false) java.sql.Timestamp end,
+			@RequestParam(required = false) Long materialId) {
+		return coreRetailerService.getAllStockMovements(authToken, orgIdHeader, pageable, stockId, warehouseId, type,
+				referenceType, referenceId, batchNumber, beforeDate, start, end, materialId);
 	}
 
 	@LogActivity("Get Movement Summary for Retailer")

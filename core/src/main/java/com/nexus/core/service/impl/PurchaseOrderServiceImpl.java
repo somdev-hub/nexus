@@ -39,6 +39,7 @@ import com.nexus.core.repository.ProductRepo;
 import com.nexus.core.repository.PurchaseOrderLineItemRepo;
 import com.nexus.core.repository.PurchaseOrderRepo;
 import com.nexus.core.repository.SupplierRepository;
+import com.nexus.core.security.OrganizationContextHolder;
 import com.nexus.core.service.PurchaseOrderService;
 import com.nexus.core.service.ThreeWayMatchingService;
 import com.nexus.core.service.ThreeWayMatchingService.MatchingResult;
@@ -75,13 +76,15 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 	@Override
 	@Transactional
 	public ResponseEntity<?> createPurchaseOrder(PurchaseOrderDto poDto) {
+		Long orgId = OrganizationContextHolder.requireOrganizationId();
+
 		// Validate buyer organization
-		Account buyerOrg = accountRepo.findByAccountId(poDto.getBuyerOrgId())
-				.orElseThrow(() -> new ResourceNotFoundException("Account", "accountId", poDto.getBuyerOrgId()));
+		Account buyerOrg = accountRepo.findByAccountId(orgId)
+				.orElseThrow(() -> new ResourceNotFoundException("Account", "accountId", orgId));
 
 		// Validate supplier
 		Supplier supplier = supplierRepo
-				.findBySupplierIdAndAccountAccountId(poDto.getSupplierId(), poDto.getBuyerOrgId())
+				.findBySupplierIdAndAccountAccountId(poDto.getSupplierId(), orgId)
 				.orElseThrow(() -> new ResourceNotFoundException("Supplier", "supplierId", poDto.getSupplierId()));
 
 		// Check if supplier is active
@@ -93,7 +96,7 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 		Partnership partnership = null;
 		if (poDto.getPartnershipId() != null) {
 			partnership = partnershipRepo
-					.findByPartnershipIdAndPrimaryOrgAccountId(poDto.getPartnershipId(), poDto.getBuyerOrgId())
+					.findByPartnershipIdAndPrimaryOrgAccountId(poDto.getPartnershipId(), orgId)
 					.orElseThrow(() -> new ResourceNotFoundException("Partnership", "partnershipId",
 							poDto.getPartnershipId()));
 
@@ -104,7 +107,7 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 		}
 
 		// Check for duplicate PO number
-		if (purchaseOrderRepo.existsByPoNumberAndBuyerOrgId(poDto.getPoNumber(), poDto.getBuyerOrgId())) {
+		if (purchaseOrderRepo.existsByPoNumberAndBuyerOrgId(poDto.getPoNumber(), orgId)) {
 			throw new ValidationException("PO number already exists for this organization");
 		}
 
@@ -134,7 +137,7 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 				// Validate material
 				if (lineDto.getMaterialId() != null) {
 					Material material = materialRepo
-							.findByMaterialIdAndOrg(lineDto.getMaterialId(), poDto.getBuyerOrgId())
+							.findByMaterialIdAndOrg(lineDto.getMaterialId(), orgId)
 							.orElseThrow(() -> new ResourceNotFoundException("Material", "materialId",
 									lineDto.getMaterialId()));
 					lineItem.setMaterial(material);
@@ -142,7 +145,7 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 
 				// Validate product
 				if (lineDto.getProductId() != null) {
-					Product product = productRepo.findByProductIdAndOrg(lineDto.getProductId(), poDto.getBuyerOrgId())
+					Product product = productRepo.findByProductIdAndOrg(lineDto.getProductId(), orgId)
 							.orElseThrow(() -> new ResourceNotFoundException("Product", "productId",
 									lineDto.getProductId()));
 					lineItem.setProduct(product);
@@ -162,30 +165,35 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 	}
 
 	@Override
-	public ResponseEntity<?> getPurchaseOrderByIdAndOrg(Long id, Long orgId) {
+	public ResponseEntity<?> getPurchaseOrderById(Long id) {
+		Long orgId = OrganizationContextHolder.requireOrganizationId();
 		PurchaseOrder po = purchaseOrderRepo.findByPurchaseOrderIdAndBuyerOrgId(id, orgId)
 				.orElseThrow(() -> new ResourceNotFoundException("PurchaseOrder", "purchaseOrderId", id));
 		return new ResponseEntity<>(modelMapper.map(po, PurchaseOrderDto.class), HttpStatus.OK);
 	}
 
 	@Override
-	public ResponseEntity<?> getAllPurchaseOrdersByOrgId(Long orgId, Pageable pageable) {
-		Page<PurchaseOrder> pos = purchaseOrderRepo.findByBuyerOrgId(orgId, pageable);
-		Page<PurchaseOrderDto> poDtos = pos.map(po -> modelMapper.map(po, PurchaseOrderDto.class));
-		return new ResponseEntity<>(poDtos, HttpStatus.OK);
-	}
-
-	@Override
-	public ResponseEntity<?> getPurchaseOrdersByOrgIdAndStatus(Long orgId, PurchaseOrderStatus status,
-			Pageable pageable) {
-		Page<PurchaseOrder> pos = purchaseOrderRepo.findByOrgIdAndStatusIn(orgId, List.of(status), pageable);
+	public ResponseEntity<?> getAllPurchaseOrders(String status, Pageable pageable) {
+		Long orgId = OrganizationContextHolder.requireOrganizationId();
+		Page<PurchaseOrder> pos;
+		if (status != null && !status.isBlank()) {
+			try {
+				PurchaseOrderStatus poStatus = PurchaseOrderStatus.valueOf(status.toUpperCase());
+				pos = purchaseOrderRepo.findByOrgIdAndStatusIn(orgId, List.of(poStatus), pageable);
+			} catch (IllegalArgumentException e) {
+				return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid status: " + status);
+			}
+		} else {
+			pos = purchaseOrderRepo.findByBuyerOrgId(orgId, pageable);
+		}
 		Page<PurchaseOrderDto> poDtos = pos.map(po -> modelMapper.map(po, PurchaseOrderDto.class));
 		return new ResponseEntity<>(poDtos, HttpStatus.OK);
 	}
 
 	@Override
 	@Transactional
-	public ResponseEntity<?> updatePurchaseOrder(Long id, PurchaseOrderDto poDto, Long orgId) {
+	public ResponseEntity<?> updatePurchaseOrder(Long id, PurchaseOrderDto poDto) {
+		Long orgId = OrganizationContextHolder.requireOrganizationId();
 		PurchaseOrder po = purchaseOrderRepo.findByPurchaseOrderIdAndBuyerOrgId(id, orgId)
 				.orElseThrow(() -> new ResourceNotFoundException("PurchaseOrder", "purchaseOrderId", id));
 
@@ -223,8 +231,8 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 
 	@Override
 	@Transactional
-	public ResponseEntity<?> transitionStatus(Long id, PurchaseOrderStatus newStatus, Map<String, Object> params,
-			Long orgId) {
+	public ResponseEntity<?> transitionStatus(Long id, PurchaseOrderStatus newStatus, Map<String, Object> params) {
+		Long orgId = OrganizationContextHolder.requireOrganizationId();
 		PurchaseOrder po = purchaseOrderRepo.findByPurchaseOrderIdAndBuyerOrgId(id, orgId)
 				.orElseThrow(() -> new ResourceNotFoundException("PurchaseOrder", "purchaseOrderId", id));
 
@@ -467,7 +475,8 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 
 	@Override
 	@Transactional
-	public ResponseEntity<?> createAmendment(Long parentPoId, PurchaseOrderDto amendmentDto, Long orgId) {
+	public ResponseEntity<?> createAmendment(Long parentPoId, PurchaseOrderDto amendmentDto) {
+		Long orgId = OrganizationContextHolder.requireOrganizationId();
 		PurchaseOrder parentPo = purchaseOrderRepo.findByPurchaseOrderIdAndBuyerOrgId(parentPoId, orgId)
 				.orElseThrow(() -> new ResourceNotFoundException("PurchaseOrder", "purchaseOrderId", parentPoId));
 
@@ -481,7 +490,8 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 	}
 
 	@Override
-	public ResponseEntity<?> getAmendmentsByParentPoId(Long parentPoId, Long orgId) {
+	public ResponseEntity<?> getAmendmentsByParentPoId(Long parentPoId) {
+		Long orgId = OrganizationContextHolder.requireOrganizationId();
 		List<PurchaseOrder> amendments = purchaseOrderRepo.findAmendmentsByParentPoId(orgId, parentPoId);
 		List<PurchaseOrderDto> amendmentDtos = amendments.stream()
 				.map(po -> modelMapper.map(po, PurchaseOrderDto.class))
