@@ -833,6 +833,97 @@ public class CoreRetailerController {
 		return coreRetailerService.deleteSupplierPerformance(id, authToken, orgIdHeader);
 	}
 
+	// Supplier Risk Monitoring Endpoints (FR-RET-024)
+	@LogActivity("Create Supplier Risk Monitoring for Retailer")
+	@PostMapping("/supplier-risk-monitoring/create")
+	public ResponseEntity<?> createSupplierRiskMonitoring(@RequestBody Map<String, Object> riskDto,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.createSupplierRiskMonitoring(riskDto, authToken, orgIdHeader);
+	}
+
+	@LogActivity("Get Supplier Risk Monitoring for Retailer")
+	@GetMapping("/supplier-risk-monitoring/{id}")
+	public ResponseEntity<?> getSupplierRiskMonitoring(@PathVariable Long id,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.getSupplierRiskMonitoring(id, authToken, orgIdHeader);
+	}
+
+	@LogActivity("Get Supplier Risk Monitoring by Supplier for Retailer")
+	@GetMapping("/supplier-risk-monitoring/supplier/{supplierId}")
+	public ResponseEntity<?> getSupplierRiskMonitoringBySupplier(@PathVariable Long supplierId,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.getSupplierRiskMonitoringBySupplier(supplierId, authToken, orgIdHeader);
+	}
+
+	@LogActivity("Get Supplier Risk Monitoring by Partnership for Retailer")
+	@GetMapping("/supplier-risk-monitoring/partnership/{partnershipId}")
+	public ResponseEntity<?> getSupplierRiskMonitoringByPartnership(@PathVariable Long partnershipId,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.getSupplierRiskMonitoringByPartnership(partnershipId, authToken, orgIdHeader);
+	}
+
+	@LogActivity("Get Supplier Risk Monitoring by Risk Level for Retailer")
+	@GetMapping("/supplier-risk-monitoring/risk-level/{riskLevel}")
+	public ResponseEntity<?> getSupplierRiskMonitoringByRiskLevel(@PathVariable String riskLevel,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.getSupplierRiskMonitoringByRiskLevel(riskLevel, authToken, orgIdHeader);
+	}
+
+	@LogActivity("Get Supplier Risk Monitoring Due for Review for Retailer")
+	@GetMapping("/supplier-risk-monitoring/due-for-review")
+	public ResponseEntity<?> getSupplierRiskMonitoringDueForReview(@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.getSupplierRiskMonitoringDueForReview(authToken, orgIdHeader);
+	}
+
+	@LogActivity("Update Supplier Risk Monitoring for Retailer")
+	@PutMapping("/supplier-risk-monitoring/{id}/update")
+	public ResponseEntity<?> updateSupplierRiskMonitoring(@PathVariable Long id,
+			@RequestBody Map<String, Object> riskDto,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.updateSupplierRiskMonitoring(id, riskDto, authToken, orgIdHeader);
+	}
+
+	@LogActivity("Delete Supplier Risk Monitoring for Retailer")
+	@DeleteMapping("/supplier-risk-monitoring/{id}")
+	public ResponseEntity<?> deleteSupplierRiskMonitoring(@PathVariable Long id,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.deleteSupplierRiskMonitoring(id, authToken, orgIdHeader);
+	}
+
+	@LogActivity("Get Supplier Risk Summary for Retailer")
+	@GetMapping("/supplier-risk-monitoring/supplier/{supplierId}/summary")
+	public ResponseEntity<?> getSupplierRiskSummary(@PathVariable Long supplierId,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.getSupplierRiskSummary(supplierId, authToken, orgIdHeader);
+	}
+
+	@LogActivity("Get Supplier Risk Monitoring by Category for Retailer")
+	@GetMapping("/supplier-risk-monitoring/supplier/{supplierId}/category/{riskCategory}")
+	public ResponseEntity<?> getSupplierRiskMonitoringByCategory(@PathVariable Long supplierId,
+			@PathVariable String riskCategory,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.getSupplierRiskMonitoringByCategory(supplierId, riskCategory, authToken,
+				orgIdHeader);
+	}
+
+	@LogActivity("Get All Supplier Risk Monitoring for Retailer")
+	@GetMapping("/supplier-risk-monitoring/all")
+	public ResponseEntity<?> getAllSupplierRiskMonitoring(@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader,
+			@PageableDefault(size = 20) Pageable pageable) {
+		return coreRetailerService.getAllSupplierRiskMonitoring(authToken, orgIdHeader, pageable);
+	}
+
 	// Supplier Contract Endpoints
 	@LogActivity("Create Supplier Contract for Retailer")
 	@PostMapping("/supplier-contracts/create")

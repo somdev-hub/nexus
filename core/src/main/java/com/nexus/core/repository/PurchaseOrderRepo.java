@@ -16,19 +16,20 @@ import com.nexus.core.entities.PurchaseOrderStatus;
 @Repository
 public interface PurchaseOrderRepo extends JpaRepository<PurchaseOrder, Long> {
 
-	Page<PurchaseOrder> findByBuyerOrgId(Long orgId, Pageable pageable);
+	Page<PurchaseOrder> findByBuyerOrgAccountId(Long orgId, Pageable pageable);
 
-	Optional<PurchaseOrder> findByPurchaseOrderIdAndBuyerOrgId(Long purchaseOrderId, Long orgId);
+	Optional<PurchaseOrder> findByPurchaseOrderIdAndBuyerOrgAccountId(Long purchaseOrderId, Long orgId);
 
-	Optional<PurchaseOrder> findByPoNumberAndBuyerOrgId(String poNumber, Long orgId);
+	Optional<PurchaseOrder> findByPoNumberAndBuyerOrgAccountId(String poNumber, Long orgId);
 
-	List<PurchaseOrder> findByBuyerOrgIdAndStatusIn(Long orgId, List<PurchaseOrderStatus> statuses);
+	List<PurchaseOrder> findByBuyerOrgAccountIdAndStatusIn(Long orgId, List<PurchaseOrderStatus> statuses);
 
-	List<PurchaseOrder> findBySupplierIdAndBuyerOrgId(Long supplierId, Long orgId);
+	@Query("SELECT po FROM PurchaseOrder po WHERE po.supplier.supplierId = :supplierId AND po.buyerOrg.accountId = :orgId")
+	List<PurchaseOrder> findBySupplierIdAndBuyerOrgId(@Param("supplierId") Long supplierId, @Param("orgId") Long orgId);
 
-	Optional<List<PurchaseOrder>> findBySupplierSupplierIdAndAccountId(Long supplierId, Long accountId);
+	Optional<List<PurchaseOrder>> findBySupplierSupplierIdAndBuyerOrgAccountId(Long supplierId, Long accountId);
 
-	List<PurchaseOrder> findByPartnershipIdAndBuyerOrgId(Long partnershipId, Long orgId);
+	List<PurchaseOrder> findByPartnershipPartnershipIdAndBuyerOrgAccountId(Long partnershipId, Long orgId);
 
 	@Query("SELECT po FROM PurchaseOrder po WHERE po.buyerOrg.accountId = :orgId AND po.parentPoId = :parentPoId ORDER BY po.revisionNumber DESC")
 	List<PurchaseOrder> findAmendmentsByParentPoId(@Param("orgId") Long orgId, @Param("parentPoId") Long parentPoId);
@@ -40,5 +41,5 @@ public interface PurchaseOrderRepo extends JpaRepository<PurchaseOrder, Long> {
 	Page<PurchaseOrder> findByOrgIdAndStatusIn(@Param("orgId") Long orgId,
 			@Param("statuses") List<PurchaseOrderStatus> statuses, Pageable pageable);
 
-	boolean existsByPoNumberAndBuyerOrgId(String poNumber, Long orgId);
+	boolean existsByPoNumberAndBuyerOrgAccountId(String poNumber, Long orgId);
 }

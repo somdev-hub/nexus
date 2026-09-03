@@ -1204,6 +1204,155 @@ public class CoreRetailerServiceImpl implements CoreRetailerService {
 				null);
 	}
 
+	// Supplier Risk Monitoring Endpoints (FR-RET-024)
+	@Override
+	public ResponseEntity<?> createSupplierRiskMonitoring(Map<String, Object> riskDto, String authToken,
+			String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		return restService.iamRestCall(
+				webConstants.getCoreSupplierRiskMonitoringCreateUrl(),
+				riskDto,
+				headers,
+				HttpMethod.POST,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> getSupplierRiskMonitoring(Long id, String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCoreSupplierRiskMonitoringGetUrl() + "/" + id;
+		return restService.iamRestCall(
+				url,
+				null,
+				headers,
+				HttpMethod.GET,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> getSupplierRiskMonitoringBySupplier(Long supplierId, String authToken,
+			String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCoreSupplierRiskMonitoringBySupplierUrl() + "/" + supplierId;
+		return restService.iamRestCall(
+				url,
+				null,
+				headers,
+				HttpMethod.GET,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> getSupplierRiskMonitoringByPartnership(Long partnershipId, String authToken,
+			String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCoreSupplierRiskMonitoringByPartnershipUrl() + "/" + partnershipId;
+		return restService.iamRestCall(
+				url,
+				null,
+				headers,
+				HttpMethod.GET,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> getSupplierRiskMonitoringByRiskLevel(String riskLevel, String authToken,
+			String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCoreSupplierRiskMonitoringByRiskLevelUrl() + "/" + riskLevel;
+		return restService.iamRestCall(
+				url,
+				null,
+				headers,
+				HttpMethod.GET,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> getSupplierRiskMonitoringDueForReview(String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		return restService.iamRestCall(
+				webConstants.getCoreSupplierRiskMonitoringDueForReviewUrl(),
+				null,
+				headers,
+				HttpMethod.GET,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> updateSupplierRiskMonitoring(Long id, Map<String, Object> riskDto, String authToken,
+			String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCoreSupplierRiskMonitoringUpdateUrl() + "/" + id + "/update";
+		return restService.iamRestCall(
+				url,
+				riskDto,
+				headers,
+				HttpMethod.PUT,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> deleteSupplierRiskMonitoring(Long id, String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCoreSupplierRiskMonitoringDeleteUrl() + "/" + id;
+		return restService.iamRestCall(
+				url,
+				null,
+				headers,
+				HttpMethod.DELETE,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> getSupplierRiskSummary(Long supplierId, String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCoreSupplierRiskMonitoringSummaryUrl() + "/" + supplierId + "/summary";
+		return restService.iamRestCall(
+				url,
+				null,
+				headers,
+				HttpMethod.GET,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> getSupplierRiskMonitoringByCategory(Long supplierId, String riskCategory, String authToken,
+			String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCoreSupplierRiskMonitoringByCategoryUrl() + "/" + supplierId + "/category/"
+				+ riskCategory;
+		return restService.iamRestCall(
+				url,
+				null,
+				headers,
+				HttpMethod.GET,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> getAllSupplierRiskMonitoring(String authToken, String orgIdHeader, Pageable pageable) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = buildPaginatedUrl(webConstants.getCoreSupplierRiskMonitoringAllUrl(), pageable);
+		return restService.iamRestCall(
+				url,
+				null,
+				headers,
+				HttpMethod.GET,
+				null);
+	}
+
 	@Override
 	public ResponseEntity<?> getLatestSupplierPerformance(Long supplierId, String authToken, String orgIdHeader) {
 		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);

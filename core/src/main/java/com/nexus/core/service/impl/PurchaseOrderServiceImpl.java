@@ -107,7 +107,7 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 		}
 
 		// Check for duplicate PO number
-		if (purchaseOrderRepo.existsByPoNumberAndBuyerOrgId(poDto.getPoNumber(), orgId)) {
+		if (purchaseOrderRepo.existsByPoNumberAndBuyerOrgAccountId(poDto.getPoNumber(), orgId)) {
 			throw new ValidationException("PO number already exists for this organization");
 		}
 
@@ -167,7 +167,7 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 	@Override
 	public ResponseEntity<?> getPurchaseOrderById(Long id) {
 		Long orgId = OrganizationContextHolder.requireOrganizationId();
-		PurchaseOrder po = purchaseOrderRepo.findByPurchaseOrderIdAndBuyerOrgId(id, orgId)
+		PurchaseOrder po = purchaseOrderRepo.findByPurchaseOrderIdAndBuyerOrgAccountId(id, orgId)
 				.orElseThrow(() -> new ResourceNotFoundException("PurchaseOrder", "purchaseOrderId", id));
 		return new ResponseEntity<>(modelMapper.map(po, PurchaseOrderDto.class), HttpStatus.OK);
 	}
@@ -184,7 +184,7 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 				return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid status: " + status);
 			}
 		} else {
-			pos = purchaseOrderRepo.findByBuyerOrgId(orgId, pageable);
+			pos = purchaseOrderRepo.findByBuyerOrgAccountId(orgId, pageable);
 		}
 		Page<PurchaseOrderDto> poDtos = pos.map(po -> modelMapper.map(po, PurchaseOrderDto.class));
 		return new ResponseEntity<>(poDtos, HttpStatus.OK);
@@ -194,7 +194,7 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 	@Transactional
 	public ResponseEntity<?> updatePurchaseOrder(Long id, PurchaseOrderDto poDto) {
 		Long orgId = OrganizationContextHolder.requireOrganizationId();
-		PurchaseOrder po = purchaseOrderRepo.findByPurchaseOrderIdAndBuyerOrgId(id, orgId)
+		PurchaseOrder po = purchaseOrderRepo.findByPurchaseOrderIdAndBuyerOrgAccountId(id, orgId)
 				.orElseThrow(() -> new ResourceNotFoundException("PurchaseOrder", "purchaseOrderId", id));
 
 		// Only allow updates in DRAFT status
@@ -233,7 +233,7 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 	@Transactional
 	public ResponseEntity<?> transitionStatus(Long id, PurchaseOrderStatus newStatus, Map<String, Object> params) {
 		Long orgId = OrganizationContextHolder.requireOrganizationId();
-		PurchaseOrder po = purchaseOrderRepo.findByPurchaseOrderIdAndBuyerOrgId(id, orgId)
+		PurchaseOrder po = purchaseOrderRepo.findByPurchaseOrderIdAndBuyerOrgAccountId(id, orgId)
 				.orElseThrow(() -> new ResourceNotFoundException("PurchaseOrder", "purchaseOrderId", id));
 
 		PurchaseOrderStatus currentStatus = po.getStatus();
@@ -477,7 +477,7 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 	@Transactional
 	public ResponseEntity<?> createAmendment(Long parentPoId, PurchaseOrderDto amendmentDto) {
 		Long orgId = OrganizationContextHolder.requireOrganizationId();
-		PurchaseOrder parentPo = purchaseOrderRepo.findByPurchaseOrderIdAndBuyerOrgId(parentPoId, orgId)
+		PurchaseOrder parentPo = purchaseOrderRepo.findByPurchaseOrderIdAndBuyerOrgAccountId(parentPoId, orgId)
 				.orElseThrow(() -> new ResourceNotFoundException("PurchaseOrder", "purchaseOrderId", parentPoId));
 
 		// Create new PO as amendment

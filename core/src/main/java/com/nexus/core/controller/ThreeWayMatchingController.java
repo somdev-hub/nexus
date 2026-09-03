@@ -35,7 +35,7 @@ public class ThreeWayMatchingController {
 	@LogActivity("Perform Three-Way Match")
 	public ResponseEntity<?> performThreeWayMatch(@PathVariable Long purchaseOrderId) {
 		Long orgId = OrganizationContextHolder.requireOrganizationId();
-		PurchaseOrder po = purchaseOrderRepo.findByPurchaseOrderIdAndBuyerOrgId(purchaseOrderId, orgId)
+		PurchaseOrder po = purchaseOrderRepo.findByPurchaseOrderIdAndBuyerOrgAccountId(purchaseOrderId, orgId)
 				.orElseThrow(() -> new ResourceNotFoundException("PurchaseOrder", "purchaseOrderId", purchaseOrderId));
 		MatchingResult result = threeWayMatchingService.performThreeWayMatch(po);
 		return ResponseEntity.ok(result);

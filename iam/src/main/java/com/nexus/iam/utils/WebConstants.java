@@ -504,7 +504,39 @@ public class WebConstants {
 
 	@Value("${core.supplier-performance.by-supplier-period.url}")
 	private String coreSupplierPerformanceBySupplierAndPeriodUrl;
+	// Supplier Risk Monitoring Endpoints (FR-RET-024)
+	@Value("${core.supplier-risk-monitoring.create.url}")
+	private String coreSupplierRiskMonitoringCreateUrl;
 
+	@Value("${core.supplier-risk-monitoring.get.url}")
+	private String coreSupplierRiskMonitoringGetUrl;
+
+	@Value("${core.supplier-risk-monitoring.by-supplier.url}")
+	private String coreSupplierRiskMonitoringBySupplierUrl;
+
+	@Value("${core.supplier-risk-monitoring.by-partnership.url}")
+	private String coreSupplierRiskMonitoringByPartnershipUrl;
+
+	@Value("${core.supplier-risk-monitoring.by-risk-level.url}")
+	private String coreSupplierRiskMonitoringByRiskLevelUrl;
+
+	@Value("${core.supplier-risk-monitoring.due-for-review.url}")
+	private String coreSupplierRiskMonitoringDueForReviewUrl;
+
+	@Value("${core.supplier-risk-monitoring.update.url}")
+	private String coreSupplierRiskMonitoringUpdateUrl;
+
+	@Value("${core.supplier-risk-monitoring.delete.url}")
+	private String coreSupplierRiskMonitoringDeleteUrl;
+
+	@Value("${core.supplier-risk-monitoring.summary.url}")
+	private String coreSupplierRiskMonitoringSummaryUrl;
+
+	@Value("${core.supplier-risk-monitoring.by-category.url}")
+	private String coreSupplierRiskMonitoringByCategoryUrl;
+
+	@Value("${core.supplier-risk-monitoring.all.url}")
+	private String coreSupplierRiskMonitoringAllUrl;
 	@Value("${core.supplier-performance.by-tier.url}")
 	private String coreSupplierPerformanceByTierUrl;
 

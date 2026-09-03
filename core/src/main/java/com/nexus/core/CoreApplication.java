@@ -1,5 +1,6 @@
 package com.nexus.core;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.modelmapper.ModelMapper;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -16,6 +17,11 @@ public class CoreApplication {
 	@Bean
 	ModelMapper modelMapper() {
 		return new ModelMapper();
+	}
+
+	@Bean
+	ObjectMapper objectMapper() {
+		return new ObjectMapper();
 	}
 
 	@Bean

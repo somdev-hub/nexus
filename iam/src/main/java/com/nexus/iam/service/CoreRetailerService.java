@@ -198,6 +198,31 @@ public interface CoreRetailerService {
 
 	ResponseEntity<?> validateInvoiceMatch(Map<String, Object> invoiceDto, String authToken, String orgIdHeader);
 
+	// Supplier Risk Monitoring Endpoints (FR-RET-024)
+	ResponseEntity<?> createSupplierRiskMonitoring(Map<String, Object> riskDto, String authToken, String orgIdHeader);
+
+	ResponseEntity<?> getSupplierRiskMonitoring(Long id, String authToken, String orgIdHeader);
+
+	ResponseEntity<?> getSupplierRiskMonitoringBySupplier(Long supplierId, String authToken, String orgIdHeader);
+
+	ResponseEntity<?> getSupplierRiskMonitoringByPartnership(Long partnershipId, String authToken, String orgIdHeader);
+
+	ResponseEntity<?> getSupplierRiskMonitoringByRiskLevel(String riskLevel, String authToken, String orgIdHeader);
+
+	ResponseEntity<?> getSupplierRiskMonitoringDueForReview(String authToken, String orgIdHeader);
+
+	ResponseEntity<?> updateSupplierRiskMonitoring(Long id, Map<String, Object> riskDto, String authToken,
+			String orgIdHeader);
+
+	ResponseEntity<?> deleteSupplierRiskMonitoring(Long id, String authToken, String orgIdHeader);
+
+	ResponseEntity<?> getSupplierRiskSummary(Long supplierId, String authToken, String orgIdHeader);
+
+	ResponseEntity<?> getSupplierRiskMonitoringByCategory(Long supplierId, String riskCategory, String authToken,
+			String orgIdHeader);
+
+	ResponseEntity<?> getAllSupplierRiskMonitoring(String authToken, String orgIdHeader, Pageable pageable);
+
 	// Supplier Performance Endpoints
 	ResponseEntity<?> createSupplierPerformance(Map<String, Object> performanceDto, String authToken,
 			String orgIdHeader);

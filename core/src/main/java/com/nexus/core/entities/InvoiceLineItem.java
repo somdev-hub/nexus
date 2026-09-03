@@ -35,7 +35,7 @@ public class InvoiceLineItem extends BaseEntity {
 	private Invoice invoice;
 
 	@ManyToOne(fetch = FetchType.LAZY)
-	@JoinColumn(name = "po_line_item_id", referencedColumnName = "po_line_item_id")
+	@JoinColumn(name = "po_line_item_id", referencedColumnName = "line_item_id")
 	@ToString.Exclude
 	@EqualsAndHashCode.Exclude
 	private PurchaseOrderLineItem poLineItem;

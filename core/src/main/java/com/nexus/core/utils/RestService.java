@@ -22,6 +22,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.util.ObjectUtils;
 
 @Service
 @RequiredArgsConstructor
@@ -30,9 +31,24 @@ public class RestService {
 
 	private final RestClient restClient;
 	private final WebConstants webConstants;
-	private final CommonUtils commonUtils;
 
 	private final ObjectMapper objectMapper = new ObjectMapper();
+
+	/**
+	 * Local header builder to break circular dependency with CommonUtils.
+	 * Mirrors CommonUtils.buildJsonHeaders but without needing CommonUtils.
+	 * RestService -> CommonUtils was the cycle (CommonUtils -> RestService).
+	 * See iam/src/main/java/com/nexus/iam/utils/CommonUtils.java:52 for reference
+	 * where CommonUtils does NOT depend on RestService.
+	 */
+	private Map<String, String> buildJsonHeaders(String authToken) {
+		Map<String, String> headers = new java.util.concurrent.ConcurrentHashMap<>();
+		headers.put(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
+		if (!ObjectUtils.isEmpty(authToken)) {
+			headers.put(HttpHeaders.AUTHORIZATION, authToken);
+		}
+		return headers;
+	}
 
 	/**
 	 * Parse JSON response body into a Map.
@@ -333,7 +349,7 @@ public class RestService {
 		try {
 			String dmsGetUrl = webConstants.getDmsServiceUrl() + "/dms/files/org/" + documentId;
 
-			Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+			Map<String, String> headers = buildJsonHeaders(authToken);
 
 			return coreRestCall(dmsGetUrl, null, headers, HttpMethod.GET, orgIdForLog);
 		} catch (Exception e) {
@@ -354,7 +370,7 @@ public class RestService {
 		try {
 			String dmsDeleteUrl = webConstants.getDmsServiceUrl() + "/dms/files/org/" + documentId;
 
-			Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+			Map<String, String> headers = buildJsonHeaders(authToken);
 
 			return coreRestCall(dmsDeleteUrl, null, headers, HttpMethod.DELETE, orgIdForLog);
 		} catch (Exception e) {

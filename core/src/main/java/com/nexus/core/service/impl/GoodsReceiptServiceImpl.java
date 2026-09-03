@@ -56,7 +56,7 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
 		Long orgId = OrganizationContextHolder.requireOrganizationId();
 
 		// Validate purchase order
-		PurchaseOrder po = purchaseOrderRepo.findByPurchaseOrderIdAndBuyerOrgId(grDto.getPurchaseOrderId(), orgId)
+		PurchaseOrder po = purchaseOrderRepo.findByPurchaseOrderIdAndBuyerOrgAccountId(grDto.getPurchaseOrderId(), orgId)
 				.orElseThrow(() -> new ResourceNotFoundException("PurchaseOrder", "purchaseOrderId",
 						grDto.getPurchaseOrderId()));
 

@@ -26,7 +26,7 @@ public interface SupplierRepository extends JpaRepository<Supplier, Long> {
 
 	Page<Supplier> findByRatingGreaterThanEqual(Double rating, Pageable pageable);
 
-	@Query("SELECT s FROM Supplier s WHERE :certification MEMBER OF s.certifications")
+	@Query("SELECT s FROM Supplier s WHERE s.certifications LIKE CONCAT('%', :certification, '%')")
 	Page<Supplier> findByCertification(@Param("certification") String certification, Pageable pageable);
 
 	Page<Supplier> findByAccount(Account account, Pageable pageable);
@@ -35,7 +35,7 @@ public interface SupplierRepository extends JpaRepository<Supplier, Long> {
 
 	Optional<Supplier> findBySupplierIdAndAccountAccountId(Long supplierId, Long accountId);
 
-	Optional<Supplier> findByIdAndAccountIdAndIsActiveTrue(Long supplierId, Long accountId);
+	Optional<Supplier> findBySupplierIdAndAccountAccountIdAndIsActiveTrue(Long supplierId, Long accountId);
 
 	// New methods for organization-scoped queries
 	Page<Supplier> findByAccountAccountId(Long accountId, Pageable pageable);
@@ -46,7 +46,7 @@ public interface SupplierRepository extends JpaRepository<Supplier, Long> {
 
 	Page<Supplier> findByRatingGreaterThanEqualAndAccountAccountId(Double rating, Long accountId, Pageable pageable);
 
-	@Query("SELECT s FROM Supplier s WHERE :certification MEMBER OF s.certifications AND s.account.accountId = :accountId")
+	@Query("SELECT s FROM Supplier s WHERE s.certifications LIKE CONCAT('%', :certification, '%') AND s.account.accountId = :accountId")
 	Page<Supplier> findByCertificationAndAccountAccountId(@Param("certification") String certification,
 			@Param("accountId") Long accountId, Pageable pageable);
 }

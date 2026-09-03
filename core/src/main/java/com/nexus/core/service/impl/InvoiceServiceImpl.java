@@ -59,7 +59,7 @@ public class InvoiceServiceImpl implements InvoiceService {
 		Long orgId = OrganizationContextHolder.requireOrganizationId();
 
 		// Validate purchase order
-		PurchaseOrder po = purchaseOrderRepo.findByPurchaseOrderIdAndBuyerOrgId(invoiceDto.getPurchaseOrderId(), orgId)
+		PurchaseOrder po = purchaseOrderRepo.findByPurchaseOrderIdAndBuyerOrgAccountId(invoiceDto.getPurchaseOrderId(), orgId)
 				.orElseThrow(() -> new ResourceNotFoundException("PurchaseOrder", "purchaseOrderId",
 						invoiceDto.getPurchaseOrderId()));
 

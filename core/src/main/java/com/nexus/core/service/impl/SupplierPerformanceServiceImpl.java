@@ -90,7 +90,7 @@ public class SupplierPerformanceServiceImpl implements SupplierPerformanceServic
 	public ResponseEntity<?> getPerformanceById(Long id) {
 		Long orgId = OrganizationContextHolder.requireOrganizationId();
 
-		SupplierPerformance performance = performanceRepo.findByPerformanceIdAndAccountId(id, orgId)
+		SupplierPerformance performance = performanceRepo.findByPerformanceIdAndAccountAccountId(id, orgId)
 				.orElseThrow(() -> new ResourceNotFoundException("SupplierPerformance", "performanceId", id));
 
 		return new ResponseEntity<>(modelMapper.map(performance, SupplierPerformanceDto.class), HttpStatus.OK);
@@ -104,7 +104,7 @@ public class SupplierPerformanceServiceImpl implements SupplierPerformanceServic
 		supplierRepository.findBySupplierIdAndAccountAccountId(supplierId, orgId)
 				.orElseThrow(() -> new ResourceNotFoundException("Supplier", "supplierId", supplierId));
 
-		Page<SupplierPerformance> performances = performanceRepo.findBySupplierIdOrderByPeriodDesc(supplierId,
+		Page<SupplierPerformance> performances = performanceRepo.findBySupplierSupplierIdOrderByPeriodDesc(supplierId,
 				pageable);
 		List<SupplierPerformanceDto> dtos = performances.stream()
 				.map(p -> modelMapper.map(p, SupplierPerformanceDto.class))
@@ -121,7 +121,7 @@ public class SupplierPerformanceServiceImpl implements SupplierPerformanceServic
 			throw new SecurityException("Access denied: Cannot view performance for other organizations");
 		}
 
-		Page<SupplierPerformance> performances = performanceRepo.findByAccountIdOrderByPeriodDesc(accountId, pageable);
+		Page<SupplierPerformance> performances = performanceRepo.findByAccountAccountIdOrderByPeriodDesc(accountId, pageable);
 		List<SupplierPerformanceDto> dtos = performances.stream()
 				.map(p -> modelMapper.map(p, SupplierPerformanceDto.class))
 				.collect(Collectors.toList());
@@ -138,7 +138,7 @@ public class SupplierPerformanceServiceImpl implements SupplierPerformanceServic
 			throw new SecurityException("Access denied: Cannot view performance for other organizations");
 		}
 
-		Optional<List<SupplierPerformance>> performances = performanceRepo.findByAccountIdAndPeriod(accountId,
+		Optional<List<SupplierPerformance>> performances = performanceRepo.findByAccountAccountIdAndPeriod(accountId,
 				startDate, endDate);
 		List<SupplierPerformanceDto> dtos = performances.orElse(List.of()).stream()
 				.map(p -> modelMapper.map(p, SupplierPerformanceDto.class))
@@ -155,7 +155,7 @@ public class SupplierPerformanceServiceImpl implements SupplierPerformanceServic
 		supplierRepository.findBySupplierIdAndAccountAccountId(supplierId, orgId)
 				.orElseThrow(() -> new ResourceNotFoundException("Supplier", "supplierId", supplierId));
 
-		Optional<List<SupplierPerformance>> performances = performanceRepo.findBySupplierIdAndPeriod(supplierId,
+		Optional<List<SupplierPerformance>> performances = performanceRepo.findBySupplierSupplierIdAndPeriod(supplierId,
 				startDate, endDate);
 		List<SupplierPerformanceDto> dtos = performances.orElse(List.of()).stream()
 				.map(p -> modelMapper.map(p, SupplierPerformanceDto.class))
@@ -179,7 +179,7 @@ public class SupplierPerformanceServiceImpl implements SupplierPerformanceServic
 			throw new IllegalArgumentException("Invalid performance tier: " + tier);
 		}
 
-		Optional<List<SupplierPerformance>> performances = performanceRepo.findByAccountIdAndTier(accountId,
+		Optional<List<SupplierPerformance>> performances = performanceRepo.findByAccountAccountIdAndTier(accountId,
 				performanceTier);
 		List<SupplierPerformanceDto> dtos = performances.orElse(List.of()).stream()
 				.map(p -> modelMapper.map(p, SupplierPerformanceDto.class))
@@ -211,7 +211,7 @@ public class SupplierPerformanceServiceImpl implements SupplierPerformanceServic
 			throw new SecurityException("Access denied: Cannot view performance for other organizations");
 		}
 
-		Optional<List<SupplierPerformance>> performances = performanceRepo.findByAccountId(accountId);
+		Optional<List<SupplierPerformance>> performances = performanceRepo.findByAccountAccountId(accountId);
 		if (performances.isEmpty()) {
 			return new ResponseEntity<>(Map.of("message", "No performance records found"), HttpStatus.OK);
 		}
@@ -246,7 +246,7 @@ public class SupplierPerformanceServiceImpl implements SupplierPerformanceServic
 		supplierRepository.findBySupplierIdAndAccountAccountId(supplierId, orgId)
 				.orElseThrow(() -> new ResourceNotFoundException("Supplier", "supplierId", supplierId));
 
-		Optional<List<SupplierPerformance>> performances = performanceRepo.findBySupplierId(supplierId);
+		Optional<List<SupplierPerformance>> performances = performanceRepo.findBySupplierSupplierId(supplierId);
 		if (performances.isEmpty()) {
 			return new ResponseEntity<>(Map.of("message", "No performance records found for supplier"), HttpStatus.OK);
 		}
@@ -301,7 +301,7 @@ public class SupplierPerformanceServiceImpl implements SupplierPerformanceServic
 				.orElseThrow(() -> new ResourceNotFoundException("Supplier", "supplierId", supplierId));
 
 		// Get all POs for this supplier in the period
-		List<PurchaseOrder> purchaseOrders = purchaseOrderRepo.findBySupplierSupplierIdAndAccountId(supplierId, orgId)
+		List<PurchaseOrder> purchaseOrders = purchaseOrderRepo.findBySupplierSupplierIdAndBuyerOrgAccountId(supplierId, orgId)
 				.orElse(List.of()).stream()
 				.filter(po -> po.getRequestedDeliveryDate() != null
 						&& !po.getRequestedDeliveryDate().before(startDate)
@@ -422,7 +422,7 @@ public class SupplierPerformanceServiceImpl implements SupplierPerformanceServic
 	public ResponseEntity<?> updatePerformanceRecord(Long id, SupplierPerformanceDto performanceDto) {
 		Long orgId = OrganizationContextHolder.requireOrganizationId();
 
-		SupplierPerformance performance = performanceRepo.findByPerformanceIdAndAccountId(id, orgId)
+		SupplierPerformance performance = performanceRepo.findByPerformanceIdAndAccountAccountId(id, orgId)
 				.orElseThrow(() -> new ResourceNotFoundException("SupplierPerformance", "performanceId", id));
 
 		// Update fields
@@ -459,7 +459,7 @@ public class SupplierPerformanceServiceImpl implements SupplierPerformanceServic
 	public ResponseEntity<?> deletePerformanceRecord(Long id) {
 		Long orgId = OrganizationContextHolder.requireOrganizationId();
 
-		SupplierPerformance performance = performanceRepo.findByPerformanceIdAndAccountId(id, orgId)
+		SupplierPerformance performance = performanceRepo.findByPerformanceIdAndAccountAccountId(id, orgId)
 				.orElseThrow(() -> new ResourceNotFoundException("SupplierPerformance", "performanceId", id));
 
 		performanceRepo.delete(performance);

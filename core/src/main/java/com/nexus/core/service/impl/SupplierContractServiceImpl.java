@@ -55,13 +55,13 @@ public class SupplierContractServiceImpl implements SupplierContractService {
 		Long orgId = OrganizationContextHolder.requireOrganizationId();
 		log.info("Creating supplier contract for orgId: {}", orgId);
 
-		Account account = accountRepo.findByIdAndIsActiveTrue(orgId)
+		Account account = accountRepo.findByAccountIdAndIsActiveTrue(orgId)
 				.orElseThrow(() -> new EntityNotFoundException("Account not found with id: " + orgId));
 
-		Supplier supplier = supplierRepository.findByIdAndAccountIdAndIsActiveTrue(dto.getSupplierId(), orgId)
+		Supplier supplier = supplierRepository.findBySupplierIdAndAccountAccountIdAndIsActiveTrue(dto.getSupplierId(), orgId)
 				.orElseThrow(() -> new EntityNotFoundException("Supplier not found with id: " + dto.getSupplierId()));
 
-		if (contractRepo.findByAccountIdAndContractNumber(orgId, dto.getContractNumber()).isPresent()) {
+		if (contractRepo.findByAccountAccountIdAndContractNumber(orgId, dto.getContractNumber()).isPresent()) {
 			return ResponseEntity.badRequest().body("Contract number already exists for this organization");
 		}
 
@@ -86,7 +86,7 @@ public class SupplierContractServiceImpl implements SupplierContractService {
 	@Override
 	public ResponseEntity<?> getContractByNumber(String contractNumber) {
 		Long orgId = OrganizationContextHolder.requireOrganizationId();
-		return contractRepo.findByAccountIdAndContractNumber(orgId, contractNumber)
+		return contractRepo.findByAccountAccountIdAndContractNumber(orgId, contractNumber)
 				.map(c -> ResponseEntity.ok(modelMapper.map(c, SupplierContractDto.class)))
 				.orElse(ResponseEntity.notFound().build());
 	}
@@ -106,7 +106,7 @@ public class SupplierContractServiceImpl implements SupplierContractService {
 			LocalDate autoRenewalBeforeDate,
 			Pageable pageable) {
 		Long orgId = OrganizationContextHolder.requireOrganizationId();
-		Page<SupplierContract> contracts = contractRepo.findByAccountIdWithFilters(
+		Page<SupplierContract> contracts = contractRepo.findByAccountAccountIdWithFilters(
 				orgId,
 				status != null ? SupplierContract.ContractStatus.valueOf(status.name()) : null,
 				supplierId,
@@ -129,7 +129,7 @@ public class SupplierContractServiceImpl implements SupplierContractService {
 		List<SupplierContract.ContractStatus> activeStatuses = List.of(
 				SupplierContract.ContractStatus.ACTIVE,
 				SupplierContract.ContractStatus.RENEWAL_PENDING);
-		List<SupplierContract> contracts = contractRepo.findByAccountIdAndExpiryDateBeforeAndStatusIn(orgId, beforeDate,
+		List<SupplierContract> contracts = contractRepo.findByAccountAccountIdAndExpiryDateBeforeAndStatusIn(orgId, beforeDate,
 				activeStatuses);
 		return ResponseEntity.ok(contracts.stream().map(c -> modelMapper.map(c, SupplierContractDto.class)).toList());
 	}
@@ -137,7 +137,7 @@ public class SupplierContractServiceImpl implements SupplierContractService {
 	@Override
 	public ResponseEntity<?> getAutoRenewalContracts(LocalDate beforeDate) {
 		Long orgId = OrganizationContextHolder.requireOrganizationId();
-		List<SupplierContract> contracts = contractRepo.findByAccountIdAndAutoRenewalTrueAndExpiryDateBefore(orgId,
+		List<SupplierContract> contracts = contractRepo.findByAccountAccountIdAndAutoRenewalTrueAndExpiryDateBefore(orgId,
 				beforeDate);
 		return ResponseEntity.ok(contracts.stream().map(c -> modelMapper.map(c, SupplierContractDto.class)).toList());
 	}
@@ -169,7 +169,7 @@ public class SupplierContractServiceImpl implements SupplierContractService {
 				.filter(c -> c.getAccount().getAccountId().equals(orgId))
 				.map(existing -> {
 					if (!existing.getContractNumber().equals(dto.getContractNumber()) &&
-							contractRepo.findByAccountIdAndContractNumber(orgId, dto.getContractNumber()).isPresent()) {
+							contractRepo.findByAccountAccountIdAndContractNumber(orgId, dto.getContractNumber()).isPresent()) {
 						return ResponseEntity.badRequest().body("Contract number already exists for this organization");
 					}
 
