@@ -583,59 +583,6 @@ public class WebConstants {
 		return keycloakServerUrl + "/realms/" + keycloakRealm + "/protocol/openid-connect/logout";
 	}
 
-	// Supplier Performance Getters
-	public String getCoreSupplierPerformanceCreateUrl() {
-		return coreServiceUrl + coreSupplierPerformanceCreateUrl;
-	}
-
-	public String getCoreSupplierPerformanceGetUrl() {
-		return coreServiceUrl + coreSupplierPerformanceGetUrl;
-	}
-
-	public String getCoreSupplierPerformanceBySupplierUrl() {
-		return coreServiceUrl + coreSupplierPerformanceBySupplierUrl;
-	}
-
-	public String getCoreSupplierPerformanceAllUrl() {
-		return coreServiceUrl + coreSupplierPerformanceAllUrl;
-	}
-
-	public String getCoreSupplierPerformanceByPeriodUrl() {
-		return coreServiceUrl + coreSupplierPerformanceByPeriodUrl;
-	}
-
-	public String getCoreSupplierPerformanceBySupplierAndPeriodUrl() {
-		return coreServiceUrl + coreSupplierPerformanceBySupplierAndPeriodUrl;
-	}
-
-	public String getCoreSupplierPerformanceByTierUrl() {
-		return coreServiceUrl + coreSupplierPerformanceByTierUrl;
-	}
-
-	public String getCoreSupplierPerformanceLatestUrl() {
-		return coreServiceUrl + coreSupplierPerformanceLatestUrl;
-	}
-
-	public String getCoreSupplierPerformanceSummaryAccountUrl() {
-		return coreServiceUrl + coreSupplierPerformanceSummaryAccountUrl;
-	}
-
-	public String getCoreSupplierPerformanceSummarySupplierUrl() {
-		return coreServiceUrl + coreSupplierPerformanceSummarySupplierUrl;
-	}
-
-	public String getCoreSupplierPerformanceCalculateUrl() {
-		return coreServiceUrl + coreSupplierPerformanceCalculateUrl;
-	}
-
-	public String getCoreSupplierPerformanceUpdateUrl() {
-		return coreServiceUrl + coreSupplierPerformanceUpdateUrl;
-	}
-
-	public String getCoreSupplierPerformanceDeleteUrl() {
-		return coreServiceUrl + coreSupplierPerformanceDeleteUrl;
-	}
-
 	// Supplier Contract Endpoints
 	@Value("${core.supplier-contract.create.url}")
 	private String coreSupplierContractCreateUrl;
@@ -688,73 +635,37 @@ public class WebConstants {
 	@Value("${core.supplier-contract.delete.url}")
 	private String coreSupplierContractDeleteUrl;
 
-	// Supplier Contract Getters
-	public String getCoreSupplierContractAddUrl() {
-		return coreServiceUrl + coreSupplierContractCreateUrl;
-	}
+	// ============================================
+	// SHIPMENT ENDPOINTS (FR-RET-030 to FR-RET-034)
+	// ============================================
+	@Value("${core.shipment.base.url}")
+	private String coreShipmentBaseUrl;
 
-	public String getCoreSupplierContractGetUrl() {
-		return coreServiceUrl + coreSupplierContractGetUrl;
-	}
+	@Value("${core.shipment.status.url}")
+	private String coreShipmentStatusUrl;
 
-	public String getCoreSupplierContractGetByNumberUrl() {
-		return coreServiceUrl + coreSupplierContractGetByNumberUrl;
-	}
+	@Value("${core.shipment.stop.url}")
+	private String coreShipmentStopUrl;
 
-	public String getCoreSupplierContractAllUrl() {
-		return coreServiceUrl + coreSupplierContractAllUrl;
-	}
+	@Value("${core.shipment.tracking.url}")
+	private String coreShipmentTrackingUrl;
 
-	public String getCoreSupplierContractExpiringUrl() {
-		return coreServiceUrl + coreSupplierContractExpiringUrl;
-	}
+	@Value("${core.shipment.document.url}")
+	private String coreShipmentDocumentUrl;
 
-	public String getCoreSupplierContractAutoRenewalUrl() {
-		return coreServiceUrl + coreSupplierContractAutoRenewalUrl;
-	}
+	@Value("${core.shipment.freight-cost.url}")
+	private String coreShipmentFreightCostUrl;
 
-	public String getCoreSupplierContractActiveBySupplierUrl() {
-		return coreServiceUrl + coreSupplierContractActiveBySupplierUrl;
-	}
+	@Value("${core.shipment.search.url}")
+	private String coreShipmentSearchUrl;
 
-	public String getCoreSupplierContractSummaryUrl() {
-		return coreServiceUrl + coreSupplierContractSummaryUrl;
-	}
+	@Value("${core.shipment.attention.url}")
+	private String coreShipmentAttentionUrl;
 
-	public String getCoreSupplierContractUpdateUrl() {
-		return coreServiceUrl + coreSupplierContractUpdateUrl;
-	}
+	@Value("${core.shipment.overdue.url}")
+	private String coreShipmentOverdueUrl;
 
-	public String getCoreSupplierContractStatusUrl() {
-		return coreServiceUrl + coreSupplierContractStatusUrl;
-	}
-
-	public String getCoreSupplierContractDocumentUrl() {
-		return coreServiceUrl + coreSupplierContractDocumentUrl;
-	}
-
-	public String getCoreSupplierContractApproveUrl() {
-		return coreServiceUrl + coreSupplierContractApproveUrl;
-	}
-
-	public String getCoreSupplierContractRejectUrl() {
-		return coreServiceUrl + coreSupplierContractRejectUrl;
-	}
-
-	public String getCoreSupplierContractTerminateUrl() {
-		return coreServiceUrl + coreSupplierContractTerminateUrl;
-	}
-
-	public String getCoreSupplierContractSuspendUrl() {
-		return coreServiceUrl + coreSupplierContractSuspendUrl;
-	}
-
-	public String getCoreSupplierContractRenewUrl() {
-		return coreServiceUrl + coreSupplierContractRenewUrl;
-	}
-
-	public String getCoreSupplierContractDeleteUrl() {
-		return coreServiceUrl + coreSupplierContractDeleteUrl;
-	}
+	@Value("${core.shipment.date-range.url}")
+	private String coreShipmentDateRangeUrl;
 
 }

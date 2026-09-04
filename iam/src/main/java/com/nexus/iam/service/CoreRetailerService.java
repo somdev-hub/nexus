@@ -306,4 +306,62 @@ public interface CoreRetailerService {
 	ResponseEntity<?> renewSupplierContract(Long id, java.sql.Date newExpiryDate, String authToken, String orgIdHeader);
 
 	ResponseEntity<?> deleteSupplierContract(Long id, String authToken, String orgIdHeader);
+
+	// Shipment Endpoints (Consolidated - FR-RET-030 to FR-RET-034)
+	ResponseEntity<?> createShipment(Map<String, Object> shipmentDto, String authToken, String orgIdHeader);
+
+	ResponseEntity<?> getShipment(Long id, String authToken, String orgIdHeader);
+
+	ResponseEntity<?> getAllShipments(String authToken, String orgIdHeader, Pageable pageable,
+			String status, String mode, Long supplierId, Long warehouseId,
+			java.sql.Timestamp startDate, java.sql.Timestamp endDate);
+
+	ResponseEntity<?> updateShipment(Long id, Map<String, Object> shipmentDto, String authToken, String orgIdHeader);
+
+	ResponseEntity<?> deleteShipment(Long id, String authToken, String orgIdHeader);
+
+	ResponseEntity<?> transitionShipmentStatus(Long id, String newStatus, Map<String, Object> params,
+			String authToken, String orgIdHeader);
+
+	ResponseEntity<?> addShipmentStop(Long shipmentId, Map<String, Object> stopDto, String authToken,
+			String orgIdHeader);
+
+	ResponseEntity<?> getShipmentStops(Long shipmentId, String authToken, String orgIdHeader);
+
+	ResponseEntity<?> updateShipmentStop(Long shipmentId, Long stopId, Map<String, Object> stopDto, String authToken,
+			String orgIdHeader);
+
+	ResponseEntity<?> deleteShipmentStop(Long shipmentId, Long stopId, String authToken, String orgIdHeader);
+
+	ResponseEntity<?> transitionShipmentStopStatus(Long shipmentId, Long stopId, String newStatus,
+			Map<String, Object> params,
+			String authToken, String orgIdHeader);
+
+	ResponseEntity<?> addTrackingEvent(Long shipmentId, Map<String, Object> trackingDto, String authToken,
+			String orgIdHeader);
+
+	ResponseEntity<?> getTrackingEvents(Long shipmentId, String authToken, String orgIdHeader, Pageable pageable);
+
+	ResponseEntity<?> getLatestTrackingEvent(Long shipmentId, String authToken, String orgIdHeader);
+
+	ResponseEntity<?> uploadShipmentDocument(Long shipmentId, MultipartFile file, String documentType,
+			String documentName, String remarks,
+			String authToken, String orgIdHeader);
+
+	ResponseEntity<?> getShipmentDocuments(Long shipmentId, String authToken, String orgIdHeader);
+
+	ResponseEntity<?> deleteShipmentDocument(Long shipmentId, Long documentId, String authToken, String orgIdHeader);
+
+	ResponseEntity<?> updateFreightCost(Long shipmentId, Double estimatedCost, Double actualCost, String currency,
+			String authToken, String orgIdHeader);
+
+	ResponseEntity<?> searchShipments(Map<String, Object> searchDto, String authToken, String orgIdHeader,
+			Pageable pageable);
+
+	ResponseEntity<?> getShipmentsRequiringAttention(String authToken, String orgIdHeader, Pageable pageable);
+
+	ResponseEntity<?> getOverdueShipments(String authToken, String orgIdHeader, Pageable pageable);
+
+	ResponseEntity<?> getShipmentsByDateRange(java.sql.Timestamp startDate, java.sql.Timestamp endDate,
+			String authToken, String orgIdHeader, Pageable pageable);
 }

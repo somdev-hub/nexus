@@ -1106,4 +1106,217 @@ public class CoreRetailerController {
 			@RequestHeader("X-Organization-ID") String orgIdHeader) {
 		return coreRetailerService.deleteSupplierContract(id, authToken, orgIdHeader);
 	}
+
+	// ============================================
+	// SHIPMENT ENDPOINTS (Consolidated - FR-RET-030 to FR-RET-034)
+	// ============================================
+
+	@LogActivity("Create Shipment for Retailer")
+	@PostMapping("/shipments")
+	public ResponseEntity<?> createShipment(@RequestBody Map<String, Object> shipmentDto,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.createShipment(shipmentDto, authToken, orgIdHeader);
+	}
+
+	@LogActivity("Get Shipment for Retailer")
+	@GetMapping("/shipments/{id}")
+	public ResponseEntity<?> getShipment(@PathVariable Long id,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.getShipment(id, authToken, orgIdHeader);
+	}
+
+	@LogActivity("Get All Shipments for Retailer")
+	@GetMapping("/shipments")
+	public ResponseEntity<?> getAllShipments(@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader,
+			@RequestParam(required = false) String status,
+			@RequestParam(required = false) String mode,
+			@RequestParam(required = false) Long supplierId,
+			@RequestParam(required = false) Long warehouseId,
+			@RequestParam(required = false) java.sql.Timestamp startDate,
+			@RequestParam(required = false) java.sql.Timestamp endDate,
+			@PageableDefault(size = 20) Pageable pageable) {
+		return coreRetailerService.getAllShipments(authToken, orgIdHeader, pageable, status, mode, supplierId,
+				warehouseId, startDate, endDate);
+	}
+
+	@LogActivity("Update Shipment for Retailer")
+	@PutMapping("/shipments/{id}")
+	public ResponseEntity<?> updateShipment(@PathVariable Long id,
+			@RequestBody Map<String, Object> shipmentDto,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.updateShipment(id, shipmentDto, authToken, orgIdHeader);
+	}
+
+	@LogActivity("Delete Shipment for Retailer")
+	@DeleteMapping("/shipments/{id}")
+	public ResponseEntity<?> deleteShipment(@PathVariable Long id,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.deleteShipment(id, authToken, orgIdHeader);
+	}
+
+	@LogActivity("Transition Shipment Status for Retailer")
+	@PostMapping("/shipments/{id}/status")
+	public ResponseEntity<?> transitionShipmentStatus(@PathVariable Long id,
+			@RequestParam String newStatus,
+			@RequestBody(required = false) Map<String, Object> params,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.transitionShipmentStatus(id, newStatus, params, authToken, orgIdHeader);
+	}
+
+	@LogActivity("Add Shipment Stop for Retailer")
+	@PostMapping("/shipments/{shipmentId}/stops")
+	public ResponseEntity<?> addShipmentStop(@PathVariable Long shipmentId,
+			@RequestBody Map<String, Object> stopDto,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.addShipmentStop(shipmentId, stopDto, authToken, orgIdHeader);
+	}
+
+	@LogActivity("Get Shipment Stops for Retailer")
+	@GetMapping("/shipments/{shipmentId}/stops")
+	public ResponseEntity<?> getShipmentStops(@PathVariable Long shipmentId,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.getShipmentStops(shipmentId, authToken, orgIdHeader);
+	}
+
+	@LogActivity("Update Shipment Stop for Retailer")
+	@PutMapping("/shipments/{shipmentId}/stops/{stopId}")
+	public ResponseEntity<?> updateShipmentStop(@PathVariable Long shipmentId,
+			@PathVariable Long stopId,
+			@RequestBody Map<String, Object> stopDto,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.updateShipmentStop(shipmentId, stopId, stopDto, authToken, orgIdHeader);
+	}
+
+	@LogActivity("Delete Shipment Stop for Retailer")
+	@DeleteMapping("/shipments/{shipmentId}/stops/{stopId}")
+	public ResponseEntity<?> deleteShipmentStop(@PathVariable Long shipmentId,
+			@PathVariable Long stopId,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.deleteShipmentStop(shipmentId, stopId, authToken, orgIdHeader);
+	}
+
+	@LogActivity("Transition Shipment Stop Status for Retailer")
+	@PostMapping("/shipments/{shipmentId}/stops/{stopId}/status")
+	public ResponseEntity<?> transitionShipmentStopStatus(@PathVariable Long shipmentId,
+			@PathVariable Long stopId,
+			@RequestParam String newStatus,
+			@RequestBody(required = false) Map<String, Object> params,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.transitionShipmentStopStatus(shipmentId, stopId, newStatus, params, authToken,
+				orgIdHeader);
+	}
+
+	@LogActivity("Add Tracking Event for Retailer")
+	@PostMapping("/shipments/{shipmentId}/tracking")
+	public ResponseEntity<?> addTrackingEvent(@PathVariable Long shipmentId,
+			@RequestBody Map<String, Object> trackingDto,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.addTrackingEvent(shipmentId, trackingDto, authToken, orgIdHeader);
+	}
+
+	@LogActivity("Get Tracking Events for Retailer")
+	@GetMapping("/shipments/{shipmentId}/tracking")
+	public ResponseEntity<?> getTrackingEvents(@PathVariable Long shipmentId,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader,
+			@PageableDefault(size = 20) Pageable pageable) {
+		return coreRetailerService.getTrackingEvents(shipmentId, authToken, orgIdHeader, pageable);
+	}
+
+	@LogActivity("Get Latest Tracking Event for Retailer")
+	@GetMapping("/shipments/{shipmentId}/tracking/latest")
+	public ResponseEntity<?> getLatestTrackingEvent(@PathVariable Long shipmentId,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.getLatestTrackingEvent(shipmentId, authToken, orgIdHeader);
+	}
+
+	@LogActivity("Upload Shipment Document for Retailer")
+	@PostMapping("/shipments/{shipmentId}/documents")
+	public ResponseEntity<?> uploadShipmentDocument(@PathVariable Long shipmentId,
+			@RequestParam("file") MultipartFile file,
+			@RequestParam(required = false) String documentType,
+			@RequestParam(required = false) String documentName,
+			@RequestParam(required = false) String remarks,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.uploadShipmentDocument(shipmentId, file, documentType, documentName, remarks,
+				authToken, orgIdHeader);
+	}
+
+	@LogActivity("Get Shipment Documents for Retailer")
+	@GetMapping("/shipments/{shipmentId}/documents")
+	public ResponseEntity<?> getShipmentDocuments(@PathVariable Long shipmentId,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.getShipmentDocuments(shipmentId, authToken, orgIdHeader);
+	}
+
+	@LogActivity("Delete Shipment Document for Retailer")
+	@DeleteMapping("/shipments/{shipmentId}/documents/{documentId}")
+	public ResponseEntity<?> deleteShipmentDocument(@PathVariable Long shipmentId,
+			@PathVariable Long documentId,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.deleteShipmentDocument(shipmentId, documentId, authToken, orgIdHeader);
+	}
+
+	@LogActivity("Update Freight Cost for Retailer")
+	@PostMapping("/shipments/{shipmentId}/freight-cost")
+	public ResponseEntity<?> updateFreightCost(@PathVariable Long shipmentId,
+			@RequestParam Double estimatedCost,
+			@RequestParam Double actualCost,
+			@RequestParam String currency,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.updateFreightCost(shipmentId, estimatedCost, actualCost, currency, authToken,
+				orgIdHeader);
+	}
+
+	@LogActivity("Search Shipments for Retailer")
+	@PostMapping("/shipments/search")
+	public ResponseEntity<?> searchShipments(@RequestBody Map<String, Object> searchDto,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader,
+			@PageableDefault(size = 20) Pageable pageable) {
+		return coreRetailerService.searchShipments(searchDto, authToken, orgIdHeader, pageable);
+	}
+
+	@LogActivity("Get Shipments Requiring Attention for Retailer")
+	@GetMapping("/shipments/attention")
+	public ResponseEntity<?> getShipmentsRequiringAttention(@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader,
+			@PageableDefault(size = 20) Pageable pageable) {
+		return coreRetailerService.getShipmentsRequiringAttention(authToken, orgIdHeader, pageable);
+	}
+
+	@LogActivity("Get Overdue Shipments for Retailer")
+	@GetMapping("/shipments/overdue")
+	public ResponseEntity<?> getOverdueShipments(@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader,
+			@PageableDefault(size = 20) Pageable pageable) {
+		return coreRetailerService.getOverdueShipments(authToken, orgIdHeader, pageable);
+	}
+
+	@LogActivity("Get Shipments by Date Range for Retailer")
+	@GetMapping("/shipments/date-range")
+	public ResponseEntity<?> getShipmentsByDateRange(@RequestParam java.sql.Timestamp startDate,
+			@RequestParam java.sql.Timestamp endDate,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader,
+			@PageableDefault(size = 20) Pageable pageable) {
+		return coreRetailerService.getShipmentsByDateRange(startDate, endDate, authToken, orgIdHeader, pageable);
+	}
 }

@@ -1444,7 +1444,7 @@ public class CoreRetailerServiceImpl implements CoreRetailerService {
 		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
 		headers.put("X-Organization-ID", orgIdHeader);
 		return restService.iamRestCall(
-				webConstants.getCoreSupplierContractAddUrl(),
+				webConstants.getCoreSupplierContractCreateUrl(),
 				contractDto,
 				headers,
 				HttpMethod.POST,
@@ -1754,6 +1754,355 @@ public class CoreRetailerServiceImpl implements CoreRetailerService {
 				null,
 				headers,
 				HttpMethod.DELETE,
+				null);
+	}
+
+	// ============================================
+	// SHIPMENT ENDPOINTS (Consolidated - FR-RET-030 to FR-RET-034)
+	// ============================================
+
+	@Override
+	public ResponseEntity<?> createShipment(Map<String, Object> shipmentDto, String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		return restService.iamRestCall(
+				webConstants.getCoreShipmentBaseUrl(),
+				shipmentDto,
+				headers,
+				HttpMethod.POST,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> getShipment(Long id, String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCoreShipmentBaseUrl() + "/" + id;
+		return restService.iamRestCall(
+				url,
+				null,
+				headers,
+				HttpMethod.GET,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> getAllShipments(String authToken, String orgIdHeader, Pageable pageable,
+			String status, String mode, Long supplierId, Long warehouseId,
+			java.sql.Timestamp startDate, java.sql.Timestamp endDate) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = buildPaginatedUrlWithFilters(webConstants.getCoreShipmentBaseUrl(), pageable,
+				"status", status,
+				"mode", mode,
+				"supplierId", supplierId,
+				"warehouseId", warehouseId,
+				"startDate", startDate,
+				"endDate", endDate);
+		return restService.iamRestCall(
+				url,
+				null,
+				headers,
+				HttpMethod.GET,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> updateShipment(Long id, Map<String, Object> shipmentDto, String authToken,
+			String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCoreShipmentBaseUrl() + "/" + id;
+		return restService.iamRestCall(
+				url,
+				shipmentDto,
+				headers,
+				HttpMethod.PUT,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> deleteShipment(Long id, String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCoreShipmentBaseUrl() + "/" + id;
+		return restService.iamRestCall(
+				url,
+				null,
+				headers,
+				HttpMethod.DELETE,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> transitionShipmentStatus(Long id, String newStatus, Map<String, Object> params,
+			String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = UriComponentsBuilder
+				.fromUriString(webConstants.getCoreShipmentStatusUrl() + "/" + id + "/status")
+				.queryParam("newStatus", newStatus)
+				.toUriString();
+		return restService.iamRestCall(
+				url,
+				params,
+				headers,
+				HttpMethod.POST,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> addShipmentStop(Long shipmentId, Map<String, Object> stopDto, String authToken,
+			String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCoreShipmentStopUrl() + "/" + shipmentId + "/stops";
+		return restService.iamRestCall(
+				url,
+				stopDto,
+				headers,
+				HttpMethod.POST,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> getShipmentStops(Long shipmentId, String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCoreShipmentStopUrl() + "/" + shipmentId + "/stops";
+		return restService.iamRestCall(
+				url,
+				null,
+				headers,
+				HttpMethod.GET,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> updateShipmentStop(Long shipmentId, Long stopId, Map<String, Object> stopDto,
+			String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCoreShipmentStopUrl() + "/" + shipmentId + "/stops/" + stopId;
+		return restService.iamRestCall(
+				url,
+				stopDto,
+				headers,
+				HttpMethod.PUT,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> deleteShipmentStop(Long shipmentId, Long stopId, String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCoreShipmentStopUrl() + "/" + shipmentId + "/stops/" + stopId;
+		return restService.iamRestCall(
+				url,
+				null,
+				headers,
+				HttpMethod.DELETE,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> transitionShipmentStopStatus(Long shipmentId, Long stopId, String newStatus,
+			Map<String, Object> params,
+			String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = UriComponentsBuilder
+				.fromUriString(
+						webConstants.getCoreShipmentStopUrl() + "/" + shipmentId + "/stops/" + stopId + "/status")
+				.queryParam("newStatus", newStatus)
+				.toUriString();
+		return restService.iamRestCall(
+				url,
+				params,
+				headers,
+				HttpMethod.POST,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> addTrackingEvent(Long shipmentId, Map<String, Object> trackingDto, String authToken,
+			String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCoreShipmentTrackingUrl() + "/" + shipmentId + "/tracking";
+		return restService.iamRestCall(
+				url,
+				trackingDto,
+				headers,
+				HttpMethod.POST,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> getTrackingEvents(Long shipmentId, String authToken, String orgIdHeader,
+			Pageable pageable) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = buildPaginatedUrl(webConstants.getCoreShipmentTrackingUrl() + "/" + shipmentId + "/tracking",
+				pageable);
+		return restService.iamRestCall(
+				url,
+				null,
+				headers,
+				HttpMethod.GET,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> getLatestTrackingEvent(Long shipmentId, String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCoreShipmentTrackingUrl() + "/" + shipmentId + "/tracking/latest";
+		return restService.iamRestCall(
+				url,
+				null,
+				headers,
+				HttpMethod.GET,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> uploadShipmentDocument(Long shipmentId, MultipartFile file, String documentType,
+			String documentName, String remarks,
+			String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildMultipartHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCoreShipmentDocumentUrl() + "/" + shipmentId + "/documents";
+
+		org.springframework.util.MultiValueMap<String, Object> body = new org.springframework.util.LinkedMultiValueMap<>();
+		try {
+			body.add("file", new org.springframework.core.io.ByteArrayResource(file.getBytes()) {
+				@Override
+				public String getFilename() {
+					return file.getOriginalFilename();
+				}
+			});
+		} catch (java.io.IOException e) {
+			log.error("Failed to read file bytes: {}", e.getMessage());
+			return ResponseEntity.internalServerError().body(Map.of("error", "Failed to read file"));
+		}
+		if (documentType != null) {
+			body.add("documentType", documentType);
+		}
+		if (documentName != null) {
+			body.add("documentName", documentName);
+		}
+		if (remarks != null) {
+			body.add("remarks", remarks);
+		}
+
+		return restService.iamRestCall(
+				url,
+				body,
+				headers,
+				HttpMethod.POST,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> getShipmentDocuments(Long shipmentId, String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCoreShipmentDocumentUrl() + "/" + shipmentId + "/documents";
+		return restService.iamRestCall(
+				url,
+				null,
+				headers,
+				HttpMethod.GET,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> deleteShipmentDocument(Long shipmentId, Long documentId, String authToken,
+			String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCoreShipmentDocumentUrl() + "/" + shipmentId + "/documents/" + documentId;
+		return restService.iamRestCall(
+				url,
+				null,
+				headers,
+				HttpMethod.DELETE,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> updateFreightCost(Long shipmentId, Double estimatedCost, Double actualCost,
+			String currency, String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = UriComponentsBuilder
+				.fromUriString(webConstants.getCoreShipmentFreightCostUrl() + "/" + shipmentId + "/freight-cost")
+				.queryParam("estimatedCost", estimatedCost)
+				.queryParam("actualCost", actualCost)
+				.queryParam("currency", currency)
+				.toUriString();
+		return restService.iamRestCall(
+				url,
+				null,
+				headers,
+				HttpMethod.POST,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> searchShipments(Map<String, Object> searchDto, String authToken, String orgIdHeader,
+			Pageable pageable) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = buildPaginatedUrl(webConstants.getCoreShipmentSearchUrl(), pageable);
+		return restService.iamRestCall(
+				url,
+				searchDto,
+				headers,
+				HttpMethod.POST,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> getShipmentsRequiringAttention(String authToken, String orgIdHeader, Pageable pageable) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = buildPaginatedUrl(webConstants.getCoreShipmentAttentionUrl(), pageable);
+		return restService.iamRestCall(
+				url,
+				null,
+				headers,
+				HttpMethod.GET,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> getOverdueShipments(String authToken, String orgIdHeader, Pageable pageable) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = buildPaginatedUrl(webConstants.getCoreShipmentOverdueUrl(), pageable);
+		return restService.iamRestCall(
+				url,
+				null,
+				headers,
+				HttpMethod.GET,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> getShipmentsByDateRange(java.sql.Timestamp startDate, java.sql.Timestamp endDate,
+			String authToken, String orgIdHeader, Pageable pageable) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = buildPaginatedUrlWithFilters(webConstants.getCoreShipmentDateRangeUrl(), pageable,
+				"startDate", startDate,
+				"endDate", endDate);
+		return restService.iamRestCall(
+				url,
+				null,
+				headers,
+				HttpMethod.GET,
 				null);
 	}
 
