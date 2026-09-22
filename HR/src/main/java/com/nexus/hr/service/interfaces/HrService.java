@@ -9,30 +9,40 @@ import java.util.List;
 
 public interface HrService {
 
-    /**
-     * Initialize HR for an employee with automatic PDF generation
-     * This method will:
-     * 1. Create HR entity with position and documents
-     * 2. Generate Joining Letter PDF
-     * 3. Generate Letter of Intent PDF
-     * 4. Return both PDFs along with file names
-     *
-     * @param hrInitRequestDto HR initialization request containing employee details
-     * @return ResponseEntity containing GeneratedPdfDto with PDF files and metadata
-     */
-    ResponseEntity<?> initHr(HrInitRequestDto hrInitRequestDto);
+	/**
+	 * Initialize HR for an employee with automatic PDF generation
+	 * This method will:
+	 * 1. Create HR entity with position and documents
+	 * 2. Generate Joining Letter PDF
+	 * 3. Generate Letter of Intent PDF
+	 * 4. Return both PDFs along with file names
+	 *
+	 * @param hrInitRequestDto HR initialization request containing employee details
+	 * @return ResponseEntity containing GeneratedPdfDto with PDF files and metadata
+	 */
+	ResponseEntity<?> initHr(HrInitRequestDto hrInitRequestDto);
 
-    ResponseEntity<?> promoteEmployee(Long hrId, Position position, CompensationDto compensation, String role);
+	ResponseEntity<?> promoteEmployee(Long hrId, Position position, CompensationDto compensation, String role);
 
-    ResponseEntity<?> rewardAppraisal(Long hrId, CompensationDto compensation);
+	ResponseEntity<?> rewardAppraisal(Long hrId, CompensationDto compensation);
 
-    ResponseEntity<?> getEmployeesOnNoticePeriod(Long orgId);
+	ResponseEntity<?> getEmployeesOnNoticePeriod(Long orgId);
 
-    ResponseEntity<?> getEmployeesDirectory(List<Long> empIds);
+	ResponseEntity<?> getEmployeesDirectory(List<Long> empIds);
 
-    ResponseEntity<?> getEmployeeDetails(Long empId, String gender);
+	ResponseEntity<?> getEmployeeDetails(Long empId, String gender);
 
-    ResponseEntity<?> getPayrollEmployees(List<Long> empIds);
+	ResponseEntity<?> getPayrollEmployees(List<Long> empIds);
 
-    ResponseEntity<?> getPayrollProcessed(Long orgId, Integer month, Integer year, Integer pageNo, Integer pageSize);
+	ResponseEntity<?> getPayrollProcessed(Long orgId, Integer month, Integer year, Integer pageNo, Integer pageSize);
+
+	/**
+	 * Check if an employee has approval authority for a given level
+	 * Used by Purchase Order approval workflow (FR-RET-002)
+	 *
+	 * @param employeeId    The employee ID to check
+	 * @param requiredLevel The required approval level (AUTO, MANAGER, DIRECTOR)
+	 * @return ResponseEntity with hasAuthority boolean
+	 */
+	ResponseEntity<?> checkApprovalAuthority(Long employeeId, String requiredLevel);
 }

@@ -82,4 +82,23 @@ public class PurchaseOrderController {
 	public ResponseEntity<?> getAmendments(@PathVariable Long parentPoId) {
 		return purchaseOrderService.getAmendmentsByParentPoId(parentPoId);
 	}
+
+	// Blanket Order Endpoints (FR-RET-004)
+	@PostMapping("/blanket/{blanketPoId}/process-releases")
+	@LogActivity("Process Blanket Order Releases")
+	public ResponseEntity<?> processBlanketOrderReleases(@PathVariable Long blanketPoId) {
+		return purchaseOrderService.processBlanketOrderReleases(blanketPoId);
+	}
+
+	@GetMapping("/blanket/all")
+	@LogActivity("Get All Blanket Orders")
+	public ResponseEntity<?> getBlanketOrders(@PageableDefault(size = 20) Pageable pageable) {
+		return purchaseOrderService.getBlanketOrders(pageable);
+	}
+
+	@GetMapping("/blanket/{blanketPoId}/releases")
+	@LogActivity("Get Blanket Order Releases")
+	public ResponseEntity<?> getBlanketOrderReleases(@PathVariable Long blanketPoId) {
+		return purchaseOrderService.getBlanketOrderReleases(blanketPoId);
+	}
 }

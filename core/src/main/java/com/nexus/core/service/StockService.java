@@ -12,6 +12,7 @@ import java.util.List;
  * Service interface for Stock operations.
  * Supports FR-RET-010: Multi-Warehouse Inventory
  * Supports FR-RET-011: Reorder Point Automation
+ * Supports FR-RET-012: ABC Analysis
  * Supports FR-RET-014: Inventory Valuation
  */
 public interface StockService {
@@ -43,4 +44,6 @@ public interface StockService {
 
 	ResponseEntity<?> updateStockSettings(Long stockId, Double reorderPoint, Double reorderQuantity,
 			Double minStockLevel, Double maxStockLevel);
+
+	ResponseEntity<?> getAbcAnalysis(String category);
 }

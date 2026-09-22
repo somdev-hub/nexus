@@ -66,6 +66,12 @@ public class WebConstants {
 	@Value("${hr.employee.details.url}")
 	private String employeeDetailsUrl;
 
+	@Value("${hr.employee.approval.authority.url:/hr/employee/approval-authority}")
+	private String hrEmployeeApprovalAuthorityUrl;
+
+	@Value("${hr.employee.details.by.id.url:/hr/employee/details/{employeeId}}")
+	private String hrEmployeeDetailsByIdUrl;
+
 	// CMS Service URLs
 	@Value("${cms.service.url:http://localhost:8085}")
 	private String cmsServiceUrl;
@@ -136,5 +142,18 @@ public class WebConstants {
 
 	public String getCommonFileUploadUrl() {
 		return dmsServiceUrl + commonDmsUrl;
+	}
+
+	// HR URL helper methods
+	public String getHrServiceUrl() {
+		return hrServiceUrl;
+	}
+
+	public String getHrEmployeeApprovalAuthorityUrl() {
+		return hrServiceUrl + hrEmployeeApprovalAuthorityUrl;
+	}
+
+	public String getHrEmployeeDetailsByIdUrl() {
+		return hrServiceUrl + hrEmployeeDetailsByIdUrl;
 	}
 }

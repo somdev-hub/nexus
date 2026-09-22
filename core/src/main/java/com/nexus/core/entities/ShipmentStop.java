@@ -77,6 +77,12 @@ public class ShipmentStop extends BaseEntity {
 	@Column(name = "notes")
 	private String notes;
 
+	@Column(name = "reference_type")
+	private String referenceType; // e.g., PURCHASE_ORDER
+
+	@Column(name = "reference_id")
+	private Long referenceId; // e.g., purchaseOrderId
+
 	@Version
 	private Long version = 0L;
 }

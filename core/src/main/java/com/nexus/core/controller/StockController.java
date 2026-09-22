@@ -122,4 +122,10 @@ public class StockController {
 			@RequestParam(required = false) Double maxStockLevel) {
 		return stockService.updateStockSettings(stockId, reorderPoint, reorderQuantity, minStockLevel, maxStockLevel);
 	}
+
+	@GetMapping("/abc-analysis")
+	@LogActivity("Get ABC Analysis")
+	public ResponseEntity<?> getAbcAnalysis(@RequestParam(required = false) String category) {
+		return stockService.getAbcAnalysis(category);
+	}
 }

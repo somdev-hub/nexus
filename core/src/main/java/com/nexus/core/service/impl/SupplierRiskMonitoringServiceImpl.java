@@ -90,7 +90,7 @@ public class SupplierRiskMonitoringServiceImpl implements SupplierRiskMonitoring
 	@Override
 	public SupplierRiskMonitoringDTO getRiskMonitoringById(Long riskMonitoringId, Long orgId) {
 		SupplierRiskMonitoring riskMonitoring = riskMonitoringRepo
-				.findByIdAndSupplierSupplierId(riskMonitoringId, orgId)
+				.findByRiskMonitoringIdAndSupplierSupplierId(riskMonitoringId, orgId)
 				.orElseThrow(() -> new ResourceNotFoundException("SupplierRiskMonitoring", "riskMonitoringId",
 						riskMonitoringId));
 		return mapToDTO(riskMonitoring);
@@ -134,7 +134,7 @@ public class SupplierRiskMonitoringServiceImpl implements SupplierRiskMonitoring
 	public SupplierRiskMonitoringDTO updateRiskMonitoring(Long riskMonitoringId,
 			SupplierRiskMonitoringUpdateRequest request, Long orgId) {
 		SupplierRiskMonitoring riskMonitoring = riskMonitoringRepo
-				.findByIdAndSupplierSupplierId(riskMonitoringId, orgId)
+				.findByRiskMonitoringIdAndSupplierSupplierId(riskMonitoringId, orgId)
 				.orElseThrow(() -> new ResourceNotFoundException("SupplierRiskMonitoring", "riskMonitoringId",
 						riskMonitoringId));
 
@@ -217,7 +217,7 @@ public class SupplierRiskMonitoringServiceImpl implements SupplierRiskMonitoring
 	@Transactional
 	public void deleteRiskMonitoring(Long riskMonitoringId, Long orgId) {
 		SupplierRiskMonitoring riskMonitoring = riskMonitoringRepo
-				.findByIdAndSupplierSupplierId(riskMonitoringId, orgId)
+				.findByRiskMonitoringIdAndSupplierSupplierId(riskMonitoringId, orgId)
 				.orElseThrow(() -> new ResourceNotFoundException("SupplierRiskMonitoring", "riskMonitoringId",
 						riskMonitoringId));
 		riskMonitoringRepo.delete(riskMonitoring);

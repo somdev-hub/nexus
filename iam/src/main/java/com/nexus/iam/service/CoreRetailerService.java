@@ -118,6 +118,13 @@ public interface CoreRetailerService {
 
 	ResponseEntity<?> getPurchaseOrderAmendments(Long parentPoId, String authToken, String orgIdHeader);
 
+	// Blanket Order Endpoints (FR-RET-004)
+	ResponseEntity<?> processBlanketOrderReleases(Long blanketPoId, String authToken, String orgIdHeader);
+
+	ResponseEntity<?> getBlanketOrders(String authToken, String orgIdHeader, Pageable pageable);
+
+	ResponseEntity<?> getBlanketOrderReleases(Long blanketPoId, String authToken, String orgIdHeader);
+
 	// Stock/Inventory Endpoints
 	ResponseEntity<?> addStock(Map<String, Object> stockDto, String authToken, String orgIdHeader);
 
@@ -364,4 +371,56 @@ public interface CoreRetailerService {
 
 	ResponseEntity<?> getShipmentsByDateRange(java.sql.Timestamp startDate, java.sql.Timestamp endDate,
 			String authToken, String orgIdHeader, Pageable pageable);
+
+	// ABC Analysis (FR-RET-012) – consolidated single endpoint
+	ResponseEntity<?> getAbcAnalysis(String category, String authToken, String orgIdHeader);
+
+	// Freight Invoice (RET-P07) – consolidated
+	ResponseEntity<?> createFreightInvoice(Map<String, Object> dto, String authToken, String orgIdHeader);
+
+	ResponseEntity<?> getFreightInvoice(Long id, String authToken, String orgIdHeader);
+
+	ResponseEntity<?> getAllFreightInvoices(String authToken, String orgIdHeader, Pageable pageable,
+			String status, Long shipmentId, Long logisticsOrgId,
+			java.sql.Date issuedStart, java.sql.Date issuedEnd,
+			java.sql.Date dueStart, java.sql.Date dueEnd,
+			String pmsStatus);
+
+	ResponseEntity<?> updateFreightInvoice(Long id, Map<String, Object> dto, String authToken, String orgIdHeader);
+
+	ResponseEntity<?> transitionFreightInvoiceStatus(Long id, String newStatus, Map<String, Object> params, String authToken, String orgIdHeader);
+
+	ResponseEntity<?> deleteFreightInvoice(Long id, String authToken, String orgIdHeader);
+
+	ResponseEntity<?> getFreightInvoiceSummary(String authToken, String orgIdHeader);
+
+	ResponseEntity<?> handoffFreightInvoiceToPms(Long id, String authToken, String orgIdHeader);
+
+	ResponseEntity<?> getFreightInvoicePmsStatus(Long id, String authToken, String orgIdHeader);
+
+	ResponseEntity<?> recordFreightDiscrepancy(Long id, String reason, java.math.BigDecimal amount, String authToken, String orgIdHeader);
+
+	// Delivery Appointment (FR-RET-034) – consolidated
+	ResponseEntity<?> createDeliveryAppointment(Map<String, Object> dto, String authToken, String orgIdHeader);
+
+	ResponseEntity<?> getDeliveryAppointment(Long id, String authToken, String orgIdHeader);
+
+	ResponseEntity<?> getAllDeliveryAppointments(String authToken, String orgIdHeader, Pageable pageable,
+			String status, Long warehouseId, Long shipmentId,
+			java.sql.Timestamp fromDate, java.sql.Timestamp toDate);
+
+	ResponseEntity<?> updateDeliveryAppointment(Long id, Map<String, Object> dto, String authToken, String orgIdHeader);
+
+	ResponseEntity<?> transitionDeliveryAppointmentStatus(Long id, String newStatus, Map<String, Object> params, String authToken, String orgIdHeader);
+
+	ResponseEntity<?> deleteDeliveryAppointment(Long id, String authToken, String orgIdHeader);
+
+	ResponseEntity<?> getDeliveryAppointmentSummary(String authToken, String orgIdHeader);
+
+	// Retailer Analytics (RET-P08) – consolidated (FR-AN-001/002/003)
+	ResponseEntity<?> getRetailerDashboard(String authToken, String orgIdHeader);
+
+	ResponseEntity<?> getRetailerSpendAnalytics(String groupBy, String period, String authToken, String orgIdHeader);
+
+	ResponseEntity<?> getSupplyChainVisibility(Long purchaseOrderId, String authToken, String orgIdHeader);
 }

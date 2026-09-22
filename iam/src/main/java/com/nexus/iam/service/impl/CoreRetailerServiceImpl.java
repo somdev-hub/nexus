@@ -1,6 +1,7 @@
 package com.nexus.iam.service.impl;
 
 import java.util.Map;
+import java.util.Optional;
 
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpMethod;
@@ -637,6 +638,46 @@ public class CoreRetailerServiceImpl implements CoreRetailerService {
 		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
 		headers.put("X-Organization-ID", orgIdHeader);
 		String url = webConstants.getCorePurchaseOrderAmendmentsUrl() + "/" + parentPoId + "/amendments";
+		return restService.iamRestCall(
+				url,
+				null,
+				headers,
+				HttpMethod.GET,
+				null);
+	}
+
+	// Blanket Order Endpoints (FR-RET-004)
+	@Override
+	public ResponseEntity<?> processBlanketOrderReleases(Long blanketPoId, String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCorePurchaseOrderBlanketProcessUrl() + "/" + blanketPoId + "/process-releases";
+		return restService.iamRestCall(
+				url,
+				null,
+				headers,
+				HttpMethod.POST,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> getBlanketOrders(String authToken, String orgIdHeader, Pageable pageable) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = buildPaginatedUrlWithFilters(webConstants.getCorePurchaseOrderBlanketAllUrl(), pageable);
+		return restService.iamRestCall(
+				url,
+				null,
+				headers,
+				HttpMethod.GET,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> getBlanketOrderReleases(Long blanketPoId, String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCorePurchaseOrderBlanketReleasesUrl() + "/" + blanketPoId + "/releases";
 		return restService.iamRestCall(
 				url,
 				null,
@@ -2104,6 +2145,197 @@ public class CoreRetailerServiceImpl implements CoreRetailerService {
 				headers,
 				HttpMethod.GET,
 				null);
+	}
+
+	// ============================================
+	// ABC Analysis (FR-RET-012)
+	// ============================================
+	@Override
+	public ResponseEntity<?> getAbcAnalysis(String category, String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCoreStockAbcAnalysisUrl();
+		if (category != null && !category.isBlank()) url += "?category=" + category;
+		return restService.iamRestCall(url, null, headers, HttpMethod.GET, null);
+	}
+
+	// ============================================
+	// Freight Invoice (RET-P07)
+	// ============================================
+	@Override
+	public ResponseEntity<?> createFreightInvoice(Map<String, Object> dto, String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		return restService.iamRestCall(webConstants.getCoreFreightInvoiceBaseUrl() + "/create", dto, headers, HttpMethod.POST, null);
+	}
+
+	@Override
+	public ResponseEntity<?> getFreightInvoice(Long id, String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		return restService.iamRestCall(webConstants.getCoreFreightInvoiceBaseUrl() + "/" + id, null, headers, HttpMethod.GET, null);
+	}
+
+	@Override
+	public ResponseEntity<?> getAllFreightInvoices(String authToken, String orgIdHeader, Pageable pageable,
+			String status, Long shipmentId, Long logisticsOrgId,
+			java.sql.Date issuedStart, java.sql.Date issuedEnd,
+			java.sql.Date dueStart, java.sql.Date dueEnd,
+			String pmsStatus) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = buildPaginatedUrlWithFilters(webConstants.getCoreFreightInvoiceBaseUrl() + "/all", pageable,
+				"status", status,
+				"shipmentId", shipmentId,
+				"logisticsOrgId", logisticsOrgId,
+				"issuedStart", issuedStart,
+				"issuedEnd", issuedEnd,
+				"dueStart", dueStart,
+				"dueEnd", dueEnd,
+				"pmsStatus", pmsStatus);
+		return restService.iamRestCall(url, null, headers, HttpMethod.GET, null);
+	}
+
+	@Override
+	public ResponseEntity<?> updateFreightInvoice(Long id, Map<String, Object> dto, String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		return restService.iamRestCall(webConstants.getCoreFreightInvoiceBaseUrl() + "/" + id + "/update", dto, headers, HttpMethod.PUT, null);
+	}
+
+	@Override
+	public ResponseEntity<?> transitionFreightInvoiceStatus(Long id, String newStatus, Map<String, Object> params, String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCoreFreightInvoiceBaseUrl() + "/" + id + "/status?newStatus=" + newStatus;
+		return restService.iamRestCall(url, params, headers, HttpMethod.PUT, null);
+	}
+
+	@Override
+	public ResponseEntity<?> deleteFreightInvoice(Long id, String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		return restService.iamRestCall(webConstants.getCoreFreightInvoiceBaseUrl() + "/" + id, null, headers, HttpMethod.DELETE, null);
+	}
+
+	@Override
+	public ResponseEntity<?> getFreightInvoiceSummary(String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		return restService.iamRestCall(webConstants.getCoreFreightInvoiceSummaryUrl(), null, headers, HttpMethod.GET, null);
+	}
+
+	@Override
+	public ResponseEntity<?> handoffFreightInvoiceToPms(Long id, String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		return restService.iamRestCall(webConstants.getCoreFreightInvoiceBaseUrl() + "/" + id + "/handoff-pms", null, headers, HttpMethod.POST, null);
+	}
+
+	@Override
+	public ResponseEntity<?> getFreightInvoicePmsStatus(Long id, String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		return restService.iamRestCall(webConstants.getCoreFreightInvoiceBaseUrl() + "/" + id + "/pms-status", null, headers, HttpMethod.GET, null);
+	}
+
+	@Override
+	public ResponseEntity<?> recordFreightDiscrepancy(Long id, String reason, java.math.BigDecimal amount, String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCoreFreightInvoiceBaseUrl() + "/" + id + "/discrepancy?reason=" + reason + "&amount=" + amount;
+		return restService.iamRestCall(url, null, headers, HttpMethod.POST, null);
+	}
+
+	// ============================================
+	// Delivery Appointment (FR-RET-034)
+	// ============================================
+	@Override
+	public ResponseEntity<?> createDeliveryAppointment(Map<String, Object> dto, String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		return restService.iamRestCall(webConstants.getCoreDeliveryAppointmentBaseUrl() + "/create", dto, headers, HttpMethod.POST, null);
+	}
+
+	@Override
+	public ResponseEntity<?> getDeliveryAppointment(Long id, String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		return restService.iamRestCall(webConstants.getCoreDeliveryAppointmentBaseUrl() + "/" + id, null, headers, HttpMethod.GET, null);
+	}
+
+	@Override
+	public ResponseEntity<?> getAllDeliveryAppointments(String authToken, String orgIdHeader, Pageable pageable,
+			String status, Long warehouseId, Long shipmentId, java.sql.Timestamp fromDate, java.sql.Timestamp toDate) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = buildPaginatedUrlWithFilters(webConstants.getCoreDeliveryAppointmentBaseUrl() + "/all", pageable,
+				"status", status,
+				"warehouseId", warehouseId,
+				"shipmentId", shipmentId,
+				"fromDate", fromDate,
+				"toDate", toDate);
+		return restService.iamRestCall(url, null, headers, HttpMethod.GET, null);
+	}
+
+	@Override
+	public ResponseEntity<?> updateDeliveryAppointment(Long id, Map<String, Object> dto, String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		return restService.iamRestCall(webConstants.getCoreDeliveryAppointmentBaseUrl() + "/" + id + "/update", dto, headers, HttpMethod.PUT, null);
+	}
+
+	@Override
+	public ResponseEntity<?> transitionDeliveryAppointmentStatus(Long id, String newStatus, Map<String, Object> params, String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCoreDeliveryAppointmentBaseUrl() + "/" + id + "/status?newStatus=" + newStatus;
+		return restService.iamRestCall(url, params, headers, HttpMethod.PUT, null);
+	}
+
+	@Override
+	public ResponseEntity<?> deleteDeliveryAppointment(Long id, String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		return restService.iamRestCall(webConstants.getCoreDeliveryAppointmentBaseUrl() + "/" + id, null, headers, HttpMethod.DELETE, null);
+	}
+
+	@Override
+	public ResponseEntity<?> getDeliveryAppointmentSummary(String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		return restService.iamRestCall(webConstants.getCoreDeliveryAppointmentSummaryUrl(), null, headers, HttpMethod.GET, null);
+	}
+
+	// ============================================
+	// Retailer Analytics (RET-P08)
+	// ============================================
+	@Override
+	public ResponseEntity<?> getRetailerDashboard(String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		return restService.iamRestCall(webConstants.getCoreAnalyticsRetailerDashboardUrl(), null, headers, HttpMethod.GET, null);
+	}
+
+	@Override
+	public ResponseEntity<?> getRetailerSpendAnalytics(String groupBy, String period, String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCoreAnalyticsRetailerSpendUrl();
+		if (groupBy != null || period != null) {
+			url = UriComponentsBuilder.fromUriString(url)
+					.queryParamIfPresent("groupBy", Optional.ofNullable(groupBy))
+					.queryParamIfPresent("period", Optional.ofNullable(period))
+					.toUriString();
+		}
+		return restService.iamRestCall(url, null, headers, HttpMethod.GET, null);
+	}
+
+	@Override
+	public ResponseEntity<?> getSupplyChainVisibility(Long purchaseOrderId, String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		return restService.iamRestCall(webConstants.getCoreAnalyticsRetailerVisibilityUrl() + "/" + purchaseOrderId, null, headers, HttpMethod.GET, null);
 	}
 
 	/**

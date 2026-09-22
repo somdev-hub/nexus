@@ -420,6 +420,31 @@ public class CoreRetailerController {
 		return coreRetailerService.getPurchaseOrderAmendments(parentPoId, authToken, orgIdHeader);
 	}
 
+	// Blanket Order Endpoints (FR-RET-004)
+	@LogActivity("Process Blanket Order Releases for Retailer")
+	@PostMapping("/purchase-orders/blanket/{blanketPoId}/process-releases")
+	public ResponseEntity<?> processBlanketOrderReleases(@PathVariable Long blanketPoId,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.processBlanketOrderReleases(blanketPoId, authToken, orgIdHeader);
+	}
+
+	@LogActivity("Get All Blanket Orders for Retailer")
+	@GetMapping("/purchase-orders/blanket/all")
+	public ResponseEntity<?> getBlanketOrders(@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader,
+			@PageableDefault(size = 20) Pageable pageable) {
+		return coreRetailerService.getBlanketOrders(authToken, orgIdHeader, pageable);
+	}
+
+	@LogActivity("Get Blanket Order Releases for Retailer")
+	@GetMapping("/purchase-orders/blanket/{blanketPoId}/releases")
+	public ResponseEntity<?> getBlanketOrderReleases(@PathVariable Long blanketPoId,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.getBlanketOrderReleases(blanketPoId, authToken, orgIdHeader);
+	}
+
 	// Stock/Inventory Endpoints
 	@LogActivity("Add Stock for Retailer")
 	@PostMapping("/stock/add")
@@ -1318,5 +1343,204 @@ public class CoreRetailerController {
 			@RequestHeader("X-Organization-ID") String orgIdHeader,
 			@PageableDefault(size = 20) Pageable pageable) {
 		return coreRetailerService.getShipmentsByDateRange(startDate, endDate, authToken, orgIdHeader, pageable);
+	}
+
+	// ============================================
+	// ABC ANALYSIS (FR-RET-012)
+	// ============================================
+	@LogActivity("Get ABC Analysis for Retailer")
+	@GetMapping("/stocks/abc-analysis")
+	public ResponseEntity<?> getAbcAnalysis(@RequestParam(required = false) String category,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.getAbcAnalysis(category, authToken, orgIdHeader);
+	}
+
+	// ============================================
+	// FREIGHT INVOICE (RET-P07)
+	// ============================================
+	@LogActivity("Create Freight Invoice for Retailer")
+	@PostMapping("/freight-invoices")
+	public ResponseEntity<?> createFreightInvoice(@RequestBody Map<String, Object> dto,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.createFreightInvoice(dto, authToken, orgIdHeader);
+	}
+
+	@LogActivity("Get Freight Invoice for Retailer")
+	@GetMapping("/freight-invoices/{id}")
+	public ResponseEntity<?> getFreightInvoice(@PathVariable Long id,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.getFreightInvoice(id, authToken, orgIdHeader);
+	}
+
+	@LogActivity("Get All Freight Invoices for Retailer")
+	@GetMapping("/freight-invoices")
+	public ResponseEntity<?> getAllFreightInvoices(@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader,
+			@PageableDefault(size = 20) Pageable pageable,
+			@RequestParam(required = false) String status,
+			@RequestParam(required = false) Long shipmentId,
+			@RequestParam(required = false) Long logisticsOrgId,
+			@RequestParam(required = false) java.sql.Date issuedStart,
+			@RequestParam(required = false) java.sql.Date issuedEnd,
+			@RequestParam(required = false) java.sql.Date dueStart,
+			@RequestParam(required = false) java.sql.Date dueEnd,
+			@RequestParam(required = false) String pmsStatus) {
+		return coreRetailerService.getAllFreightInvoices(authToken, orgIdHeader, pageable, status, shipmentId, logisticsOrgId, issuedStart, issuedEnd, dueStart, dueEnd, pmsStatus);
+	}
+
+	@LogActivity("Update Freight Invoice for Retailer")
+	@PutMapping("/freight-invoices/{id}")
+	public ResponseEntity<?> updateFreightInvoice(@PathVariable Long id,
+			@RequestBody Map<String, Object> dto,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.updateFreightInvoice(id, dto, authToken, orgIdHeader);
+	}
+
+	@LogActivity("Transition Freight Invoice Status for Retailer")
+	@PostMapping("/freight-invoices/{id}/status")
+	public ResponseEntity<?> transitionFreightInvoiceStatus(@PathVariable Long id,
+			@RequestParam String newStatus,
+			@RequestBody(required = false) Map<String, Object> params,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.transitionFreightInvoiceStatus(id, newStatus, params, authToken, orgIdHeader);
+	}
+
+	@LogActivity("Delete Freight Invoice for Retailer")
+	@DeleteMapping("/freight-invoices/{id}")
+	public ResponseEntity<?> deleteFreightInvoice(@PathVariable Long id,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.deleteFreightInvoice(id, authToken, orgIdHeader);
+	}
+
+	@LogActivity("Get Freight Invoice Summary for Retailer")
+	@GetMapping("/freight-invoices/summary")
+	public ResponseEntity<?> getFreightInvoiceSummary(@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.getFreightInvoiceSummary(authToken, orgIdHeader);
+	}
+
+	@LogActivity("Handoff Freight Invoice to PMS for Retailer")
+	@PostMapping("/freight-invoices/{id}/handoff-pms")
+	public ResponseEntity<?> handoffFreightInvoiceToPms(@PathVariable Long id,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.handoffFreightInvoiceToPms(id, authToken, orgIdHeader);
+	}
+
+	@LogActivity("Get Freight Invoice PMS Status for Retailer")
+	@GetMapping("/freight-invoices/{id}/pms-status")
+	public ResponseEntity<?> getFreightInvoicePmsStatus(@PathVariable Long id,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.getFreightInvoicePmsStatus(id, authToken, orgIdHeader);
+	}
+
+	@LogActivity("Record Freight Discrepancy for Retailer")
+	@PostMapping("/freight-invoices/{id}/discrepancy")
+	public ResponseEntity<?> recordFreightDiscrepancy(@PathVariable Long id,
+			@RequestParam String reason,
+			@RequestParam java.math.BigDecimal amount,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.recordFreightDiscrepancy(id, reason, amount, authToken, orgIdHeader);
+	}
+
+	// ============================================
+	// DELIVERY APPOINTMENTS (FR-RET-034)
+	// ============================================
+	@LogActivity("Create Delivery Appointment for Retailer")
+	@PostMapping("/delivery-appointments")
+	public ResponseEntity<?> createDeliveryAppointment(@RequestBody Map<String, Object> dto,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.createDeliveryAppointment(dto, authToken, orgIdHeader);
+	}
+
+	@LogActivity("Get Delivery Appointment for Retailer")
+	@GetMapping("/delivery-appointments/{id}")
+	public ResponseEntity<?> getDeliveryAppointment(@PathVariable Long id,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.getDeliveryAppointment(id, authToken, orgIdHeader);
+	}
+
+	@LogActivity("Get All Delivery Appointments for Retailer")
+	@GetMapping("/delivery-appointments")
+	public ResponseEntity<?> getAllDeliveryAppointments(@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader,
+			@PageableDefault(size = 20) Pageable pageable,
+			@RequestParam(required = false) String status,
+			@RequestParam(required = false) Long warehouseId,
+			@RequestParam(required = false) Long shipmentId,
+			@RequestParam(required = false) java.sql.Timestamp fromDate,
+			@RequestParam(required = false) java.sql.Timestamp toDate) {
+		return coreRetailerService.getAllDeliveryAppointments(authToken, orgIdHeader, pageable, status, warehouseId, shipmentId, fromDate, toDate);
+	}
+
+	@LogActivity("Update Delivery Appointment for Retailer")
+	@PutMapping("/delivery-appointments/{id}")
+	public ResponseEntity<?> updateDeliveryAppointment(@PathVariable Long id,
+			@RequestBody Map<String, Object> dto,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.updateDeliveryAppointment(id, dto, authToken, orgIdHeader);
+	}
+
+	@LogActivity("Transition Delivery Appointment Status for Retailer")
+	@PostMapping("/delivery-appointments/{id}/status")
+	public ResponseEntity<?> transitionDeliveryAppointmentStatus(@PathVariable Long id,
+			@RequestParam String newStatus,
+			@RequestBody(required = false) Map<String, Object> params,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.transitionDeliveryAppointmentStatus(id, newStatus, params, authToken, orgIdHeader);
+	}
+
+	@LogActivity("Delete Delivery Appointment for Retailer")
+	@DeleteMapping("/delivery-appointments/{id}")
+	public ResponseEntity<?> deleteDeliveryAppointment(@PathVariable Long id,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.deleteDeliveryAppointment(id, authToken, orgIdHeader);
+	}
+
+	@LogActivity("Get Delivery Appointment Summary for Retailer")
+	@GetMapping("/delivery-appointments/summary")
+	public ResponseEntity<?> getDeliveryAppointmentSummary(@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.getDeliveryAppointmentSummary(authToken, orgIdHeader);
+	}
+
+	// ============================================
+	// RETAILER ANALYTICS (RET-P08)
+	// ============================================
+	@LogActivity("Get Retailer Dashboard for Retailer")
+	@GetMapping("/analytics/dashboard")
+	public ResponseEntity<?> getRetailerDashboard(@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.getRetailerDashboard(authToken, orgIdHeader);
+	}
+
+	@LogActivity("Get Retailer Spend Analytics for Retailer")
+	@GetMapping("/analytics/spend")
+	public ResponseEntity<?> getRetailerSpendAnalytics(@RequestParam(required = false) String groupBy,
+			@RequestParam(required = false) String period,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.getRetailerSpendAnalytics(groupBy, period, authToken, orgIdHeader);
+	}
+
+	@LogActivity("Get Supply Chain Visibility for Retailer")
+	@GetMapping("/analytics/visibility/{purchaseOrderId}")
+	public ResponseEntity<?> getSupplyChainVisibility(@PathVariable Long purchaseOrderId,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.getSupplyChainVisibility(purchaseOrderId, authToken, orgIdHeader);
 	}
 }

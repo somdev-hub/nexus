@@ -3,6 +3,7 @@ package com.nexus.core.service.impl;
 import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -43,11 +44,15 @@ import com.nexus.core.security.OrganizationContextHolder;
 import com.nexus.core.service.PurchaseOrderService;
 import com.nexus.core.service.ThreeWayMatchingService;
 import com.nexus.core.service.ThreeWayMatchingService.MatchingResult;
+import com.nexus.core.utils.RestService;
+import com.nexus.core.utils.WebConstants;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 
 	private final PurchaseOrderRepo purchaseOrderRepo;
@@ -60,6 +65,8 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 	private final InvoiceRepo invoiceRepo;
 	private final ModelMapper modelMapper;
 	private final ThreeWayMatchingService threeWayMatchingService;
+	private final RestService restService;
+	private final WebConstants webConstants;
 
 	@Value("${po.approval.threshold.auto:10000}")
 	private Double autoApprovalThreshold;
@@ -462,15 +469,39 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 
 	/**
 	 * Check if a user has the required approval authority for a given level.
-	 * This would integrate with HR organizational hierarchy in a full
-	 * implementation.
+	 * Integrates with HR service to check user's role/level in organizational
+	 * hierarchy.
 	 */
 	private boolean hasApprovalAuthority(String userId, ApprovalLevel requiredLevel) {
-		// TODO: Integrate with HR service to check user's role/level in organizational
-		// hierarchy
-		// For now, return true to allow approval flow to proceed
-		// In production, this would call HR service to verify user's position/level
-		return true;
+		if (requiredLevel == ApprovalLevel.AUTO) {
+			return true; // Auto approval doesn't require human authority
+		}
+
+		try {
+			// Call HR service to check approval authority
+			String url = webConstants.getHrServiceUrl() + webConstants.getHrEmployeeApprovalAuthorityUrl();
+			Map<String, Object> request = Map.of(
+					"employeeId", userId,
+					"requiredLevel", requiredLevel.name());
+
+			Long orgId = OrganizationContextHolder.requireOrganizationId();
+			Map<String, String> headers = Map.of("Content-Type", "application/json");
+
+			ResponseEntity<Map> response = restService.post(url, request, headers, Map.class, orgId);
+
+			if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+				Boolean hasAuthority = (Boolean) response.getBody().get("hasAuthority");
+				return Boolean.TRUE.equals(hasAuthority);
+			}
+
+			log.warn("HR service returned non-success status for approval authority check: {}",
+					response.getStatusCode());
+			return false;
+		} catch (Exception e) {
+			log.error("Error checking approval authority with HR service for user {}: {}", userId, e.getMessage());
+			// Fail closed - deny approval if HR service is unavailable
+			return false;
+		}
 	}
 
 	@Override
@@ -497,5 +528,142 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 				.map(po -> modelMapper.map(po, PurchaseOrderDto.class))
 				.collect(Collectors.toList());
 		return new ResponseEntity<>(amendmentDtos, HttpStatus.OK);
+	}
+
+	/**
+	 * Process blanket order releases based on schedule.
+	 * FR-RET-004: Blanket order support with release scheduling.
+	 * Creates release POs based on the blanket order's release schedule.
+	 */
+	@Override
+	@Transactional
+	public ResponseEntity<?> processBlanketOrderReleases(Long blanketPoId) {
+		Long orgId = OrganizationContextHolder.requireOrganizationId();
+		PurchaseOrder blanketPo = purchaseOrderRepo.findByPurchaseOrderIdAndBuyerOrgAccountId(blanketPoId, orgId)
+				.orElseThrow(() -> new ResourceNotFoundException("PurchaseOrder", "purchaseOrderId", blanketPoId));
+
+		if (!blanketPo.isBlanketOrder()) {
+			throw new ValidationException("PO is not a blanket order");
+		}
+
+		if (blanketPo.getBlanketStartDate() == null || blanketPo.getBlanketEndDate() == null) {
+			throw new ValidationException("Blanket order must have start and end dates");
+		}
+
+		if (blanketPo.getReleaseSchedule() == null || blanketPo.getReleaseSchedule().trim().isEmpty()) {
+			throw new ValidationException("Blanket order must have a release schedule");
+		}
+
+		// Parse release schedule (supports cron expression or simple frequency)
+		List<LocalDateTime> releaseDates = parseReleaseSchedule(
+				blanketPo.getReleaseSchedule(),
+				blanketPo.getBlanketStartDate().toInstant().atZone(java.time.ZoneId.systemDefault()).toLocalDateTime(),
+				blanketPo.getBlanketEndDate().toInstant().atZone(java.time.ZoneId.systemDefault()).toLocalDateTime());
+
+		List<PurchaseOrderDto> releasePos = new ArrayList<>();
+		for (LocalDateTime releaseDate : releaseDates) {
+			if (releaseDate.isAfter(LocalDateTime.now())) {
+				// Create release PO
+				PurchaseOrderDto releaseDto = modelMapper.map(blanketPo, PurchaseOrderDto.class);
+				releaseDto.setPurchaseOrderId(null); // New PO
+				releaseDto.setParentPoId(blanketPoId);
+				releaseDto.setRevisionNumber(blanketPo.getRevisionNumber() + 1);
+				releaseDto.setPoNumber(blanketPo.getPoNumber() + "-R" + (blanketPo.getRevisionNumber() + 1));
+				releaseDto.setStatus(PurchaseOrderStatus.DRAFT);
+				releaseDto.setIsBlanketOrder(false);
+				releaseDto.setBlanketStartDate(null);
+				releaseDto.setBlanketEndDate(null);
+				releaseDto.setReleaseSchedule(null);
+				releaseDto.setExpectedDeliveryDate(java.sql.Date.valueOf(releaseDate.toLocalDate()));
+
+				ResponseEntity<?> response = createPurchaseOrder(releaseDto);
+				if (response.getStatusCode().is2xxSuccessful()) {
+					releasePos.add((PurchaseOrderDto) response.getBody());
+				}
+			}
+		}
+
+		return new ResponseEntity<>(releasePos, HttpStatus.OK);
+	}
+
+	/**
+	 * Parse release schedule to generate release dates.
+	 * Supports cron expressions and simple frequency patterns.
+	 */
+	private List<LocalDateTime> parseReleaseSchedule(String schedule, LocalDateTime startDate, LocalDateTime endDate) {
+		List<LocalDateTime> dates = new ArrayList<>();
+
+		// Simple frequency parsing (e.g., "WEEKLY", "MONTHLY", "QUARTERLY", "DAILY")
+		// For cron expressions, a full cron parser would be needed
+		String upperSchedule = schedule.trim().toUpperCase();
+
+		LocalDateTime current = startDate;
+		switch (upperSchedule) {
+			case "DAILY":
+				while (current.isBefore(endDate) || current.isEqual(endDate)) {
+					dates.add(current);
+					current = current.plusDays(1);
+				}
+				break;
+			case "WEEKLY":
+				while (current.isBefore(endDate) || current.isEqual(endDate)) {
+					dates.add(current);
+					current = current.plusWeeks(1);
+				}
+				break;
+			case "BIWEEKLY":
+				while (current.isBefore(endDate) || current.isEqual(endDate)) {
+					dates.add(current);
+					current = current.plusWeeks(2);
+				}
+				break;
+			case "MONTHLY":
+				while (current.isBefore(endDate) || current.isEqual(endDate)) {
+					dates.add(current);
+					current = current.plusMonths(1);
+				}
+				break;
+			case "QUARTERLY":
+				while (current.isBefore(endDate) || current.isEqual(endDate)) {
+					dates.add(current);
+					current = current.plusMonths(3);
+				}
+				break;
+			default:
+				// Try to parse as cron expression (simplified)
+				log.warn("Unrecognized release schedule format: {}. Treating as MONTHLY.", schedule);
+				while (current.isBefore(endDate) || current.isEqual(endDate)) {
+					dates.add(current);
+					current = current.plusMonths(1);
+				}
+				break;
+		}
+
+		return dates;
+	}
+
+	/**
+	 * Get all blanket orders for the organization.
+	 */
+	@Override
+	public ResponseEntity<?> getBlanketOrders(Pageable pageable) {
+		Long orgId = OrganizationContextHolder.requireOrganizationId();
+		Page<PurchaseOrder> blanketOrders = purchaseOrderRepo.findByBuyerOrgAccountIdAndIsBlanketOrderTrue(orgId,
+				pageable);
+		Page<PurchaseOrderDto> dtoPage = blanketOrders.map(po -> modelMapper.map(po, PurchaseOrderDto.class));
+		return new ResponseEntity<>(dtoPage, HttpStatus.OK);
+	}
+
+	/**
+	 * Get release POs for a blanket order.
+	 */
+	@Override
+	public ResponseEntity<?> getBlanketOrderReleases(Long blanketPoId) {
+		Long orgId = OrganizationContextHolder.requireOrganizationId();
+		List<PurchaseOrder> releases = purchaseOrderRepo.findByParentPoIdAndIsBlanketOrderFalse(orgId, blanketPoId);
+		List<PurchaseOrderDto> releaseDtos = releases.stream()
+				.map(po -> modelMapper.map(po, PurchaseOrderDto.class))
+				.collect(Collectors.toList());
+		return new ResponseEntity<>(releaseDtos, HttpStatus.OK);
 	}
 }

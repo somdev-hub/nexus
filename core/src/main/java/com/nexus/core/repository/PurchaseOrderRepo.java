@@ -42,4 +42,11 @@ public interface PurchaseOrderRepo extends JpaRepository<PurchaseOrder, Long> {
 			@Param("statuses") List<PurchaseOrderStatus> statuses, Pageable pageable);
 
 	boolean existsByPoNumberAndBuyerOrgAccountId(String poNumber, Long orgId);
+
+	@Query("SELECT po FROM PurchaseOrder po WHERE po.buyerOrg.accountId = :orgId AND po.isBlanketOrder = true")
+	Page<PurchaseOrder> findByBuyerOrgAccountIdAndIsBlanketOrderTrue(@Param("orgId") Long orgId, Pageable pageable);
+
+	@Query("SELECT po FROM PurchaseOrder po WHERE po.buyerOrg.accountId = :orgId AND po.parentPoId = :parentPoId AND po.isBlanketOrder = false ORDER BY po.revisionNumber DESC")
+	List<PurchaseOrder> findByParentPoIdAndIsBlanketOrderFalse(@Param("orgId") Long orgId,
+			@Param("parentPoId") Long parentPoId);
 }

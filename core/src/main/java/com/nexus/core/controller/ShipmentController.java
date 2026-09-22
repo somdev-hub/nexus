@@ -25,6 +25,7 @@ import com.nexus.core.dto.TrackingEventDto;
 import com.nexus.core.dto.ShipmentDocumentDto;
 import com.nexus.core.entities.ShipmentMode;
 import com.nexus.core.entities.ShipmentStatus;
+import com.nexus.core.entities.StopStatus;
 import com.nexus.core.service.ShipmentService;
 
 import lombok.RequiredArgsConstructor;

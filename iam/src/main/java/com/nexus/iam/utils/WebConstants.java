@@ -388,6 +388,29 @@ public class WebConstants {
 	@Value("${core.purchase.order.amendments.url}")
 	private String corePurchaseOrderAmendmentsUrl;
 
+	// Blanket Order Endpoints (FR-RET-004)
+	@Value("${core.purchase.order.blanket.process.url}")
+	private String corePurchaseOrderBlanketProcessUrl;
+
+	@Value("${core.purchase.order.blanket.all.url}")
+	private String corePurchaseOrderBlanketAllUrl;
+
+	@Value("${core.purchase.order.blanket.releases.url}")
+	private String corePurchaseOrderBlanketReleasesUrl;
+
+	// Blanket Order URL getters
+	public String getCorePurchaseOrderBlanketProcessUrl() {
+		return corePurchaseOrderBlanketProcessUrl;
+	}
+
+	public String getCorePurchaseOrderBlanketAllUrl() {
+		return corePurchaseOrderBlanketAllUrl;
+	}
+
+	public String getCorePurchaseOrderBlanketReleasesUrl() {
+		return corePurchaseOrderBlanketReleasesUrl;
+	}
+
 	// Stock/Inventory Endpoints
 	@Value("${core.stock.add.url}")
 	private String coreStockAddUrl;
@@ -667,5 +690,32 @@ public class WebConstants {
 
 	@Value("${core.shipment.date-range.url}")
 	private String coreShipmentDateRangeUrl;
+
+	// ============================================
+	// RETAILER EXTENSIONS: ABC, Freight, Delivery, Analytics (FR-RET-012, RET-P07, FR-RET-034, RET-P08)
+	// ============================================
+	@Value("${core.stock.abc-analysis.url}")
+	private String coreStockAbcAnalysisUrl;
+
+	@Value("${core.freight-invoice.base.url}")
+	private String coreFreightInvoiceBaseUrl;
+
+	@Value("${core.freight-invoice.summary.url}")
+	private String coreFreightInvoiceSummaryUrl;
+
+	@Value("${core.delivery-appointment.base.url}")
+	private String coreDeliveryAppointmentBaseUrl;
+
+	@Value("${core.delivery-appointment.summary.url}")
+	private String coreDeliveryAppointmentSummaryUrl;
+
+	@Value("${core.analytics.retailer.dashboard.url}")
+	private String coreAnalyticsRetailerDashboardUrl;
+
+	@Value("${core.analytics.retailer.spend.url}")
+	private String coreAnalyticsRetailerSpendUrl;
+
+	@Value("${core.analytics.retailer.visibility.url}")
+	private String coreAnalyticsRetailerVisibilityUrl;
 
 }

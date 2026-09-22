@@ -23,4 +23,11 @@ public interface PurchaseOrderService {
 	ResponseEntity<?> createAmendment(Long parentPoId, PurchaseOrderDto amendmentDto);
 
 	ResponseEntity<?> getAmendmentsByParentPoId(Long parentPoId);
+
+	// Blanket Order methods (FR-RET-004)
+	ResponseEntity<?> processBlanketOrderReleases(Long blanketPoId);
+
+	ResponseEntity<?> getBlanketOrders(Pageable pageable);
+
+	ResponseEntity<?> getBlanketOrderReleases(Long blanketPoId);
 }

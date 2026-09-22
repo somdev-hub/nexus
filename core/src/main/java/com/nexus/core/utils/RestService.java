@@ -378,4 +378,84 @@ public class RestService {
 			return new ResponseEntity<>("Error deleting from DMS: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
 		}
 	}
+
+	// ============================================
+	// Convenience HTTP methods for common REST calls
+	// ============================================
+
+	/**
+	 * POST request with JSON body, returning parsed response as Map
+	 */
+	public ResponseEntity<Map<String, Object>> post(String url, Object payload, Map<String, String> headers,
+			Long orgId) {
+		ResponseEntity<String> response = coreRestCall(url, payload, headers, HttpMethod.POST, orgId);
+		Map<String, Object> body = parseJsonResponse(response.getBody());
+		return ResponseEntity.status(response.getStatusCode()).body(body);
+	}
+
+	/**
+	 * POST request with JSON body, returning parsed response as specific type
+	 */
+	public <T> ResponseEntity<T> post(String url, Object payload, Map<String, String> headers, Class<T> targetType,
+			Long orgId) {
+		ResponseEntity<String> response = coreRestCall(url, payload, headers, HttpMethod.POST, orgId);
+		T body = parseJsonResponse(response.getBody(), targetType);
+		return ResponseEntity.status(response.getStatusCode()).body(body);
+	}
+
+	/**
+	 * GET request, returning parsed response as Map
+	 */
+	public ResponseEntity<Map<String, Object>> get(String url, Map<String, String> headers, Long orgId) {
+		ResponseEntity<String> response = coreRestCall(url, null, headers, HttpMethod.GET, orgId);
+		Map<String, Object> body = parseJsonResponse(response.getBody());
+		return ResponseEntity.status(response.getStatusCode()).body(body);
+	}
+
+	/**
+	 * GET request, returning parsed response as specific type
+	 */
+	public <T> ResponseEntity<T> get(String url, Map<String, String> headers, Class<T> targetType, Long orgId) {
+		ResponseEntity<String> response = coreRestCall(url, null, headers, HttpMethod.GET, orgId);
+		T body = parseJsonResponse(response.getBody(), targetType);
+		return ResponseEntity.status(response.getStatusCode()).body(body);
+	}
+
+	/**
+	 * PUT request with JSON body, returning parsed response as Map
+	 */
+	public ResponseEntity<Map<String, Object>> put(String url, Object payload, Map<String, String> headers,
+			Long orgId) {
+		ResponseEntity<String> response = coreRestCall(url, payload, headers, HttpMethod.PUT, orgId);
+		Map<String, Object> body = parseJsonResponse(response.getBody());
+		return ResponseEntity.status(response.getStatusCode()).body(body);
+	}
+
+	/**
+	 * PUT request with JSON body, returning parsed response as specific type
+	 */
+	public <T> ResponseEntity<T> put(String url, Object payload, Map<String, String> headers, Class<T> targetType,
+			Long orgId) {
+		ResponseEntity<String> response = coreRestCall(url, payload, headers, HttpMethod.PUT, orgId);
+		T body = parseJsonResponse(response.getBody(), targetType);
+		return ResponseEntity.status(response.getStatusCode()).body(body);
+	}
+
+	/**
+	 * DELETE request, returning parsed response as Map
+	 */
+	public ResponseEntity<Map<String, Object>> delete(String url, Map<String, String> headers, Long orgId) {
+		ResponseEntity<String> response = coreRestCall(url, null, headers, HttpMethod.DELETE, orgId);
+		Map<String, Object> body = parseJsonResponse(response.getBody());
+		return ResponseEntity.status(response.getStatusCode()).body(body);
+	}
+
+	/**
+	 * DELETE request, returning parsed response as specific type
+	 */
+	public <T> ResponseEntity<T> delete(String url, Map<String, String> headers, Class<T> targetType, Long orgId) {
+		ResponseEntity<String> response = coreRestCall(url, null, headers, HttpMethod.DELETE, orgId);
+		T body = parseJsonResponse(response.getBody(), targetType);
+		return ResponseEntity.status(response.getStatusCode()).body(body);
+	}
 }

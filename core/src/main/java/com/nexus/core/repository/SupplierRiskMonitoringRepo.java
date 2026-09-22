@@ -43,7 +43,7 @@ public interface SupplierRiskMonitoringRepo extends JpaRepository<SupplierRiskMo
 	List<SupplierRiskMonitoring> findBySupplierIdAndRiskCategory(@Param("supplierId") Long supplierId,
 			@Param("riskCategory") String riskCategory);
 
-	Optional<SupplierRiskMonitoring> findByIdAndSupplierSupplierId(Long riskMonitoringId, Long supplierId);
+	Optional<SupplierRiskMonitoring> findByRiskMonitoringIdAndSupplierSupplierId(Long riskMonitoringId, Long supplierId);
 
 	boolean existsBySupplierSupplierIdAndRiskCategoryAndStatusIn(Long supplierId, String riskCategory,
 			List<String> statuses);

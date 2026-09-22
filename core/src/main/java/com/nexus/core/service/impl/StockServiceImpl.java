@@ -15,6 +15,7 @@ import com.nexus.core.entities.StockMovement;
 import com.nexus.core.entities.StockMovement.MovementType;
 import com.nexus.core.entities.Warehouse;
 import com.nexus.core.exception.ResourceNotFoundException;
+import com.nexus.core.payload.AbcAnalysisDto;
 import com.nexus.core.payload.StockDto;
 import com.nexus.core.payload.StockMovementDto;
 import com.nexus.core.repository.MaterialRepo;
@@ -519,6 +520,124 @@ public class StockServiceImpl implements StockService {
 
 		Stock savedStock = stockRepo.save(stock);
 		return new ResponseEntity<>(mapToStockDto(savedStock), HttpStatus.OK);
+	}
+
+	@Override
+	public ResponseEntity<?> getAbcAnalysis(String category) {
+		Long orgId = OrganizationContextHolder.requireOrganizationId();
+		var stocks = stockRepo.findActiveByOrgId(orgId);
+
+		if (stocks.isEmpty()) {
+			var emptyDto = AbcAnalysisDto.builder()
+					.items(List.of())
+					.summary(AbcAnalysisDto.AbcSummaryDto.builder()
+							.totalItems(0)
+							.categoryACount(0)
+							.categoryBCount(0)
+							.categoryCCount(0)
+							.totalInventoryValue(0)
+							.categoryAValue(0)
+							.categoryBValue(0)
+							.categoryCValue(0)
+							.categoryAPercentage(0)
+							.categoryBPercentage(0)
+							.categoryCPercentage(0)
+							.build())
+					.build();
+			return ResponseEntity.ok(emptyDto);
+		}
+
+		// Compute annual value = quantityOnHand * unitCost (averageCost or standardCost)
+		record ScoredStock(Stock stock, double annualValue) {}
+		var scored = stocks.stream()
+				.map(s -> {
+					double unitCost = switch (s.getValuationMethod()) {
+						case STANDARD_COST -> s.getStandardCost() != null ? s.getStandardCost() : 0.0;
+						case FIFO, LIFO -> s.getLastCost() != null ? s.getLastCost() : 0.0;
+						default -> s.getAverageCost() != null ? s.getAverageCost() : 0.0;
+					};
+					double val = (s.getQuantityOnHand() != null ? s.getQuantityOnHand() : 0.0) * unitCost;
+					return new ScoredStock(s, val);
+				})
+				.sorted((a, b) -> Double.compare(b.annualValue(), a.annualValue()))
+				.toList();
+
+		double totalValue = scored.stream().mapToDouble(ScoredStock::annualValue).sum();
+		double running = 0;
+		var items = new java.util.ArrayList<AbcAnalysisDto.AbcItemDto>();
+		for (var ss : scored) {
+			running += ss.annualValue();
+			double cumPct = totalValue > 0 ? (running / totalValue) * 100 : 0;
+			String abcCat;
+			if (cumPct <= 80) abcCat = "A";
+			else if (cumPct <= 95) abcCat = "B";
+			else abcCat = "C";
+			// Optional filter by category
+			if (category != null && !category.isBlank() && !abcCat.equalsIgnoreCase(category)) {
+				continue;
+			}
+			double velocity = ss.stock().getQuantityOnHand() != null && ss.stock().getReorderPoint() != null && ss.stock().getReorderPoint() > 0
+					? ss.stock().getQuantityOnHand() / ss.stock().getReorderPoint()
+					: 0;
+			items.add(AbcAnalysisDto.AbcItemDto.builder()
+					.stockId(ss.stock().getStockId())
+					.materialId(ss.stock().getMaterial().getMaterialId())
+					.materialCode(ss.stock().getMaterial().getCode())
+					.materialName(ss.stock().getMaterial().getName())
+					.warehouseId(ss.stock().getWarehouse().getWarehouseId())
+					.quantityOnHand(ss.stock().getQuantityOnHand())
+					.unitCost(switch (ss.stock().getValuationMethod()) {
+						case STANDARD_COST -> ss.stock().getStandardCost() != null ? ss.stock().getStandardCost() : 0.0;
+						case FIFO, LIFO -> ss.stock().getLastCost() != null ? ss.stock().getLastCost() : 0.0;
+						default -> ss.stock().getAverageCost() != null ? ss.stock().getAverageCost() : 0.0;
+					})
+					.annualValue(ss.annualValue())
+					.cumulativePercentage(Math.round(cumPct * 100.0) / 100.0)
+					.abcCategory(abcCat)
+					.velocityScore(Math.round(velocity * 100.0) / 100.0)
+					.build());
+		}
+
+		// If filtered, recalc summary on filtered items; else full
+		var summarySource = (category != null && !category.isBlank()) ? items : scored.stream().map(ss -> {
+			double r = 0;
+			// recompute cumulative for full summary - reuse logic but group
+			return ss;
+		}).toList();
+
+		// Compute summary based on all scored items
+		var allItemsForSummary = scored.stream().map(ss -> {
+			double cum = 0;
+			return ss;
+		}).toList();
+		// Build summary by re-evaluating categories for all
+		double catAVal = 0, catBVal = 0, catCVal = 0;
+		long catA = 0, catB = 0, catC = 0;
+		double run2 = 0;
+		for (var ss : scored) {
+			run2 += ss.annualValue();
+			double cumPct = totalValue > 0 ? (run2 / totalValue) * 100 : 0;
+			if (cumPct <= 80) { catA++; catAVal += ss.annualValue(); }
+			else if (cumPct <= 95) { catB++; catBVal += ss.annualValue(); }
+			else { catC++; catCVal += ss.annualValue(); }
+		}
+
+		var summary = AbcAnalysisDto.AbcSummaryDto.builder()
+				.totalItems(scored.size())
+				.categoryACount(catA)
+				.categoryBCount(catB)
+				.categoryCCount(catC)
+				.totalInventoryValue(Math.round(totalValue * 100.0) / 100.0)
+				.categoryAValue(Math.round(catAVal * 100.0) / 100.0)
+				.categoryBValue(Math.round(catBVal * 100.0) / 100.0)
+				.categoryCValue(Math.round(catCVal * 100.0) / 100.0)
+				.categoryAPercentage(totalValue > 0 ? Math.round((catAVal / totalValue) * 10000.0) / 100.0 : 0)
+				.categoryBPercentage(totalValue > 0 ? Math.round((catBVal / totalValue) * 10000.0) / 100.0 : 0)
+				.categoryCPercentage(totalValue > 0 ? Math.round((catCVal / totalValue) * 10000.0) / 100.0 : 0)
+				.build();
+
+		var dto = AbcAnalysisDto.builder().items(items).summary(summary).build();
+		return ResponseEntity.ok(dto);
 	}
 
 	/**
