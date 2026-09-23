@@ -4,6 +4,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -2340,23 +2341,45 @@ public class CoreRetailerServiceImpl implements CoreRetailerService {
 
 	/**
 	 * Builds a URL with pagination parameters from Pageable
+	 * Fix: do not send sort=UNSORTED (causes PropertyReferenceException: No property 'UNSORTED' for type 'Product')
+	 * Also handles null Pageable (e.g., calculateSupplierPerformance passes null)
 	 */
 	private String buildPaginatedUrl(String baseUrl, Pageable pageable) {
-		return UriComponentsBuilder.fromUriString(baseUrl)
+		if (pageable == null || pageable.isUnpaged()) {
+			return baseUrl;
+		}
+		UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(baseUrl)
 				.queryParam("page", pageable.getPageNumber())
-				.queryParam("size", pageable.getPageSize())
-				.queryParam("sort", pageable.getSort().toString())
-				.toUriString();
+				.queryParam("size", pageable.getPageSize());
+		if (pageable.getSort().isSorted()) {
+			for (Sort.Order order : pageable.getSort()) {
+				builder.queryParam("sort", order.getProperty() + "," + order.getDirection().name());
+			}
+		}
+		return builder.toUriString();
 	}
 
 	/**
 	 * Builds a URL with pagination and optional filter parameters
 	 */
 	private String buildPaginatedUrlWithFilters(String baseUrl, Pageable pageable, Object... filterParams) {
+		if (pageable == null || pageable.isUnpaged()) {
+			UriComponentsBuilder baseBuilder = UriComponentsBuilder.fromUriString(baseUrl);
+			for (int i = 0; i < filterParams.length; i += 2) {
+				if (i + 1 < filterParams.length && filterParams[i + 1] != null) {
+					baseBuilder.queryParam((String) filterParams[i], filterParams[i + 1]);
+				}
+			}
+			return baseBuilder.toUriString();
+		}
 		UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(baseUrl)
 				.queryParam("page", pageable.getPageNumber())
-				.queryParam("size", pageable.getPageSize())
-				.queryParam("sort", pageable.getSort().toString());
+				.queryParam("size", pageable.getPageSize());
+		if (pageable.getSort().isSorted()) {
+			for (Sort.Order order : pageable.getSort()) {
+				builder.queryParam("sort", order.getProperty() + "," + order.getDirection().name());
+			}
+		}
 
 		// filterParams should be key-value pairs: key1, value1, key2, value2, ...
 		for (int i = 0; i < filterParams.length; i += 2) {

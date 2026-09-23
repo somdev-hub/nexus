@@ -8,8 +8,8 @@ import org.springframework.stereotype.Component;
 @Component
 public class WebConstants {
 
-	// IAM Service URLs
-	@Value("${iam.service.url:http://localhost:8081}")
+	// IAM Service URLs - default must match IAM server.port (8080)
+	@Value("${iam.service.url:http://localhost:8080}")
 	private String iamServiceUrl;
 
 	@Value("${iam.organization.url:/iam/organizations}")
@@ -22,7 +22,7 @@ public class WebConstants {
 	private String iamAuthUrl;
 
 	// Core Service URLs
-	@Value("${core.service.url:http://localhost:8082}")
+	@Value("${core.service.url:http://localhost:8081}")
 	private String coreServiceUrl;
 
 	@Value("${core.products.url:/core/products}")

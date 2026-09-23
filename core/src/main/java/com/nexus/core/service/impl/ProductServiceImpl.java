@@ -2,7 +2,9 @@ package com.nexus.core.service.impl;
 
 import org.modelmapper.ModelMapper;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -47,9 +49,25 @@ public class ProductServiceImpl implements ProductService {
 
 	@Override
 	public ResponseEntity<?> getAllProductsByOrgId(Long orgId, Pageable pageable) {
-		Page<Product> products = productRepo.findByOrg(orgId, pageable);
+		Pageable safePageable = sanitizePageable(pageable);
+		Page<Product> products = productRepo.findByOrg(orgId, safePageable);
 		Page<ProductDto> productDtos = products.map(p -> modelMapper.map(p, ProductDto.class));
 		return new ResponseEntity<>(productDtos, HttpStatus.OK);
+	}
+
+	private Pageable sanitizePageable(Pageable pageable) {
+		if (pageable == null || pageable.isUnpaged()) {
+			return pageable;
+		}
+		if (!pageable.getSort().isSorted()) {
+			return PageRequest.of(pageable.getPageNumber(), pageable.getPageSize());
+		}
+		for (Sort.Order order : pageable.getSort()) {
+			if ("UNSORTED".equalsIgnoreCase(order.getProperty())) {
+				return PageRequest.of(pageable.getPageNumber(), pageable.getPageSize());
+			}
+		}
+		return pageable;
 	}
 
 }

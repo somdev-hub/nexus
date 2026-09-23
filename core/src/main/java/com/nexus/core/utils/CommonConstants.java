@@ -18,8 +18,8 @@ public class CommonConstants {
 	@Value("${decrypt.token.url}")
 	public String decryptTokenUrl;
 
-	// IAM Service URLs
-	@Value("${iam.service.url:http://localhost:8081}")
+	// IAM Service URLs - must match IAM server.port (8080)
+	@Value("${iam.service.url:http://localhost:8080}")
 	public String iamServiceUrl;
 
 	@Value("${iam.organization.url}")

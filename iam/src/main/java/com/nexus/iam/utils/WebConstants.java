@@ -245,8 +245,8 @@ public class WebConstants {
 	@Value("${nexus.buddy.chat.url}")
 	private String nexusBuddyChatUrl;
 
-	// Core Service URL
-	@Value("${core.service.url:http://localhost:8082}")
+	// Core Service URL - must match core server.port (8081)
+	@Value("${core.service.url:http://localhost:8081}")
 	private String coreServiceUrl;
 
 	// Core Service Endpoints
