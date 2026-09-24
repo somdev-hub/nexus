@@ -62,6 +62,21 @@ public class PurchaseOrder extends BaseEntity {
 	@EqualsAndHashCode.Exclude
 	private Partnership partnership;
 
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "supplier_org_id", referencedColumnName = "account_id")
+	@ToString.Exclude
+	@EqualsAndHashCode.Exclude
+	private Account supplierOrg;
+
+	@Column(name = "confirmed_delivery_date")
+	private Date confirmedDeliveryDate;
+
+	@Column(name = "acknowledged_by")
+	private String acknowledgedBy;
+
+	@Column(name = "supplier_notes", columnDefinition = "TEXT")
+	private String supplierNotes;
+
 	@Enumerated(EnumType.STRING)
 	private PurchaseOrderStatus status = PurchaseOrderStatus.DRAFT;
 

@@ -1,8 +1,9 @@
 package com.nexus.iam.utils;
 
-import lombok.Data;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+
+import lombok.Data;
 
 @Data
 @Component
@@ -692,7 +693,8 @@ public class WebConstants {
 	private String coreShipmentDateRangeUrl;
 
 	// ============================================
-	// RETAILER EXTENSIONS: ABC, Freight, Delivery, Analytics (FR-RET-012, RET-P07, FR-RET-034, RET-P08)
+	// RETAILER EXTENSIONS: ABC, Freight, Delivery, Analytics (FR-RET-012, RET-P07,
+	// FR-RET-034, RET-P08)
 	// ============================================
 	@Value("${core.stock.abc-analysis.url}")
 	private String coreStockAbcAnalysisUrl;
@@ -717,5 +719,107 @@ public class WebConstants {
 
 	@Value("${core.analytics.retailer.visibility.url}")
 	private String coreAnalyticsRetailerVisibilityUrl;
+
+	// ============================================
+	// SUPPLIER ENDPOINTS (PART-02: SRS-03)
+	// ============================================
+	@Value("${core.supplier.catalog.create.url}")
+	private String coreSupplierCatalogCreateUrl;
+	@Value("${core.supplier.catalog.get.url}")
+	private String coreSupplierCatalogGetUrl;
+	@Value("${core.supplier.catalog.all.url}")
+	private String coreSupplierCatalogAllUrl;
+	@Value("${core.supplier.catalog.summary.url}")
+	private String coreSupplierCatalogSummaryUrl;
+	@Value("${core.supplier.variant.create.url}")
+	private String coreSupplierVariantCreateUrl;
+	@Value("${core.supplier.variant.get.url}")
+	private String coreSupplierVariantGetUrl;
+	@Value("${core.supplier.variant.all.url}")
+	private String coreSupplierVariantAllUrl;
+	@Value("${core.supplier.price-tier.create.url}")
+	private String coreSupplierPriceTierCreateUrl;
+	@Value("${core.supplier.price-tier.get.url}")
+	private String coreSupplierPriceTierGetUrl;
+	@Value("${core.supplier.price-tier.all.url}")
+	private String coreSupplierPriceTierAllUrl;
+	@Value("${core.supplier.digital-asset.create.url}")
+	private String coreSupplierDigitalAssetCreateUrl;
+	@Value("${core.supplier.digital-asset.get.url}")
+	private String coreSupplierDigitalAssetGetUrl;
+	@Value("${core.supplier.digital-asset.all.url}")
+	private String coreSupplierDigitalAssetAllUrl;
+	@Value("${core.supplier.capacity.create.url}")
+	private String coreSupplierCapacityCreateUrl;
+	@Value("${core.supplier.capacity.get.url}")
+	private String coreSupplierCapacityGetUrl;
+	@Value("${core.supplier.capacity.all.url}")
+	private String coreSupplierCapacityAllUrl;
+	@Value("${core.supplier.capacity.summary.url}")
+	private String coreSupplierCapacitySummaryUrl;
+	@Value("${core.supplier.atp.catalog.url}")
+	private String coreSupplierAtpCatalogUrl;
+	@Value("${core.supplier.atp.product-line.url}")
+	private String coreSupplierAtpProductLineUrl;
+	@Value("${core.supplier.order.get.url}")
+	private String coreSupplierOrderGetUrl;
+	@Value("${core.supplier.order.all.url}")
+	private String coreSupplierOrderAllUrl;
+	@Value("${core.supplier.order.acknowledge.url}")
+	private String coreSupplierOrderAcknowledgeUrl;
+	@Value("${core.supplier.order.summary.url}")
+	private String coreSupplierOrderSummaryUrl;
+	@Value("${core.supplier.quality.create.url}")
+	private String coreSupplierQualityCreateUrl;
+	@Value("${core.supplier.quality.get.url}")
+	private String coreSupplierQualityGetUrl;
+	@Value("${core.supplier.quality.all.url}")
+	private String coreSupplierQualityAllUrl;
+	@Value("${core.supplier.quotation.create.url}")
+	private String coreSupplierQuotationCreateUrl;
+	@Value("${core.supplier.quotation.get.url}")
+	private String coreSupplierQuotationGetUrl;
+	@Value("${core.supplier.quotation.all.url}")
+	private String coreSupplierQuotationAllUrl;
+	@Value("${core.supplier.quotation.summary.url}")
+	private String coreSupplierQuotationSummaryUrl;
+	@Value("${core.supplier.forecast.create.url}")
+	private String coreSupplierForecastCreateUrl;
+	@Value("${core.supplier.forecast.get.url}")
+	private String coreSupplierForecastGetUrl;
+	@Value("${core.supplier.forecast.all.url}")
+	private String coreSupplierForecastAllUrl;
+	@Value("${core.supplier.customer-portal.orders.url}")
+	private String coreSupplierCustomerPortalOrdersUrl;
+	@Value("${core.supplier.customer-portal.invoices.url}")
+	private String coreSupplierCustomerPortalInvoicesUrl;
+	@Value("${core.supplier.customer-portal.shipments.url}")
+	private String coreSupplierCustomerPortalShipmentsUrl;
+	@Value("${core.supplier.customer-portal.summary.url}")
+	private String coreSupplierCustomerPortalSummaryUrl;
+	@Value("${core.supplier.account-health.get.url}")
+	private String coreSupplierAccountHealthGetUrl;
+	@Value("${core.supplier.account-health.all.url}")
+	private String coreSupplierAccountHealthAllUrl;
+	@Value("${core.supplier.account-health.summary.url}")
+	private String coreSupplierAccountHealthSummaryUrl;
+	@Value("${core.supplier.consignment.create.url}")
+	private String coreSupplierConsignmentCreateUrl;
+	@Value("${core.supplier.consignment.get.url}")
+	private String coreSupplierConsignmentGetUrl;
+	@Value("${core.supplier.consignment.all.url}")
+	private String coreSupplierConsignmentAllUrl;
+	@Value("${core.supplier.consignment.summary.url}")
+	private String coreSupplierConsignmentSummaryUrl;
+	@Value("${core.supplier.vmi.create.url}")
+	private String coreSupplierVmiCreateUrl;
+	@Value("${core.supplier.vmi.get.url}")
+	private String coreSupplierVmiGetUrl;
+	@Value("${core.supplier.vmi.all.url}")
+	private String coreSupplierVmiAllUrl;
+	@Value("${core.supplier.vmi.suggestions.url}")
+	private String coreSupplierVmiSuggestionsUrl;
+	@Value("${core.analytics.supplier.dashboard.url}")
+	private String coreAnalyticsSupplierDashboardUrl;
 
 }

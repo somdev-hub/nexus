@@ -62,6 +62,18 @@ public class Shipment extends BaseEntity {
 	@EqualsAndHashCode.Exclude
 	private Partnership partnership;
 
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "purchase_order_id", referencedColumnName = "purchase_order_id")
+	@ToString.Exclude
+	@EqualsAndHashCode.Exclude
+	private PurchaseOrder purchaseOrder;
+
+	@Column(name = "is_partial_shipment")
+	private Boolean isPartialShipment = false;
+
+	@Column(name = "backordered_quantity")
+	private Double backorderedQuantity = 0.0;
+
 	@Enumerated(EnumType.STRING)
 	private ShipmentStatus status = ShipmentStatus.DRAFT;
 
