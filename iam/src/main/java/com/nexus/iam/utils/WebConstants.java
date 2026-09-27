@@ -822,4 +822,46 @@ public class WebConstants {
 	@Value("${core.analytics.supplier.dashboard.url}")
 	private String coreAnalyticsSupplierDashboardUrl;
 
+	// ============================================
+	// LOGISTICS ENDPOINTS (PART-03: SRS-04)
+	// ============================================
+	@Value("${core.logistics.fleet.asset.create.url}")
+	private String coreLogisticsFleetAssetCreateUrl;
+	@Value("${core.logistics.fleet.asset.get.url}")
+	private String coreLogisticsFleetAssetGetUrl;
+	@Value("${core.logistics.fleet.asset.all.url}")
+	private String coreLogisticsFleetAssetAllUrl;
+	@Value("${core.logistics.fleet.asset.summary.url}")
+	private String coreLogisticsFleetAssetSummaryUrl;
+	@Value("${core.logistics.driver.create.url}")
+	private String coreLogisticsDriverCreateUrl;
+	@Value("${core.logistics.driver.get.url}")
+	private String coreLogisticsDriverGetUrl;
+	@Value("${core.logistics.driver.all.url}")
+	private String coreLogisticsDriverAllUrl;
+	@Value("${core.logistics.maintenance.create.url}")
+	private String coreLogisticsMaintenanceCreateUrl;
+	@Value("${core.logistics.maintenance.get.url}")
+	private String coreLogisticsMaintenanceGetUrl;
+	@Value("${core.logistics.maintenance.all.url}")
+	private String coreLogisticsMaintenanceAllUrl;
+	@Value("${core.logistics.load-board.url}")
+	private String coreLogisticsLoadBoardUrl;
+	@Value("${core.logistics.quote.create.url}")
+	private String coreLogisticsQuoteCreateUrl;
+	@Value("${core.logistics.quote.get.url}")
+	private String coreLogisticsQuoteGetUrl;
+	@Value("${core.logistics.quote.all.url}")
+	private String coreLogisticsQuoteAllUrl;
+	@Value("${core.logistics.rate.create.url}")
+	private String coreLogisticsRateCreateUrl;
+	@Value("${core.logistics.rate.get.url}")
+	private String coreLogisticsRateGetUrl;
+	@Value("${core.logistics.rate.all.url}")
+	private String coreLogisticsRateAllUrl;
+	@Value("${core.logistics.execution.base.url}")
+	private String coreLogisticsExecutionBaseUrl;
+	@Value("${core.logistics.operations.base.url}")
+	private String coreLogisticsOperationsBaseUrl;
+
 }

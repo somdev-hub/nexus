@@ -89,21 +89,7 @@ public class ProductController {
 	 * This uses the request context holder pattern.
 	 */
 	private Long getOrganizationIdFromContext() {
-		try {
-			jakarta.servlet.http.HttpServletRequest request = ((org.springframework.web.context.request.ServletRequestAttributes) org.springframework.web.context.request.RequestContextHolder
-					.getRequestAttributes())
-					.getRequest();
-			if (request != null) {
-				Object orgContext = request.getAttribute(OrganizationContextFilter.ORGANIZATION_CONTEXT_ATTRIBUTE);
-				if (orgContext != null) {
-					com.fasterxml.jackson.databind.JsonNode orgNode = (com.fasterxml.jackson.databind.JsonNode) orgContext;
-					return orgNode.path("id").asLong();
-				}
-			}
-		} catch (Exception e) {
-			// Ignore and return null
-		}
-		return null;
+		return com.nexus.core.security.OrganizationContextHolder.getCurrentOrganizationId();
 	}
 
 }

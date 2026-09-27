@@ -30,7 +30,15 @@ public final class OrganizationContextHolder {
 				Object orgContext = request.getAttribute(OrganizationContextFilter.ORGANIZATION_CONTEXT_ATTRIBUTE);
 				if (orgContext != null) {
 					JsonNode orgNode = (JsonNode) orgContext;
-					return orgNode.path("id").asLong();
+					// IAM serializes the id as "orgId" (OrganizationDto); fall back to "id".
+					// Never return 0 for a missing field — that silently scopes queries to a phantom org.
+					JsonNode idNode = orgNode.path("orgId");
+					if (idNode.isMissingNode() || idNode.isNull()) {
+						idNode = orgNode.path("id");
+					}
+					if (!idNode.isMissingNode() && !idNode.isNull() && idNode.canConvertToLong()) {
+						return idNode.asLong();
+					}
 				}
 			}
 		} catch (Exception e) {

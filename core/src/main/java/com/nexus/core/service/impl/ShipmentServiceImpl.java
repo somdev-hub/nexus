@@ -299,9 +299,28 @@ public class ShipmentServiceImpl implements ShipmentService {
         return all.stream().map(s -> modelMapper.map(s, ShipmentDto.class)).collect(Collectors.toList());
     }
 
+    private static final Map<ShipmentStatus, java.util.Set<ShipmentStatus>> ALLOWED_TRANSITIONS = Map.ofEntries(
+            Map.entry(ShipmentStatus.DRAFT, java.util.Set.of(ShipmentStatus.PENDING_APPROVAL, ShipmentStatus.BOOKED, ShipmentStatus.CANCELLED)),
+            Map.entry(ShipmentStatus.PENDING_APPROVAL, java.util.Set.of(ShipmentStatus.APPROVED, ShipmentStatus.CANCELLED)),
+            Map.entry(ShipmentStatus.APPROVED, java.util.Set.of(ShipmentStatus.BOOKED, ShipmentStatus.CANCELLED)),
+            Map.entry(ShipmentStatus.BOOKED, java.util.Set.of(ShipmentStatus.ASSIGNED, ShipmentStatus.EXCEPTION, ShipmentStatus.CANCELLED)),
+            Map.entry(ShipmentStatus.ASSIGNED, java.util.Set.of(ShipmentStatus.PICKED_UP, ShipmentStatus.EXCEPTION, ShipmentStatus.CANCELLED)),
+            Map.entry(ShipmentStatus.PICKED_UP, java.util.Set.of(ShipmentStatus.IN_TRANSIT, ShipmentStatus.EXCEPTION)),
+            Map.entry(ShipmentStatus.IN_TRANSIT, java.util.Set.of(ShipmentStatus.OUT_FOR_DELIVERY, ShipmentStatus.DELIVERED, ShipmentStatus.PARTIALLY_DELIVERED, ShipmentStatus.EXCEPTION)),
+            Map.entry(ShipmentStatus.OUT_FOR_DELIVERY, java.util.Set.of(ShipmentStatus.DELIVERED, ShipmentStatus.PARTIALLY_DELIVERED, ShipmentStatus.EXCEPTION)),
+            Map.entry(ShipmentStatus.EXCEPTION, java.util.Set.of(ShipmentStatus.RESOLVED, ShipmentStatus.CANCELLED)),
+            Map.entry(ShipmentStatus.RESOLVED, java.util.Set.of(ShipmentStatus.ASSIGNED, ShipmentStatus.PICKED_UP, ShipmentStatus.IN_TRANSIT)),
+            Map.entry(ShipmentStatus.DELIVERED, java.util.Set.of(ShipmentStatus.CLOSED)),
+            Map.entry(ShipmentStatus.PARTIALLY_DELIVERED, java.util.Set.of(ShipmentStatus.CLOSED)),
+            Map.entry(ShipmentStatus.CANCELLED, java.util.Set.of()),
+            Map.entry(ShipmentStatus.CLOSED, java.util.Set.of()));
+
     private ShipmentDto transitionStatus(Long shipmentId, ShipmentStatus newStatus, String reason) {
         Shipment shipment = shipmentRepo.findById(shipmentId).orElseThrow();
         ShipmentStatus oldStatus = shipment.getStatus();
+        if (oldStatus != newStatus && !ALLOWED_TRANSITIONS.getOrDefault(oldStatus, java.util.Set.of()).contains(newStatus)) {
+            throw new IllegalArgumentException("Invalid shipment transition: " + oldStatus + " -> " + newStatus);
+        }
         shipment.setStatus(newStatus);
         String notes = shipment.getSpecialInstructions() != null ? shipment.getSpecialInstructions() + "\n" : "";
         shipment.setSpecialInstructions(notes + "Status changed: " + oldStatus + " -> " + newStatus + " (" + reason + ")");

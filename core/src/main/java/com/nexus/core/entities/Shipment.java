@@ -200,6 +200,26 @@ public class Shipment extends BaseEntity {
 	@Column(name = "notes")
 	private String notes;
 
+	// Logistics execution assignment (FR-LOG-003)
+	@Column(name = "assigned_driver_id")
+	private Long assignedDriverId;
+
+	@Column(name = "assigned_asset_id")
+	private Long assignedAssetId;
+
+	// Route coordinates for live tracking map (simulated GPS until telematics lands)
+	@Column(name = "origin_latitude")
+	private Double originLatitude;
+
+	@Column(name = "origin_longitude")
+	private Double originLongitude;
+
+	@Column(name = "destination_latitude")
+	private Double destinationLatitude;
+
+	@Column(name = "destination_longitude")
+	private Double destinationLongitude;
+
 	@Version
 	private Long version = 0L;
 
