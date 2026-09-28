@@ -77,6 +77,28 @@ public class FleetController {
         return fleetService.getAssetSummary();
     }
 
+    @GetMapping("/assets/{id}/shipments")
+    @LogActivity("Get Asset Shipment History")
+    public ResponseEntity<?> getAssetShipments(@PathVariable Long id,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String from,
+            @RequestParam(required = false) String to,
+            @PageableDefault(size = 20) Pageable pageable) {
+        return fleetService.getAssetShipments(id, status, from, to, pageable);
+    }
+
+    @GetMapping("/assets/{id}/drivers")
+    @LogActivity("Get Asset Driver History")
+    public ResponseEntity<?> getAssetDrivers(@PathVariable Long id) {
+        return fleetService.getAssetDrivers(id);
+    }
+
+    @GetMapping("/assets/{id}/current-shipment")
+    @LogActivity("Get Asset Current Shipment")
+    public ResponseEntity<?> getAssetCurrentShipment(@PathVariable Long id) {
+        return fleetService.getAssetCurrentShipment(id);
+    }
+
     @PostMapping("/drivers/create")
     @LogActivity("Create Driver")
     public ResponseEntity<?> createDriver(@Valid @RequestBody DriverDto dto) {
@@ -128,6 +150,12 @@ public class FleetController {
     @LogActivity("Get Maintenance Record")
     public ResponseEntity<?> getMaintenance(@PathVariable Long id) {
         return fleetService.getMaintenance(id);
+    }
+
+    @PutMapping("/maintenance/{id}/update")
+    @LogActivity("Update Maintenance Record")
+    public ResponseEntity<?> updateMaintenance(@PathVariable Long id, @RequestBody MaintenanceRecordDto dto) {
+        return fleetService.updateMaintenance(id, dto);
     }
 
     @GetMapping("/maintenance/all")

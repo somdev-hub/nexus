@@ -143,15 +143,20 @@ public class QuotingServiceImpl implements QuotingService {
             return ResponseEntity.badRequest().body(Map.of("error", "Only DRAFT/REJECTED/EXPIRED quotes can be edited"));
         }
         var status = existing.getStatus();
-        var org = existing.getLogisticsOrg();
-        var shipment = existing.getShipment();
-        var number = existing.getQuoteNumber();
-        modelMapper.map(dto, existing);
-        existing.setQuoteId(id);
+        if (dto.getBaseRate() != null) existing.setBaseRate(dto.getBaseRate());
+        if (dto.getFuelSurcharge() != null) existing.setFuelSurcharge(dto.getFuelSurcharge());
+        if (dto.getAccessorialCharges() != null) existing.setAccessorialCharges(dto.getAccessorialCharges());
+        if (dto.getAccessorialDetails() != null) existing.setAccessorialDetails(dto.getAccessorialDetails());
+        if (dto.getCurrency() != null) existing.setCurrency(dto.getCurrency());
+        if (dto.getValidUntil() != null) existing.setValidUntil(dto.getValidUntil());
+        if (dto.getNotes() != null) existing.setNotes(dto.getNotes());
+        if (dto.getShipmentId() != null && (existing.getShipment() == null
+                || !dto.getShipmentId().equals(existing.getShipment().getShipmentId()))) {
+            var shipment = shipmentRepo.findById(dto.getShipmentId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Shipment", "shipmentId", dto.getShipmentId()));
+            existing.setShipment(shipment);
+        }
         existing.setStatus(dto.getStatus() != null ? dto.getStatus() : status);
-        existing.setLogisticsOrg(org);
-        existing.setShipment(shipment);
-        existing.setQuoteNumber(number);
         existing.setTotalAmount(totalOf(existing.getBaseRate(), existing.getFuelSurcharge(), existing.getAccessorialCharges()));
         return ResponseEntity.ok(toQuoteDto(quoteRepo.save(existing)));
     }

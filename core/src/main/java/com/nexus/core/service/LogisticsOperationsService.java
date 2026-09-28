@@ -30,6 +30,7 @@ public interface LogisticsOperationsService {
     ResponseEntity<?> createPayable(CarrierPayableDto dto);
     ResponseEntity<?> getPayable(Long id);
     ResponseEntity<?> getAllPayables(Long shipmentId, String status, String search, Pageable pageable);
+    ResponseEntity<?> updatePayable(Long id, CarrierPayableDto dto);
     ResponseEntity<?> transitionPayableStatus(Long id, String newStatus, Map<String, Object> params);
     ResponseEntity<?> deletePayable(Long id);
 

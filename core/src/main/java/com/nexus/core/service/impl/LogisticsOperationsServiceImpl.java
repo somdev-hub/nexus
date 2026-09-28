@@ -289,6 +289,31 @@ public class LogisticsOperationsServiceImpl implements LogisticsOperationsServic
 
     @Override
     @Transactional
+    public ResponseEntity<?> updatePayable(Long id, CarrierPayableDto dto) {
+        var orgId = OrganizationContextHolder.requireOrganizationId();
+        var existing = payableRepo.findByIdAndOrg(id, orgId)
+                .orElseThrow(() -> new ResourceNotFoundException("CarrierPayable", "payableId", id));
+        if (existing.getStatus() == PayableStatus.PAID || existing.getStatus() == PayableStatus.CANCELLED) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Paid or cancelled payables cannot be edited"));
+        }
+        if (dto.getCarrierName() != null) existing.setCarrierName(dto.getCarrierName());
+        if (dto.getPayableAmount() != null) existing.setPayableAmount(dto.getPayableAmount());
+        if (dto.getPaidAmount() != null) existing.setPaidAmount(dto.getPaidAmount());
+        if (dto.getCurrency() != null) existing.setCurrency(dto.getCurrency());
+        if (dto.getDueDate() != null) existing.setDueDate(dto.getDueDate());
+        if (dto.getPmsReferenceId() != null) existing.setPmsReferenceId(dto.getPmsReferenceId());
+        if (dto.getNotes() != null) existing.setNotes(dto.getNotes());
+        if (dto.getShipmentId() != null && (existing.getShipment() == null
+                || !dto.getShipmentId().equals(existing.getShipment().getShipmentId()))) {
+            var shipment = shipmentRepo.findById(dto.getShipmentId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Shipment", "shipmentId", dto.getShipmentId()));
+            existing.setShipment(shipment);
+        }
+        return ResponseEntity.ok(toPayableDto(payableRepo.save(existing)));
+    }
+
+    @Override
+    @Transactional
     public ResponseEntity<?> transitionPayableStatus(Long id, String newStatus, Map<String, Object> params) {
         var orgId = OrganizationContextHolder.requireOrganizationId();
         var payable = payableRepo.findByIdAndOrg(id, orgId)

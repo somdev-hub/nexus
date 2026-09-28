@@ -8,13 +8,18 @@ import com.nexus.core.entities.FleetAssetStatus;
 import com.nexus.core.entities.FleetAssetType;
 import com.nexus.core.entities.MaintenanceRecord;
 import com.nexus.core.entities.MaintenanceStatus;
+import com.nexus.core.entities.Shipment;
+import com.nexus.core.entities.ShipmentStatus;
 import com.nexus.core.exception.ResourceNotFoundException;
+import com.nexus.core.payload.AssetDriverHistoryDto;
+import com.nexus.core.payload.AssetShipmentDto;
 import com.nexus.core.payload.DriverDto;
 import com.nexus.core.payload.FleetAssetDto;
 import com.nexus.core.payload.MaintenanceRecordDto;
 import com.nexus.core.repository.DriverRepo;
 import com.nexus.core.repository.FleetAssetRepo;
 import com.nexus.core.repository.MaintenanceRecordRepo;
+import com.nexus.core.repository.ShipmentRepo;
 import com.nexus.core.security.OrganizationContextHolder;
 import com.nexus.core.service.AccountDirectory;
 import com.nexus.core.service.FleetService;
@@ -40,6 +45,7 @@ public class FleetServiceImpl implements FleetService {
     private final FleetAssetRepo assetRepo;
     private final DriverRepo driverRepo;
     private final MaintenanceRecordRepo maintenanceRepo;
+    private final ShipmentRepo shipmentRepo;
     private final AccountDirectory accountDirectory;
     private final ModelMapper modelMapper;
 
@@ -271,6 +277,32 @@ public class FleetServiceImpl implements FleetService {
 
     @Override
     @Transactional
+    public ResponseEntity<?> updateMaintenance(Long id, MaintenanceRecordDto dto) {
+        var orgId = OrganizationContextHolder.requireOrganizationId();
+        var existing = maintenanceRepo.findByIdAndOrg(id, orgId)
+                .orElseThrow(() -> new ResourceNotFoundException("MaintenanceRecord", "maintenanceId", id));
+        if (existing.getStatus() == MaintenanceStatus.COMPLETED || existing.getStatus() == MaintenanceStatus.CANCELLED) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Completed or cancelled records cannot be edited"));
+        }
+        if (dto.getMaintenanceType() != null) existing.setMaintenanceType(dto.getMaintenanceType());
+        if (dto.getDescription() != null) existing.setDescription(dto.getDescription());
+        if (dto.getScheduledDate() != null) existing.setScheduledDate(dto.getScheduledDate());
+        if (dto.getCompletedDate() != null) existing.setCompletedDate(dto.getCompletedDate());
+        if (dto.getOdometerReading() != null) existing.setOdometerReading(dto.getOdometerReading());
+        if (dto.getCost() != null) existing.setCost(dto.getCost());
+        if (dto.getServiceProvider() != null) existing.setServiceProvider(dto.getServiceProvider());
+        if (dto.getIsBreakdown() != null) existing.setIsBreakdown(dto.getIsBreakdown());
+        if (dto.getNotes() != null) existing.setNotes(dto.getNotes());
+        if (dto.getAssetId() != null && !dto.getAssetId().equals(existing.getAsset().getAssetId())) {
+            var target = assetRepo.findByAssetIdAndLogisticsOrgAccountId(dto.getAssetId(), orgId)
+                    .orElseThrow(() -> new ResourceNotFoundException("FleetAsset", "assetId", dto.getAssetId()));
+            existing.setAsset(target);
+        }
+        return ResponseEntity.ok(toMaintenanceDto(maintenanceRepo.save(existing)));
+    }
+
+    @Override
+    @Transactional
     public ResponseEntity<?> transitionMaintenanceStatus(Long id, String newStatus, Map<String, Object> params) {
         var orgId = OrganizationContextHolder.requireOrganizationId();
         var record = maintenanceRepo.findByIdAndOrg(id, orgId)
@@ -312,6 +344,104 @@ public class FleetServiceImpl implements FleetService {
         record.setIsActive(false);
         maintenanceRepo.save(record);
         return ResponseEntity.noContent().build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ResponseEntity<?> getAssetShipments(Long assetId, String status, String from, String to, Pageable pageable) {
+        var orgId = OrganizationContextHolder.requireOrganizationId();
+        assetRepo.findByAssetIdAndLogisticsOrgAccountId(assetId, orgId)
+                .orElseThrow(() -> new ResourceNotFoundException("FleetAsset", "assetId", assetId));
+        ShipmentStatus st = null;
+        if (status != null && !status.isBlank()) {
+            try {
+                st = ShipmentStatus.valueOf(status.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Invalid status: " + status));
+            }
+        }
+        java.sql.Date fromDate = toSqlDate(from);
+        java.sql.Date toDate = toSqlDate(to);
+        if ((from != null && !from.isBlank() && fromDate == null) || (to != null && !to.isBlank() && toDate == null)) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Invalid from/to datetime, expected ISO format e.g. 2026-09-28T14:30"));
+        }
+        var page = shipmentRepo.findByAssetWithFilters(orgId, assetId, st, fromDate, toDate, pageable);
+        return ResponseEntity.ok(page.map(this::toAssetShipmentDto));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ResponseEntity<?> getAssetDrivers(Long assetId) {
+        var orgId = OrganizationContextHolder.requireOrganizationId();
+        assetRepo.findByAssetIdAndLogisticsOrgAccountId(assetId, orgId)
+                .orElseThrow(() -> new ResourceNotFoundException("FleetAsset", "assetId", assetId));
+        var trips = shipmentRepo.findByAssignedAssetIdAndLogisticsOrgAccountId(assetId, orgId);
+        var byDriver = new LinkedHashMap<Long, java.util.List<Shipment>>();
+        for (var shipment : trips) {
+            if (shipment.getAssignedDriverId() == null) continue;
+            byDriver.computeIfAbsent(shipment.getAssignedDriverId(), k -> new java.util.ArrayList<>()).add(shipment);
+        }
+        var history = new java.util.ArrayList<AssetDriverHistoryDto>();
+        for (var entry : byDriver.entrySet()) {
+            var driven = entry.getValue();
+            var first = driven.stream().map(Shipment::getCreatedAt).filter(java.util.Objects::nonNull)
+                    .min(java.sql.Timestamp::compareTo).orElse(null);
+            var last = driven.stream().map(Shipment::getCreatedAt).filter(java.util.Objects::nonNull)
+                    .max(java.sql.Timestamp::compareTo).orElse(null);
+            var name = driven.stream().map(Shipment::getCarrierName).filter(java.util.Objects::nonNull)
+                    .findFirst().orElse("Driver #" + entry.getKey());
+            history.add(AssetDriverHistoryDto.builder()
+                    .driverId(entry.getKey()).driverName(name).trips(driven.size())
+                    .firstTripAt(first).lastTripAt(last).build());
+        }
+        history.sort((a, b) -> Integer.compare(b.getTrips(), a.getTrips()));
+        return ResponseEntity.ok(history);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ResponseEntity<?> getAssetCurrentShipment(Long assetId) {
+        var orgId = OrganizationContextHolder.requireOrganizationId();
+        assetRepo.findByAssetIdAndLogisticsOrgAccountId(assetId, orgId)
+                .orElseThrow(() -> new ResourceNotFoundException("FleetAsset", "assetId", assetId));
+        var active = shipmentRepo.findByAssignedAssetIdAndLogisticsOrgAccountId(assetId, orgId).stream()
+                .filter(s -> s.getStatus() != ShipmentStatus.DELIVERED
+                        && s.getStatus() != ShipmentStatus.CLOSED
+                        && s.getStatus() != ShipmentStatus.CANCELLED)
+                .max((a, b) -> {
+                    var at = a.getCreatedAt();
+                    var bt = b.getCreatedAt();
+                    if (at == null) return -1;
+                    if (bt == null) return 1;
+                    return at.compareTo(bt);
+                });
+        var body = new LinkedHashMap<String, Object>();
+        body.put("shipmentId", active.map(Shipment::getShipmentId).orElse(null));
+        return ResponseEntity.ok(body);
+    }
+
+    private AssetShipmentDto toAssetShipmentDto(Shipment shipment) {
+        return AssetShipmentDto.builder()
+                .shipmentId(shipment.getShipmentId())
+                .shipmentNumber(shipment.getShipmentNumber())
+                .status(shipment.getStatus())
+                .pickupDate(shipment.getPickupDate())
+                .deliveryDate(shipment.getDeliveryDate())
+                .actualDeparture(shipment.getActualDeparture())
+                .actualArrival(shipment.getActualArrival())
+                .driverId(shipment.getAssignedDriverId())
+                .driverName(shipment.getCarrierName())
+                .freightCost(shipment.getFreightCost())
+                .build();
+    }
+
+    private static java.sql.Date toSqlDate(String isoDateTime) {
+        if (isoDateTime == null || isoDateTime.isBlank()) return null;
+        try {
+            return java.sql.Date.valueOf(java.time.LocalDateTime.parse(isoDateTime).toLocalDate());
+        } catch (java.time.format.DateTimeParseException e) {
+            return null;
+        }
     }
 
     private MaintenanceRecordDto toMaintenanceDto(MaintenanceRecord record) {

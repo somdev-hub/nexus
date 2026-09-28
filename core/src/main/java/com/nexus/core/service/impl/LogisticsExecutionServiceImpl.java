@@ -302,6 +302,24 @@ public class LogisticsExecutionServiceImpl implements LogisticsExecutionService 
     }
 
     @Override
+    @Transactional
+    public ResponseEntity<?> updatePod(Long id, ProofOfDeliveryDto dto) {
+        var orgId = OrganizationContextHolder.requireOrganizationId();
+        var existing = podRepo.findByIdAndOrg(id, orgId)
+                .orElseThrow(() -> new ResourceNotFoundException("ProofOfDelivery", "podId", id));
+        if (dto.getReceivedBy() != null) existing.setReceivedBy(dto.getReceivedBy());
+        if (dto.getSignature() != null) existing.setSignature(dto.getSignature());
+        if (dto.getPhotoUrls() != null) existing.setPhotoUrls(dto.getPhotoUrls());
+        if (dto.getDeliveredAt() != null) existing.setDeliveredAt(dto.getDeliveredAt());
+        if (dto.getLatitude() != null) existing.setLatitude(dto.getLatitude());
+        if (dto.getLongitude() != null) existing.setLongitude(dto.getLongitude());
+        if (dto.getDmsDocumentId() != null) existing.setDmsDocumentId(dto.getDmsDocumentId());
+        if (dto.getConditionNotes() != null) existing.setConditionNotes(dto.getConditionNotes());
+        if (dto.getNotes() != null) existing.setNotes(dto.getNotes());
+        return ResponseEntity.ok(toPodDto(podRepo.save(existing)));
+    }
+
+    @Override
     @Transactional(readOnly = true)
     public ResponseEntity<?> getPodByShipment(Long shipmentId) {
         var pod = podRepo.findByShipmentId(shipmentId)
@@ -359,6 +377,22 @@ public class LogisticsExecutionServiceImpl implements LogisticsExecutionService 
         }
         Page<ShipmentIncident> page = incidentRepo.findByOrgWithFilters(orgId, shipmentId, type, st, blankToNull(search), pageable);
         return ResponseEntity.ok(page.map(this::toIncidentDto));
+    }
+
+    @Override
+    @Transactional
+    public ResponseEntity<?> updateIncident(Long id, ShipmentIncidentDto dto) {
+        var orgId = OrganizationContextHolder.requireOrganizationId();
+        var existing = incidentRepo.findByIdAndOrg(id, orgId)
+                .orElseThrow(() -> new ResourceNotFoundException("ShipmentIncident", "incidentId", id));
+        if (existing.getStatus() == IncidentStatus.RESOLVED || existing.getStatus() == IncidentStatus.CLOSED) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Resolved or closed incidents cannot be edited"));
+        }
+        if (dto.getDescription() != null) existing.setDescription(dto.getDescription());
+        if (dto.getClaimAmount() != null) existing.setClaimAmount(dto.getClaimAmount());
+        if (dto.getDmsDocumentId() != null) existing.setDmsDocumentId(dto.getDmsDocumentId());
+        if (dto.getNotes() != null) existing.setNotes(dto.getNotes());
+        return ResponseEntity.ok(toIncidentDto(incidentRepo.save(existing)));
     }
 
     @Override

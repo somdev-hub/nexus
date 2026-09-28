@@ -115,6 +115,12 @@ public class LogisticsOperationsController {
         return operationsService.createPayable(dto);
     }
 
+    @PutMapping("/payables/{id}/update")
+    @LogActivity("Update Carrier Payable")
+    public ResponseEntity<?> updatePayable(@PathVariable Long id, @RequestBody CarrierPayableDto dto) {
+        return operationsService.updatePayable(id, dto);
+    }
+
     @GetMapping("/payables/{id}")
     @LogActivity("Get Carrier Payable")
     public ResponseEntity<?> getPayable(@PathVariable Long id) {

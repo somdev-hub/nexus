@@ -67,6 +67,22 @@ public class CoreLogisticsServiceImpl implements CoreLogisticsService {
         return callGet(webConstants.getCoreLogisticsFleetAssetSummaryUrl(), auth, org);
     }
 
+    @Override
+    public ResponseEntity<?> getAssetShipments(Long assetId, String auth, String org, Pageable p, String status, String from, String to) {
+        return callGet(buildPaginatedUrlWithFilters(webConstants.getCoreLogisticsFleetAssetGetUrl() + "/" + assetId + "/shipments", p,
+                "status", status, "from", from, "to", to), auth, org);
+    }
+
+    @Override
+    public ResponseEntity<?> getAssetDrivers(Long assetId, String auth, String org) {
+        return callGet(webConstants.getCoreLogisticsFleetAssetGetUrl() + "/" + assetId + "/drivers", auth, org);
+    }
+
+    @Override
+    public ResponseEntity<?> getAssetCurrentShipment(Long assetId, String auth, String org) {
+        return callGet(webConstants.getCoreLogisticsFleetAssetGetUrl() + "/" + assetId + "/current-shipment", auth, org);
+    }
+
     // Drivers
     @Override
     public ResponseEntity<?> createDriver(Map<String, Object> dto, String auth, String org) {
@@ -119,6 +135,11 @@ public class CoreLogisticsServiceImpl implements CoreLogisticsService {
     @Override
     public ResponseEntity<?> transitionMaintenanceStatus(Long id, String newStatus, Map<String, Object> params, String auth, String org) {
         return callPut(webConstants.getCoreLogisticsMaintenanceGetUrl() + "/" + id + "/status?newStatus=" + newStatus, params, auth, org);
+    }
+
+    @Override
+    public ResponseEntity<?> updateMaintenance(Long id, Map<String, Object> dto, String auth, String org) {
+        return callPut(webConstants.getCoreLogisticsMaintenanceGetUrl() + "/" + id + "/update", dto, auth, org);
     }
 
     @Override
@@ -221,6 +242,11 @@ public class CoreLogisticsServiceImpl implements CoreLogisticsService {
     }
 
     @Override
+    public ResponseEntity<?> updatePod(Long id, Map<String, Object> dto, String auth, String org) {
+        return callPut(webConstants.getCoreLogisticsExecutionBaseUrl() + "/pod/" + id + "/update", dto, auth, org);
+    }
+
+    @Override
     public ResponseEntity<?> getPodByShipment(Long shipmentId, String auth, String org) {
         return callGet(webConstants.getCoreLogisticsExecutionBaseUrl() + "/pod/shipment/" + shipmentId, auth, org);
     }
@@ -234,6 +260,11 @@ public class CoreLogisticsServiceImpl implements CoreLogisticsService {
     @Override
     public ResponseEntity<?> reportIncident(Map<String, Object> dto, String auth, String org) {
         return callPost(webConstants.getCoreLogisticsExecutionBaseUrl() + "/incidents/report", dto, auth, org);
+    }
+
+    @Override
+    public ResponseEntity<?> updateIncident(Long id, Map<String, Object> dto, String auth, String org) {
+        return callPut(webConstants.getCoreLogisticsExecutionBaseUrl() + "/incidents/" + id + "/update", dto, auth, org);
     }
 
     @Override
@@ -318,6 +349,11 @@ public class CoreLogisticsServiceImpl implements CoreLogisticsService {
     @Override
     public ResponseEntity<?> createPayable(Map<String, Object> dto, String auth, String org) {
         return callPost(webConstants.getCoreLogisticsOperationsBaseUrl() + "/payables/create", dto, auth, org);
+    }
+
+    @Override
+    public ResponseEntity<?> updatePayable(Long id, Map<String, Object> dto, String auth, String org) {
+        return callPut(webConstants.getCoreLogisticsOperationsBaseUrl() + "/payables/" + id + "/update", dto, auth, org);
     }
 
     @Override

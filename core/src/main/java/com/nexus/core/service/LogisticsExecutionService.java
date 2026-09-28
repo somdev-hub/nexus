@@ -24,11 +24,13 @@ public interface LogisticsExecutionService {
 
     // POD (FR-LOG-021 consolidated)
     ResponseEntity<?> capturePod(ProofOfDeliveryDto dto);
+    ResponseEntity<?> updatePod(Long id, ProofOfDeliveryDto dto);
     ResponseEntity<?> getPodByShipment(Long shipmentId);
     ResponseEntity<?> getAllPods(String search, Pageable pageable);
 
     // Exceptions/claims (FR-LOG-022 consolidated: delay/reroute/damage/loss/claim in one status API)
     ResponseEntity<?> reportIncident(ShipmentIncidentDto dto);
+    ResponseEntity<?> updateIncident(Long id, ShipmentIncidentDto dto);
     ResponseEntity<?> getIncident(Long id);
     ResponseEntity<?> getAllIncidents(Long shipmentId, String incidentType, String status, String search, Pageable pageable);
     ResponseEntity<?> transitionIncidentStatus(Long id, String newStatus, Map<String, Object> params);

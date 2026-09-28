@@ -84,12 +84,35 @@ public class CoreLogisticsController {
 		return logisticsService.deleteAsset(id, auth, org);
 	}
 
-	@LogActivity("Get Fleet Asset Summary via IAM")
-	@GetMapping("/fleet/assets/summary")
-	public ResponseEntity<?> getAssetSummary(@RequestHeader("Authorization") String auth,
-			@RequestHeader("X-Organization-ID") String org) {
-		return logisticsService.getAssetSummary(auth, org);
-	}
+    @LogActivity("Get Fleet Asset Summary via IAM")
+    @GetMapping("/fleet/assets/summary")
+    public ResponseEntity<?> getAssetSummary(@RequestHeader("Authorization") String auth,
+            @RequestHeader("X-Organization-ID") String org) {
+        return logisticsService.getAssetSummary(auth, org);
+    }
+
+    @LogActivity("Get Asset Shipments via IAM")
+    @GetMapping("/fleet/assets/{id}/shipments")
+    public ResponseEntity<?> getAssetShipments(@PathVariable Long id, @RequestHeader("Authorization") String auth,
+            @RequestHeader("X-Organization-ID") String org, @PageableDefault(size = 20) Pageable p,
+            @RequestParam(required = false) String status, @RequestParam(required = false) String from,
+            @RequestParam(required = false) String to) {
+        return logisticsService.getAssetShipments(id, auth, org, p, status, from, to);
+    }
+
+    @LogActivity("Get Asset Drivers via IAM")
+    @GetMapping("/fleet/assets/{id}/drivers")
+    public ResponseEntity<?> getAssetDrivers(@PathVariable Long id, @RequestHeader("Authorization") String auth,
+            @RequestHeader("X-Organization-ID") String org) {
+        return logisticsService.getAssetDrivers(id, auth, org);
+    }
+
+    @LogActivity("Get Asset Current Shipment via IAM")
+    @GetMapping("/fleet/assets/{id}/current-shipment")
+    public ResponseEntity<?> getAssetCurrentShipment(@PathVariable Long id, @RequestHeader("Authorization") String auth,
+            @RequestHeader("X-Organization-ID") String org) {
+        return logisticsService.getAssetCurrentShipment(id, auth, org);
+    }
 
 	// Drivers
 	@LogActivity("Create Driver via IAM")
@@ -160,7 +183,14 @@ public class CoreLogisticsController {
 		return logisticsService.getAllMaintenance(auth, org, p, assetId, status, isBreakdown, search);
 	}
 
-	@LogActivity("Transition Maintenance Status via IAM")
+    @LogActivity("Update Maintenance via IAM")
+    @PutMapping("/fleet/maintenance/{id}/update")
+    public ResponseEntity<?> updateMaintenance(@PathVariable Long id, @RequestBody Map<String, Object> dto,
+            @RequestHeader("Authorization") String auth, @RequestHeader("X-Organization-ID") String org) {
+        return logisticsService.updateMaintenance(id, dto, auth, org);
+    }
+
+    @LogActivity("Transition Maintenance Status via IAM")
 	@PutMapping("/fleet/maintenance/{id}/status")
 	public ResponseEntity<?> transitionMaintenanceStatus(@PathVariable Long id, @RequestParam String newStatus,
 			@RequestBody(required = false) Map<String, Object> params, @RequestHeader("Authorization") String auth,
@@ -312,7 +342,14 @@ public class CoreLogisticsController {
 		return logisticsService.capturePod(dto, auth, org);
 	}
 
-	@LogActivity("Get POD by Shipment via IAM")
+    @LogActivity("Update POD via IAM")
+    @PutMapping("/execution/pod/{id}/update")
+    public ResponseEntity<?> updatePod(@PathVariable Long id, @RequestBody Map<String, Object> dto,
+            @RequestHeader("Authorization") String auth, @RequestHeader("X-Organization-ID") String org) {
+        return logisticsService.updatePod(id, dto, auth, org);
+    }
+
+    @LogActivity("Get POD by Shipment via IAM")
 	@GetMapping("/execution/pod/shipment/{shipmentId}")
 	public ResponseEntity<?> getPodByShipment(@PathVariable Long shipmentId,
 			@RequestHeader("Authorization") String auth, @RequestHeader("X-Organization-ID") String org) {
@@ -334,7 +371,14 @@ public class CoreLogisticsController {
 		return logisticsService.reportIncident(dto, auth, org);
 	}
 
-	@LogActivity("Get Shipment Incident via IAM")
+    @LogActivity("Update Shipment Incident via IAM")
+    @PutMapping("/execution/incidents/{id}/update")
+    public ResponseEntity<?> updateIncident(@PathVariable Long id, @RequestBody Map<String, Object> dto,
+            @RequestHeader("Authorization") String auth, @RequestHeader("X-Organization-ID") String org) {
+        return logisticsService.updateIncident(id, dto, auth, org);
+    }
+
+    @LogActivity("Get Shipment Incident via IAM")
 	@GetMapping("/execution/incidents/{id}")
 	public ResponseEntity<?> getIncident(@PathVariable Long id, @RequestHeader("Authorization") String auth,
 			@RequestHeader("X-Organization-ID") String org) {
@@ -453,7 +497,14 @@ public class CoreLogisticsController {
 		return logisticsService.createPayable(dto, auth, org);
 	}
 
-	@LogActivity("Get Carrier Payable via IAM")
+    @LogActivity("Update Carrier Payable via IAM")
+    @PutMapping("/operations/payables/{id}/update")
+    public ResponseEntity<?> updatePayable(@PathVariable Long id, @RequestBody Map<String, Object> dto,
+            @RequestHeader("Authorization") String auth, @RequestHeader("X-Organization-ID") String org) {
+        return logisticsService.updatePayable(id, dto, auth, org);
+    }
+
+    @LogActivity("Get Carrier Payable via IAM")
 	@GetMapping("/operations/payables/{id}")
 	public ResponseEntity<?> getPayable(@PathVariable Long id, @RequestHeader("Authorization") String auth,
 			@RequestHeader("X-Organization-ID") String org) {

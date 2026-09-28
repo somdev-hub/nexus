@@ -21,6 +21,9 @@ public interface CoreLogisticsService {
     ResponseEntity<?> transitionAssetStatus(Long id, String newStatus, Map<String, Object> params, String auth, String org);
     ResponseEntity<?> deleteAsset(Long id, String auth, String org);
     ResponseEntity<?> getAssetSummary(String auth, String org);
+    ResponseEntity<?> getAssetShipments(Long assetId, String auth, String org, Pageable p, String status, String from, String to);
+    ResponseEntity<?> getAssetDrivers(Long assetId, String auth, String org);
+    ResponseEntity<?> getAssetCurrentShipment(Long assetId, String auth, String org);
 
     // Drivers
     ResponseEntity<?> createDriver(Map<String, Object> dto, String auth, String org);
@@ -33,6 +36,7 @@ public interface CoreLogisticsService {
     // Maintenance
     ResponseEntity<?> createMaintenance(Map<String, Object> dto, String auth, String org);
     ResponseEntity<?> getMaintenance(Long id, String auth, String org);
+    ResponseEntity<?> updateMaintenance(Long id, Map<String, Object> dto, String auth, String org);
     ResponseEntity<?> getAllMaintenance(String auth, String org, Pageable p, Long assetId, String status, Boolean isBreakdown, String search);
     ResponseEntity<?> transitionMaintenanceStatus(Long id, String newStatus, Map<String, Object> params, String auth, String org);
     ResponseEntity<?> deleteMaintenance(Long id, String auth, String org);
@@ -58,9 +62,11 @@ public interface CoreLogisticsService {
     ResponseEntity<?> transitionShipmentStatus(Long shipmentId, String newStatus, Map<String, Object> params, String auth, String org);
     ResponseEntity<?> getShipmentEta(Long shipmentId, String auth, String org);
     ResponseEntity<?> capturePod(Map<String, Object> dto, String auth, String org);
+    ResponseEntity<?> updatePod(Long id, Map<String, Object> dto, String auth, String org);
     ResponseEntity<?> getPodByShipment(Long shipmentId, String auth, String org);
     ResponseEntity<?> getAllPods(String auth, String org, Pageable p, String search);
     ResponseEntity<?> reportIncident(Map<String, Object> dto, String auth, String org);
+    ResponseEntity<?> updateIncident(Long id, Map<String, Object> dto, String auth, String org);
     ResponseEntity<?> getIncident(Long id, String auth, String org);
     ResponseEntity<?> getAllIncidents(String auth, String org, Pageable p, Long shipmentId, String incidentType, String status, String search);
     ResponseEntity<?> transitionIncidentStatus(Long id, String newStatus, Map<String, Object> params, String auth, String org);
@@ -79,6 +85,7 @@ public interface CoreLogisticsService {
     ResponseEntity<?> updateCapacity(Long id, Map<String, Object> dto, String auth, String org);
     ResponseEntity<?> deleteCapacity(Long id, String auth, String org);
     ResponseEntity<?> createPayable(Map<String, Object> dto, String auth, String org);
+    ResponseEntity<?> updatePayable(Long id, Map<String, Object> dto, String auth, String org);
     ResponseEntity<?> getPayable(Long id, String auth, String org);
     ResponseEntity<?> getAllPayables(String auth, String org, Pageable p, Long shipmentId, String status, String search);
     ResponseEntity<?> transitionPayableStatus(Long id, String newStatus, Map<String, Object> params, String auth, String org);

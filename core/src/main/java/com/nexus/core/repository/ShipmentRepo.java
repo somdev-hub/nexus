@@ -71,4 +71,23 @@ public interface ShipmentRepo extends JpaRepository<Shipment, Long> {
 	// Find by purchase order reference (through stops)
 	@Query("SELECT DISTINCT s FROM Shipment s JOIN s.stops st WHERE st.referenceType = 'PURCHASE_ORDER' AND st.referenceId = :poId")
 	List<Shipment> findByPurchaseOrderId(@Param("poId") Long poId);
+
+	// Asset operations history (FR-LOG-010 detail view)
+	@Query("""
+			SELECT s FROM Shipment s
+			WHERE s.assignedAssetId = :assetId
+			AND s.logisticsOrg.accountId = :orgId
+			AND (:status IS NULL OR s.status = :status)
+			AND (CAST(:fromDate AS date) IS NULL OR s.deliveryDate IS NULL OR s.deliveryDate >= :fromDate)
+			AND (CAST(:toDate AS date) IS NULL OR s.pickupDate IS NULL OR s.pickupDate <= :toDate)
+			""")
+	Page<Shipment> findByAssetWithFilters(
+			@Param("orgId") Long orgId,
+			@Param("assetId") Long assetId,
+			@Param("status") ShipmentStatus status,
+			@Param("fromDate") java.sql.Date fromDate,
+			@Param("toDate") java.sql.Date toDate,
+			Pageable pageable);
+
+	java.util.List<Shipment> findByAssignedAssetIdAndLogisticsOrgAccountId(Long assetId, Long orgId);
 }

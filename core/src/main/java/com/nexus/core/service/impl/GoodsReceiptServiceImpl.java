@@ -25,7 +25,6 @@ import com.nexus.core.exception.ResourceNotFoundException;
 import com.nexus.core.exception.ValidationException;
 import com.nexus.core.payload.GoodsReceiptDto;
 import com.nexus.core.payload.GoodsReceiptLineItemDto;
-import com.nexus.core.repository.AccountRepo;
 import com.nexus.core.repository.GoodsReceiptLineItemRepo;
 import com.nexus.core.repository.GoodsReceiptRepo;
 import com.nexus.core.repository.PurchaseOrderLineItemRepo;
@@ -45,7 +44,6 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
 	private final PurchaseOrderRepo purchaseOrderRepo;
 	private final PurchaseOrderLineItemRepo poLineItemRepo;
 	private final SupplierRepository supplierRepo;
-	private final AccountRepo accountRepo;
 	private final ModelMapper modelMapper;
 
 	@Override
@@ -259,6 +257,8 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
 				break;
 			case CANCELLED:
 				gr.setCancelledAt(Timestamp.valueOf(LocalDateTime.now()));
+				break;
+			default:
 				break;
 		}
 	}

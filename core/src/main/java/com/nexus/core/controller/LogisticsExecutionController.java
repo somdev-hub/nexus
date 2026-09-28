@@ -67,6 +67,12 @@ public class LogisticsExecutionController {
         return executionService.capturePod(dto);
     }
 
+    @PutMapping("/pod/{id}/update")
+    @LogActivity("Update Proof of Delivery")
+    public ResponseEntity<?> updatePod(@PathVariable Long id, @RequestBody ProofOfDeliveryDto dto) {
+        return executionService.updatePod(id, dto);
+    }
+
     @GetMapping("/pod/shipment/{shipmentId}")
     @LogActivity("Get POD by Shipment")
     public ResponseEntity<?> getPodByShipment(@PathVariable Long shipmentId) {
@@ -85,6 +91,12 @@ public class LogisticsExecutionController {
     @LogActivity("Report Shipment Incident")
     public ResponseEntity<?> reportIncident(@Valid @RequestBody ShipmentIncidentDto dto) {
         return executionService.reportIncident(dto);
+    }
+
+    @PutMapping("/incidents/{id}/update")
+    @LogActivity("Update Shipment Incident")
+    public ResponseEntity<?> updateIncident(@PathVariable Long id, @RequestBody ShipmentIncidentDto dto) {
+        return executionService.updateIncident(id, dto);
     }
 
     @GetMapping("/incidents/{id}")

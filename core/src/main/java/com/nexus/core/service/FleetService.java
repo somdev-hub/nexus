@@ -31,6 +31,12 @@ public interface FleetService {
     ResponseEntity<?> createMaintenance(MaintenanceRecordDto dto);
     ResponseEntity<?> getMaintenance(Long id);
     ResponseEntity<?> getAllMaintenance(Long assetId, String status, Boolean isBreakdown, String search, Pageable pageable);
+    ResponseEntity<?> updateMaintenance(Long id, MaintenanceRecordDto dto);
     ResponseEntity<?> transitionMaintenanceStatus(Long id, String newStatus, Map<String, Object> params);
     ResponseEntity<?> deleteMaintenance(Long id);
+
+    // Asset detail (FR-LOG-010)
+    ResponseEntity<?> getAssetShipments(Long assetId, String status, String from, String to, Pageable pageable);
+    ResponseEntity<?> getAssetDrivers(Long assetId);
+    ResponseEntity<?> getAssetCurrentShipment(Long assetId);
 }
