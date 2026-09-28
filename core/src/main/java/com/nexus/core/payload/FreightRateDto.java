@@ -1,8 +1,8 @@
 package com.nexus.core.payload;
 
-import com.nexus.core.entities.FleetAssetType;
-import com.nexus.core.entities.RateType;
-import com.nexus.core.entities.ShipmentMode;
+import com.nexus.core.model.enums.FleetAssetType;
+import com.nexus.core.model.enums.RateType;
+import com.nexus.core.model.enums.ShipmentMode;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;

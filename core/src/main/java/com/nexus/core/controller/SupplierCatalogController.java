@@ -8,7 +8,7 @@ import org.springframework.web.bind.annotation.*;
 
 import com.nexus.core.annotation.LogActivity;
 import com.nexus.core.payload.SupplierCatalogDto;
-import com.nexus.core.service.SupplierCatalogService;
+import com.nexus.core.service.interfaces.SupplierCatalogService;
 
 import lombok.RequiredArgsConstructor;
 

@@ -8,12 +8,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-import org.springframework.stereotype.Repository;
-
-import com.nexus.core.entities.PartnershipInvitation;
-import com.nexus.core.entities.PartnershipInvitationStatus;
-
-@Repository
+import com.nexus.core.model.entities.PartnershipInvitation;
+import com.nexus.core.model.enums.PartnershipInvitationStatus;
 public interface PartnershipInvitationRepo extends JpaRepository<PartnershipInvitation, Long> {
 
 	Optional<List<PartnershipInvitation>> findByInvitingOrgAccountId(Long orgId);

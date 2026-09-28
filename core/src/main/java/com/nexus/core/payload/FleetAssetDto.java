@@ -1,7 +1,7 @@
 package com.nexus.core.payload;
 
-import com.nexus.core.entities.FleetAssetStatus;
-import com.nexus.core.entities.FleetAssetType;
+import com.nexus.core.model.enums.FleetAssetStatus;
+import com.nexus.core.model.enums.FleetAssetType;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;

@@ -1,6 +1,5 @@
 package com.nexus.core.controller;
 
-import jakarta.validation.Valid;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
@@ -20,10 +19,10 @@ import com.nexus.core.annotation.LogActivity;
 import com.nexus.core.exception.InvalidCredentialsException;
 import com.nexus.core.payload.PartnershipDto;
 import com.nexus.core.payload.PartnershipStatusTransitionDto;
-import com.nexus.core.security.OrganizationContextFilter;
-import com.nexus.core.service.PartnershipService;
+import com.nexus.core.service.interfaces.PartnershipService;
 import com.nexus.core.utils.CommonUtils;
 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 @RestController
@@ -89,7 +88,7 @@ public class PartnershipController {
 
 	@GetMapping("/status/{status}")
 	@LogActivity("Get Partnerships By Status")
-	public ResponseEntity<?> getPartnershipsByStatus(@PathVariable com.nexus.core.entities.PartnershipStatus status,
+	public ResponseEntity<?> getPartnershipsByStatus(@PathVariable com.nexus.core.model.enums.PartnershipStatus status,
 			@RequestHeader("Authorization") String token,
 			@PageableDefault(size = 20) Pageable pageable) {
 		if (!commonUtils.validateToken(token)) {
@@ -123,7 +122,7 @@ public class PartnershipController {
 	@PostMapping("/{id}/status")
 	@LogActivity("Update Partnership Status")
 	public ResponseEntity<?> updatePartnershipStatus(@PathVariable Long id,
-			@RequestBody com.nexus.core.entities.PartnershipStatus newStatus,
+			@RequestBody com.nexus.core.model.enums.PartnershipStatus newStatus,
 			@RequestHeader("Authorization") String token) {
 		if (!commonUtils.validateToken(token)) {
 			throw new InvalidCredentialsException();

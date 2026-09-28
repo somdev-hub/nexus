@@ -33,5 +33,5 @@ public class OrderDto {
 
 	private Long logisticId;
 
-	private com.nexus.core.entities.OrderStatus status;
+	private com.nexus.core.model.enums.OrderStatus status;
 }

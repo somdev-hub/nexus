@@ -1,6 +1,6 @@
 package com.nexus.core.payload;
 
-import com.nexus.core.entities.SupplierQualityCertificate;
+import com.nexus.core.model.entities.SupplierQualityCertificate;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Builder;

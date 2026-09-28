@@ -7,12 +7,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-import org.springframework.stereotype.Repository;
-
-import com.nexus.core.entities.TrackingEvent;
-import com.nexus.core.entities.TrackingEventType;
-
-@Repository
+import com.nexus.core.model.entities.TrackingEvent;
+import com.nexus.core.model.enums.TrackingEventType;
 public interface TrackingEventRepo extends JpaRepository<TrackingEvent, Long> {
 
 	Page<TrackingEvent> findByShipmentShipmentId(Long shipmentId, Pageable pageable);

@@ -1,6 +1,6 @@
 package com.nexus.core.payload;
 
-import com.nexus.core.entities.ShipmentStatus;
+import com.nexus.core.model.enums.ShipmentStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;

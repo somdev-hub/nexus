@@ -8,12 +8,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-import org.springframework.stereotype.Repository;
-
-import com.nexus.core.entities.Shipment;
-import com.nexus.core.entities.ShipmentStatus;
-
-@Repository
+import com.nexus.core.model.entities.Shipment;
+import com.nexus.core.model.enums.ShipmentStatus;
 public interface ShipmentRepo extends JpaRepository<Shipment, Long> {
 
 	// Find by retailer organization
@@ -51,7 +47,7 @@ public interface ShipmentRepo extends JpaRepository<Shipment, Long> {
 			@Param("startDate") Date startDate, @Param("endDate") Date endDate, Pageable pageable);
 
 	// Find by shipment mode
-	Page<Shipment> findByRetailerOrgAccountIdAndShipmentMode(Long orgId, com.nexus.core.entities.ShipmentMode mode,
+	Page<Shipment> findByRetailerOrgAccountIdAndShipmentMode(Long orgId, com.nexus.core.model.enums.ShipmentMode mode,
 			Pageable pageable);
 
 	// Find active shipments (not in terminal states)

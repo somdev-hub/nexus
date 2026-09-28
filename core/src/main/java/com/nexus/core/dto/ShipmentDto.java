@@ -1,7 +1,7 @@
 package com.nexus.core.dto;
 
-import com.nexus.core.entities.ShipmentMode;
-import com.nexus.core.entities.ShipmentStatus;
+import com.nexus.core.model.enums.ShipmentMode;
+import com.nexus.core.model.enums.ShipmentStatus;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;

@@ -69,7 +69,7 @@ public class SecurityConfig {
 	 * 8. All other requests require authentication
 	 */
 	@Bean
-	public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+	SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
 		http
 				// Enable CORS
 				.cors(cors -> cors.configurationSource(corsConfigurationSource()))

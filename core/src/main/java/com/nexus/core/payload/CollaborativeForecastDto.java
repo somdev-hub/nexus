@@ -1,6 +1,6 @@
 package com.nexus.core.payload;
 
-import com.nexus.core.entities.CollaborativeForecast;
+import com.nexus.core.model.entities.CollaborativeForecast;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Builder;

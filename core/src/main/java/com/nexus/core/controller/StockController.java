@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.nexus.core.annotation.LogActivity;
 import com.nexus.core.payload.StockDto;
-import com.nexus.core.service.StockService;
+import com.nexus.core.service.interfaces.StockService;
 
 import lombok.RequiredArgsConstructor;
 

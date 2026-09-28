@@ -1,6 +1,6 @@
 package com.nexus.core.payload;
 
-import com.nexus.core.entities.FreightInvoiceStatus;
+import com.nexus.core.model.enums.FreightInvoiceStatus;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;

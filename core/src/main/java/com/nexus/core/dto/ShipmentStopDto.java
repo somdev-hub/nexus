@@ -1,7 +1,7 @@
 package com.nexus.core.dto;
 
-import com.nexus.core.entities.StopStatus;
-import com.nexus.core.entities.StopType;
+import com.nexus.core.model.enums.StopStatus;
+import com.nexus.core.model.enums.StopType;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;

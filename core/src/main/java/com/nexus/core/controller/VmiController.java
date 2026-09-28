@@ -8,7 +8,7 @@ import org.springframework.web.bind.annotation.*;
 
 import com.nexus.core.annotation.LogActivity;
 import com.nexus.core.payload.VmiConfigDto;
-import com.nexus.core.service.VmiService;
+import com.nexus.core.service.interfaces.VmiService;
 
 import lombok.RequiredArgsConstructor;
 

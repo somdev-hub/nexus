@@ -11,10 +11,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.nexus.core.annotation.LogActivity;
-import com.nexus.core.entities.PurchaseOrder;
-import com.nexus.core.entities.Invoice;
-import com.nexus.core.service.ThreeWayMatchingService;
-import com.nexus.core.service.ThreeWayMatchingService.MatchingResult;
+import com.nexus.core.model.entities.PurchaseOrder;
+import com.nexus.core.model.entities.Invoice;
+import com.nexus.core.service.interfaces.ThreeWayMatchingService;
+import com.nexus.core.service.interfaces.ThreeWayMatchingService.MatchingResult;
 import com.nexus.core.repository.PurchaseOrderRepo;
 import com.nexus.core.repository.InvoiceRepo;
 import com.nexus.core.security.OrganizationContextHolder;

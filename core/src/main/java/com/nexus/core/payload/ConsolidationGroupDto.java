@@ -1,6 +1,6 @@
 package com.nexus.core.payload;
 
-import com.nexus.core.entities.ConsolidationStatus;
+import com.nexus.core.model.enums.ConsolidationStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;

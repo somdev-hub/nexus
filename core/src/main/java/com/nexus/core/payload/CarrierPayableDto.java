@@ -1,6 +1,6 @@
 package com.nexus.core.payload;
 
-import com.nexus.core.entities.PayableStatus;
+import com.nexus.core.model.enums.PayableStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;

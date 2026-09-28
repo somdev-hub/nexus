@@ -8,7 +8,7 @@ import org.springframework.web.bind.annotation.*;
 
 import com.nexus.core.annotation.LogActivity;
 import com.nexus.core.payload.FreightInvoiceDto;
-import com.nexus.core.service.FreightInvoiceService;
+import com.nexus.core.service.interfaces.FreightInvoiceService;
 
 import lombok.RequiredArgsConstructor;
 

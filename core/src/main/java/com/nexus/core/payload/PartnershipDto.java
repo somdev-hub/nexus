@@ -17,7 +17,7 @@ public class PartnershipDto {
 
 	private Double discountRate;
 
-	private com.nexus.core.entities.PartnershipStatus status;
+	private com.nexus.core.model.enums.PartnershipStatus status;
 
 	private Timestamp startDate;
 

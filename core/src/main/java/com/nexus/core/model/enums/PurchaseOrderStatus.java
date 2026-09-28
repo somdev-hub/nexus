@@ -1,0 +1,16 @@
+package com.nexus.core.model.enums;
+
+public enum PurchaseOrderStatus {
+	DRAFT,
+	PENDING_APPROVAL,
+	APPROVED,
+	REJECTED,
+	SENT_TO_SUPPLIER,
+	ACKNOWLEDGED,
+	PARTIALLY_RECEIVED,
+	RECEIVED,
+	INVOICED,
+	PAID,
+	CANCELLED,
+	CLOSED
+}

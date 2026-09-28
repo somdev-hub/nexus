@@ -22,7 +22,7 @@ public class GoodsReceiptDto {
 	@NotNull(message = "Supplier is required")
 	private Long supplierId;
 
-	private com.nexus.core.entities.GoodsReceiptStatus status = com.nexus.core.entities.GoodsReceiptStatus.DRAFT;
+	private com.nexus.core.model.enums.GoodsReceiptStatus status = com.nexus.core.model.enums.GoodsReceiptStatus.DRAFT;
 
 	@NotNull(message = "Received date is required")
 	private Date receivedDate;

@@ -4,8 +4,8 @@ import java.util.List;
 
 import org.springframework.web.multipart.MultipartFile;
 
-import com.nexus.core.entities.ProductCategory;
-import com.nexus.core.entities.ProductStatus;
+import com.nexus.core.model.enums.ProductCategory;
+import com.nexus.core.model.enums.ProductStatus;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;

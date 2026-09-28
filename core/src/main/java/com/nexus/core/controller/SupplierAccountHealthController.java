@@ -4,7 +4,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import com.nexus.core.annotation.LogActivity;
-import com.nexus.core.service.SupplierAccountHealthService;
+import com.nexus.core.service.interfaces.SupplierAccountHealthService;
 
 import lombok.RequiredArgsConstructor;
 

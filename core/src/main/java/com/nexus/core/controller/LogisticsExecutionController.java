@@ -3,7 +3,7 @@ package com.nexus.core.controller;
 import com.nexus.core.annotation.LogActivity;
 import com.nexus.core.payload.ProofOfDeliveryDto;
 import com.nexus.core.payload.ShipmentIncidentDto;
-import com.nexus.core.service.LogisticsExecutionService;
+import com.nexus.core.service.interfaces.LogisticsExecutionService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;

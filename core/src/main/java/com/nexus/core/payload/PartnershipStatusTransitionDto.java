@@ -1,6 +1,6 @@
 package com.nexus.core.payload;
 
-import com.nexus.core.entities.PartnershipStatus;
+import com.nexus.core.model.enums.PartnershipStatus;
 
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;

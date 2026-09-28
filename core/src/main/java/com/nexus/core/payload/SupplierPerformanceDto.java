@@ -47,7 +47,7 @@ public class SupplierPerformanceDto {
 	@DecimalMax(value = "100.00", message = "Overall score must be <= 100")
 	private BigDecimal overallScore;
 
-	private com.nexus.core.entities.SupplierPerformance.PerformanceTier performanceTier;
+	private com.nexus.core.model.entities.SupplierPerformance.PerformanceTier performanceTier;
 
 	@Min(value = 0, message = "Total orders evaluated must be >= 0")
 	private Integer totalOrdersEvaluated;

@@ -1,7 +1,5 @@
 package com.nexus.core.controller;
 
-import jakarta.validation.Valid;
-import java.util.List;
 import java.util.Map;
 
 import org.springframework.data.domain.Pageable;
@@ -19,15 +17,16 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.nexus.core.annotation.LogActivity;
+import com.nexus.core.dto.ShipmentDocumentDto;
 import com.nexus.core.dto.ShipmentDto;
 import com.nexus.core.dto.ShipmentStopDto;
 import com.nexus.core.dto.TrackingEventDto;
-import com.nexus.core.dto.ShipmentDocumentDto;
-import com.nexus.core.entities.ShipmentMode;
-import com.nexus.core.entities.ShipmentStatus;
-import com.nexus.core.entities.StopStatus;
-import com.nexus.core.service.ShipmentService;
+import com.nexus.core.model.enums.ShipmentMode;
+import com.nexus.core.model.enums.ShipmentStatus;
+import com.nexus.core.model.enums.StopStatus;
+import com.nexus.core.service.interfaces.ShipmentService;
 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 @RestController
@@ -194,7 +193,7 @@ public class ShipmentController {
 			@RequestParam(required = false) String documentType) {
 		if (documentType != null) {
 			try {
-				com.nexus.core.entities.ShipmentDocumentType type = com.nexus.core.entities.ShipmentDocumentType
+				com.nexus.core.model.enums.ShipmentDocumentType type = com.nexus.core.model.enums.ShipmentDocumentType
 						.valueOf(documentType.toUpperCase());
 				return ResponseEntity.ok(shipmentService.getDocumentsByShipmentAndType(shipmentId, type));
 			} catch (IllegalArgumentException e) {

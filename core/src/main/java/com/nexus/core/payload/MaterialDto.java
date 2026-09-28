@@ -4,7 +4,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
-import com.nexus.core.entities.Stock.ValuationMethod;
+import com.nexus.core.model.entities.Stock.ValuationMethod;
 
 @Data
 public class MaterialDto {

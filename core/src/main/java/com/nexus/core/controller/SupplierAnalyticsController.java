@@ -4,7 +4,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import com.nexus.core.annotation.LogActivity;
-import com.nexus.core.service.SupplierAnalyticsService;
+import com.nexus.core.service.interfaces.SupplierAnalyticsService;
 
 import lombok.RequiredArgsConstructor;
 

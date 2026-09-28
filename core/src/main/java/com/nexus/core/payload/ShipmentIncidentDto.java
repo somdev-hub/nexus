@@ -1,7 +1,7 @@
 package com.nexus.core.payload;
 
-import com.nexus.core.entities.IncidentStatus;
-import com.nexus.core.entities.IncidentType;
+import com.nexus.core.model.enums.IncidentStatus;
+import com.nexus.core.model.enums.IncidentType;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Builder;

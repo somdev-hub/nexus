@@ -14,9 +14,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.nexus.core.annotation.LogActivity;
-import com.nexus.core.entities.QualificationStatus;
+import com.nexus.core.model.enums.QualificationStatus;
 import com.nexus.core.payload.SupplierQualificationDto;
-import com.nexus.core.service.SupplierQualificationService;
+import com.nexus.core.service.interfaces.SupplierQualificationService;
 
 import lombok.Data;
 import lombok.RequiredArgsConstructor;

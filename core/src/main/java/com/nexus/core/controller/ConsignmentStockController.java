@@ -8,7 +8,7 @@ import org.springframework.web.bind.annotation.*;
 
 import com.nexus.core.annotation.LogActivity;
 import com.nexus.core.payload.ConsignmentStockDto;
-import com.nexus.core.service.ConsignmentStockService;
+import com.nexus.core.service.interfaces.ConsignmentStockService;
 
 import lombok.RequiredArgsConstructor;
 

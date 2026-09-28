@@ -5,13 +5,11 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-import org.springframework.stereotype.Repository;
-
-import com.nexus.core.entities.Material;
-import com.nexus.core.entities.Product;
-import com.nexus.core.entities.Stock;
-import com.nexus.core.entities.Stock.ValuationMethod;
-import com.nexus.core.entities.Warehouse;
+import com.nexus.core.model.entities.Material;
+import com.nexus.core.model.entities.Product;
+import com.nexus.core.model.entities.Stock;
+import com.nexus.core.model.entities.Stock.ValuationMethod;
+import com.nexus.core.model.entities.Warehouse;
 
 import java.util.List;
 import java.util.Optional;
@@ -21,7 +19,6 @@ import java.util.Optional;
  * Supports FR-RET-010: Multi-Warehouse Inventory
  * Supports FR-RET-011: Reorder Point Automation
  */
-@Repository
 public interface StockRepo extends JpaRepository<Stock, Long> {
 
 	Optional<Stock> findByMaterialAndWarehouse(Material material, Warehouse warehouse);

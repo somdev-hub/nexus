@@ -8,7 +8,7 @@ import org.springframework.web.bind.annotation.*;
 
 import com.nexus.core.annotation.LogActivity;
 import com.nexus.core.payload.ProductionCapacityDto;
-import com.nexus.core.service.ProductionCapacityService;
+import com.nexus.core.service.interfaces.ProductionCapacityService;
 
 import lombok.RequiredArgsConstructor;
 

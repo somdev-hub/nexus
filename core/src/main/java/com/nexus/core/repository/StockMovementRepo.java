@@ -5,13 +5,11 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-import org.springframework.stereotype.Repository;
-
-import com.nexus.core.entities.Material;
-import com.nexus.core.entities.Stock;
-import com.nexus.core.entities.StockMovement;
-import com.nexus.core.entities.StockMovement.MovementType;
-import com.nexus.core.entities.Warehouse;
+import com.nexus.core.model.entities.Material;
+import com.nexus.core.model.entities.Stock;
+import com.nexus.core.model.entities.StockMovement;
+import com.nexus.core.model.entities.StockMovement.MovementType;
+import com.nexus.core.model.entities.Warehouse;
 
 import java.sql.Timestamp;
 import java.util.List;
@@ -21,7 +19,6 @@ import java.util.Optional;
  * Repository for StockMovement entity.
  * Provides audit trail queries for inventory movements.
  */
-@Repository
 public interface StockMovementRepo extends JpaRepository<StockMovement, Long> {
 
 	@Query("SELECT m FROM StockMovement m WHERE m.stock = :stock ORDER BY m.createdAt DESC")

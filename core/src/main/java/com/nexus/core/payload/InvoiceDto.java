@@ -22,7 +22,7 @@ public class InvoiceDto {
 	@NotNull(message = "Supplier is required")
 	private Long supplierId;
 
-	private com.nexus.core.entities.InvoiceStatus status = com.nexus.core.entities.InvoiceStatus.DRAFT;
+	private com.nexus.core.model.enums.InvoiceStatus status = com.nexus.core.model.enums.InvoiceStatus.DRAFT;
 
 	@NotNull(message = "Invoice date is required")
 	private Date invoiceDate;

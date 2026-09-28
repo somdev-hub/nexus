@@ -8,7 +8,7 @@ import org.springframework.web.bind.annotation.*;
 
 import com.nexus.core.annotation.LogActivity;
 import com.nexus.core.payload.SupplierDigitalAssetDto;
-import com.nexus.core.service.SupplierDigitalAssetService;
+import com.nexus.core.service.interfaces.SupplierDigitalAssetService;
 
 import lombok.RequiredArgsConstructor;
 

@@ -8,12 +8,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-import org.springframework.stereotype.Repository;
-
-import com.nexus.core.entities.GoodsReceipt;
-import com.nexus.core.entities.GoodsReceiptStatus;
-
-@Repository
+import com.nexus.core.model.entities.GoodsReceipt;
+import com.nexus.core.model.enums.GoodsReceiptStatus;
 public interface GoodsReceiptRepo extends JpaRepository<GoodsReceipt, Long> {
 
 	Page<GoodsReceipt> findByPurchaseOrderPurchaseOrderId(Long purchaseOrderId, Pageable pageable);

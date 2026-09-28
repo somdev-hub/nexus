@@ -13,7 +13,7 @@ public class PartnershipInvitationDto {
 	@NotNull(message = "Invited organization is required")
 	private Long invitedOrg;
 
-	private com.nexus.core.entities.PartnershipInvitationStatus status;
+	private com.nexus.core.model.enums.PartnershipInvitationStatus status;
 
 	private String partnershipContext;
 

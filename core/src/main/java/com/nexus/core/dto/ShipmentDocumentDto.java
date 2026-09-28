@@ -1,6 +1,6 @@
 package com.nexus.core.dto;
 
-import com.nexus.core.entities.ShipmentDocumentType;
+import com.nexus.core.model.enums.ShipmentDocumentType;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;

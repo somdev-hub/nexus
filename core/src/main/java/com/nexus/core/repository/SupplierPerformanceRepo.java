@@ -10,7 +10,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-import com.nexus.core.entities.SupplierPerformance;
+import com.nexus.core.model.entities.SupplierPerformance;
 
 public interface SupplierPerformanceRepo extends JpaRepository<SupplierPerformance, Long> {
 

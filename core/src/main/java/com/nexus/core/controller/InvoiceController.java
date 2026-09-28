@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.nexus.core.annotation.LogActivity;
 import com.nexus.core.payload.InvoiceDto;
-import com.nexus.core.service.InvoiceService;
+import com.nexus.core.service.interfaces.InvoiceService;
 
 import lombok.RequiredArgsConstructor;
 
@@ -64,7 +64,7 @@ public class InvoiceController {
 			@RequestParam String newStatus,
 			@RequestBody(required = false) Map<String, Object> params) {
 		try {
-			com.nexus.core.entities.InvoiceStatus targetStatus = com.nexus.core.entities.InvoiceStatus
+			com.nexus.core.model.enums.InvoiceStatus targetStatus = com.nexus.core.model.enums.InvoiceStatus
 					.valueOf(newStatus.toUpperCase());
 			return invoiceService.transitionStatus(id, targetStatus, params);
 		} catch (IllegalArgumentException e) {

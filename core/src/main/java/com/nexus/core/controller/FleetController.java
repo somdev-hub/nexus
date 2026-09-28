@@ -4,7 +4,7 @@ import com.nexus.core.annotation.LogActivity;
 import com.nexus.core.payload.DriverDto;
 import com.nexus.core.payload.FleetAssetDto;
 import com.nexus.core.payload.MaintenanceRecordDto;
-import com.nexus.core.service.FleetService;
+import com.nexus.core.service.interfaces.FleetService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;

@@ -1,17 +1,13 @@
 package com.nexus.core.repository;
 
-import com.nexus.core.entities.CapacityForecast;
-import com.nexus.core.entities.FleetAssetType;
+import com.nexus.core.model.entities.CapacityForecast;
+import com.nexus.core.model.enums.FleetAssetType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-import org.springframework.stereotype.Repository;
-
 import java.util.Optional;
-
-@Repository
 public interface CapacityForecastRepo extends JpaRepository<CapacityForecast, Long> {
 
     @Query("SELECT c FROM CapacityForecast c WHERE c.forecastId = :id AND c.logisticsOrg.accountId = :orgId")

@@ -20,7 +20,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import com.nexus.core.annotation.LogActivity;
 import com.nexus.core.payload.SupplierContractDto;
-import com.nexus.core.service.SupplierContractService;
+import com.nexus.core.service.interfaces.SupplierContractService;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;

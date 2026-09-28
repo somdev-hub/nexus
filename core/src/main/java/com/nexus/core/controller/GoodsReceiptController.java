@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.nexus.core.annotation.LogActivity;
 import com.nexus.core.payload.GoodsReceiptDto;
-import com.nexus.core.service.GoodsReceiptService;
+import com.nexus.core.service.interfaces.GoodsReceiptService;
 
 import lombok.RequiredArgsConstructor;
 
@@ -64,7 +64,7 @@ public class GoodsReceiptController {
 			@RequestParam String newStatus,
 			@RequestBody(required = false) Map<String, Object> params) {
 		try {
-			com.nexus.core.entities.GoodsReceiptStatus targetStatus = com.nexus.core.entities.GoodsReceiptStatus
+			com.nexus.core.model.enums.GoodsReceiptStatus targetStatus = com.nexus.core.model.enums.GoodsReceiptStatus
 					.valueOf(newStatus.toUpperCase());
 			return goodsReceiptService.transitionStatus(id, targetStatus, params);
 		} catch (IllegalArgumentException e) {

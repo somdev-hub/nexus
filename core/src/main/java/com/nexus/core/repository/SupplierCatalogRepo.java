@@ -1,18 +1,14 @@
 package com.nexus.core.repository;
 
-import com.nexus.core.entities.CatalogAccessLevel;
-import com.nexus.core.entities.CatalogStatus;
-import com.nexus.core.entities.SupplierCatalog;
+import com.nexus.core.model.enums.CatalogAccessLevel;
+import com.nexus.core.model.enums.CatalogStatus;
+import com.nexus.core.model.entities.SupplierCatalog;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-import org.springframework.stereotype.Repository;
-
 import java.util.Optional;
-
-@Repository
 public interface SupplierCatalogRepo extends JpaRepository<SupplierCatalog, Long> {
 
     Optional<SupplierCatalog> findByCatalogIdAndSupplierOrgAccountId(Long catalogId, Long orgId);

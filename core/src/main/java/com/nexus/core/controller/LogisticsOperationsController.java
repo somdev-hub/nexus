@@ -4,7 +4,7 @@ import com.nexus.core.annotation.LogActivity;
 import com.nexus.core.payload.CapacityForecastDto;
 import com.nexus.core.payload.CarrierPayableDto;
 import com.nexus.core.payload.ConsolidationGroupDto;
-import com.nexus.core.service.LogisticsOperationsService;
+import com.nexus.core.service.interfaces.LogisticsOperationsService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;

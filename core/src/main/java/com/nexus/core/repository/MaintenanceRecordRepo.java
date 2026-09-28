@@ -1,17 +1,13 @@
 package com.nexus.core.repository;
 
-import com.nexus.core.entities.MaintenanceRecord;
-import com.nexus.core.entities.MaintenanceStatus;
+import com.nexus.core.model.entities.MaintenanceRecord;
+import com.nexus.core.model.enums.MaintenanceStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-import org.springframework.stereotype.Repository;
-
 import java.util.Optional;
-
-@Repository
 public interface MaintenanceRecordRepo extends JpaRepository<MaintenanceRecord, Long> {
 
     @Query("""

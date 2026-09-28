@@ -1,7 +1,7 @@
 package com.nexus.core.payload;
 
-import com.nexus.core.entities.CatalogAccessLevel;
-import com.nexus.core.entities.CatalogStatus;
+import com.nexus.core.model.enums.CatalogAccessLevel;
+import com.nexus.core.model.enums.CatalogStatus;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;

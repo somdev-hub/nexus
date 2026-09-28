@@ -6,7 +6,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import com.nexus.core.annotation.LogActivity;
-import com.nexus.core.service.SupplierCustomerPortalService;
+import com.nexus.core.service.interfaces.SupplierCustomerPortalService;
 
 import lombok.RequiredArgsConstructor;
 

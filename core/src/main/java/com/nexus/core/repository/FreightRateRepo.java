@@ -1,18 +1,14 @@
 package com.nexus.core.repository;
 
-import com.nexus.core.entities.FleetAssetType;
-import com.nexus.core.entities.FreightRate;
-import com.nexus.core.entities.RateType;
+import com.nexus.core.model.enums.FleetAssetType;
+import com.nexus.core.model.entities.FreightRate;
+import com.nexus.core.model.enums.RateType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-import org.springframework.stereotype.Repository;
-
 import java.util.Optional;
-
-@Repository
 public interface FreightRateRepo extends JpaRepository<FreightRate, Long> {
 
     @Query("SELECT r FROM FreightRate r WHERE r.rateId = :id AND r.logisticsOrg.accountId = :orgId")

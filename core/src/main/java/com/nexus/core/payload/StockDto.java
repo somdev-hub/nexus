@@ -1,6 +1,6 @@
 package com.nexus.core.payload;
 
-import com.nexus.core.entities.Stock;
+import com.nexus.core.model.entities.Stock;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 

@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.nexus.core.annotation.LogActivity;
 import com.nexus.core.payload.PurchaseOrderDto;
-import com.nexus.core.service.PurchaseOrderService;
+import com.nexus.core.service.interfaces.PurchaseOrderService;
 
 import lombok.RequiredArgsConstructor;
 
@@ -62,7 +62,7 @@ public class PurchaseOrderController {
 			@RequestParam String newStatus,
 			@RequestBody(required = false) Map<String, Object> params) {
 		try {
-			com.nexus.core.entities.PurchaseOrderStatus targetStatus = com.nexus.core.entities.PurchaseOrderStatus
+			com.nexus.core.model.enums.PurchaseOrderStatus targetStatus = com.nexus.core.model.enums.PurchaseOrderStatus
 					.valueOf(newStatus.toUpperCase());
 			return purchaseOrderService.transitionStatus(id, targetStatus, params);
 		} catch (IllegalArgumentException e) {

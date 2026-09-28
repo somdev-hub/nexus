@@ -8,7 +8,7 @@ import org.springframework.web.bind.annotation.*;
 
 import com.nexus.core.annotation.LogActivity;
 import com.nexus.core.payload.SupplierQuotationDto;
-import com.nexus.core.service.SupplierQuotationService;
+import com.nexus.core.service.interfaces.SupplierQuotationService;
 
 import lombok.RequiredArgsConstructor;
 

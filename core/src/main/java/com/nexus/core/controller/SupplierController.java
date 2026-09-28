@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.nexus.core.annotation.LogActivity;
 import com.nexus.core.payload.SupplierDiscoveryDto;
 import com.nexus.core.payload.SupplierDto;
-import com.nexus.core.service.SupplierService;
+import com.nexus.core.service.interfaces.SupplierService;
 
 import lombok.RequiredArgsConstructor;
 

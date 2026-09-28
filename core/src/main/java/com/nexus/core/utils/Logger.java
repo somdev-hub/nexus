@@ -2,7 +2,7 @@ package com.nexus.core.utils;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.nexus.core.entities.Logs;
+import com.nexus.core.model.entities.Logs;
 import com.nexus.core.exception.ServiceLevelException;
 import com.nexus.core.repository.LogsRepo;
 import org.springframework.http.HttpMethod;

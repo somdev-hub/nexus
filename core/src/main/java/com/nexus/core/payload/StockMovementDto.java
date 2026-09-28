@@ -1,6 +1,6 @@
 package com.nexus.core.payload;
 
-import com.nexus.core.entities.StockMovement;
+import com.nexus.core.model.entities.StockMovement;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 

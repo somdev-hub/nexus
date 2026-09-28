@@ -1,17 +1,13 @@
 package com.nexus.core.repository;
 
-import com.nexus.core.entities.CarrierPayable;
-import com.nexus.core.entities.PayableStatus;
+import com.nexus.core.model.entities.CarrierPayable;
+import com.nexus.core.model.enums.PayableStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-import org.springframework.stereotype.Repository;
-
 import java.util.Optional;
-
-@Repository
 public interface CarrierPayableRepo extends JpaRepository<CarrierPayable, Long> {
 
     @Query("SELECT p FROM CarrierPayable p WHERE p.payableId = :id AND p.logisticsOrg.accountId = :orgId")

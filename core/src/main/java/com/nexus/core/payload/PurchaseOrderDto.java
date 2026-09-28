@@ -29,7 +29,7 @@ public class PurchaseOrderDto {
 
 	private Long partnershipId;
 
-	private com.nexus.core.entities.PurchaseOrderStatus status = com.nexus.core.entities.PurchaseOrderStatus.DRAFT;
+	private com.nexus.core.model.enums.PurchaseOrderStatus status = com.nexus.core.model.enums.PurchaseOrderStatus.DRAFT;
 
 	private Double totalAmount = 0.0;
 
@@ -65,7 +65,7 @@ public class PurchaseOrderDto {
 	private String rejectionReason;
 
 	// Approval workflow tracking fields (FR-RET-002)
-	private com.nexus.core.entities.ApprovalLevel approvalLevel;
+	private com.nexus.core.model.enums.ApprovalLevel approvalLevel;
 
 	private String requiredApproverLevel;
 

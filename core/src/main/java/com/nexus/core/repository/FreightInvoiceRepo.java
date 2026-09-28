@@ -1,17 +1,13 @@
 package com.nexus.core.repository;
 
-import com.nexus.core.entities.FreightInvoice;
-import com.nexus.core.entities.FreightInvoiceStatus;
+import com.nexus.core.model.entities.FreightInvoice;
+import com.nexus.core.model.enums.FreightInvoiceStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-import org.springframework.stereotype.Repository;
-
 import java.util.Optional;
-
-@Repository
 public interface FreightInvoiceRepo extends JpaRepository<FreightInvoice, Long> {
 
     Optional<FreightInvoice> findByFreightInvoiceIdAndRetailerOrgAccountId(Long id, Long orgId);
@@ -45,6 +41,6 @@ public interface FreightInvoiceRepo extends JpaRepository<FreightInvoice, Long> 
     @Query("SELECT COUNT(fi) FROM FreightInvoice fi WHERE fi.retailerOrg.accountId = :orgId AND fi.status = :status")
     long countByOrgAndStatus(@Param("orgId") Long orgId, @Param("status") FreightInvoiceStatus status);
 
-    @Query("SELECT SUM(fi.totalAmount) FROM FreightInvoice fi WHERE fi.retailerOrg.accountId = :orgId AND fi.status <> com.nexus.core.entities.FreightInvoiceStatus.CANCELLED")
+    @Query("SELECT SUM(fi.totalAmount) FROM FreightInvoice fi WHERE fi.retailerOrg.accountId = :orgId AND fi.status <> com.nexus.core.model.enums.FreightInvoiceStatus.CANCELLED")
     java.math.BigDecimal sumTotalByOrg(@Param("orgId") Long orgId);
 }

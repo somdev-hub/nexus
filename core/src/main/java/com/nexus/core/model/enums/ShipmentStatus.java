@@ -1,0 +1,18 @@
+package com.nexus.core.model.enums;
+
+public enum ShipmentStatus {
+	DRAFT,
+	PENDING_APPROVAL,
+	APPROVED,
+	BOOKED,
+	ASSIGNED,
+	PICKED_UP,
+	IN_TRANSIT,
+	OUT_FOR_DELIVERY,
+	DELIVERED,
+	PARTIALLY_DELIVERED,
+	EXCEPTION,
+	RESOLVED,
+	CANCELLED,
+	CLOSED
+}

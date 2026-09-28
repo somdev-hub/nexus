@@ -3,7 +3,7 @@ package com.nexus.core.controller;
 import com.nexus.core.annotation.LogActivity;
 import com.nexus.core.payload.FreightRateDto;
 import com.nexus.core.payload.ShipmentQuoteDto;
-import com.nexus.core.service.QuotingService;
+import com.nexus.core.service.interfaces.QuotingService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;

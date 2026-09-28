@@ -1,0 +1,33 @@
+package com.nexus.core.service.interfaces;
+
+import org.springframework.data.domain.Pageable;
+import org.springframework.http.ResponseEntity;
+
+import com.nexus.core.payload.PurchaseOrderDto;
+
+import java.util.Map;
+
+public interface PurchaseOrderService {
+
+	ResponseEntity<?> createPurchaseOrder(PurchaseOrderDto poDto);
+
+	ResponseEntity<?> getPurchaseOrderById(Long id);
+
+	ResponseEntity<?> getAllPurchaseOrders(String status, Pageable pageable);
+
+	ResponseEntity<?> updatePurchaseOrder(Long id, PurchaseOrderDto poDto);
+
+	ResponseEntity<?> transitionStatus(Long id, com.nexus.core.model.enums.PurchaseOrderStatus newStatus,
+			Map<String, Object> params);
+
+	ResponseEntity<?> createAmendment(Long parentPoId, PurchaseOrderDto amendmentDto);
+
+	ResponseEntity<?> getAmendmentsByParentPoId(Long parentPoId);
+
+	// Blanket Order methods (FR-RET-004)
+	ResponseEntity<?> processBlanketOrderReleases(Long blanketPoId);
+
+	ResponseEntity<?> getBlanketOrders(Pageable pageable);
+
+	ResponseEntity<?> getBlanketOrderReleases(Long blanketPoId);
+}

@@ -7,13 +7,9 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-import org.springframework.stereotype.Repository;
-
-import com.nexus.core.entities.Account;
-import com.nexus.core.entities.Supplier;
-import com.nexus.core.entities.SupplierStatus;
-
-@Repository
+import com.nexus.core.model.entities.Account;
+import com.nexus.core.model.entities.Supplier;
+import com.nexus.core.model.enums.SupplierStatus;
 public interface SupplierRepository extends JpaRepository<Supplier, Long> {
 
 	Page<Supplier> findAll(Pageable pageable);

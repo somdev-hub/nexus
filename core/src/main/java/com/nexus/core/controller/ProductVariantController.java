@@ -8,7 +8,7 @@ import org.springframework.web.bind.annotation.*;
 
 import com.nexus.core.annotation.LogActivity;
 import com.nexus.core.payload.ProductVariantDto;
-import com.nexus.core.service.ProductVariantService;
+import com.nexus.core.service.interfaces.ProductVariantService;
 
 import lombok.RequiredArgsConstructor;
 
