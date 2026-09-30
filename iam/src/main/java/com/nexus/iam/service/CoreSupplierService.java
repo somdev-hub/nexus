@@ -51,7 +51,7 @@ public interface CoreSupplierService {
 
     // Orders
     ResponseEntity<?> getSupplierOrder(Long id, String authToken, String orgId);
-    ResponseEntity<?> getAllSupplierOrders(String authToken, String orgId, Pageable pageable, String status, String poNumber);
+    ResponseEntity<?> getAllSupplierOrders(String authToken, String orgId, Pageable pageable, String status, String poNumber, Long buyerOrgId);
     ResponseEntity<?> acknowledgeOrder(Long id, String authToken, String orgId, String confirmedDeliveryDate, String notes);
     ResponseEntity<?> updateOrderFulfillment(Long id, Map<String, Object> updates, String authToken, String orgId);
     ResponseEntity<?> createPartialShipment(Long purchaseOrderId, Map<String, Object> dto, String authToken, String orgId);
@@ -66,7 +66,7 @@ public interface CoreSupplierService {
     // Quotation
     ResponseEntity<?> createQuotation(Map<String, Object> dto, String authToken, String orgId);
     ResponseEntity<?> getQuotation(Long id, String authToken, String orgId);
-    ResponseEntity<?> getAllQuotations(String authToken, String orgId, Pageable pageable, String status);
+    ResponseEntity<?> getAllQuotations(String authToken, String orgId, Pageable pageable, String status, Long buyerOrgId, String quotationNumber);
     ResponseEntity<?> transitionQuotation(Long id, String newStatus, Map<String, Object> params, String authToken, String orgId);
     ResponseEntity<?> convertQuotation(Long id, String authToken, String orgId);
     ResponseEntity<?> getQuotationSummary(String authToken, String orgId);
@@ -101,4 +101,13 @@ public interface CoreSupplierService {
 
     // Analytics
     ResponseEntity<?> getSupplierDashboard(String authToken, String orgId);
+
+    // Partnership Invitations (mirrors retailer invitation routes, same core URLs)
+    ResponseEntity<?> createPartnershipInvitation(Map<String, Object> invitationDto, String authToken, String orgId);
+    ResponseEntity<?> respondToPartnershipInvitation(Long id, Map<String, Object> responseDto, String authToken, String orgId);
+    ResponseEntity<?> getPartnershipInvitation(Long id, String authToken, String orgId);
+    ResponseEntity<?> getSentPartnershipInvitations(String authToken, String orgId, Pageable pageable);
+    ResponseEntity<?> getReceivedPartnershipInvitations(String authToken, String orgId, Pageable pageable);
+    ResponseEntity<?> getPendingPartnershipInvitations(String authToken, String orgId, Pageable pageable);
+    ResponseEntity<?> withdrawPartnershipInvitation(Long id, String authToken, String orgId);
 }

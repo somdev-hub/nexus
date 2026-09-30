@@ -63,6 +63,23 @@ public class CoreRetailerController {
 		return coreRetailerService.getAllProducts(authToken, orgIdHeader, pageable);
 	}
 
+	@LogActivity("Update Product for Retailer")
+	@PutMapping("/products/{id}/update")
+	public ResponseEntity<?> updateProduct(@PathVariable Long id,
+			@RequestBody Map<String, Object> productDto,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.updateProduct(id, productDto, authToken, orgIdHeader);
+	}
+
+	@LogActivity("Delete Product for Retailer")
+	@DeleteMapping("/products/{id}/delete")
+	public ResponseEntity<?> deleteProduct(@PathVariable Long id,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.deleteProduct(id, authToken, orgIdHeader);
+	}
+
 	@LogActivity("Create Material for Retailer")
 	@PostMapping("/materials/add")
 	public ResponseEntity<?> addMaterial(@RequestBody Map<String, Object> materialDto,

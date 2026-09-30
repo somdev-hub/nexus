@@ -89,6 +89,10 @@ public class ShipmentDto {
 	private Long updatedBy;
 	private Long organizationId;
 
+	// Logistics partner org (Account id) booking/carrying this shipment. Optional;
+	// when set on create, the shipment is booked (DRAFT -> BOOKED).
+	private Long logisticsOrgId;
+
 	private List<ShipmentStopDto> stops;
 	private List<TrackingEventDto> trackingEvents;
 	private List<ShipmentDocumentDto> documents;

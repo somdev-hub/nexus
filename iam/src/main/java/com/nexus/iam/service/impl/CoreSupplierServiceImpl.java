@@ -221,9 +221,9 @@ public class CoreSupplierServiceImpl implements CoreSupplierService {
 
 	@Override
 	public ResponseEntity<?> getAllSupplierOrders(String authToken, String orgId, Pageable pageable, String status,
-			String poNumber) {
+			String poNumber, Long buyerOrgId) {
 		String url = buildPaginatedUrlWithFilters(webConstants.getCoreSupplierOrderAllUrl(), pageable, "status", status,
-				"poNumber", poNumber);
+				"poNumber", poNumber, "buyerOrgId", buyerOrgId);
 		return callGet(url, authToken, orgId);
 	}
 
@@ -298,9 +298,10 @@ public class CoreSupplierServiceImpl implements CoreSupplierService {
 	}
 
 	@Override
-	public ResponseEntity<?> getAllQuotations(String authToken, String orgId, Pageable pageable, String status) {
+	public ResponseEntity<?> getAllQuotations(String authToken, String orgId, Pageable pageable, String status,
+			Long buyerOrgId, String quotationNumber) {
 		String url = buildPaginatedUrlWithFilters(webConstants.getCoreSupplierQuotationAllUrl(), pageable, "status",
-				status);
+				status, "buyerOrgId", buyerOrgId, "quotationNumber", quotationNumber);
 		return callGet(url, authToken, orgId);
 	}
 
@@ -425,6 +426,50 @@ public class CoreSupplierServiceImpl implements CoreSupplierService {
 	@Override
 	public ResponseEntity<?> getSupplierDashboard(String authToken, String orgId) {
 		return callGet(webConstants.getCoreAnalyticsSupplierDashboardUrl(), authToken, orgId);
+	}
+
+	// Partnership Invitations (same core URLs as retailer service)
+	@Override
+	public ResponseEntity<?> createPartnershipInvitation(Map<String, Object> invitationDto, String authToken,
+			String orgId) {
+		return callPost(webConstants.getCorePartnershipInvitationCreateUrl(), invitationDto, authToken, orgId);
+	}
+
+	@Override
+	public ResponseEntity<?> respondToPartnershipInvitation(Long id, Map<String, Object> responseDto, String authToken,
+			String orgId) {
+		String url = webConstants.getCorePartnershipInvitationRespondUrl() + "/" + id + "/respond";
+		return callPut(url, responseDto, authToken, orgId);
+	}
+
+	@Override
+	public ResponseEntity<?> getPartnershipInvitation(Long id, String authToken, String orgId) {
+		String url = webConstants.getCorePartnershipInvitationGetUrl() + "/" + id;
+		return callGet(url, authToken, orgId);
+	}
+
+	@Override
+	public ResponseEntity<?> getSentPartnershipInvitations(String authToken, String orgId, Pageable pageable) {
+		String url = buildPaginatedUrl(webConstants.getCorePartnershipInvitationSentUrl(), pageable);
+		return callGet(url, authToken, orgId);
+	}
+
+	@Override
+	public ResponseEntity<?> getReceivedPartnershipInvitations(String authToken, String orgId, Pageable pageable) {
+		String url = buildPaginatedUrl(webConstants.getCorePartnershipInvitationReceivedUrl(), pageable);
+		return callGet(url, authToken, orgId);
+	}
+
+	@Override
+	public ResponseEntity<?> getPendingPartnershipInvitations(String authToken, String orgId, Pageable pageable) {
+		String url = buildPaginatedUrl(webConstants.getCorePartnershipInvitationPendingUrl(), pageable);
+		return callGet(url, authToken, orgId);
+	}
+
+	@Override
+	public ResponseEntity<?> withdrawPartnershipInvitation(Long id, String authToken, String orgId) {
+		String url = webConstants.getCorePartnershipInvitationWithdrawUrl() + "/" + id + "/withdraw";
+		return callPut(url, null, authToken, orgId);
 	}
 
 	private ResponseEntity<?> callGet(String url, String authToken, String orgId) {

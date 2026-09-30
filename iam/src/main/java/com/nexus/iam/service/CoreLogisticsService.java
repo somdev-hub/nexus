@@ -91,4 +91,16 @@ public interface CoreLogisticsService {
     ResponseEntity<?> transitionPayableStatus(Long id, String newStatus, Map<String, Object> params, String auth, String org);
     ResponseEntity<?> deletePayable(Long id, String auth, String org);
     ResponseEntity<?> getLogisticsDashboard(String auth, String org);
+
+    // Partnership Invitations (mirrors retailer invitation routes, same core URLs)
+    ResponseEntity<?> createPartnershipInvitation(Map<String, Object> invitationDto, String auth, String org);
+    ResponseEntity<?> respondToPartnershipInvitation(Long id, Map<String, Object> responseDto, String auth, String org);
+    ResponseEntity<?> getPartnershipInvitation(Long id, String auth, String org);
+    ResponseEntity<?> getSentPartnershipInvitations(String auth, String org, Pageable p);
+    ResponseEntity<?> getReceivedPartnershipInvitations(String auth, String org, Pageable p);
+    ResponseEntity<?> getPendingPartnershipInvitations(String auth, String org, Pageable p);
+    ResponseEntity<?> withdrawPartnershipInvitation(Long id, String auth, String org);
+
+    // Logistics shipment list (Core GET /core/shipments/by-logistics-org)
+    ResponseEntity<?> getMyShipments(String auth, String org, Pageable p);
 }

@@ -234,8 +234,9 @@ public class CoreSupplierController {
 	@GetMapping("/orders/all")
 	public ResponseEntity<?> getAllOrders(@RequestHeader("Authorization") String auth,
 			@RequestHeader("X-Organization-ID") String org, @PageableDefault(size = 20) Pageable p,
-			@RequestParam(required = false) String status, @RequestParam(required = false) String poNumber) {
-		return supplierService.getAllSupplierOrders(auth, org, p, status, poNumber);
+			@RequestParam(required = false) String status, @RequestParam(required = false) String poNumber,
+			@RequestParam(required = false) Long buyerOrgId) {
+		return supplierService.getAllSupplierOrders(auth, org, p, status, poNumber, buyerOrgId);
 	}
 
 	@LogActivity("Acknowledge Order via IAM")
@@ -317,8 +318,10 @@ public class CoreSupplierController {
 	@GetMapping("/quotations/all")
 	public ResponseEntity<?> getAllQ(@RequestHeader("Authorization") String auth,
 			@RequestHeader("X-Organization-ID") String org, @PageableDefault(size = 20) Pageable p,
-			@RequestParam(required = false) String status) {
-		return supplierService.getAllQuotations(auth, org, p, status);
+			@RequestParam(required = false) String status,
+			@RequestParam(required = false) Long buyerOrgId,
+			@RequestParam(required = false) String quotationNumber) {
+		return supplierService.getAllQuotations(auth, org, p, status, buyerOrgId, quotationNumber);
 	}
 
 	@LogActivity("Transition Quotation via IAM")
@@ -474,5 +477,56 @@ public class CoreSupplierController {
 	public ResponseEntity<?> dashboard(@RequestHeader("Authorization") String auth,
 			@RequestHeader("X-Organization-ID") String org) {
 		return supplierService.getSupplierDashboard(auth, org);
+	}
+
+	// Partnership Invitations (mirrors retailer invitation routes, same core URLs)
+	@LogActivity("Create Partnership Invitation for Supplier")
+	@PostMapping("/partnership-invitations/create")
+	public ResponseEntity<?> createPartnershipInvitation(@RequestBody Map<String, Object> invitationDto,
+			@RequestHeader("Authorization") String auth, @RequestHeader("X-Organization-ID") String org) {
+		return supplierService.createPartnershipInvitation(invitationDto, auth, org);
+	}
+
+	@LogActivity("Respond to Partnership Invitation for Supplier")
+	@PutMapping("/partnership-invitations/{id}/respond")
+	public ResponseEntity<?> respondToPartnershipInvitation(@PathVariable Long id,
+			@RequestBody Map<String, Object> responseDto, @RequestHeader("Authorization") String auth,
+			@RequestHeader("X-Organization-ID") String org) {
+		return supplierService.respondToPartnershipInvitation(id, responseDto, auth, org);
+	}
+
+	@LogActivity("Get Partnership Invitation for Supplier")
+	@GetMapping("/partnership-invitations/{id}")
+	public ResponseEntity<?> getPartnershipInvitation(@PathVariable Long id,
+			@RequestHeader("Authorization") String auth, @RequestHeader("X-Organization-ID") String org) {
+		return supplierService.getPartnershipInvitation(id, auth, org);
+	}
+
+	@LogActivity("Get Sent Partnership Invitations for Supplier")
+	@GetMapping("/partnership-invitations/sent")
+	public ResponseEntity<?> getSentPartnershipInvitations(@RequestHeader("Authorization") String auth,
+			@RequestHeader("X-Organization-ID") String org, @PageableDefault(size = 20) Pageable p) {
+		return supplierService.getSentPartnershipInvitations(auth, org, p);
+	}
+
+	@LogActivity("Get Received Partnership Invitations for Supplier")
+	@GetMapping("/partnership-invitations/received")
+	public ResponseEntity<?> getReceivedPartnershipInvitations(@RequestHeader("Authorization") String auth,
+			@RequestHeader("X-Organization-ID") String org, @PageableDefault(size = 20) Pageable p) {
+		return supplierService.getReceivedPartnershipInvitations(auth, org, p);
+	}
+
+	@LogActivity("Get Pending Partnership Invitations for Supplier")
+	@GetMapping("/partnership-invitations/pending")
+	public ResponseEntity<?> getPendingPartnershipInvitations(@RequestHeader("Authorization") String auth,
+			@RequestHeader("X-Organization-ID") String org, @PageableDefault(size = 20) Pageable p) {
+		return supplierService.getPendingPartnershipInvitations(auth, org, p);
+	}
+
+	@LogActivity("Withdraw Partnership Invitation for Supplier")
+	@PutMapping("/partnership-invitations/{id}/withdraw")
+	public ResponseEntity<?> withdrawPartnershipInvitation(@PathVariable Long id,
+			@RequestHeader("Authorization") String auth, @RequestHeader("X-Organization-ID") String org) {
+		return supplierService.withdrawPartnershipInvitation(id, auth, org);
 	}
 }

@@ -62,4 +62,9 @@ public class PartnershipInvitation extends BaseEntity {
 	private String respondedBy;
 
 	private String rejectionReason;
+
+	// Retailer-local Supplier row this invitation is about (optional).
+	// t_suppliers.supplier_id owned by the retailer side. Nullable for legacy rows.
+	@Column(name = "retailer_supplier_id")
+	private Long retailerSupplierId;
 }

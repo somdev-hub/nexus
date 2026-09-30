@@ -7,7 +7,8 @@ import lombok.Data;
 
 @Data
 public class PartnershipInvitationDto {
-	@NotNull(message = "Inviting organization is required")
+	// Set server-side from OrganizationContextHolder in PartnershipInvitationService;
+	// must not be required from the client or @Valid rejects every create.
 	private Long invitingOrg;
 
 	@NotNull(message = "Invited organization is required")
@@ -32,6 +33,8 @@ public class PartnershipInvitationDto {
 	private String respondedBy;
 
 	private String rejectionReason;
+
+	private Long retailerSupplierId;
 
 	private Timestamp createdAt;
 

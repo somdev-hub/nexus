@@ -73,6 +73,33 @@ public class CoreRetailerServiceImpl implements CoreRetailerService {
 	}
 
 	@Override
+	public ResponseEntity<?> updateProduct(Long id, Map<String, Object> productDto, String authToken,
+			String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCoreProductGetUrl() + "/" + id;
+		return restService.iamRestCall(
+				url,
+				productDto,
+				headers,
+				HttpMethod.PUT,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> deleteProduct(Long id, String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCoreProductGetUrl() + "/" + id;
+		return restService.iamRestCall(
+				url,
+				null,
+				headers,
+				HttpMethod.DELETE,
+				null);
+	}
+
+	@Override
 	public ResponseEntity<?> addMaterial(Map<String, Object> materialDto, String authToken, String orgIdHeader) {
 		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
 		headers.put("X-Organization-ID", orgIdHeader);

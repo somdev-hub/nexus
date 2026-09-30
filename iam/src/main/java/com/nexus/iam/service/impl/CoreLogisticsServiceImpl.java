@@ -382,6 +382,48 @@ public class CoreLogisticsServiceImpl implements CoreLogisticsService {
         return callGet(webConstants.getCoreLogisticsOperationsBaseUrl() + "/analytics/dashboard", auth, org);
     }
 
+    // Partnership Invitations (same core URLs as retailer service)
+    @Override
+    public ResponseEntity<?> createPartnershipInvitation(Map<String, Object> invitationDto, String auth, String org) {
+        return callPost(webConstants.getCorePartnershipInvitationCreateUrl(), invitationDto, auth, org);
+    }
+
+    @Override
+    public ResponseEntity<?> respondToPartnershipInvitation(Long id, Map<String, Object> responseDto, String auth, String org) {
+        return callPut(webConstants.getCorePartnershipInvitationRespondUrl() + "/" + id + "/respond", responseDto, auth, org);
+    }
+
+    @Override
+    public ResponseEntity<?> getPartnershipInvitation(Long id, String auth, String org) {
+        return callGet(webConstants.getCorePartnershipInvitationGetUrl() + "/" + id, auth, org);
+    }
+
+    @Override
+    public ResponseEntity<?> getSentPartnershipInvitations(String auth, String org, Pageable p) {
+        return callGet(buildPaginatedUrl(webConstants.getCorePartnershipInvitationSentUrl(), p), auth, org);
+    }
+
+    @Override
+    public ResponseEntity<?> getReceivedPartnershipInvitations(String auth, String org, Pageable p) {
+        return callGet(buildPaginatedUrl(webConstants.getCorePartnershipInvitationReceivedUrl(), p), auth, org);
+    }
+
+    @Override
+    public ResponseEntity<?> getPendingPartnershipInvitations(String auth, String org, Pageable p) {
+        return callGet(buildPaginatedUrl(webConstants.getCorePartnershipInvitationPendingUrl(), p), auth, org);
+    }
+
+    @Override
+    public ResponseEntity<?> withdrawPartnershipInvitation(Long id, String auth, String org) {
+        return callPut(webConstants.getCorePartnershipInvitationWithdrawUrl() + "/" + id + "/withdraw", null, auth, org);
+    }
+
+    // Logistics shipment list (Core GET /core/shipments/by-logistics-org)
+    @Override
+    public ResponseEntity<?> getMyShipments(String auth, String org, Pageable p) {
+        return callGet(buildPaginatedUrl(webConstants.getCoreServiceUrl() + "/core/shipments/by-logistics-org", p), auth, org);
+    }
+
     private ResponseEntity<?> callGet(String url, String authToken, String orgId) {
         Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
         headers.put("X-Organization-ID", orgId);
@@ -404,6 +446,17 @@ public class CoreLogisticsServiceImpl implements CoreLogisticsService {
         Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
         headers.put("X-Organization-ID", orgId);
         return restService.iamRestCall(url, null, headers, HttpMethod.DELETE, null);
+    }
+
+    private String buildPaginatedUrl(String baseUrl, Pageable pageable) {
+        if (pageable == null || pageable.isUnpaged())
+            return baseUrl;
+        UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(baseUrl)
+                .queryParam("page", pageable.getPageNumber()).queryParam("size", pageable.getPageSize());
+        if (pageable.getSort().isSorted())
+            for (Sort.Order o : pageable.getSort())
+                builder.queryParam("sort", o.getProperty() + "," + o.getDirection().name());
+        return builder.toUriString();
     }
 
     private String buildPaginatedUrlWithFilters(String baseUrl, Pageable pageable, Object... filters) {

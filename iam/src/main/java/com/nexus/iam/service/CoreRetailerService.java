@@ -20,6 +20,10 @@ public interface CoreRetailerService {
 
 	ResponseEntity<?> getAllProducts(String authToken, String orgIdHeader, Pageable pageable);
 
+	ResponseEntity<?> updateProduct(Long id, Map<String, Object> productDto, String authToken, String orgIdHeader);
+
+	ResponseEntity<?> deleteProduct(Long id, String authToken, String orgIdHeader);
+
 	ResponseEntity<?> addMaterial(Map<String, Object> materialDto, String authToken, String orgIdHeader);
 
 	ResponseEntity<?> getMaterial(Long id, String authToken, String orgIdHeader);

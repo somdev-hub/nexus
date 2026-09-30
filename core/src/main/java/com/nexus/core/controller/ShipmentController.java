@@ -88,6 +88,12 @@ public class ShipmentController {
 		return ResponseEntity.ok(shipmentService.getAllShipments(pageable));
 	}
 
+	@GetMapping("/by-logistics-org")
+	@LogActivity("Get Shipments by Logistics Org")
+	public ResponseEntity<?> getShipmentsByLogisticsOrg(@PageableDefault(size = 20) Pageable pageable) {
+		return ResponseEntity.ok(shipmentService.getShipmentsByLogisticsOrg(pageable));
+	}
+
 	@PutMapping("/{id}/update")
 	@LogActivity("Update Shipment")
 	public ResponseEntity<?> updateShipment(@PathVariable Long id, @RequestBody ShipmentDto shipmentDto) {

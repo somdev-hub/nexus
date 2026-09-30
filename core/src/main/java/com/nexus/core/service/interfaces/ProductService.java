@@ -14,4 +14,8 @@ public interface ProductService {
 	public ResponseEntity<?> getProductByIdAndOrg(Long id, Long orgId);
 
 	public ResponseEntity<?> getAllProductsByOrgId(Long orgId, Pageable pageable);
+
+	public ResponseEntity<?> updateProductByIdAndOrg(Long id, Long orgId, ProductDto product);
+
+	public ResponseEntity<?> deleteProductByIdAndOrg(Long id, Long orgId);
 }

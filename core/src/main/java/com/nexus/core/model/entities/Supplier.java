@@ -60,4 +60,11 @@ public class Supplier extends BaseEntity {
 
 	@Enumerated(EnumType.STRING)
 	private SupplierStatus status; // ACTIVE, INACTIVE, PENDING_VERIFICATION, SUSPENDED
+
+	// The supplier's Account org id (counterparty): the supplier organization's
+	// own Account id, as distinct from the owning retailer's account (account).
+	// Populated when a RETAILER_SUPPLIER partnership invitation is accepted.
+	// Nullable for legacy rows.
+	@Column(name = "supplier_org_account_id")
+	private Long supplierOrgAccountId;
 }

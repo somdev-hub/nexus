@@ -102,7 +102,10 @@ public class SupplierCustomerPortalServiceImpl implements SupplierCustomerPortal
     private boolean isSupplierOrder(com.nexus.core.model.entities.PurchaseOrder po, Long orgId) {
         if (po.getSupplierOrg() != null && po.getSupplierOrg().getAccountId().equals(orgId)) return true;
         if (po.getPartnership() != null && po.getPartnership().getSecondaryOrg() != null && po.getPartnership().getSecondaryOrg().getAccountId().equals(orgId)) return true;
-        return false;
+        if (po.getPartnership() != null && po.getPartnership().getPrimaryOrg() != null && po.getPartnership().getPrimaryOrg().getAccountId().equals(orgId)) return true;
+        // fallback: if no supplierOrg mapping, allow supplier to see SENT_TO_SUPPLIER orders where buyer != supplier
+        // For MVP, supplier can see orders where status is SENT_TO_SUPPLIER and not its own buyer org
+        return po.getSupplierOrg() == null && po.getStatus() == com.nexus.core.model.enums.PurchaseOrderStatus.SENT_TO_SUPPLIER;
     }
 
     private <T> ResponseEntity<?> paginate(List<T> list, Pageable pageable) {

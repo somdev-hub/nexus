@@ -34,6 +34,9 @@ public interface ShipmentService {
 
 	Page<ShipmentDto> getShipmentsByWarehouse(Long warehouseId, Pageable pageable);
 
+	// Load-board: shipments booked to the calling logistics org (org from request context).
+	Page<ShipmentDto> getShipmentsByLogisticsOrg(Pageable pageable);
+
 	ShipmentDto updateShipment(Long shipmentId, ShipmentDto shipmentDto);
 
 	void deleteShipment(Long shipmentId);

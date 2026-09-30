@@ -20,6 +20,7 @@ import com.nexus.core.payload.PartnershipDto;
 import com.nexus.core.payload.PartnershipInvitationDto;
 import com.nexus.core.repository.AccountRepo;
 import com.nexus.core.repository.PartnershipInvitationRepo;
+import com.nexus.core.repository.SupplierRepository;
 import com.nexus.core.security.OrganizationContextHolder;
 import com.nexus.core.service.interfaces.PartnershipInvitationService;
 import com.nexus.core.service.interfaces.PartnershipService;
@@ -32,6 +33,7 @@ public class PartnershipInvitationServiceImpl implements PartnershipInvitationSe
 
 	private final PartnershipInvitationRepo invitationRepo;
 	private final AccountRepo accountRepo;
+	private final SupplierRepository supplierRepo;
 	private final ModelMapper modelMapper;
 	private final PartnershipService partnershipService;
 
@@ -81,6 +83,27 @@ public class PartnershipInvitationServiceImpl implements PartnershipInvitationSe
 
 		// If accepted, create a partnership
 		if (responseDto.getStatus() == PartnershipInvitationStatus.ACCEPTED) {
+			// Link the retailer-local Supplier row to the supplier counterparty org.
+			if ("RETAILER_SUPPLIER".equals(invitation.getPartnershipContext())
+					&& invitation.getRetailerSupplierId() != null) {
+				supplierRepo.findById(invitation.getRetailerSupplierId()).ifPresent(supplier -> {
+					Long retailerAccountId = supplier.getAccount() != null
+							? supplier.getAccount().getAccountId()
+							: null;
+					Account counterparty = null;
+					if (retailerAccountId != null && invitation.getInvitingOrg() != null
+							&& retailerAccountId.equals(invitation.getInvitingOrg().getAccountId())) {
+						counterparty = invitation.getInvitedOrg();
+					} else {
+						counterparty = invitation.getInvitingOrg();
+					}
+					if (counterparty != null) {
+						supplier.setSupplierOrgAccountId(counterparty.getAccountId());
+						supplierRepo.save(supplier);
+					}
+				});
+			}
+
 			PartnershipDto partnershipDto = new PartnershipDto();
 			partnershipDto.setPrimaryOrg(invitation.getInvitingOrg().getAccountId());
 			partnershipDto.setSecondaryOrg(invitation.getInvitedOrg().getAccountId());

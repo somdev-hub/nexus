@@ -122,6 +122,7 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 		po.setBuyerOrg(buyerOrg);
 		po.setSupplier(supplier);
 		po.setPartnership(partnership);
+		po.setSupplierOrg(resolveSupplierOrg(buyerOrg, supplier, partnership));
 		po.setStatus(PurchaseOrderStatus.DRAFT);
 		po.setCurrency(poDto.getCurrency());
 		po.setPaymentTerms(poDto.getPaymentTerms());
@@ -169,9 +170,36 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 		return new ResponseEntity<>(modelMapper.map(savedPo, PurchaseOrderDto.class), HttpStatus.CREATED);
 	}
 
+	/**
+	 * Resolve the supplier counterparty Account for a new PO.
+	 * (a) partnership attached: the partnership org that is not the buyer;
+	 * (b) else the supplier's supplierOrgAccountId (missing Account tolerated as null);
+	 * (c) else null (legacy fallback).
+	 */
+	private Account resolveSupplierOrg(Account buyerOrg, Supplier supplier, Partnership partnership) {
+		if (partnership != null) {
+			if (partnership.getPrimaryOrg() != null && partnership.getSecondaryOrg() != null) {
+				if (partnership.getPrimaryOrg().getAccountId().equals(buyerOrg.getAccountId())) {
+					return partnership.getSecondaryOrg();
+				}
+				return partnership.getPrimaryOrg();
+			}
+			if (partnership.getSecondaryOrg() != null) {
+				return partnership.getSecondaryOrg();
+			}
+			if (partnership.getPrimaryOrg() != null
+					&& !partnership.getPrimaryOrg().getAccountId().equals(buyerOrg.getAccountId())) {
+				return partnership.getPrimaryOrg();
+			}
+		}
+		if (supplier.getSupplierOrgAccountId() != null) {
+			return accountRepo.findByAccountId(supplier.getSupplierOrgAccountId()).orElse(null);
+		}
+		return null;
+	}
+
 	@Override
-	public ResponseEntity<?> getPurchaseOrderById(Long id) {
-		Long orgId = OrganizationContextHolder.requireOrganizationId();
+	public ResponseEntity<?> getPurchaseOrderById(Long id) {		Long orgId = OrganizationContextHolder.requireOrganizationId();
 		PurchaseOrder po = purchaseOrderRepo.findByPurchaseOrderIdAndBuyerOrgAccountId(id, orgId)
 				.orElseThrow(() -> new ResourceNotFoundException("PurchaseOrder", "purchaseOrderId", id));
 		return new ResponseEntity<>(modelMapper.map(po, PurchaseOrderDto.class), HttpStatus.OK);

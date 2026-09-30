@@ -541,4 +541,63 @@ public class CoreLogisticsController {
 			@RequestHeader("X-Organization-ID") String org) {
 		return logisticsService.getLogisticsDashboard(auth, org);
 	}
+
+	// Partnership Invitations (mirrors retailer invitation routes, same core URLs)
+	@LogActivity("Create Partnership Invitation for Logistics")
+	@PostMapping("/partnership-invitations/create")
+	public ResponseEntity<?> createPartnershipInvitation(@RequestBody Map<String, Object> invitationDto,
+			@RequestHeader("Authorization") String auth, @RequestHeader("X-Organization-ID") String org) {
+		return logisticsService.createPartnershipInvitation(invitationDto, auth, org);
+	}
+
+	@LogActivity("Respond to Partnership Invitation for Logistics")
+	@PutMapping("/partnership-invitations/{id}/respond")
+	public ResponseEntity<?> respondToPartnershipInvitation(@PathVariable Long id,
+			@RequestBody Map<String, Object> responseDto, @RequestHeader("Authorization") String auth,
+			@RequestHeader("X-Organization-ID") String org) {
+		return logisticsService.respondToPartnershipInvitation(id, responseDto, auth, org);
+	}
+
+	@LogActivity("Get Partnership Invitation for Logistics")
+	@GetMapping("/partnership-invitations/{id}")
+	public ResponseEntity<?> getPartnershipInvitation(@PathVariable Long id,
+			@RequestHeader("Authorization") String auth, @RequestHeader("X-Organization-ID") String org) {
+		return logisticsService.getPartnershipInvitation(id, auth, org);
+	}
+
+	@LogActivity("Get Sent Partnership Invitations for Logistics")
+	@GetMapping("/partnership-invitations/sent")
+	public ResponseEntity<?> getSentPartnershipInvitations(@RequestHeader("Authorization") String auth,
+			@RequestHeader("X-Organization-ID") String org, @PageableDefault(size = 20) Pageable p) {
+		return logisticsService.getSentPartnershipInvitations(auth, org, p);
+	}
+
+	@LogActivity("Get Received Partnership Invitations for Logistics")
+	@GetMapping("/partnership-invitations/received")
+	public ResponseEntity<?> getReceivedPartnershipInvitations(@RequestHeader("Authorization") String auth,
+			@RequestHeader("X-Organization-ID") String org, @PageableDefault(size = 20) Pageable p) {
+		return logisticsService.getReceivedPartnershipInvitations(auth, org, p);
+	}
+
+	@LogActivity("Get Pending Partnership Invitations for Logistics")
+	@GetMapping("/partnership-invitations/pending")
+	public ResponseEntity<?> getPendingPartnershipInvitations(@RequestHeader("Authorization") String auth,
+			@RequestHeader("X-Organization-ID") String org, @PageableDefault(size = 20) Pageable p) {
+		return logisticsService.getPendingPartnershipInvitations(auth, org, p);
+	}
+
+	@LogActivity("Withdraw Partnership Invitation for Logistics")
+	@PutMapping("/partnership-invitations/{id}/withdraw")
+	public ResponseEntity<?> withdrawPartnershipInvitation(@PathVariable Long id,
+			@RequestHeader("Authorization") String auth, @RequestHeader("X-Organization-ID") String org) {
+		return logisticsService.withdrawPartnershipInvitation(id, auth, org);
+	}
+
+	// Logistics shipment list (Core GET /core/shipments/by-logistics-org)
+	@LogActivity("Get My Shipments via IAM")
+	@GetMapping("/shipments/mine")
+	public ResponseEntity<?> getMyShipments(@RequestHeader("Authorization") String auth,
+			@RequestHeader("X-Organization-ID") String org, @PageableDefault(size = 20) Pageable p) {
+		return logisticsService.getMyShipments(auth, org, p);
+	}
 }

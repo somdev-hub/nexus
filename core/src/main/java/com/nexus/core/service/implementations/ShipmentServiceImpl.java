@@ -19,17 +19,18 @@ import com.nexus.core.dto.ShipmentDto;
 import com.nexus.core.dto.ShipmentStopDto;
 import com.nexus.core.dto.TrackingEventDto;
 import com.nexus.core.dto.ShipmentDocumentDto;
-import com.nexus.core.model.entities.Shipment;
 import com.nexus.core.model.entities.ShipmentDocument;
-import com.nexus.core.model.enums.ShipmentDocumentType;
+import com.nexus.core.model.entities.Shipment;import com.nexus.core.model.enums.ShipmentDocumentType;
 import com.nexus.core.model.enums.ShipmentMode;
 import com.nexus.core.model.enums.ShipmentStatus;
 import com.nexus.core.model.entities.ShipmentStop;
 import com.nexus.core.model.enums.StopStatus;
 import com.nexus.core.model.entities.TrackingEvent;
 import com.nexus.core.repository.ShipmentDocumentRepo;
+import com.nexus.core.repository.AccountRepo;
 import com.nexus.core.repository.ShipmentRepo;
 import com.nexus.core.repository.ShipmentStopRepo;
+import com.nexus.core.security.OrganizationContextHolder;
 import com.nexus.core.repository.TrackingEventRepo;
 import com.nexus.core.service.interfaces.ShipmentService;
 
@@ -45,6 +46,7 @@ public class ShipmentServiceImpl implements ShipmentService {
     private final ShipmentStopRepo shipmentStopRepo;
     private final TrackingEventRepo trackingEventRepo;
     private final ShipmentDocumentRepo shipmentDocumentRepo;
+    private final AccountRepo accountRepo;
     private final ModelMapper modelMapper;
 
     @Override
@@ -57,6 +59,18 @@ public class ShipmentServiceImpl implements ShipmentService {
         shipment.setUpdatedAt(new Timestamp(System.currentTimeMillis()));
         if (shipment.getShipmentNumber() == null || shipment.getShipmentNumber().isBlank()) {
             shipment.setShipmentNumber(generateShipmentNumber());
+        }
+        // Bookable by a logistics partner: bind the logistics org when supplied
+        // (missing Account tolerated by leaving logisticsOrg null).
+        if (shipmentDto.getLogisticsOrgId() != null) {
+            shipment.setLogisticsOrg(
+                    accountRepo.findByAccountId(shipmentDto.getLogisticsOrgId()).orElse(null));
+        }
+        // Booking: a shipment carrying a logistics org leaves DRAFT as BOOKED.
+        // DRAFT -> BOOKED is a permitted edge in ALLOWED_TRANSITIONS below.
+        // Partner-less shipments keep the default DRAFT behavior.
+        if (shipment.getLogisticsOrg() != null && shipment.getStatus() == ShipmentStatus.DRAFT) {
+            shipment.setStatus(ShipmentStatus.BOOKED);
         }
         Shipment saved = shipmentRepo.save(shipment);
         return modelMapper.map(saved, ShipmentDto.class);
@@ -270,6 +284,14 @@ public class ShipmentServiceImpl implements ShipmentService {
         if (currency != null) shipment.setCurrency(currency.getCurrencyCode());
         shipment.setUpdatedAt(new Timestamp(System.currentTimeMillis()));
         return modelMapper.map(shipmentRepo.save(shipment), ShipmentDto.class);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<ShipmentDto> getShipmentsByLogisticsOrg(Pageable pageable) {
+        Long orgId = OrganizationContextHolder.requireOrganizationId();
+        return shipmentRepo.findByLogisticsOrgAccountId(orgId, pageable)
+                .map(s -> modelMapper.map(s, ShipmentDto.class));
     }
 
     @Override
