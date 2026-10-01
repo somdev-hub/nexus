@@ -319,6 +319,11 @@ public class CoreSupplierServiceImpl implements CoreSupplierService {
 	}
 
 	@Override
+	public ResponseEntity<?> deleteQuotation(Long id, String authToken, String orgId) {
+		return callDelete(webConstants.getCoreSupplierQuotationGetUrl() + "/" + id, authToken, orgId);
+	}
+
+	@Override
 	public ResponseEntity<?> getQuotationSummary(String authToken, String orgId) {
 		return callGet(webConstants.getCoreSupplierQuotationSummaryUrl(), authToken, orgId);
 	}
@@ -347,6 +352,12 @@ public class CoreSupplierServiceImpl implements CoreSupplierService {
 	@Override
 	public ResponseEntity<?> deleteForecast(Long id, String authToken, String orgId) {
 		return callDelete(webConstants.getCoreSupplierForecastGetUrl() + "/" + id, authToken, orgId);
+	}
+
+	@Override
+	public ResponseEntity<?> transitionForecast(Long id, String newStatus, String authToken, String orgId) {
+		String url = webConstants.getCoreSupplierForecastGetUrl() + "/" + id + "/status?newStatus=" + newStatus;
+		return callPut(url, null, authToken, orgId);
 	}
 
 	// Customer Portal
@@ -401,6 +412,22 @@ public class CoreSupplierServiceImpl implements CoreSupplierService {
 		return callGet(webConstants.getCoreSupplierConsignmentSummaryUrl(), authToken, orgId);
 	}
 
+	@Override
+	public ResponseEntity<?> adjustConsignment(Long id, Double quantity, String reason, String authToken,
+			String orgId) {
+		UriComponentsBuilder b = UriComponentsBuilder
+				.fromUriString(webConstants.getCoreSupplierConsignmentGetUrl() + "/" + id + "/adjust")
+				.queryParam("quantity", quantity);
+		if (reason != null)
+			b.queryParam("reason", reason);
+		return callPost(b.toUriString(), null, authToken, orgId);
+	}
+
+	@Override
+	public ResponseEntity<?> deleteConsignment(Long id, String authToken, String orgId) {
+		return callDelete(webConstants.getCoreSupplierConsignmentGetUrl() + "/" + id, authToken, orgId);
+	}
+
 	// VMI
 	@Override
 	public ResponseEntity<?> createVmi(Map<String, Object> dto, String authToken, String orgId) {
@@ -420,6 +447,21 @@ public class CoreSupplierServiceImpl implements CoreSupplierService {
 	@Override
 	public ResponseEntity<?> getVmiSuggestions(String authToken, String orgId) {
 		return callGet(webConstants.getCoreSupplierVmiSuggestionsUrl(), authToken, orgId);
+	}
+
+	@Override
+	public ResponseEntity<?> updateVmi(Long id, Map<String, Object> dto, String authToken, String orgId) {
+		return callPut(webConstants.getCoreSupplierVmiGetUrl() + "/" + id + "/update", dto, authToken, orgId);
+	}
+
+	@Override
+	public ResponseEntity<?> deleteVmi(Long id, String authToken, String orgId) {
+		return callDelete(webConstants.getCoreSupplierVmiGetUrl() + "/" + id, authToken, orgId);
+	}
+
+	@Override
+	public ResponseEntity<?> triggerVmiReplenish(Long id, String authToken, String orgId) {
+		return callPost(webConstants.getCoreSupplierVmiGetUrl() + "/" + id + "/replenish", null, authToken, orgId);
 	}
 
 	// Analytics
@@ -470,6 +512,25 @@ public class CoreSupplierServiceImpl implements CoreSupplierService {
 	public ResponseEntity<?> withdrawPartnershipInvitation(Long id, String authToken, String orgId) {
 		String url = webConstants.getCorePartnershipInvitationWithdrawUrl() + "/" + id + "/withdraw";
 		return callPut(url, null, authToken, orgId);
+	}
+
+	// ASN / POD passthroughs (Core P1)
+	@Override
+	public ResponseEntity<?> getAsnByPurchaseOrder(Long poId, String authToken, String orgId) {
+		String url = webConstants.getCoreServiceUrl() + "/core/asn/purchase-order/" + poId;
+		return callGet(url, authToken, orgId);
+	}
+
+	@Override
+	public ResponseEntity<?> getShipmentPod(Long shipmentId, String authToken, String orgId) {
+		String url = webConstants.getCoreShipmentBaseUrl() + "/" + shipmentId + "/pod";
+		return callGet(url, authToken, orgId);
+	}
+
+	@Override
+	public ResponseEntity<?> getAllPartnerships(String authToken, String orgId, Pageable pageable) {
+		String url = buildPaginatedUrl(webConstants.getCorePartnershipMineUrl(), pageable);
+		return callGet(url, authToken, orgId);
 	}
 
 	private ResponseEntity<?> callGet(String url, String authToken, String orgId) {

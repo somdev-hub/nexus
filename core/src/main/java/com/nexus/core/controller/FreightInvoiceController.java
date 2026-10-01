@@ -87,6 +87,18 @@ public class FreightInvoiceController {
         return freightInvoiceService.getFreightInvoiceSummary();
     }
 
+    @GetMapping("/by-logistics-org")
+    @LogActivity("Get Freight Invoices by Logistics Org")
+    public ResponseEntity<?> getByLogisticsOrg(@PageableDefault(size = 20) Pageable pageable) {
+        return freightInvoiceService.getByLogisticsOrg(pageable);
+    }
+
+    @GetMapping("/shipment/{shipmentId}")
+    @LogActivity("Get Freight Invoices by Shipment")
+    public ResponseEntity<?> getByShipment(@PathVariable Long shipmentId) {
+        return freightInvoiceService.getByShipment(shipmentId);
+    }
+
     @PostMapping("/{id}/handoff-pms")
     @LogActivity("Handoff Freight Invoice to PMS")
     public ResponseEntity<?> handoffToPms(@PathVariable Long id) {

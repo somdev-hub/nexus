@@ -17,11 +17,13 @@ import org.springframework.transaction.annotation.Transactional;
 import com.nexus.core.exception.ResourceNotFoundException;
 import com.nexus.core.exception.ValidationException;
 import com.nexus.core.model.entities.Account;
+import com.nexus.core.model.entities.AdvanceShipmentNotice;
 import com.nexus.core.model.entities.PurchaseOrder;
 import com.nexus.core.model.entities.Shipment;
 import com.nexus.core.model.enums.PurchaseOrderStatus;
 import com.nexus.core.model.enums.ShipmentStatus;
 import com.nexus.core.repository.AccountRepository;
+import com.nexus.core.repository.AdvanceShipmentNoticeRepo;
 import com.nexus.core.repository.PurchaseOrderRepo;
 import com.nexus.core.repository.ShipmentRepo;
 import com.nexus.core.security.OrganizationContextHolder;
@@ -37,6 +39,7 @@ public class SupplierOrderServiceImpl implements SupplierOrderService {
 
     private final PurchaseOrderRepo poRepo;
     private final ShipmentRepo shipmentRepo;
+    private final AdvanceShipmentNoticeRepo asnRepo;
     private final AccountRepository accountRepo;
     private final ModelMapper modelMapper;
 
@@ -52,21 +55,21 @@ public class SupplierOrderServiceImpl implements SupplierOrderService {
     @Transactional(readOnly = true)
     public ResponseEntity<?> getAllOrders(String status, String poNumber, Long buyerOrgId, Pageable pageable) {
         Long orgId = OrganizationContextHolder.requireOrganizationId();
-        // supplierOrg query - fallback to partnership or supplierOrg field
-        List<PurchaseOrder> all = poRepo.findAll().stream()
-                .filter(po -> isSupplierOrder(po, orgId))
-                .filter(po -> status == null || po.getStatus().name().equalsIgnoreCase(status))
-                .filter(po -> poNumber == null || (po.getPoNumber() != null && po.getPoNumber().toLowerCase().contains(poNumber.toLowerCase())))
-                .filter(po -> buyerOrgId == null || (po.getBuyerOrg() != null && po.getBuyerOrg().getAccountId().equals(buyerOrgId)))
-                .collect(Collectors.toList());
-
-        // manual pagination
-        int start = (int) pageable.getOffset();
-        int end = Math.min(start + pageable.getPageSize(), all.size());
-        List<com.nexus.core.payload.PurchaseOrderDto> dtos = all.subList(Math.min(start, all.size()), end).stream()
+        PurchaseOrderStatus st = null;
+        if (status != null && !status.isBlank()) {
+            try {
+                st = PurchaseOrderStatus.valueOf(status.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                // Preserve legacy behavior: unknown status matches nothing -> empty page (200).
+                return ResponseEntity.ok(new org.springframework.data.domain.PageImpl<>(List.of(), pageable, 0));
+            }
+        }
+        String poNum = poNumber;
+        var page = poRepo.findSupplierVisibleOrders(orgId, st, poNum, buyerOrgId, pageable);
+        var dtos = page.getContent().stream()
                 .map(po -> modelMapper.map(po, com.nexus.core.payload.PurchaseOrderDto.class))
                 .collect(Collectors.toList());
-        return ResponseEntity.ok(new org.springframework.data.domain.PageImpl<>(dtos, pageable, all.size()));
+        return ResponseEntity.ok(new org.springframework.data.domain.PageImpl<>(dtos, pageable, page.getTotalElements()));
     }
 
     @Override
@@ -152,6 +155,17 @@ public class SupplierOrderServiceImpl implements SupplierOrderService {
 
         Shipment saved = shipmentRepo.save(shipment);
 
+        // counterparty-visible trade document: auto-create ASN row for this partial shipment
+        AdvanceShipmentNotice asn = new AdvanceShipmentNotice();
+        asn.setAsnNumber("ASN-" + System.currentTimeMillis());
+        asn.setPurchaseOrder(po);
+        asn.setBuyerOrg(buyerOrg);
+        asn.setSupplierOrg(supplierOrg);
+        asn.setShipmentId(saved.getShipmentId());
+        asn.setStatus("SENT");
+        if (shipmentDto.containsKey("notes") && shipmentDto.get("notes") != null) asn.setNotes(shipmentDto.get("notes").toString());
+        asnRepo.save(asn);
+
         // update PO status to PARTIALLY_RECEIVED if backordered >0 else RECEIVED
         if (backordered > 0) po.setStatus(PurchaseOrderStatus.PARTIALLY_RECEIVED);
         else po.setStatus(PurchaseOrderStatus.RECEIVED);
@@ -171,37 +185,26 @@ public class SupplierOrderServiceImpl implements SupplierOrderService {
     public ResponseEntity<?> getPartialShipments(Long purchaseOrderId, Pageable pageable) {
         Long orgId = OrganizationContextHolder.requireOrganizationId();
         PurchaseOrder po = findSupplierOrder(purchaseOrderId, orgId);
-        List<Shipment> shipments = shipmentRepo.findAll().stream()
-                .filter(s -> s.getPurchaseOrder() != null && s.getPurchaseOrder().getPurchaseOrderId().equals(po.getPurchaseOrderId()))
-                .filter(s -> Boolean.TRUE.equals(s.getIsPartialShipment()))
-                .collect(Collectors.toList());
-        int start = (int) pageable.getOffset();
-        int end = Math.min(start + pageable.getPageSize(), shipments.size());
-        List<Shipment> pageContent = shipments.subList(Math.min(start, shipments.size()), end);
-        return ResponseEntity.ok(new org.springframework.data.domain.PageImpl<>(pageContent, pageable, shipments.size()));
+        var page = shipmentRepo.findByPurchaseOrderPurchaseOrderIdAndIsPartialShipmentTrue(po.getPurchaseOrderId(), pageable);
+        return ResponseEntity.ok(new org.springframework.data.domain.PageImpl<>(page.getContent(), pageable, page.getTotalElements()));
     }
 
     @Override
     @Transactional(readOnly = true)
     public ResponseEntity<?> getBackorderedOrders(Pageable pageable) {
         Long orgId = OrganizationContextHolder.requireOrganizationId();
-        List<PurchaseOrder> backordered = poRepo.findAll().stream()
-                .filter(po -> isSupplierOrder(po, orgId))
-                .filter(po -> po.getStatus() == PurchaseOrderStatus.PARTIALLY_RECEIVED)
-                .collect(Collectors.toList());
-        int start = (int) pageable.getOffset();
-        int end = Math.min(start + pageable.getPageSize(), backordered.size());
-        List<com.nexus.core.payload.PurchaseOrderDto> dtos = backordered.subList(Math.min(start, backordered.size()), end).stream()
+        var page = poRepo.findSupplierVisibleOrders(orgId, PurchaseOrderStatus.PARTIALLY_RECEIVED, null, null, pageable);
+        List<com.nexus.core.payload.PurchaseOrderDto> dtos = page.getContent().stream()
                 .map(po -> modelMapper.map(po, com.nexus.core.payload.PurchaseOrderDto.class))
                 .collect(Collectors.toList());
-        return ResponseEntity.ok(new org.springframework.data.domain.PageImpl<>(dtos, pageable, backordered.size()));
+        return ResponseEntity.ok(new org.springframework.data.domain.PageImpl<>(dtos, pageable, page.getTotalElements()));
     }
 
     @Override
     @Transactional(readOnly = true)
     public ResponseEntity<?> getOrderSummary() {
         Long orgId = OrganizationContextHolder.requireOrganizationId();
-        List<PurchaseOrder> orders = poRepo.findAll().stream().filter(po -> isSupplierOrder(po, orgId)).collect(Collectors.toList());
+        List<PurchaseOrder> orders = poRepo.findSupplierVisibleOrdersList(orgId);
         long total = orders.size();
         long pending = orders.stream().filter(po -> po.getStatus() == PurchaseOrderStatus.SENT_TO_SUPPLIER).count();
         long acknowledged = orders.stream().filter(po -> po.getStatus() == PurchaseOrderStatus.ACKNOWLEDGED).count();
@@ -211,14 +214,12 @@ public class SupplierOrderServiceImpl implements SupplierOrderService {
     }
 
     private PurchaseOrder findSupplierOrder(Long id, Long orgId) {
-        PurchaseOrder po = poRepo.findById(id)
+        return poRepo.findSupplierVisibleOrderById(id, orgId)
                 .orElseThrow(() -> new ResourceNotFoundException("PurchaseOrder", "purchaseOrderId", id));
-        if (!isSupplierOrder(po, orgId)) {
-            throw new ResourceNotFoundException("PurchaseOrder", "purchaseOrderId", id);
-        }
-        return po;
     }
 
+    // Kept for reference / fallback parity checks; live reads use the scoped
+    // PurchaseOrderRepo.findSupplierVisible* JPQL above expressing the same predicate.
     private boolean isSupplierOrder(PurchaseOrder po, Long orgId) {
         if (po.getSupplierOrg() != null && po.getSupplierOrg().getAccountId().equals(orgId)) return true;
         if (po.getPartnership() != null && po.getPartnership().getSecondaryOrg() != null && po.getPartnership().getSecondaryOrg().getAccountId().equals(orgId)) return true;

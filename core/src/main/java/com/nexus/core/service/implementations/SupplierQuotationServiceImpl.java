@@ -284,14 +284,39 @@ public class SupplierQuotationServiceImpl implements SupplierQuotationService {
 
     @Override
     @Transactional(readOnly = true)
-    public ResponseEntity<?> getSummary() {
-        Long orgId = OrganizationContextHolder.requireOrganizationId();
+    public ResponseEntity<?> getSummary() {        Long orgId = OrganizationContextHolder.requireOrganizationId();
         var all = quotationRepo.findByOrgWithFilters(orgId, null, null, null, null, null, org.springframework.data.domain.Pageable.unpaged()).getContent();
         long draft = all.stream().filter(q -> q.getStatus() == SupplierQuotation.QuotationStatus.DRAFT).count();
         long sent = all.stream().filter(q -> q.getStatus() == SupplierQuotation.QuotationStatus.SENT).count();
         long accepted = all.stream().filter(q -> q.getStatus() == SupplierQuotation.QuotationStatus.ACCEPTED).count();
         long converted = all.stream().filter(q -> q.getStatus() == SupplierQuotation.QuotationStatus.CONVERTED).count();
         return ResponseEntity.ok(Map.of("total", all.size(), "draft", draft, "sent", sent, "accepted", accepted, "converted", converted));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ResponseEntity<?> getByBuyer(Pageable pageable) {
+        Long orgId = OrganizationContextHolder.requireOrganizationId();
+        var page = quotationRepo.findByBuyerOrgAccountId(orgId, pageable);
+        return ResponseEntity.ok(page.map(this::mapToDto));
+    }
+
+    @Override
+    @Transactional
+    public ResponseEntity<?> acceptAsBuyer(Long id) {
+        Long orgId = OrganizationContextHolder.requireOrganizationId();
+        SupplierQuotation q = quotationRepo.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("SupplierQuotation", "quotationId", id));
+        if (q.getBuyerOrg() == null || !q.getBuyerOrg().getAccountId().equals(orgId)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("error", "Only the buyer organization can accept quotation " + id));
+        }
+        if (q.getStatus() != SupplierQuotation.QuotationStatus.SENT) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "Only SENT quotations can be accepted. Current: " + q.getStatus()));
+        }
+        q.setStatus(SupplierQuotation.QuotationStatus.ACCEPTED);
+        return ResponseEntity.ok(mapToDto(quotationRepo.save(q)));
     }
 
     private SupplierQuotationDto mapToDto(SupplierQuotation q) {

@@ -167,11 +167,18 @@ public class ShipmentServiceImpl implements ShipmentService {
         Shipment shipment = shipmentRepo.findById(shipmentId).orElseThrow();
         ShipmentStop stop = modelMapper.map(stopDto, ShipmentStop.class);
         stop.setShipment(shipment);
-        stop.setStopStatus(StopStatus.PENDING);
+        // Bridge DTO naming (sequenceNumber/status) to entity naming (stopSequence/stopStatus);
+        // ModelMapper cannot map these by convention.
+        if (stopDto.getSequenceNumber() != null) {
+            stop.setStopSequence(stopDto.getSequenceNumber());
+        } else {
+            stop.setStopSequence(nextStopSequence(shipmentId));
+        }
+        stop.setStopStatus(stopDto.getStatus() != null ? stopDto.getStatus() : StopStatus.PENDING);
         stop.setCreatedAt(new Timestamp(System.currentTimeMillis()));
         stop.setUpdatedAt(new Timestamp(System.currentTimeMillis()));
         ShipmentStop saved = shipmentStopRepo.save(stop);
-        return modelMapper.map(saved, ShipmentStopDto.class);
+        return toShipmentStopDto(saved);
     }
 
     @Override
@@ -180,8 +187,10 @@ public class ShipmentServiceImpl implements ShipmentService {
         ShipmentStop existing = shipmentStopRepo.findById(stopId).orElseThrow();
         modelMapper.map(stopDto, existing);
         existing.setStopId(stopId);
+        if (stopDto.getSequenceNumber() != null) existing.setStopSequence(stopDto.getSequenceNumber());
+        if (stopDto.getStatus() != null) existing.setStopStatus(stopDto.getStatus());
         existing.setUpdatedAt(new Timestamp(System.currentTimeMillis()));
-        return modelMapper.map(shipmentStopRepo.save(existing), ShipmentStopDto.class);
+        return toShipmentStopDto(shipmentStopRepo.save(existing));
     }
 
     @Override
@@ -194,7 +203,13 @@ public class ShipmentServiceImpl implements ShipmentService {
     @Transactional(readOnly = true)
     public List<ShipmentStopDto> getStopsByShipment(Long shipmentId) {
         var page = shipmentStopRepo.findByShipmentShipmentId(shipmentId, Pageable.unpaged());
-        return page.getContent().stream().map(stop -> modelMapper.map(stop, ShipmentStopDto.class)).collect(Collectors.toList());
+        return page.getContent().stream()
+                .sorted((a, b) -> {
+                    if (a.getStopSequence() == null) return 1;
+                    if (b.getStopSequence() == null) return -1;
+                    return a.getStopSequence().compareTo(b.getStopSequence());
+                })
+                .map(this::toShipmentStopDto).collect(Collectors.toList());
     }
 
     @Override
@@ -207,7 +222,7 @@ public class ShipmentServiceImpl implements ShipmentService {
         String notes = stop.getNotes() != null ? stop.getNotes() + "\n" : "";
         stop.setNotes(notes + "Status changed: " + oldStatus + " -> " + newStatus + " (" + reason + ")");
         stop.setUpdatedAt(new Timestamp(System.currentTimeMillis()));
-        return modelMapper.map(shipmentStopRepo.save(stop), ShipmentStopDto.class);
+        return toShipmentStopDto(shipmentStopRepo.save(stop));
     }
 
     @Override
@@ -352,5 +367,24 @@ public class ShipmentServiceImpl implements ShipmentService {
 
     private String generateShipmentNumber() {
         return "SHP-" + System.currentTimeMillis();
+    }
+
+    private ShipmentStopDto toShipmentStopDto(ShipmentStop stop) {
+        ShipmentStopDto dto = modelMapper.map(stop, ShipmentStopDto.class);
+        dto.setSequenceNumber(stop.getStopSequence());
+        dto.setStatus(stop.getStopStatus());
+        if (dto.getShipmentId() == null && stop.getShipment() != null) {
+            dto.setShipmentId(stop.getShipment().getShipmentId());
+        }
+        return dto;
+    }
+
+    private Integer nextStopSequence(Long shipmentId) {
+        return shipmentStopRepo.findByShipmentShipmentId(shipmentId, Pageable.unpaged()).getContent().stream()
+                .map(ShipmentStop::getStopSequence)
+                .filter(java.util.Objects::nonNull)
+                .max(Integer::compareTo)
+                .map(max -> max + 1)
+                .orElse(1);
     }
 }

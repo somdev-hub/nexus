@@ -7,6 +7,9 @@ import lombok.Data;
 
 @Data
 public class PartnershipDto {
+	// Primary key — clients need it to reference a specific partnership.
+	private Long partnershipId;
+
 	@NotNull(message = "Primary organization is required")
 	private Long primaryOrg;
 

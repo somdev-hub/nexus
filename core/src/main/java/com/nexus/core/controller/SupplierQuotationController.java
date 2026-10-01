@@ -89,4 +89,16 @@ public class SupplierQuotationController {
     public ResponseEntity<?> getSummary() {
         return quotationService.getSummary();
     }
+
+    @GetMapping("/by-buyer")
+    @LogActivity("Get Quotations by Buyer")
+    public ResponseEntity<?> getByBuyer(@PageableDefault(size = 20) Pageable pageable) {
+        return quotationService.getByBuyer(pageable);
+    }
+
+    @PutMapping("/{id}/accept")
+    @LogActivity("Accept Quotation as Buyer")
+    public ResponseEntity<?> acceptAsBuyer(@PathVariable Long id) {
+        return quotationService.acceptAsBuyer(id);
+    }
 }

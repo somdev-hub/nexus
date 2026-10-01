@@ -13,6 +13,8 @@ public interface PartnershipService {
 
 	public ResponseEntity<?> getAllPartnershipsByOrgId(Long orgId, Pageable pageable);
 
+	public ResponseEntity<?> getMyPartnerships(Long orgId, Pageable pageable);
+
 	public ResponseEntity<?> updatePartnershipStatus(Long id, Long orgId,
 			com.nexus.core.model.enums.PartnershipStatus newStatus);
 

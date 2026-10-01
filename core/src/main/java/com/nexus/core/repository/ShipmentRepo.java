@@ -86,4 +86,19 @@ public interface ShipmentRepo extends JpaRepository<Shipment, Long> {
 			Pageable pageable);
 
 	java.util.List<Shipment> findByAssignedAssetIdAndLogisticsOrgAccountId(Long assetId, Long orgId);
+
+	Page<Shipment> findByPurchaseOrderPurchaseOrderIdAndIsPartialShipmentTrue(Long purchaseOrderId, Pageable pageable);
+
+	@Query("""
+			SELECT s FROM Shipment s
+			WHERE s.supplierOrg.accountId = :orgId
+			AND (:buyerOrgId IS NULL OR s.retailerOrg.accountId = :buyerOrgId)
+			AND (:status IS NULL OR s.status = :status)
+			""")
+	Page<Shipment> findSupplierVisibleShipments(@Param("orgId") Long orgId,
+			@Param("buyerOrgId") Long buyerOrgId,
+			@Param("status") ShipmentStatus status, Pageable pageable);
+
+	@Query("SELECT s FROM Shipment s WHERE s.supplierOrg.accountId = :orgId")
+	java.util.List<Shipment> findSupplierShipmentsList(@Param("orgId") Long orgId);
 }

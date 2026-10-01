@@ -12,16 +12,17 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 import com.nexus.core.exception.ResourceNotFoundException;
+import com.nexus.core.exception.ValidationException;
 import com.nexus.core.model.entities.Account;
 import com.nexus.core.model.entities.PartnershipInvitation;
 import com.nexus.core.model.enums.PartnershipInvitationStatus;
 import com.nexus.core.model.enums.PartnershipStatus;
 import com.nexus.core.payload.PartnershipDto;
 import com.nexus.core.payload.PartnershipInvitationDto;
-import com.nexus.core.repository.AccountRepo;
 import com.nexus.core.repository.PartnershipInvitationRepo;
 import com.nexus.core.repository.SupplierRepository;
 import com.nexus.core.security.OrganizationContextHolder;
+import com.nexus.core.service.interfaces.AccountDirectory;
 import com.nexus.core.service.interfaces.PartnershipInvitationService;
 import com.nexus.core.service.interfaces.PartnershipService;
 
@@ -32,7 +33,7 @@ import lombok.RequiredArgsConstructor;
 public class PartnershipInvitationServiceImpl implements PartnershipInvitationService {
 
 	private final PartnershipInvitationRepo invitationRepo;
-	private final AccountRepo accountRepo;
+	private final AccountDirectory accountDirectory;
 	private final SupplierRepository supplierRepo;
 	private final ModelMapper modelMapper;
 	private final PartnershipService partnershipService;
@@ -43,16 +44,26 @@ public class PartnershipInvitationServiceImpl implements PartnershipInvitationSe
 
 		PartnershipInvitation invitation = modelMapper.map(invitationDto, PartnershipInvitation.class);
 
-		// Set inviting organization from context
-		Account invitingOrg = accountRepo.findById(orgId)
-				.orElseThrow(() -> new ResourceNotFoundException("Account", "accountId", orgId));
+		// Set inviting organization from context. Lazily provision the Core
+		// Account row: a freshly registered org may not have touched Core yet.
+		Account invitingOrg = accountDirectory.getOrCreateAccount(orgId);
 		invitation.setInvitingOrg(invitingOrg);
 
 		if (invitationDto.getInvitedOrg() != null) {
-			Account invitedOrg = accountRepo.findById(invitationDto.getInvitedOrg())
-					.orElseThrow(
-							() -> new ResourceNotFoundException("Account", "accountId", invitationDto.getInvitedOrg()));
+			// Same lazy provisioning for the counterparty: inviting an org
+			// that exists in IAM but has never used Core must not 404.
+			Account invitedOrg = accountDirectory.getOrCreateAccount(invitationDto.getInvitedOrg());
 			invitation.setInvitedOrg(invitedOrg);
+		}
+
+		// One pending invitation per counterparty: resending while the
+		// previous invite is still undecided is rejected so the button state
+		// ("disabled until accepted or rejected") holds server-side too.
+		if (invitation.getInvitedOrg() != null && invitationRepo
+				.existsByInvitingOrgAccountIdAndInvitedOrgAccountIdAndStatus(orgId,
+						invitation.getInvitedOrg().getAccountId(), PartnershipInvitationStatus.PENDING)) {
+			throw new ValidationException(
+					"An invitation to this organization is already pending");
 		}
 
 		// Set default status and timestamps
@@ -61,8 +72,23 @@ public class PartnershipInvitationServiceImpl implements PartnershipInvitationSe
 		invitation.setExpiresAt(Timestamp.valueOf(LocalDateTime.now().plusDays(30)));
 
 		PartnershipInvitation savedInvitation = invitationRepo.save(invitation);
-		return new ResponseEntity<>(modelMapper.map(savedInvitation, PartnershipInvitationDto.class),
-				HttpStatus.CREATED);
+		return new ResponseEntity<>(toDto(savedInvitation), HttpStatus.CREATED);
+	}
+
+	/**
+	 * ModelMapper cannot convert Account relations to the Long ids on the DTO,
+	 * so it silently leaves invitingOrg/invitedOrg null. Map scalar fields
+	 * with ModelMapper, then stamp the org ids explicitly.
+	 */
+	private PartnershipInvitationDto toDto(PartnershipInvitation invitation) {
+		PartnershipInvitationDto dto = modelMapper.map(invitation, PartnershipInvitationDto.class);
+		if (invitation.getInvitingOrg() != null) {
+			dto.setInvitingOrg(invitation.getInvitingOrg().getAccountId());
+		}
+		if (invitation.getInvitedOrg() != null) {
+			dto.setInvitedOrg(invitation.getInvitedOrg().getAccountId());
+		}
+		return dto;
 	}
 
 	@Override
@@ -116,7 +142,7 @@ public class PartnershipInvitationServiceImpl implements PartnershipInvitationSe
 			partnershipService.addPartnership(partnershipDto);
 		}
 
-		return new ResponseEntity<>(modelMapper.map(updatedInvitation, PartnershipInvitationDto.class), HttpStatus.OK);
+		return new ResponseEntity<>(toDto(updatedInvitation), HttpStatus.OK);
 	}
 
 	@Override
@@ -132,37 +158,28 @@ public class PartnershipInvitationServiceImpl implements PartnershipInvitationSe
 		PartnershipInvitation invitation = invitationOpt
 				.orElseThrow(() -> new ResourceNotFoundException("PartnershipInvitation", "invitationId", id));
 
-		return new ResponseEntity<>(modelMapper.map(invitation, PartnershipInvitationDto.class), HttpStatus.OK);
+		return new ResponseEntity<>(toDto(invitation), HttpStatus.OK);
 	}
 
 	@Override
 	public ResponseEntity<?> getInvitationsByInvitingOrg(Pageable pageable) {
 		Long orgId = OrganizationContextHolder.requireOrganizationId();
 		Page<PartnershipInvitation> invitations = invitationRepo.findByInvitingOrgAccountId(orgId, pageable);
-		List<PartnershipInvitationDto> invitationDtos = invitations.stream()
-				.map(invitation -> modelMapper.map(invitation, PartnershipInvitationDto.class))
-				.toList();
-		return new ResponseEntity<>(invitationDtos, HttpStatus.OK);
+		return new ResponseEntity<>(invitations.map(this::toDto), HttpStatus.OK);
 	}
 
 	@Override
 	public ResponseEntity<?> getInvitationsByInvitedOrg(Pageable pageable) {
 		Long orgId = OrganizationContextHolder.requireOrganizationId();
 		Page<PartnershipInvitation> invitations = invitationRepo.findByInvitedOrgAccountId(orgId, pageable);
-		List<PartnershipInvitationDto> invitationDtos = invitations.stream()
-				.map(invitation -> modelMapper.map(invitation, PartnershipInvitationDto.class))
-				.toList();
-		return new ResponseEntity<>(invitationDtos, HttpStatus.OK);
+		return new ResponseEntity<>(invitations.map(this::toDto), HttpStatus.OK);
 	}
 
 	@Override
 	public ResponseEntity<?> getPendingInvitationsForOrg(Pageable pageable) {
 		Long orgId = OrganizationContextHolder.requireOrganizationId();
 		Page<PartnershipInvitation> invitations = invitationRepo.findPendingInvitationsForOrg(orgId, pageable);
-		List<PartnershipInvitationDto> invitationDtos = invitations.stream()
-				.map(invitation -> modelMapper.map(invitation, PartnershipInvitationDto.class))
-				.toList();
-		return new ResponseEntity<>(invitationDtos, HttpStatus.OK);
+		return new ResponseEntity<>(invitations.map(this::toDto), HttpStatus.OK);
 	}
 
 	@Override
@@ -179,6 +196,6 @@ public class PartnershipInvitationServiceImpl implements PartnershipInvitationSe
 		invitation.setStatus(PartnershipInvitationStatus.WITHDRAWN);
 		invitationRepo.save(invitation);
 
-		return new ResponseEntity<>(modelMapper.map(invitation, PartnershipInvitationDto.class), HttpStatus.OK);
+		return new ResponseEntity<>(toDto(invitation), HttpStatus.OK);
 	}
 }

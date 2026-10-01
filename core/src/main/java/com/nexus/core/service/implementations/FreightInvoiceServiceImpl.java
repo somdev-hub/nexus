@@ -24,6 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.sql.Date;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -118,6 +119,35 @@ public class FreightInvoiceServiceImpl implements FreightInvoiceService {
                 issuedStart, issuedEnd, dueStart, dueEnd, pmsStatus, pageable);
         Page<FreightInvoiceDto> dtoPage = page.map(this::mapToDto);
         return ResponseEntity.ok(dtoPage);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ResponseEntity<?> getByLogisticsOrg(Pageable pageable) {
+        Long orgId = OrganizationContextHolder.requireOrganizationId();
+        Page<FreightInvoice> page = freightInvoiceRepo.findByLogisticsOrgAccountId(orgId, pageable);
+        return ResponseEntity.ok(page.map(this::mapToDto));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ResponseEntity<?> getByShipment(Long shipmentId) {
+        Long orgId = OrganizationContextHolder.requireOrganizationId();
+        Shipment shipment = shipmentRepo.findById(shipmentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Shipment", "shipmentId", shipmentId));
+        if (!isShipmentCounterparty(shipment, orgId)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("error", "Not authorized for shipment " + shipmentId));
+        }
+        List<FreightInvoiceDto> dtos = freightInvoiceRepo.findByShipmentShipmentId(shipmentId)
+                .stream().map(this::mapToDto).toList();
+        return ResponseEntity.ok(dtos);
+    }
+
+    private boolean isShipmentCounterparty(Shipment shipment, Long orgId) {
+        return (shipment.getRetailerOrg() != null && shipment.getRetailerOrg().getAccountId().equals(orgId))
+                || (shipment.getSupplierOrg() != null && shipment.getSupplierOrg().getAccountId().equals(orgId))
+                || (shipment.getLogisticsOrg() != null && shipment.getLogisticsOrg().getAccountId().equals(orgId));
     }
 
     @Override

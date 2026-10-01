@@ -3,6 +3,7 @@ package com.nexus.core.service.implementations;
 import java.io.IOException;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
+import java.util.List;
 
 import org.modelmapper.ModelMapper;
 import org.springframework.data.domain.Page;
@@ -74,6 +75,33 @@ public class PartnershipServiceImpl implements PartnershipService {
 		Page<PartnershipDto> partnershipDtos = partnerships
 				.map(partnership -> modelMapper.map(partnership, PartnershipDto.class));
 		return new ResponseEntity<>(partnershipDtos, HttpStatus.OK);
+	}
+
+	@Override
+	public ResponseEntity<?> getMyPartnerships(Long orgId, Pageable pageable) {
+		// Both sides of a partnership: primary (usually the inviter) and
+		// secondary (usually the invited supplier/logistics org). Readers
+		// like suppliers would otherwise see an empty list.
+		List<Partnership> primary = partnershipRepo.findByPrimaryOrgAccountId(orgId, Pageable.unpaged())
+				.getContent();
+		List<Partnership> secondary = partnershipRepo.findBySecondaryOrgAccountId(orgId, Pageable.unpaged())
+				.getContent();
+		List<PartnershipDto> all = new java.util.ArrayList<>(primary.size() + secondary.size());
+		for (Partnership p : primary) {
+			all.add(modelMapper.map(p, PartnershipDto.class));
+		}
+		for (Partnership p : secondary) {
+			all.add(modelMapper.map(p, PartnershipDto.class));
+		}
+		all.sort((a, b) -> Long.compare(
+				b.getPartnershipId() == null ? 0L : b.getPartnershipId(),
+				a.getPartnershipId() == null ? 0L : a.getPartnershipId()));
+		int total = all.size();
+		int start = (int) Math.min(pageable.getOffset(), total);
+		int end = Math.min(start + pageable.getPageSize(), total);
+		List<PartnershipDto> content = all.subList(start, end);
+		return new ResponseEntity<>(
+				new org.springframework.data.domain.PageImpl<>(content, pageable, total), HttpStatus.OK);
 	}
 
 	@Override

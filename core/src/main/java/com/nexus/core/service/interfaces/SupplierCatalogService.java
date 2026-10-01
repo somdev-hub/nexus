@@ -22,4 +22,6 @@ public interface SupplierCatalogService {
     ResponseEntity<?> deleteCatalog(Long id);
 
     ResponseEntity<?> getSummary();
+
+    ResponseEntity<?> browseCatalogs(String search, String category, String family, Long supplierOrgId, Pageable pageable);
 }

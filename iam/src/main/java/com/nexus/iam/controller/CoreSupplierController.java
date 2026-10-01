@@ -206,6 +206,20 @@ public class CoreSupplierController {
 		return supplierService.getCapacitySummary(auth, org);
 	}
 
+	@LogActivity("Update Capacity via IAM")
+	@PutMapping("/capacity/{id}/update")
+	public ResponseEntity<?> updateCap(@PathVariable Long id, @RequestBody Map<String, Object> dto,
+			@RequestHeader("Authorization") String auth, @RequestHeader("X-Organization-ID") String org) {
+		return supplierService.updateCapacity(id, dto, auth, org);
+	}
+
+	@LogActivity("Delete Capacity via IAM")
+	@DeleteMapping("/capacity/{id}")
+	public ResponseEntity<?> deleteCap(@PathVariable Long id, @RequestHeader("Authorization") String auth,
+			@RequestHeader("X-Organization-ID") String org) {
+		return supplierService.deleteCapacity(id, auth, org);
+	}
+
 	// ATP
 	@LogActivity("Get ATP via IAM")
 	@GetMapping("/atp/catalog/{catalogId}")
@@ -339,6 +353,13 @@ public class CoreSupplierController {
 		return supplierService.convertQuotation(id, auth, org);
 	}
 
+	@LogActivity("Delete Quotation via IAM")
+	@DeleteMapping("/quotations/{id}")
+	public ResponseEntity<?> deleteQ(@PathVariable Long id, @RequestHeader("Authorization") String auth,
+			@RequestHeader("X-Organization-ID") String org) {
+		return supplierService.deleteQuotation(id, auth, org);
+	}
+
 	@LogActivity("Get Quotation Summary via IAM")
 	@GetMapping("/quotations/summary")
 	public ResponseEntity<?> qSummary(@RequestHeader("Authorization") String auth,
@@ -373,6 +394,20 @@ public class CoreSupplierController {
 	public ResponseEntity<?> delF(@PathVariable Long id, @RequestHeader("Authorization") String auth,
 			@RequestHeader("X-Organization-ID") String org) {
 		return supplierService.deleteForecast(id, auth, org);
+	}
+
+	@LogActivity("Update Forecast via IAM")
+	@PutMapping("/forecasts/{id}/update")
+	public ResponseEntity<?> updateF(@PathVariable Long id, @RequestBody Map<String, Object> dto,
+			@RequestHeader("Authorization") String auth, @RequestHeader("X-Organization-ID") String org) {
+		return supplierService.updateForecast(id, dto, auth, org);
+	}
+
+	@LogActivity("Transition Forecast via IAM")
+	@PutMapping("/forecasts/{id}/status")
+	public ResponseEntity<?> transitionF(@PathVariable Long id, @RequestParam String newStatus,
+			@RequestHeader("Authorization") String auth, @RequestHeader("X-Organization-ID") String org) {
+		return supplierService.transitionForecast(id, newStatus, auth, org);
 	}
 
 	// Customer Portal
@@ -442,6 +477,21 @@ public class CoreSupplierController {
 		return supplierService.getConsignmentSummary(auth, org);
 	}
 
+	@LogActivity("Adjust Consignment via IAM")
+	@PostMapping("/consignment/{id}/adjust")
+	public ResponseEntity<?> adjustCons(@PathVariable Long id, @RequestParam Double quantity,
+			@RequestParam(required = false) String reason, @RequestHeader("Authorization") String auth,
+			@RequestHeader("X-Organization-ID") String org) {
+		return supplierService.adjustConsignment(id, quantity, reason, auth, org);
+	}
+
+	@LogActivity("Delete Consignment via IAM")
+	@DeleteMapping("/consignment/{id}")
+	public ResponseEntity<?> deleteCons(@PathVariable Long id, @RequestHeader("Authorization") String auth,
+			@RequestHeader("X-Organization-ID") String org) {
+		return supplierService.deleteConsignment(id, auth, org);
+	}
+
 	// VMI
 	@LogActivity("Create VMI via IAM")
 	@PostMapping("/vmi/create")
@@ -469,6 +519,27 @@ public class CoreSupplierController {
 	public ResponseEntity<?> vmiSug(@RequestHeader("Authorization") String auth,
 			@RequestHeader("X-Organization-ID") String org) {
 		return supplierService.getVmiSuggestions(auth, org);
+	}
+
+	@LogActivity("Update VMI via IAM")
+	@PutMapping("/vmi/{id}/update")
+	public ResponseEntity<?> updateVmi(@PathVariable Long id, @RequestBody Map<String, Object> dto,
+			@RequestHeader("Authorization") String auth, @RequestHeader("X-Organization-ID") String org) {
+		return supplierService.updateVmi(id, dto, auth, org);
+	}
+
+	@LogActivity("Delete VMI via IAM")
+	@DeleteMapping("/vmi/{id}")
+	public ResponseEntity<?> deleteVmi(@PathVariable Long id, @RequestHeader("Authorization") String auth,
+			@RequestHeader("X-Organization-ID") String org) {
+		return supplierService.deleteVmi(id, auth, org);
+	}
+
+	@LogActivity("Trigger VMI Replenishment via IAM")
+	@PostMapping("/vmi/{id}/replenish")
+	public ResponseEntity<?> replenishVmi(@PathVariable Long id, @RequestHeader("Authorization") String auth,
+			@RequestHeader("X-Organization-ID") String org) {
+		return supplierService.triggerVmiReplenish(id, auth, org);
 	}
 
 	// Analytics
@@ -528,5 +599,28 @@ public class CoreSupplierController {
 	public ResponseEntity<?> withdrawPartnershipInvitation(@PathVariable Long id,
 			@RequestHeader("Authorization") String auth, @RequestHeader("X-Organization-ID") String org) {
 		return supplierService.withdrawPartnershipInvitation(id, auth, org);
+	}
+
+	// ASN / POD passthroughs (Core P1)
+	@LogActivity("Get ASN by Purchase Order for Supplier")
+	@GetMapping("/asn/purchase-order/{poId}")
+	public ResponseEntity<?> getAsnByPurchaseOrder(@PathVariable Long poId,
+			@RequestHeader("Authorization") String auth, @RequestHeader("X-Organization-ID") String org) {
+		return supplierService.getAsnByPurchaseOrder(poId, auth, org);
+	}
+
+	@LogActivity("Get Shipment POD for Supplier")
+	@GetMapping("/shipments/{shipmentId}/pod")
+	public ResponseEntity<?> getShipmentPod(@PathVariable Long shipmentId,
+			@RequestHeader("Authorization") String auth, @RequestHeader("X-Organization-ID") String org) {
+		return supplierService.getShipmentPod(shipmentId, auth, org);
+	}
+
+	@LogActivity("Get All Partnerships for Supplier")
+	@GetMapping("/partnerships/all")
+	public ResponseEntity<?> getAllPartnerships(@RequestHeader("Authorization") String auth,
+			@RequestHeader("X-Organization-ID") String org,
+			@PageableDefault(size = 20) Pageable pageable) {
+		return supplierService.getAllPartnerships(auth, org, pageable);
 	}
 }

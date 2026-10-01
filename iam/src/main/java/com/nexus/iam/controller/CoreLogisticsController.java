@@ -600,4 +600,26 @@ public class CoreLogisticsController {
 			@RequestHeader("X-Organization-ID") String org, @PageableDefault(size = 20) Pageable p) {
 		return logisticsService.getMyShipments(auth, org, p);
 	}
+
+	@LogActivity("Get All Partnerships for Logistics")
+	@GetMapping("/partnerships/all")
+	public ResponseEntity<?> getAllPartnerships(@RequestHeader("Authorization") String auth,
+			@RequestHeader("X-Organization-ID") String org, @PageableDefault(size = 20) Pageable p) {
+		return logisticsService.getAllPartnerships(auth, org, p);
+	}
+
+	// Freight invoice passthroughs (Core P1)
+	@LogActivity("Get Freight Invoices by Logistics Org via IAM")
+	@GetMapping("/freight-invoices/all")
+	public ResponseEntity<?> getFreightInvoicesByLogisticsOrg(@RequestHeader("Authorization") String auth,
+			@RequestHeader("X-Organization-ID") String org, @PageableDefault(size = 20) Pageable p) {
+		return logisticsService.getFreightInvoicesByLogisticsOrg(auth, org, p);
+	}
+
+	@LogActivity("Get Freight Invoices by Shipment via IAM")
+	@GetMapping("/freight-invoices/shipment/{shipmentId}")
+	public ResponseEntity<?> getFreightInvoicesByShipment(@PathVariable Long shipmentId,
+			@RequestHeader("Authorization") String auth, @RequestHeader("X-Organization-ID") String org) {
+		return logisticsService.getFreightInvoicesByShipment(shipmentId, auth, org);
+	}
 }

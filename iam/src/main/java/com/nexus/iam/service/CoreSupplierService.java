@@ -69,6 +69,7 @@ public interface CoreSupplierService {
     ResponseEntity<?> getAllQuotations(String authToken, String orgId, Pageable pageable, String status, Long buyerOrgId, String quotationNumber);
     ResponseEntity<?> transitionQuotation(Long id, String newStatus, Map<String, Object> params, String authToken, String orgId);
     ResponseEntity<?> convertQuotation(Long id, String authToken, String orgId);
+    ResponseEntity<?> deleteQuotation(Long id, String authToken, String orgId);
     ResponseEntity<?> getQuotationSummary(String authToken, String orgId);
 
     // Forecast
@@ -76,6 +77,7 @@ public interface CoreSupplierService {
     ResponseEntity<?> getForecast(Long id, String authToken, String orgId);
     ResponseEntity<?> getAllForecasts(String authToken, String orgId, Pageable pageable);
     ResponseEntity<?> updateForecast(Long id, Map<String, Object> dto, String authToken, String orgId);
+    ResponseEntity<?> transitionForecast(Long id, String newStatus, String authToken, String orgId);
     ResponseEntity<?> deleteForecast(Long id, String authToken, String orgId);
 
     // Customer Portal
@@ -91,12 +93,17 @@ public interface CoreSupplierService {
     ResponseEntity<?> createConsignment(Map<String, Object> dto, String authToken, String orgId);
     ResponseEntity<?> getConsignment(Long id, String authToken, String orgId);
     ResponseEntity<?> getAllConsignments(String authToken, String orgId, Pageable pageable);
+    ResponseEntity<?> adjustConsignment(Long id, Double quantity, String reason, String authToken, String orgId);
+    ResponseEntity<?> deleteConsignment(Long id, String authToken, String orgId);
     ResponseEntity<?> getConsignmentSummary(String authToken, String orgId);
 
     // VMI
     ResponseEntity<?> createVmi(Map<String, Object> dto, String authToken, String orgId);
     ResponseEntity<?> getVmi(Long id, String authToken, String orgId);
     ResponseEntity<?> getAllVmi(String authToken, String orgId, Pageable pageable);
+    ResponseEntity<?> updateVmi(Long id, Map<String, Object> dto, String authToken, String orgId);
+    ResponseEntity<?> deleteVmi(Long id, String authToken, String orgId);
+    ResponseEntity<?> triggerVmiReplenish(Long id, String authToken, String orgId);
     ResponseEntity<?> getVmiSuggestions(String authToken, String orgId);
 
     // Analytics
@@ -110,4 +117,11 @@ public interface CoreSupplierService {
     ResponseEntity<?> getReceivedPartnershipInvitations(String authToken, String orgId, Pageable pageable);
     ResponseEntity<?> getPendingPartnershipInvitations(String authToken, String orgId, Pageable pageable);
     ResponseEntity<?> withdrawPartnershipInvitation(Long id, String authToken, String orgId);
+
+    // ASN / POD passthroughs (Core P1)
+    ResponseEntity<?> getAsnByPurchaseOrder(Long poId, String authToken, String orgId);
+    ResponseEntity<?> getShipmentPod(Long shipmentId, String authToken, String orgId);
+
+    // Partnerships visible to this org (primary OR secondary side)
+    ResponseEntity<?> getAllPartnerships(String authToken, String orgId, Pageable pageable);
 }

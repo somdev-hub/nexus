@@ -31,4 +31,22 @@ public interface InvoiceRepo extends JpaRepository<Invoice, Long> {
 	Invoice findByInvoiceIdAndPurchaseOrderBuyerOrgId(@Param("id") Long id, @Param("orgId") Long orgId);
 
 	boolean existsByInvoiceNumber(String invoiceNumber);
+
+	// Invoices visible to a supplier org via the linked purchase order's supplier scope
+	// (same visibility predicate as PurchaseOrderRepo.findSupplierVisibleOrders).
+	@Query("""
+			SELECT i FROM Invoice i JOIN i.purchaseOrder po
+			LEFT JOIN po.supplierOrg so LEFT JOIN po.partnership p
+			LEFT JOIN p.secondaryOrg sec LEFT JOIN p.primaryOrg pri
+			LEFT JOIN po.buyerOrg b
+			WHERE (so.accountId = :orgId
+				OR sec.accountId = :orgId
+				OR pri.accountId = :orgId
+				OR (po.supplierOrg IS NULL AND po.status = com.nexus.core.model.enums.PurchaseOrderStatus.SENT_TO_SUPPLIER))
+			AND (:buyerOrgId IS NULL OR b.accountId = :buyerOrgId)
+			AND (:status IS NULL OR i.status = :status)
+			""")
+	Page<Invoice> findSupplierVisibleInvoices(@Param("orgId") Long orgId,
+			@Param("buyerOrgId") Long buyerOrgId,
+			@Param("status") InvoiceStatus status, Pageable pageable);
 }

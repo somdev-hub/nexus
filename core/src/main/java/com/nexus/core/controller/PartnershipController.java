@@ -72,8 +72,7 @@ public class PartnershipController {
 	@GetMapping("/all")
 	@LogActivity("Get All Partnerships")
 	public ResponseEntity<?> getAllPartnerships(@RequestHeader("Authorization") String token,
-			@PageableDefault(size = 20) Pageable pageable) {
-		if (!commonUtils.validateToken(token)) {
+			@PageableDefault(size = 20) Pageable pageable) {		if (!commonUtils.validateToken(token)) {
 			throw new InvalidCredentialsException();
 		}
 
@@ -84,6 +83,22 @@ public class PartnershipController {
 		}
 
 		return partnershipService.getAllPartnershipsByOrgId(orgId, pageable);
+	}
+
+	@GetMapping("/mine")
+	@LogActivity("Get My Partnerships")
+	public ResponseEntity<?> getMyPartnerships(@RequestHeader("Authorization") String token,
+			@PageableDefault(size = 20) Pageable pageable) {
+		if (!commonUtils.validateToken(token)) {
+			throw new InvalidCredentialsException();
+		}
+
+		Long orgId = getOrganizationIdFromContext();
+		if (orgId == null) {
+			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Organization context not found");
+		}
+
+		return partnershipService.getMyPartnerships(orgId, pageable);
 	}
 
 	@GetMapping("/status/{status}")

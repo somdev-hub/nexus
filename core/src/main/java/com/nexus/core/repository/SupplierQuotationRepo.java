@@ -14,6 +14,10 @@ public interface SupplierQuotationRepo extends JpaRepository<SupplierQuotation, 
 
     Optional<SupplierQuotation> findByQuotationNumberAndSupplierOrgAccountId(String quotationNumber, Long orgId);
 
+    Optional<SupplierQuotation> findByQuotationIdAndBuyerOrgAccountId(Long quotationId, Long orgId);
+
+    Page<SupplierQuotation> findByBuyerOrgAccountId(Long buyerOrgId, Pageable pageable);
+
     @Query("""
             SELECT q FROM SupplierQuotation q
             WHERE q.supplierOrg.accountId = :orgId

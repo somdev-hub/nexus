@@ -63,6 +63,20 @@ public class CoreRetailerController {
 		return coreRetailerService.getAllProducts(authToken, orgIdHeader, pageable);
 	}
 
+	@LogActivity("Browse Supplier Catalog for Retailer")
+	@GetMapping("/catalog/browse")
+	public ResponseEntity<?> browseSupplierCatalog(
+			@RequestParam(required = false) String search,
+			@RequestParam(required = false) String category,
+			@RequestParam(required = false) String family,
+			@RequestParam(required = false) Long supplierOrgId,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader,
+			@PageableDefault(size = 20) Pageable pageable) {
+		return coreRetailerService.browseSupplierCatalog(search, category, family, supplierOrgId, authToken,
+				orgIdHeader, pageable);
+	}
+
 	@LogActivity("Update Product for Retailer")
 	@PutMapping("/products/{id}/update")
 	public ResponseEntity<?> updateProduct(@PathVariable Long id,
@@ -1559,5 +1573,40 @@ public class CoreRetailerController {
 			@RequestHeader("Authorization") String authToken,
 			@RequestHeader("X-Organization-ID") String orgIdHeader) {
 		return coreRetailerService.getSupplyChainVisibility(purchaseOrderId, authToken, orgIdHeader);
+	}
+
+	// ============================================
+	// ASN / POD / Buyer Quotation passthroughs (Core P1)
+	// ============================================
+	@LogActivity("Get ASN by Purchase Order for Retailer")
+	@GetMapping("/asn/purchase-order/{poId}")
+	public ResponseEntity<?> getAsnByPurchaseOrder(@PathVariable Long poId,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.getAsnByPurchaseOrder(poId, authToken, orgIdHeader);
+	}
+
+	@LogActivity("Get Shipment POD for Retailer")
+	@GetMapping("/shipments/{id}/pod")
+	public ResponseEntity<?> getShipmentPod(@PathVariable Long id,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.getShipmentPod(id, authToken, orgIdHeader);
+	}
+
+	@LogActivity("Get Quotations by Buyer for Retailer")
+	@GetMapping("/quotations/all")
+	public ResponseEntity<?> getQuotationsByBuyer(@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader,
+			@PageableDefault(size = 20) Pageable pageable) {
+		return coreRetailerService.getQuotationsByBuyer(authToken, orgIdHeader, pageable);
+	}
+
+	@LogActivity("Accept Quotation for Retailer")
+	@PutMapping("/quotations/{id}/accept")
+	public ResponseEntity<?> acceptQuotation(@PathVariable Long id,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.acceptQuotation(id, authToken, orgIdHeader);
 	}
 }

@@ -7,6 +7,10 @@ import lombok.Data;
 
 @Data
 public class PartnershipInvitationDto {
+	// Primary key — must be present so clients can accept/reject/withdraw
+	// a specific invitation. (Its absence used to make the UI send NaN ids.)
+	private Long invitationId;
+
 	// Set server-side from OrganizationContextHolder in PartnershipInvitationService;
 	// must not be required from the client or @Valid rejects every create.
 	private Long invitingOrg;

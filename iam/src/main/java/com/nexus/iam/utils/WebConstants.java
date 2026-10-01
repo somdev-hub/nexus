@@ -260,6 +260,9 @@ public class WebConstants {
 	@Value("${core.product.all.url}")
 	private String coreProductAllUrl;
 
+	@Value("${core.catalog.browse.url}")
+	private String coreCatalogBrowseUrl;
+
 	@Value("${core.material.add.url}")
 	private String coreMaterialAddUrl;
 
@@ -295,6 +298,9 @@ public class WebConstants {
 
 	@Value("${core.partnership.all.url}")
 	private String corePartnershipAllUrl;
+
+	@Value("${core.partnership.mine.url}")
+	private String corePartnershipMineUrl;
 
 	@Value("${core.partnership.status.url}")
 	private String corePartnershipStatusUrl;

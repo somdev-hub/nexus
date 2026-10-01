@@ -424,6 +424,22 @@ public class CoreLogisticsServiceImpl implements CoreLogisticsService {
         return callGet(buildPaginatedUrl(webConstants.getCoreServiceUrl() + "/core/shipments/by-logistics-org", p), auth, org);
     }
 
+    @Override
+    public ResponseEntity<?> getAllPartnerships(String auth, String org, Pageable p) {
+        return callGet(buildPaginatedUrl(webConstants.getCorePartnershipMineUrl(), p), auth, org);
+    }
+
+    // Freight invoice passthroughs (Core P1)
+    @Override
+    public ResponseEntity<?> getFreightInvoicesByLogisticsOrg(String auth, String org, Pageable p) {
+        return callGet(buildPaginatedUrl(webConstants.getCoreFreightInvoiceBaseUrl() + "/by-logistics-org", p), auth, org);
+    }
+
+    @Override
+    public ResponseEntity<?> getFreightInvoicesByShipment(Long shipmentId, String auth, String org) {
+        return callGet(webConstants.getCoreFreightInvoiceBaseUrl() + "/shipment/" + shipmentId, auth, org);
+    }
+
     private ResponseEntity<?> callGet(String url, String authToken, String orgId) {
         Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
         headers.put("X-Organization-ID", orgId);

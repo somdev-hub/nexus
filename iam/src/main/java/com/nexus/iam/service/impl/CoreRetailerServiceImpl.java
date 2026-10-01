@@ -100,6 +100,21 @@ public class CoreRetailerServiceImpl implements CoreRetailerService {
 	}
 
 	@Override
+	public ResponseEntity<?> browseSupplierCatalog(String search, String category, String family, Long supplierOrgId,
+			String authToken, String orgIdHeader, Pageable pageable) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = buildPaginatedUrlWithFilters(webConstants.getCoreCatalogBrowseUrl(), pageable,
+				"search", search, "category", category, "family", family, "supplierOrgId", supplierOrgId);
+		return restService.iamRestCall(
+				url,
+				null,
+				headers,
+				HttpMethod.GET,
+				null);
+	}
+
+	@Override
 	public ResponseEntity<?> addMaterial(Map<String, Object> materialDto, String authToken, String orgIdHeader) {
 		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
 		headers.put("X-Organization-ID", orgIdHeader);
@@ -2364,6 +2379,41 @@ public class CoreRetailerServiceImpl implements CoreRetailerService {
 		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
 		headers.put("X-Organization-ID", orgIdHeader);
 		return restService.iamRestCall(webConstants.getCoreAnalyticsRetailerVisibilityUrl() + "/" + purchaseOrderId, null, headers, HttpMethod.GET, null);
+	}
+
+	// ============================================
+	// ASN / POD / Buyer Quotation passthroughs (Core P1)
+	// ============================================
+	@Override
+	public ResponseEntity<?> getAsnByPurchaseOrder(Long poId, String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCoreServiceUrl() + "/core/asn/purchase-order/" + poId;
+		return restService.iamRestCall(url, null, headers, HttpMethod.GET, null);
+	}
+
+	@Override
+	public ResponseEntity<?> getShipmentPod(Long id, String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCoreShipmentBaseUrl() + "/" + id + "/pod";
+		return restService.iamRestCall(url, null, headers, HttpMethod.GET, null);
+	}
+
+	@Override
+	public ResponseEntity<?> getQuotationsByBuyer(String authToken, String orgIdHeader, Pageable pageable) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = buildPaginatedUrl(webConstants.getCoreServiceUrl() + "/core/quotations/by-buyer", pageable);
+		return restService.iamRestCall(url, null, headers, HttpMethod.GET, null);
+	}
+
+	@Override
+	public ResponseEntity<?> acceptQuotation(Long id, String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCoreServiceUrl() + "/core/quotations/" + id + "/accept";
+		return restService.iamRestCall(url, null, headers, HttpMethod.PUT, null);
 	}
 
 	/**

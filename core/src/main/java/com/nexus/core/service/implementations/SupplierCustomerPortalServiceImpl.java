@@ -31,39 +31,39 @@ public class SupplierCustomerPortalServiceImpl implements SupplierCustomerPortal
     @Transactional(readOnly = true)
     public ResponseEntity<?> getCustomerOrders(Long buyerOrgId, String status, Pageable pageable) {
         Long orgId = OrganizationContextHolder.requireOrganizationId();
-        List<com.nexus.core.model.entities.PurchaseOrder> filtered = poRepo.findAll().stream()
-                .filter(po -> isSupplierOrder(po, orgId))
-                .filter(po -> buyerOrgId == null || (po.getBuyerOrg() != null && po.getBuyerOrg().getAccountId().equals(buyerOrgId)))
-                .filter(po -> status == null || po.getStatus().name().equalsIgnoreCase(status))
-                .collect(Collectors.toList());
-        return paginate(filtered.stream().map(po -> modelMapper.map(po, com.nexus.core.payload.PurchaseOrderDto.class)).collect(Collectors.toList()), pageable);
+        com.nexus.core.model.enums.PurchaseOrderStatus st = parsePoStatus(status);
+        if (status != null && !status.isBlank() && st == null) {
+            // Preserve legacy behavior: unknown status matches nothing -> empty page (200).
+            return paginate(List.of(), pageable, 0);
+        }
+        var page = poRepo.findSupplierVisibleOrders(orgId, st, null, buyerOrgId, pageable);
+        return paginate(page.getContent().stream().map(po -> modelMapper.map(po, com.nexus.core.payload.PurchaseOrderDto.class)).collect(Collectors.toList()), pageable, page.getTotalElements());
     }
 
     @Override
     @Transactional(readOnly = true)
     public ResponseEntity<?> getCustomerInvoices(Long buyerOrgId, String status, Pageable pageable) {
         Long orgId = OrganizationContextHolder.requireOrganizationId();
-        // invoices linked via purchase order
-        var pos = poRepo.findAll().stream().filter(po -> isSupplierOrder(po, orgId)).collect(Collectors.toList());
-        var poIds = pos.stream().map(com.nexus.core.model.entities.PurchaseOrder::getPurchaseOrderId).collect(Collectors.toSet());
-        List<com.nexus.core.model.entities.Invoice> invoices = invoiceRepo.findAll().stream()
-                .filter(inv -> inv.getPurchaseOrder() != null && poIds.contains(inv.getPurchaseOrder().getPurchaseOrderId()))
-                .filter(inv -> buyerOrgId == null || (inv.getPurchaseOrder().getBuyerOrg() != null && inv.getPurchaseOrder().getBuyerOrg().getAccountId().equals(buyerOrgId)))
-                .filter(inv -> status == null || inv.getStatus().name().equalsIgnoreCase(status))
-                .collect(Collectors.toList());
-        return paginate(invoices.stream().map(inv -> modelMapper.map(inv, com.nexus.core.payload.InvoiceDto.class)).collect(Collectors.toList()), pageable);
+        com.nexus.core.model.enums.InvoiceStatus st = parseInvoiceStatus(status);
+        if (status != null && !status.isBlank() && st == null) {
+            // Preserve legacy behavior: unknown status matches nothing -> empty page (200).
+            return paginate(List.of(), pageable, 0);
+        }
+        var page = invoiceRepo.findSupplierVisibleInvoices(orgId, buyerOrgId, st, pageable);
+        return paginate(page.getContent().stream().map(inv -> modelMapper.map(inv, com.nexus.core.payload.InvoiceDto.class)).collect(Collectors.toList()), pageable, page.getTotalElements());
     }
 
     @Override
     @Transactional(readOnly = true)
     public ResponseEntity<?> getCustomerShipments(Long buyerOrgId, String status, Pageable pageable) {
         Long orgId = OrganizationContextHolder.requireOrganizationId();
-        List<com.nexus.core.model.entities.Shipment> shipments = shipmentRepo.findAll().stream()
-                .filter(s -> s.getSupplierOrg() != null && s.getSupplierOrg().getAccountId().equals(orgId))
-                .filter(s -> buyerOrgId == null || (s.getRetailerOrg() != null && s.getRetailerOrg().getAccountId().equals(buyerOrgId)))
-                .filter(s -> status == null || s.getStatus().name().equalsIgnoreCase(status))
-                .collect(Collectors.toList());
-        return paginate(shipments, pageable);
+        com.nexus.core.model.enums.ShipmentStatus st = parseShipmentStatus(status);
+        if (status != null && !status.isBlank() && st == null) {
+            // Preserve legacy behavior: unknown status matches nothing -> empty page (200).
+            return paginate(List.of(), pageable, 0);
+        }
+        var page = shipmentRepo.findSupplierVisibleShipments(orgId, buyerOrgId, st, pageable);
+        return paginate(page.getContent(), pageable, page.getTotalElements());
     }
 
     @Override
@@ -77,18 +77,18 @@ public class SupplierCustomerPortalServiceImpl implements SupplierCustomerPortal
     @Transactional(readOnly = true)
     public ResponseEntity<?> getCustomerSummary(Long buyerOrgId) {
         Long orgId = OrganizationContextHolder.requireOrganizationId();
-        var orders = poRepo.findAll().stream().filter(po -> isSupplierOrder(po, orgId))
+        var orders = poRepo.findSupplierVisibleOrdersList(orgId).stream()
                 .filter(po -> buyerOrgId == null || (po.getBuyerOrg() != null && po.getBuyerOrg().getAccountId().equals(buyerOrgId)))
                 .collect(Collectors.toList());
         long totalOrders = orders.size();
         double totalValue = orders.stream().mapToDouble(po -> po.getTotalAmount() != null ? po.getTotalAmount() : 0).sum();
         long openOrders = orders.stream().filter(po -> po.getStatus() != com.nexus.core.model.enums.PurchaseOrderStatus.CANCELLED && po.getStatus() != com.nexus.core.model.enums.PurchaseOrderStatus.CLOSED && po.getStatus() != com.nexus.core.model.enums.PurchaseOrderStatus.PAID).count();
-        var invoices = invoiceRepo.findAll().stream()
-                .filter(inv -> inv.getPurchaseOrder() != null && orders.stream().anyMatch(po -> po.getPurchaseOrderId().equals(inv.getPurchaseOrder().getPurchaseOrderId())))
-                .collect(Collectors.toList());
-        long totalInvoices = invoices.size();
-        var shipments = shipmentRepo.findAll().stream().filter(s -> s.getSupplierOrg() != null && s.getSupplierOrg().getAccountId().equals(orgId)).collect(Collectors.toList());
-        long totalShipments = shipments.size();
+        // scoped invoice count via the same supplier-visibility JPQL (unfiltered, then narrowed to these orders)
+        var visibleInvoices = invoiceRepo.findSupplierVisibleInvoices(orgId, buyerOrgId, null, org.springframework.data.domain.Pageable.unpaged()).getContent();
+        long totalInvoices = visibleInvoices.size();
+        long totalShipments = shipmentRepo.findSupplierShipmentsList(orgId).stream()
+                .filter(s -> buyerOrgId == null || (s.getRetailerOrg() != null && s.getRetailerOrg().getAccountId().equals(buyerOrgId)))
+                .count();
         return ResponseEntity.ok(Map.of(
                 "totalOrders", totalOrders,
                 "totalOrderValue", totalValue,
@@ -99,6 +99,8 @@ public class SupplierCustomerPortalServiceImpl implements SupplierCustomerPortal
         ));
     }
 
+    // Kept for reference / fallback parity checks; live reads use the scoped
+    // PurchaseOrderRepo.findSupplierVisible* JPQL above expressing the same predicate.
     private boolean isSupplierOrder(com.nexus.core.model.entities.PurchaseOrder po, Long orgId) {
         if (po.getSupplierOrg() != null && po.getSupplierOrg().getAccountId().equals(orgId)) return true;
         if (po.getPartnership() != null && po.getPartnership().getSecondaryOrg() != null && po.getPartnership().getSecondaryOrg().getAccountId().equals(orgId)) return true;
@@ -108,10 +110,41 @@ public class SupplierCustomerPortalServiceImpl implements SupplierCustomerPortal
         return po.getSupplierOrg() == null && po.getStatus() == com.nexus.core.model.enums.PurchaseOrderStatus.SENT_TO_SUPPLIER;
     }
 
+    private <T> ResponseEntity<?> paginate(List<T> list, Pageable pageable, long total) {
+        return ResponseEntity.ok(new org.springframework.data.domain.PageImpl<>(list, pageable, total));
+    }
+
     private <T> ResponseEntity<?> paginate(List<T> list, Pageable pageable) {
         int start = (int) pageable.getOffset();
         int end = Math.min(start + pageable.getPageSize(), list.size());
         List<T> sub = list.subList(Math.min(start, list.size()), end);
         return ResponseEntity.ok(new org.springframework.data.domain.PageImpl<>(sub, pageable, list.size()));
+    }
+
+    private static com.nexus.core.model.enums.PurchaseOrderStatus parsePoStatus(String status) {
+        if (status == null || status.isBlank()) return null;
+        try {
+            return com.nexus.core.model.enums.PurchaseOrderStatus.valueOf(status.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+    }
+
+    private static com.nexus.core.model.enums.InvoiceStatus parseInvoiceStatus(String status) {
+        if (status == null || status.isBlank()) return null;
+        try {
+            return com.nexus.core.model.enums.InvoiceStatus.valueOf(status.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+    }
+
+    private static com.nexus.core.model.enums.ShipmentStatus parseShipmentStatus(String status) {
+        if (status == null || status.isBlank()) return null;
+        try {
+            return com.nexus.core.model.enums.ShipmentStatus.valueOf(status.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
     }
 }

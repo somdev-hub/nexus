@@ -36,4 +36,7 @@ public interface PartnershipInvitationRepo extends JpaRepository<PartnershipInvi
 
 	@Query("SELECT i FROM PartnershipInvitation i WHERE i.invitedOrg.accountId = :orgId AND i.status = 'PENDING' AND i.expiresAt > CURRENT_TIMESTAMP AND i.isActive = true")
 	Page<PartnershipInvitation> findPendingInvitationsForOrg(@Param("orgId") Long orgId, Pageable pageable);
+
+	boolean existsByInvitingOrgAccountIdAndInvitedOrgAccountIdAndStatus(Long invitingOrgId, Long invitedOrgId,
+			PartnershipInvitationStatus status);
 }

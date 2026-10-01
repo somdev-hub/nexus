@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.nexus.iam.annotation.LogActivity;
 import com.nexus.iam.dto.OrganizationDto;
+import com.nexus.iam.entities.OrgType;
 import com.nexus.iam.entities.Organization;
 import com.nexus.iam.entities.User;
 import com.nexus.iam.repository.UserRepository;
@@ -102,6 +103,21 @@ public class OrganizationController {
     public ResponseEntity<?> getAllOrganizations() {
         List<Organization> organizations = organizationService.getAllOrganizations();
         return ResponseEntity.ok(organizations);
+    }
+
+    @GetMapping("/directory")
+    public ResponseEntity<?> getOrganizationDirectory(@RequestParam String orgType,
+                                                      @RequestParam(required = false) String search) {
+        if (ObjectUtils.isEmpty(orgType)) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("orgType is required (RETAILER, SUPPLIER, LOGISTICS)");
+        }
+        final OrgType type;
+        try {
+            type = OrgType.valueOf(orgType.trim().toUpperCase());
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid orgType: " + orgType + " (RETAILER, SUPPLIER, LOGISTICS)");
+        }
+        return ResponseEntity.ok(organizationService.getOrganizationDirectory(type, search));
     }
 
     @LogActivity("Get Organization By Name")

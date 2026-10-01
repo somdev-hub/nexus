@@ -29,4 +29,8 @@ public interface SupplierQuotationService {
     ResponseEntity<?> deleteQuotation(Long id);
 
     ResponseEntity<?> getSummary();
+
+    ResponseEntity<?> getByBuyer(Pageable pageable);
+
+    ResponseEntity<?> acceptAsBuyer(Long id);
 }

@@ -5,10 +5,12 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nexus.iam.config.CacheConfig;
 import com.nexus.iam.dto.LoginResponse;
+import com.nexus.iam.dto.OrganizationDirectoryDto;
 import com.nexus.iam.dto.OrganizationDto;
 import com.nexus.iam.dto.OrganizationFetchDto;
 import com.nexus.iam.dto.response.*;
 import com.nexus.iam.entities.Department;
+import com.nexus.iam.entities.OrgType;
 import com.nexus.iam.entities.Organization;
 import com.nexus.iam.entities.Role;
 import com.nexus.iam.entities.User;
@@ -137,6 +139,16 @@ public class OrganizationServiceImpl implements OrganizationService {
 	@Override
 	public List<Organization> getAllOrganizations() {
 		return organizationRepository.findAll();
+	}
+
+	@Override
+	public List<OrganizationDirectoryDto> getOrganizationDirectory(OrgType orgType, String search) {
+		if (ObjectUtils.isEmpty(orgType)) {
+			throw new IllegalArgumentException("orgType is required (RETAILER, SUPPLIER, LOGISTICS)");
+		}
+		String normalizedSearch = (search == null || search.isBlank()) ? null : search.trim();
+		Pageable pageable = PageRequest.of(0, 200);
+		return organizationRepository.findDirectoryByOrgType(orgType, normalizedSearch, pageable);
 	}
 
 	@Override

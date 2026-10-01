@@ -103,4 +103,11 @@ public interface CoreLogisticsService {
 
     // Logistics shipment list (Core GET /core/shipments/by-logistics-org)
     ResponseEntity<?> getMyShipments(String auth, String org, Pageable p);
+
+    // Partnerships visible to this org (primary OR secondary side)
+    ResponseEntity<?> getAllPartnerships(String auth, String org, Pageable p);
+
+    // Freight invoice passthroughs (Core P1)
+    ResponseEntity<?> getFreightInvoicesByLogisticsOrg(String auth, String org, Pageable p);
+    ResponseEntity<?> getFreightInvoicesByShipment(Long shipmentId, String auth, String org);
 }

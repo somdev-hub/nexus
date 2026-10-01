@@ -1,7 +1,9 @@
 package com.nexus.iam.service;
 
+import com.nexus.iam.dto.OrganizationDirectoryDto;
 import com.nexus.iam.dto.OrganizationDto;
 import com.nexus.iam.dto.OrganizationFetchDto;
+import com.nexus.iam.entities.OrgType;
 import com.nexus.iam.entities.Organization;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -16,6 +18,8 @@ public interface OrganizationService {
     OrganizationFetchDto getOrganizationById(Long id);
 
     List<Organization> getAllOrganizations();
+
+    List<OrganizationDirectoryDto> getOrganizationDirectory(OrgType orgType, String search);
 
     OrganizationDto updateOrganization(Long id, OrganizationDto organizationDto);
 

@@ -45,4 +45,48 @@ public interface PurchaseOrderRepo extends JpaRepository<PurchaseOrder, Long> {
 	@Query("SELECT po FROM PurchaseOrder po WHERE po.buyerOrg.accountId = :orgId AND po.parentPoId = :parentPoId AND po.isBlanketOrder = false ORDER BY po.revisionNumber DESC")
 	List<PurchaseOrder> findByParentPoIdAndIsBlanketOrderFalse(@Param("orgId") Long orgId,
 			@Param("parentPoId") Long parentPoId);
+
+	// Scoped supplier visibility: supplierOrg == :orgId OR partnership.secondaryOrg == :orgId
+	// OR partnership.primaryOrg == :orgId OR (supplierOrg null AND status == SENT_TO_SUPPLIER).
+	// Mirrors SupplierOrderServiceImpl.isSupplierOrder including the fallback.
+	@Query("""
+			SELECT po FROM PurchaseOrder po
+			LEFT JOIN po.supplierOrg so LEFT JOIN po.partnership p
+			LEFT JOIN p.secondaryOrg sec LEFT JOIN p.primaryOrg pri
+			WHERE po.purchaseOrderId = :id
+			AND (so.accountId = :orgId
+				OR sec.accountId = :orgId
+				OR pri.accountId = :orgId
+				OR (po.supplierOrg IS NULL AND po.status = com.nexus.core.model.enums.PurchaseOrderStatus.SENT_TO_SUPPLIER))
+			""")
+	Optional<PurchaseOrder> findSupplierVisibleOrderById(@Param("id") Long id, @Param("orgId") Long orgId);
+
+	@Query("""
+			SELECT po FROM PurchaseOrder po
+			LEFT JOIN po.supplierOrg so LEFT JOIN po.partnership p
+			LEFT JOIN p.secondaryOrg sec LEFT JOIN p.primaryOrg pri
+			LEFT JOIN po.buyerOrg b
+			WHERE (so.accountId = :orgId
+				OR sec.accountId = :orgId
+				OR pri.accountId = :orgId
+				OR (po.supplierOrg IS NULL AND po.status = com.nexus.core.model.enums.PurchaseOrderStatus.SENT_TO_SUPPLIER))
+			AND (:status IS NULL OR po.status = :status)
+			AND (:poNumber IS NULL OR LOWER(po.poNumber) LIKE LOWER(CONCAT('%', :poNumber, '%')))
+			AND (:buyerOrgId IS NULL OR b.accountId = :buyerOrgId)
+			""")
+	Page<PurchaseOrder> findSupplierVisibleOrders(@Param("orgId") Long orgId,
+			@Param("status") PurchaseOrderStatus status,
+			@Param("poNumber") String poNumber,
+			@Param("buyerOrgId") Long buyerOrgId, Pageable pageable);
+
+	@Query("""
+			SELECT po FROM PurchaseOrder po
+			LEFT JOIN po.supplierOrg so LEFT JOIN po.partnership p
+			LEFT JOIN p.secondaryOrg sec LEFT JOIN p.primaryOrg pri
+			WHERE (so.accountId = :orgId
+				OR sec.accountId = :orgId
+				OR pri.accountId = :orgId
+				OR (po.supplierOrg IS NULL AND po.status = com.nexus.core.model.enums.PurchaseOrderStatus.SENT_TO_SUPPLIER))
+			""")
+	List<PurchaseOrder> findSupplierVisibleOrdersList(@Param("orgId") Long orgId);
 }

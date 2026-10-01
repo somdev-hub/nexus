@@ -24,6 +24,9 @@ public interface CoreRetailerService {
 
 	ResponseEntity<?> deleteProduct(Long id, String authToken, String orgIdHeader);
 
+	ResponseEntity<?> browseSupplierCatalog(String search, String category, String family, Long supplierOrgId,
+			String authToken, String orgIdHeader, Pageable pageable);
+
 	ResponseEntity<?> addMaterial(Map<String, Object> materialDto, String authToken, String orgIdHeader);
 
 	ResponseEntity<?> getMaterial(Long id, String authToken, String orgIdHeader);
@@ -427,4 +430,13 @@ public interface CoreRetailerService {
 	ResponseEntity<?> getRetailerSpendAnalytics(String groupBy, String period, String authToken, String orgIdHeader);
 
 	ResponseEntity<?> getSupplyChainVisibility(Long purchaseOrderId, String authToken, String orgIdHeader);
+
+	// ASN / POD / Buyer Quotation passthroughs (Core P1)
+	ResponseEntity<?> getAsnByPurchaseOrder(Long poId, String authToken, String orgIdHeader);
+
+	ResponseEntity<?> getShipmentPod(Long id, String authToken, String orgIdHeader);
+
+	ResponseEntity<?> getQuotationsByBuyer(String authToken, String orgIdHeader, Pageable pageable);
+
+	ResponseEntity<?> acceptQuotation(Long id, String authToken, String orgIdHeader);
 }

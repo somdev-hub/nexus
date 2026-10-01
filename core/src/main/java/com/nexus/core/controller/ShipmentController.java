@@ -21,9 +21,15 @@ import com.nexus.core.dto.ShipmentDocumentDto;
 import com.nexus.core.dto.ShipmentDto;
 import com.nexus.core.dto.ShipmentStopDto;
 import com.nexus.core.dto.TrackingEventDto;
+import com.nexus.core.exception.ResourceNotFoundException;
+import com.nexus.core.model.entities.Shipment;
 import com.nexus.core.model.enums.ShipmentMode;
 import com.nexus.core.model.enums.ShipmentStatus;
 import com.nexus.core.model.enums.StopStatus;
+import com.nexus.core.payload.ProofOfDeliveryDto;
+import com.nexus.core.repository.ProofOfDeliveryRepo;
+import com.nexus.core.repository.ShipmentRepo;
+import com.nexus.core.security.OrganizationContextHolder;
 import com.nexus.core.service.interfaces.ShipmentService;
 
 import jakarta.validation.Valid;
@@ -35,6 +41,9 @@ import lombok.RequiredArgsConstructor;
 public class ShipmentController {
 
 	private final ShipmentService shipmentService;
+	private final ShipmentRepo shipmentRepo;
+	private final ProofOfDeliveryRepo podRepo;
+	private final org.modelmapper.ModelMapper modelMapper;
 
 	@PostMapping("/create")
 	@LogActivity("Create Shipment")
@@ -140,9 +149,25 @@ public class ShipmentController {
 		return ResponseEntity.ok(shipmentService.updateStop(stopId, stopDto));
 	}
 
+	// Nested aliases matching the UI shipment-service.ts pattern
+	// (/{shipmentId}/stops/{stopId}); shipmentId is carried for route symmetry.
+	@PutMapping("/{shipmentId}/stops/{stopId}")
+	@LogActivity("Update Shipment Stop")
+	public ResponseEntity<?> updateStopNested(@PathVariable Long shipmentId, @PathVariable Long stopId,
+			@RequestBody ShipmentStopDto stopDto) {
+		return ResponseEntity.ok(shipmentService.updateStop(stopId, stopDto));
+	}
+
 	@DeleteMapping("/stops/{stopId}")
 	@LogActivity("Remove Shipment Stop")
 	public ResponseEntity<?> removeStop(@PathVariable Long stopId) {
+		shipmentService.removeStop(stopId);
+		return ResponseEntity.noContent().build();
+	}
+
+	@DeleteMapping("/{shipmentId}/stops/{stopId}")
+	@LogActivity("Remove Shipment Stop")
+	public ResponseEntity<?> removeStopNested(@PathVariable Long shipmentId, @PathVariable Long stopId) {
 		shipmentService.removeStop(stopId);
 		return ResponseEntity.noContent().build();
 	}
@@ -151,6 +176,19 @@ public class ShipmentController {
 	@PutMapping("/stops/{stopId}/status")
 	@LogActivity("Transition Shipment Stop Status")
 	public ResponseEntity<?> transitionStopStatus(@PathVariable Long stopId,
+			@RequestParam String newStatus,
+			@RequestBody(required = false) Map<String, Object> params) {
+		try {
+			StopStatus status = StopStatus.valueOf(newStatus.toUpperCase());
+			return ResponseEntity.ok(shipmentService.transitionStopStatus(stopId, status, params));
+		} catch (IllegalArgumentException e) {
+			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid stop status: " + newStatus);
+		}
+	}
+
+	@PutMapping("/{shipmentId}/stops/{stopId}/status")
+	@LogActivity("Transition Shipment Stop Status")
+	public ResponseEntity<?> transitionStopStatusNested(@PathVariable Long shipmentId, @PathVariable Long stopId,
 			@RequestParam String newStatus,
 			@RequestBody(required = false) Map<String, Object> params) {
 		try {
@@ -183,6 +221,30 @@ public class ShipmentController {
 			return ResponseEntity.ok(latest);
 		}
 		return ResponseEntity.notFound().build();
+	}
+
+	// Counterparty-visible POD read (scoped to retailer OR supplier OR logistics org)
+	@GetMapping("/{id}/pod")
+	@LogActivity("Get Shipment POD")
+	@org.springframework.transaction.annotation.Transactional(readOnly = true)
+	public ResponseEntity<?> getShipmentPod(@PathVariable Long id) {
+		Long orgId = OrganizationContextHolder.requireOrganizationId();
+		Shipment shipment = shipmentRepo.findById(id)
+				.orElseThrow(() -> new ResourceNotFoundException("Shipment", "shipmentId", id));
+		boolean allowed = (shipment.getRetailerOrg() != null && shipment.getRetailerOrg().getAccountId().equals(orgId))
+				|| (shipment.getSupplierOrg() != null && shipment.getSupplierOrg().getAccountId().equals(orgId))
+				|| (shipment.getLogisticsOrg() != null && shipment.getLogisticsOrg().getAccountId().equals(orgId));
+		if (!allowed) {
+			return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "Not authorized for shipment " + id));
+		}
+		var podOpt = podRepo.findByShipmentId(id);
+		if (podOpt.isEmpty()) {
+			return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "No POD found for shipment " + id));
+		}
+		var pod = podOpt.get();
+		ProofOfDeliveryDto dto = modelMapper.map(pod, ProofOfDeliveryDto.class);
+		if (pod.getShipment() != null) dto.setShipmentId(pod.getShipment().getShipmentId());
+		return ResponseEntity.ok(dto);
 	}
 
 	// Documents

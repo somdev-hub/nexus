@@ -14,6 +14,10 @@ public interface FreightInvoiceRepo extends JpaRepository<FreightInvoice, Long> 
 
     Optional<FreightInvoice> findByInvoiceNumberAndRetailerOrgAccountId(String invoiceNumber, Long orgId);
 
+    Page<FreightInvoice> findByLogisticsOrgAccountId(Long orgId, Pageable pageable);
+
+    java.util.List<FreightInvoice> findByShipmentShipmentId(Long shipmentId);
+
     @Query("""
             SELECT fi FROM FreightInvoice fi
             WHERE fi.retailerOrg.accountId = :orgId

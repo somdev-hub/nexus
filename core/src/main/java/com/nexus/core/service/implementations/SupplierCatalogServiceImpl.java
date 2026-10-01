@@ -6,6 +6,7 @@ import com.nexus.core.model.enums.CatalogStatus;
 import com.nexus.core.model.entities.SupplierCatalog;
 import com.nexus.core.exception.ResourceNotFoundException;
 import com.nexus.core.exception.ValidationException;
+import com.nexus.core.payload.CatalogBrowseDto;
 import com.nexus.core.payload.SupplierCatalogDto;
 import com.nexus.core.repository.AccountRepository;
 import com.nexus.core.repository.SupplierCatalogRepo;
@@ -15,7 +16,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -181,5 +184,84 @@ public class SupplierCatalogServiceImpl implements SupplierCatalogService {
         SupplierCatalogDto dto = modelMapper.map(c, SupplierCatalogDto.class);
         if (c.getSupplierOrg() != null) dto.setSupplierOrgId(c.getSupplierOrg().getAccountId());
         return dto;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ResponseEntity<?> browseCatalogs(String search, String category, String family, Long supplierOrgId, Pageable pageable) {
+        Long callerOrgId = OrganizationContextHolder.requireOrganizationId();
+        Pageable effective = pageable;
+        if (effective.getSort().isUnsorted()) {
+            effective = PageRequest.of(effective.getPageNumber(), effective.getPageSize(),
+                    Sort.by(Sort.Direction.DESC, "updatedAt"));
+        }
+        Page<SupplierCatalog> page = catalogRepo.findBrowseCandidates(
+                callerOrgId.toString(),
+                blankToNull(category),
+                blankToNull(family),
+                supplierOrgId,
+                blankToNull(search),
+                effective);
+        // Defensive second gate: re-verify allowlist in Java (exact token match).
+        // Agrees with the SQL-side gate, so this is normally a no-op; the total is
+        // adjusted in the pathological case where they diverge.
+        java.util.List<CatalogBrowseDto> dtos = page.getContent().stream()
+                .filter(c -> isVisibleToCaller(c, callerOrgId))
+                .map(c -> mapToBrowseDto(c, callerOrgId))
+                .toList();
+        long removed = page.getContent().size() - dtos.size();
+        Page<CatalogBrowseDto> dtoPage =
+                new org.springframework.data.domain.PageImpl<>(dtos, effective, page.getTotalElements() - removed);
+        return ResponseEntity.ok(dtoPage);
+    }
+
+    private CatalogBrowseDto mapToBrowseDto(SupplierCatalog c, Long callerOrgId) {
+        Long orgId = c.getSupplierOrg() != null ? c.getSupplierOrg().getAccountId() : null;
+        String orgName = c.getSupplierOrg() != null ? c.getSupplierOrg().getName() : null;
+        return CatalogBrowseDto.builder()
+                .catalogId(c.getCatalogId())
+                .name(c.getName())
+                .code(c.getCode())
+                .sku(c.getSku())
+                .description(c.getDescription())
+                .category(c.getCategory())
+                .family(c.getFamily())
+                .basePrice(c.getBasePrice())
+                .currency(c.getCurrency())
+                .status(c.getStatus())
+                .accessLevel(c.getAccessLevel())
+                .isPublished(c.getIsPublished())
+                .publishedAt(c.getPublishedAt())
+                .supplierOrgId(orgId)
+                .supplierOrgName(orgName)
+                .variantCount(c.getVariants() == null ? 0 : c.getVariants().size())
+                .priceTierCount(c.getPriceTiers() == null ? 0 : c.getPriceTiers().size())
+                .createdAt(c.getCreatedAt())
+                .updatedAt(c.getUpdatedAt())
+                .build();
+    }
+
+    /**
+     * Defensive allowlist check for PARTNER_ONLY items: exact token match against
+     * the comma-separated {@code allowedPartnerOrgIds} (trims entries, ignores
+     * blanks). Mirrors the SQL-side gate in
+     * {@link SupplierCatalogRepo#findBrowseCandidates}.
+     */
+    private boolean isVisibleToCaller(SupplierCatalog c, Long callerOrgId) {
+        if (c.getStatus() != CatalogStatus.PUBLISHED || !Boolean.TRUE.equals(c.getIsPublished())) return false;
+        if (c.getAccessLevel() == CatalogAccessLevel.PUBLIC) return true;
+        if (c.getAccessLevel() == CatalogAccessLevel.PARTNER_ONLY) {
+            String allowlist = c.getAllowedPartnerOrgIds();
+            if (allowlist == null || allowlist.isBlank() || callerOrgId == null) return false;
+            String caller = callerOrgId.toString();
+            for (String token : allowlist.split(",")) {
+                if (caller.equals(token.trim())) return true;
+            }
+        }
+        return false;
+    }
+
+    private static String blankToNull(String value) {
+        return (value == null || value.isBlank()) ? null : value;
     }
 }
