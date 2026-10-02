@@ -51,11 +51,17 @@ public interface CoreRetailerService {
 
 	ResponseEntity<?> getAllPartnerships(String authToken, String orgIdHeader, Pageable pageable);
 
+	ResponseEntity<?> getAllPartnerships(String authToken, String orgIdHeader, Pageable pageable,
+			String partnershipType);
+
 	ResponseEntity<?> getPartnershipsByStatus(String status, String authToken, String orgIdHeader, Pageable pageable);
 
 	ResponseEntity<?> getActivePartnerships(String authToken, String orgIdHeader, Pageable pageable);
 
 	ResponseEntity<?> updatePartnershipStatus(Long id, String status, String authToken, String orgIdHeader);
+
+	ResponseEntity<?> updatePartnership(Long id, Map<String, Object> partnershipDto, String authToken,
+			String orgIdHeader);
 
 	// Partnership Agreement with DMS Integration
 	ResponseEntity<?> uploadPartnershipAgreement(Long id, MultipartFile file, String documentName, String remarks,

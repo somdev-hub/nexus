@@ -608,6 +608,23 @@ public class CoreLogisticsController {
 		return logisticsService.getAllPartnerships(auth, org, p);
 	}
 
+	@LogActivity("Update Partnership for Logistics")
+	@PutMapping("/partnerships/{id}/update")
+	public ResponseEntity<?> updatePartnership(@PathVariable Long id,
+			@RequestBody Map<String, Object> partnershipDto,
+			@RequestHeader("Authorization") String auth, @RequestHeader("X-Organization-ID") String org) {
+		return logisticsService.updatePartnership(id, partnershipDto, auth, org);
+	}
+
+	@LogActivity("Update Partnership Status for Logistics")
+	@PostMapping("/partnerships/{id}/status")
+	public ResponseEntity<?> updatePartnershipStatus(@PathVariable Long id,
+			@RequestBody Map<String, Object> statusDto,
+			@RequestHeader("Authorization") String auth, @RequestHeader("X-Organization-ID") String org) {
+		String status = statusDto != null ? (String) statusDto.get("status") : null;
+		return logisticsService.updatePartnershipStatus(id, status, auth, org);
+	}
+
 	// Freight invoice passthroughs (Core P1)
 	@LogActivity("Get Freight Invoices by Logistics Org via IAM")
 	@GetMapping("/freight-invoices/all")

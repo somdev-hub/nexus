@@ -623,4 +623,21 @@ public class CoreSupplierController {
 			@PageableDefault(size = 20) Pageable pageable) {
 		return supplierService.getAllPartnerships(auth, org, pageable);
 	}
+
+	@LogActivity("Update Partnership for Supplier")
+	@PutMapping("/partnerships/{id}/update")
+	public ResponseEntity<?> updatePartnership(@PathVariable Long id,
+			@RequestBody Map<String, Object> partnershipDto,
+			@RequestHeader("Authorization") String auth, @RequestHeader("X-Organization-ID") String org) {
+		return supplierService.updatePartnership(id, partnershipDto, auth, org);
+	}
+
+	@LogActivity("Update Partnership Status for Supplier")
+	@PostMapping("/partnerships/{id}/status")
+	public ResponseEntity<?> updatePartnershipStatus(@PathVariable Long id,
+			@RequestBody Map<String, Object> statusDto,
+			@RequestHeader("Authorization") String auth, @RequestHeader("X-Organization-ID") String org) {
+		String status = statusDto != null ? (String) statusDto.get("status") : null;
+		return supplierService.updatePartnershipStatus(id, status, auth, org);
+	}
 }

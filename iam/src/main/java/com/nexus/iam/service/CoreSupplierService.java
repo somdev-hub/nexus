@@ -124,4 +124,9 @@ public interface CoreSupplierService {
 
     // Partnerships visible to this org (primary OR secondary side)
     ResponseEntity<?> getAllPartnerships(String authToken, String orgId, Pageable pageable);
+
+    ResponseEntity<?> updatePartnership(Long id, Map<String, Object> partnershipDto, String authToken,
+            String orgId);
+
+    ResponseEntity<?> updatePartnershipStatus(Long id, String status, String authToken, String orgId);
 }

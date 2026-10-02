@@ -255,9 +255,19 @@ public class CoreRetailerServiceImpl implements CoreRetailerService {
 
 	@Override
 	public ResponseEntity<?> getAllPartnerships(String authToken, String orgIdHeader, Pageable pageable) {
+		return getAllPartnerships(authToken, orgIdHeader, pageable, null);
+	}
+
+	@Override
+	public ResponseEntity<?> getAllPartnerships(String authToken, String orgIdHeader, Pageable pageable,
+			String partnershipType) {
 		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
 		headers.put("X-Organization-ID", orgIdHeader);
 		String url = buildPaginatedUrl(webConstants.getCorePartnershipAllUrl(), pageable);
+		if (partnershipType != null && !partnershipType.isBlank()) {
+			url = url + (url.contains("?") ? "&" : "?") + "partnershipType="
+					+ java.net.URLEncoder.encode(partnershipType, java.nio.charset.StandardCharsets.UTF_8);
+		}
 		return restService.iamRestCall(
 				url,
 				null,
@@ -304,6 +314,20 @@ public class CoreRetailerServiceImpl implements CoreRetailerService {
 				body,
 				headers,
 				HttpMethod.POST,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> updatePartnership(Long id, Map<String, Object> partnershipDto, String authToken,
+			String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCorePartnershipGetUrl() + "/" + id + "/update";
+		return restService.iamRestCall(
+				url,
+				partnershipDto,
+				headers,
+				HttpMethod.PUT,
 				null);
 	}
 

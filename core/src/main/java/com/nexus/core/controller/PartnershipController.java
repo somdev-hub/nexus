@@ -1,5 +1,7 @@
 package com.nexus.core.controller;
 
+import java.util.Map;
+
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
@@ -8,6 +10,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -50,7 +53,7 @@ public class PartnershipController {
 		// Set primary organization ID on the partnership DTO
 		partnershipDto.setPrimaryOrg(orgId);
 
-		return partnershipService.addPartnership(partnershipDto);
+		return partnershipService.addPartnership(partnershipDto, token);
 	}
 
 	@GetMapping("/{id}")
@@ -72,6 +75,7 @@ public class PartnershipController {
 	@GetMapping("/all")
 	@LogActivity("Get All Partnerships")
 	public ResponseEntity<?> getAllPartnerships(@RequestHeader("Authorization") String token,
+			@RequestParam(required = false) String partnershipType,
 			@PageableDefault(size = 20) Pageable pageable) {		if (!commonUtils.validateToken(token)) {
 			throw new InvalidCredentialsException();
 		}
@@ -82,12 +86,13 @@ public class PartnershipController {
 			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Organization context not found");
 		}
 
-		return partnershipService.getAllPartnershipsByOrgId(orgId, pageable);
+		return partnershipService.getAllPartnershipsByOrgId(orgId, pageable, partnershipType);
 	}
 
 	@GetMapping("/mine")
 	@LogActivity("Get My Partnerships")
 	public ResponseEntity<?> getMyPartnerships(@RequestHeader("Authorization") String token,
+			@RequestParam(required = false) String partnershipType,
 			@PageableDefault(size = 20) Pageable pageable) {
 		if (!commonUtils.validateToken(token)) {
 			throw new InvalidCredentialsException();
@@ -98,7 +103,7 @@ public class PartnershipController {
 			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Organization context not found");
 		}
 
-		return partnershipService.getMyPartnerships(orgId, pageable);
+		return partnershipService.getMyPartnerships(orgId, pageable, partnershipType);
 	}
 
 	@GetMapping("/status/{status}")
@@ -137,7 +142,7 @@ public class PartnershipController {
 	@PostMapping("/{id}/status")
 	@LogActivity("Update Partnership Status")
 	public ResponseEntity<?> updatePartnershipStatus(@PathVariable Long id,
-			@RequestBody com.nexus.core.model.enums.PartnershipStatus newStatus,
+			@RequestBody Map<String, Object> statusDto,
 			@RequestHeader("Authorization") String token) {
 		if (!commonUtils.validateToken(token)) {
 			throw new InvalidCredentialsException();
@@ -148,7 +153,39 @@ public class PartnershipController {
 			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Organization context not found");
 		}
 
+		String statusValue = statusDto != null && statusDto.get("status") != null
+				? String.valueOf(statusDto.get("status"))
+				: null;
+		if (statusValue == null) {
+			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Missing 'status' in request body");
+		}
+		com.nexus.core.model.enums.PartnershipStatus newStatus;
+		try {
+			newStatus = com.nexus.core.model.enums.PartnershipStatus
+					.valueOf(statusValue.trim().toUpperCase());
+		} catch (IllegalArgumentException e) {
+			return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+					.body("Invalid status: " + statusValue);
+		}
+
 		return partnershipService.updatePartnershipStatus(id, orgId, newStatus);
+	}
+
+	@PutMapping("/{id}/update")
+	@LogActivity("Update Partnership")
+	public ResponseEntity<?> updatePartnership(@PathVariable Long id,
+			@RequestBody PartnershipDto partnershipDto,
+			@RequestHeader("Authorization") String token) {
+		if (!commonUtils.validateToken(token)) {
+			throw new InvalidCredentialsException();
+		}
+
+		Long orgId = getOrganizationIdFromContext();
+		if (orgId == null) {
+			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Organization context not found");
+		}
+
+		return partnershipService.updatePartnership(id, orgId, partnershipDto);
 	}
 
 	// ============================================

@@ -429,6 +429,16 @@ public class CoreLogisticsServiceImpl implements CoreLogisticsService {
         return callGet(buildPaginatedUrl(webConstants.getCorePartnershipMineUrl(), p), auth, org);
     }
 
+    @Override
+    public ResponseEntity<?> updatePartnership(Long id, Map<String, Object> partnershipDto, String auth, String org) {
+        return callPut(webConstants.getCorePartnershipGetUrl() + "/" + id + "/update", partnershipDto, auth, org);
+    }
+
+    @Override
+    public ResponseEntity<?> updatePartnershipStatus(Long id, String status, String auth, String org) {
+        return callPost(webConstants.getCorePartnershipUpdateStatusUrl() + "/" + id + "/status", Map.of("status", status), auth, org);
+    }
+
     // Freight invoice passthroughs (Core P1)
     @Override
     public ResponseEntity<?> getFreightInvoicesByLogisticsOrg(String auth, String org, Pageable p) {

@@ -24,6 +24,8 @@ public class SupplierServiceImpl implements SupplierService {
 
 	private final SupplierRepository supplierRepository;
 	private final AccountRepository accountRepository;
+	private final com.nexus.core.repository.PartnershipRepo partnershipRepo;
+	private final com.nexus.core.repository.PartnershipInvitationRepo invitationRepo;
 
 	@Override
 	public ResponseEntity<?> addSupplier(SupplierDto supplierDto) {
@@ -63,6 +65,11 @@ public class SupplierServiceImpl implements SupplierService {
 			String certification, Pageable pageable) {
 		Long orgId = OrganizationContextHolder.requireOrganizationId();
 
+		// Backfill: every ACTIVE supplier-type partnership the caller (retailer)
+		// is party to must have a local Supplier row, otherwise the PO
+		// supplier dropdown stays empty even though partnerships exist.
+		ensurePartnershipSuppliers(orgId);
+
 		// If accountId is provided, validate it belongs to the organization
 		if (accountId != null) {
 			Account account = accountRepository.findById(accountId)
@@ -93,6 +100,119 @@ public class SupplierServiceImpl implements SupplierService {
 		// No filters - return all suppliers for the organization
 		Page<Supplier> suppliers = supplierRepository.findByAccountAccountId(orgId, pageable);
 		return ResponseEntity.ok(suppliers);
+	}
+
+	/**
+	 * Ensure a local Supplier row exists (under the caller's account) for every
+	 * ACTIVE supplier-type partnership the caller is party to. Only applies to
+	 * retailer callers — other org types skip. Idempotent: existing rows are
+	 * reused (blank business names are refreshed when the stored partnership
+	 * org name is known).
+	 */
+	private void ensurePartnershipSuppliers(Long orgId) {
+		String orgType = OrganizationContextHolder.getCurrentOrganizationType();
+		if (orgType == null || !"RETAILER".equalsIgnoreCase(orgType)) {
+			return;
+		}
+		java.util.List<com.nexus.core.model.entities.Partnership> partnerships = new java.util.ArrayList<>();
+		partnerships.addAll(
+				partnershipRepo.findByPrimaryOrgAccountId(orgId, Pageable.unpaged()).getContent());
+		partnerships.addAll(
+				partnershipRepo.findBySecondaryOrgAccountId(orgId, Pageable.unpaged()).getContent());
+		for (com.nexus.core.model.entities.Partnership partnership : partnerships) {
+			// New partnerships start as DRAFT and become ACTIVE; skip only
+			// dead ones (terminated / rejected / expired).
+			if (partnership.getStatus() == com.nexus.core.model.enums.PartnershipStatus.TERMINATED
+					|| partnership.getStatus() == com.nexus.core.model.enums.PartnershipStatus.REJECTED
+					|| partnership.getStatus() == com.nexus.core.model.enums.PartnershipStatus.EXPIRED) {
+				continue;
+			}
+			String type = partnership.getPartnershipType();
+			if (type == null || type.isBlank()) {
+				// Legacy rows predate partnershipType: derive it from the
+				// originating invitation's context and backfill it.
+				type = resolveTypeFromInvitation(partnership);
+				if (type != null) {
+					partnership.setPartnershipType(type);
+					try {
+						partnershipRepo.save(partnership);
+					} catch (Exception ignored) {
+					}
+				}
+			}
+			if (type == null || !"SUPPLIER".equalsIgnoreCase(type)) {
+				continue;
+			}
+			boolean isPrimary = partnership.getPrimaryOrg() != null
+					&& orgId.equals(partnership.getPrimaryOrg().getAccountId());
+			com.nexus.core.model.entities.Account counterparty = isPrimary
+					? partnership.getSecondaryOrg()
+					: partnership.getPrimaryOrg();
+			if (counterparty == null || counterparty.getAccountId() == null) {
+				continue;
+			}
+			String counterpartyName = isPrimary
+					? partnership.getSecondaryOrgName()
+					: partnership.getPrimaryOrgName();
+			if (counterpartyName == null || counterpartyName.isBlank()) {
+				counterpartyName = counterparty.getName();
+			}
+			java.util.Optional<Supplier> existing = supplierRepository
+					.findByAccountAccountIdAndSupplierOrgAccountId(orgId, counterparty.getAccountId());
+			if (existing.isPresent()) {
+				Supplier row = existing.get();
+				if ((row.getBusinessName() == null || row.getBusinessName().isBlank())
+						&& counterpartyName != null && !counterpartyName.isBlank()) {
+					row.setBusinessName(counterpartyName);
+					supplierRepository.save(row);
+				}
+				continue;
+			}
+			Account owner = accountRepository.findById(orgId).orElse(null);
+			if (owner == null) {
+				continue;
+			}
+			Supplier row = new Supplier();
+			row.setAccount(owner);
+			row.setBusinessName(counterpartyName);
+			row.setStatus(SupplierStatus.ACTIVE);
+			row.setRating(0.0);
+			row.setTotalOrders(0);
+			row.setOnTimeDeliveryRate(0.0);
+			row.setQualityScore(0.0);
+			row.setSupplierOrgAccountId(counterparty.getAccountId());
+			supplierRepository.save(row);
+		}
+	}
+
+	/**
+	 * Derive the partnership type (SUPPLIER / LOGISTICS) from the originating
+	 * invitation's partnershipContext for rows created before partnershipType
+	 * was stored. Returns null when it cannot be determined.
+	 */
+	private String resolveTypeFromInvitation(com.nexus.core.model.entities.Partnership partnership) {
+		if (partnership.getInvitationId() == null) {
+			return null;
+		}
+		try {
+			return invitationRepo.findByInvitationId(partnership.getInvitationId())
+					.map(inv -> {
+						String context = inv.getPartnershipContext();
+						if (context == null) {
+							return null;
+						}
+						if (context.endsWith("LOGISTICS")) {
+							return "LOGISTICS";
+						}
+						if (context.endsWith("SUPPLIER")) {
+							return "SUPPLIER";
+						}
+						return context;
+					})
+					.orElse(null);
+		} catch (Exception e) {
+			return null;
+		}
 	}
 
 	@Override

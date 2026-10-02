@@ -36,11 +36,17 @@ public class Partnership extends BaseEntity {
 	@EqualsAndHashCode.Exclude
 	private Account primaryOrg;
 
+	private String primaryOrgName;
+
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "secondary_org_id", referencedColumnName = "account_id")
 	@ToString.Exclude
 	@EqualsAndHashCode.Exclude
 	private Account secondaryOrg;
+
+	private String secondaryOrgName;
+
+	private String partnershipType;
 
 	private String partnershipTerm;
 

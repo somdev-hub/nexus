@@ -186,8 +186,9 @@ public class CoreRetailerController {
 	@GetMapping("/partnerships/all")
 	public ResponseEntity<?> getAllPartnerships(@RequestHeader("Authorization") String authToken,
 			@RequestHeader("X-Organization-ID") String orgIdHeader,
+			@RequestParam(required = false) String partnershipType,
 			@PageableDefault(size = 20) Pageable pageable) {
-		return coreRetailerService.getAllPartnerships(authToken, orgIdHeader, pageable);
+		return coreRetailerService.getAllPartnerships(authToken, orgIdHeader, pageable, partnershipType);
 	}
 
 	@LogActivity("Get Partnerships By Status for Retailer")
@@ -205,6 +206,15 @@ public class CoreRetailerController {
 			@RequestHeader("X-Organization-ID") String orgIdHeader,
 			@PageableDefault(size = 20) Pageable pageable) {
 		return coreRetailerService.getActivePartnerships(authToken, orgIdHeader, pageable);
+	}
+
+	@LogActivity("Update Partnership for Retailer")
+	@PutMapping("/partnerships/{id}/update")
+	public ResponseEntity<?> updatePartnership(@PathVariable Long id,
+			@RequestBody Map<String, Object> partnershipDto,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.updatePartnership(id, partnershipDto, authToken, orgIdHeader);
 	}
 
 	@LogActivity("Update Partnership Status for Retailer")

@@ -533,6 +533,20 @@ public class CoreSupplierServiceImpl implements CoreSupplierService {
 		return callGet(url, authToken, orgId);
 	}
 
+	@Override
+	public ResponseEntity<?> updatePartnership(Long id, Map<String, Object> partnershipDto, String authToken,
+			String orgId) {
+		String url = webConstants.getCorePartnershipGetUrl() + "/" + id + "/update";
+		return callPut(url, partnershipDto, authToken, orgId);
+	}
+
+	@Override
+	public ResponseEntity<?> updatePartnershipStatus(Long id, String status, String authToken,
+			String orgId) {
+		String url = webConstants.getCorePartnershipUpdateStatusUrl() + "/" + id + "/status";
+		return callPost(url, Map.of("status", status), authToken, orgId);
+	}
+
 	private ResponseEntity<?> callGet(String url, String authToken, String orgId) {
 		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
 		headers.put("X-Organization-ID", orgId);

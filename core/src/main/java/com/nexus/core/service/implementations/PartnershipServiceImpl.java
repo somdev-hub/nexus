@@ -23,6 +23,7 @@ import com.nexus.core.payload.PartnershipDto;
 import com.nexus.core.repository.AccountRepo;
 import com.nexus.core.repository.PartnershipRepo;
 import com.nexus.core.service.interfaces.PartnershipService;
+import com.nexus.core.utils.CommonUtils;
 import com.nexus.core.utils.RestService;
 
 import lombok.RequiredArgsConstructor;
@@ -38,9 +39,16 @@ public class PartnershipServiceImpl implements PartnershipService {
 	private final AccountRepo accountRepo;
 	private final RestService restService;
 	private final ObjectMapper objectMapper;
+	private final CommonUtils commonUtils;
 
 	@Override
 	public ResponseEntity<?> addPartnership(PartnershipDto partnershipDto) {
+		return addPartnership(partnershipDto,
+				com.nexus.core.security.OrganizationContextHolder.getCurrentAuthToken());
+	}
+
+	@Override
+	public ResponseEntity<?> addPartnership(PartnershipDto partnershipDto, String authToken) {
 		Partnership partnership = modelMapper.map(partnershipDto, Partnership.class);
 
 		// Set primary and secondary organizations
@@ -49,6 +57,7 @@ public class PartnershipServiceImpl implements PartnershipService {
 					.orElseThrow(() -> new ResourceNotFoundException("Account", "accountId",
 							partnershipDto.getPrimaryOrg()));
 			partnership.setPrimaryOrg(primaryOrg);
+			partnership.setPrimaryOrgName(resolveOrgName(primaryOrg, authToken));
 		}
 
 		if (partnershipDto.getSecondaryOrg() != null) {
@@ -56,29 +65,156 @@ public class PartnershipServiceImpl implements PartnershipService {
 					.orElseThrow(() -> new ResourceNotFoundException("Account", "accountId",
 							partnershipDto.getSecondaryOrg()));
 			partnership.setSecondaryOrg(secondaryOrg);
+			partnership.setSecondaryOrgName(resolveOrgName(secondaryOrg, authToken));
 		}
 
 		Partnership savedPartnership = partnershipRepo.save(partnership);
-		return new ResponseEntity<>(modelMapper.map(savedPartnership, PartnershipDto.class), HttpStatus.CREATED);
+		return new ResponseEntity<>(toDto(savedPartnership), HttpStatus.CREATED);
+	}
+
+	private String backfillOrgName(Account account) {
+		String token = com.nexus.core.security.OrganizationContextHolder.getCurrentAuthToken();
+		String name = resolveOrgName(account, token);
+		if (name != null) {
+			return name;
+		}
+		return null;
+	}
+
+	/**
+	 * Resolve a human-readable org name: stored on the Account first, otherwise
+	 * from IAM's organization endpoint (and persisted on the Account so later
+	 * reads are local). Returns null if neither source has a name.
+	 */
+	private String resolveOrgName(Account account, String authToken) {
+		if (account == null) {
+			return null;
+		}
+		if (account.getName() != null && !account.getName().isBlank()) {
+			return account.getName();
+		}
+		if (authToken == null || authToken.isBlank() || account.getAccountId() == null) {
+			return null;
+		}
+		try {
+			ResponseEntity<String> response = commonUtils.getOrganizationFromIam(account.getAccountId(), authToken);
+			if (response.getBody() != null) {
+				JsonNode root = objectMapper.readTree(response.getBody());
+				String name = firstNonBlank(root, "orgName", "name", "organizationName");
+				if (name != null) {
+					account.setName(name);
+					accountRepo.save(account);
+					return name;
+				}
+			}
+		} catch (Exception e) {
+			log.debug("Could not resolve org name for account {}: {}", account.getAccountId(), e.getMessage());
+		}
+		return null;
+	}
+
+	private String firstNonBlank(JsonNode root, String... fields) {
+		for (String field : fields) {
+			JsonNode node = root.get(field);
+			if (node != null && node.isTextual() && !node.asText().isBlank()) {
+				return node.asText();
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * ModelMapper cannot convert Account relations to the Long ids / names on
+	 * the DTO, so it silently leaves them null. Map scalars with ModelMapper,
+	 * then stamp org ids and names explicitly.
+	 */
+	private PartnershipDto toDto(Partnership partnership) {
+		PartnershipDto dto = new PartnershipDto();
+		if (partnership.getPartnershipId() != null) {
+			dto.setPartnershipId(partnership.getPartnershipId());
+		}
+		dto.setPartnershipTerm(partnership.getPartnershipTerm());
+		dto.setPartnershipType(partnership.getPartnershipType());
+		dto.setDiscountRate(partnership.getDiscountRate());
+		dto.setStatus(partnership.getStatus());
+		dto.setStartDate(partnership.getStartDate());
+		dto.setEndDate(partnership.getEndDate());
+		dto.setRevivedDate(partnership.getRevivedDate());
+		dto.setAgreementDocumentId(partnership.getAgreementDocumentId());
+		dto.setInvitationId(partnership.getInvitationId());
+		dto.setCreatedAt(partnership.getCreatedAt());
+		dto.setUpdatedAt(partnership.getUpdatedAt());
+		if (partnership.getPrimaryOrg() != null) {
+			dto.setPrimaryOrg(partnership.getPrimaryOrg().getAccountId());
+			String name = partnership.getPrimaryOrgName();
+			if (name == null || name.isBlank()) {
+				name = partnership.getPrimaryOrg().getName();
+			}
+			if ((name == null || name.isBlank()) && partnership.getPrimaryOrg().getAccountId() != null) {
+				name = backfillOrgName(partnership.getPrimaryOrg());
+				if (name != null) {
+					partnership.setPrimaryOrgName(name);
+				}
+			}
+			dto.setPrimaryOrgName(name);
+		}
+		if (partnership.getSecondaryOrg() != null) {
+			dto.setSecondaryOrg(partnership.getSecondaryOrg().getAccountId());
+			String name = partnership.getSecondaryOrgName();
+			if (name == null || name.isBlank()) {
+				name = partnership.getSecondaryOrg().getName();
+			}
+			if ((name == null || name.isBlank()) && partnership.getSecondaryOrg().getAccountId() != null) {
+				name = backfillOrgName(partnership.getSecondaryOrg());
+				if (name != null) {
+					partnership.setSecondaryOrgName(name);
+				}
+			}
+			dto.setSecondaryOrgName(name);
+		}
+		if (partnership.getPartnershipId() != null
+				&& (partnership.getPrimaryOrgName() != null || partnership.getSecondaryOrgName() != null)) {
+			// Persist backfilled names so subsequent reads are local
+			try {
+				partnershipRepo.save(partnership);
+			} catch (Exception e) {
+				log.debug("Could not persist org names for partnership {}: {}", partnership.getPartnershipId(),
+						e.getMessage());
+			}
+		}
+		return dto;
 	}
 
 	@Override
 	public ResponseEntity<?> getPartnershipByIdAndOrg(Long id, Long orgId) {
 		Partnership partnership = partnershipRepo.findByPartnershipIdAndPrimaryOrgAccountId(id, orgId)
 				.orElseThrow(() -> new ResourceNotFoundException("Partnership", "partnershipId", id));
-		return new ResponseEntity<>(modelMapper.map(partnership, PartnershipDto.class), HttpStatus.OK);
+		return new ResponseEntity<>(toDto(partnership), HttpStatus.OK);
 	}
 
 	@Override
 	public ResponseEntity<?> getAllPartnershipsByOrgId(Long orgId, Pageable pageable) {
+		return getAllPartnershipsByOrgId(orgId, pageable, null);
+	}
+
+	@Override
+	public ResponseEntity<?> getAllPartnershipsByOrgId(Long orgId, Pageable pageable, String partnershipType) {
 		Page<Partnership> partnerships = partnershipRepo.findByPrimaryOrgAccountId(orgId, pageable);
 		Page<PartnershipDto> partnershipDtos = partnerships
-				.map(partnership -> modelMapper.map(partnership, PartnershipDto.class));
+				.map(partnership -> toDto(partnership));
+		if (partnershipType != null && !partnershipType.isBlank()) {
+			partnershipDtos = filterByType(partnershipDtos, partnershipType, pageable);
+		}
 		return new ResponseEntity<>(partnershipDtos, HttpStatus.OK);
 	}
 
 	@Override
 	public ResponseEntity<?> getMyPartnerships(Long orgId, Pageable pageable) {
+		return getMyPartnerships(orgId, pageable, null);
+	}
+
+	@Override
+	public ResponseEntity<?> getMyPartnerships(Long orgId, Pageable pageable, String partnershipType) {
 		// Both sides of a partnership: primary (usually the inviter) and
 		// secondary (usually the invited supplier/logistics org). Readers
 		// like suppliers would otherwise see an empty list.
@@ -88,10 +224,15 @@ public class PartnershipServiceImpl implements PartnershipService {
 				.getContent();
 		List<PartnershipDto> all = new java.util.ArrayList<>(primary.size() + secondary.size());
 		for (Partnership p : primary) {
-			all.add(modelMapper.map(p, PartnershipDto.class));
+			all.add(toDto(p));
 		}
 		for (Partnership p : secondary) {
-			all.add(modelMapper.map(p, PartnershipDto.class));
+			all.add(toDto(p));
+		}
+		if (partnershipType != null && !partnershipType.isBlank()) {
+			all = all.stream()
+					.filter(dto -> partnershipType.equalsIgnoreCase(dto.getPartnershipType()))
+					.collect(java.util.stream.Collectors.toList());
 		}
 		all.sort((a, b) -> Long.compare(
 				b.getPartnershipId() == null ? 0L : b.getPartnershipId(),
@@ -104,14 +245,44 @@ public class PartnershipServiceImpl implements PartnershipService {
 				new org.springframework.data.domain.PageImpl<>(content, pageable, total), HttpStatus.OK);
 	}
 
+	private Page<PartnershipDto> filterByType(Page<PartnershipDto> page, String partnershipType,
+			Pageable pageable) {
+		List<PartnershipDto> filtered = page.getContent().stream()
+				.filter(dto -> partnershipType.equalsIgnoreCase(dto.getPartnershipType()))
+				.collect(java.util.stream.Collectors.toList());
+		return new org.springframework.data.domain.PageImpl<>(filtered, pageable, filtered.size());
+	}
+
+	@Override
+	public ResponseEntity<?> updatePartnership(Long id, Long orgId, PartnershipDto dto) {
+		// Either party to the partnership may edit its commercial terms.
+		Partnership partnership = partnershipRepo.findByPartnershipIdAndPrimaryOrgAccountId(id, orgId)
+				.or(() -> partnershipRepo.findByPartnershipIdAndSecondaryOrgAccountId(id, orgId))
+				.orElseThrow(() -> new ResourceNotFoundException("Partnership", "partnershipId", id));
+		if (dto.getPartnershipTerm() != null) {
+			partnership.setPartnershipTerm(dto.getPartnershipTerm());
+		}
+		if (dto.getDiscountRate() != null) {
+			partnership.setDiscountRate(dto.getDiscountRate());
+		}
+		if (dto.getStartDate() != null) {
+			partnership.setStartDate(dto.getStartDate());
+		}
+		if (dto.getEndDate() != null) {
+			partnership.setEndDate(dto.getEndDate());
+		}
+		Partnership saved = partnershipRepo.save(partnership);
+		return new ResponseEntity<>(toDto(saved), HttpStatus.OK);
+	}
+
 	@Override
 	public ResponseEntity<?> updatePartnershipStatus(Long id, Long orgId,
-			com.nexus.core.model.enums.PartnershipStatus newStatus) {
-		Partnership partnership = partnershipRepo.findByPartnershipIdAndPrimaryOrgAccountId(id, orgId)
+			com.nexus.core.model.enums.PartnershipStatus newStatus) {		Partnership partnership = partnershipRepo.findByPartnershipIdAndPrimaryOrgAccountId(id, orgId)
+				.or(() -> partnershipRepo.findByPartnershipIdAndSecondaryOrgAccountId(id, orgId))
 				.orElseThrow(() -> new ResourceNotFoundException("Partnership", "partnershipId", id));
 		partnership.setStatus(newStatus);
 		Partnership savedPartnership = partnershipRepo.save(partnership);
-		return new ResponseEntity<>(modelMapper.map(savedPartnership, PartnershipDto.class), HttpStatus.OK);
+		return new ResponseEntity<>(toDto(savedPartnership), HttpStatus.OK);
 	}
 
 	@Override
@@ -119,7 +290,7 @@ public class PartnershipServiceImpl implements PartnershipService {
 			Pageable pageable) {
 		Page<Partnership> partnerships = partnershipRepo.findByPrimaryOrgAccountIdAndStatus(orgId, status, pageable);
 		Page<PartnershipDto> partnershipDtos = partnerships
-				.map(partnership -> modelMapper.map(partnership, PartnershipDto.class));
+				.map(partnership -> toDto(partnership));
 		return new ResponseEntity<>(partnershipDtos, HttpStatus.OK);
 	}
 
@@ -127,7 +298,7 @@ public class PartnershipServiceImpl implements PartnershipService {
 	public ResponseEntity<?> getActivePartnershipsByOrgId(Long orgId, Pageable pageable) {
 		Page<Partnership> partnerships = partnershipRepo.findActiveByPrimaryOrg(orgId, pageable);
 		Page<PartnershipDto> partnershipDtos = partnerships
-				.map(partnership -> modelMapper.map(partnership, PartnershipDto.class));
+				.map(partnership -> toDto(partnership));
 		return new ResponseEntity<>(partnershipDtos, HttpStatus.OK);
 	}
 
@@ -299,7 +470,7 @@ public class PartnershipServiceImpl implements PartnershipService {
 			log.info("Partnership {} transitioned from {} to {} by org {}. Reason: {}",
 					id, currentStatus, newStatus, orgId, reason);
 
-			return new ResponseEntity<>(modelMapper.map(savedPartnership, PartnershipDto.class), HttpStatus.OK);
+			return new ResponseEntity<>(toDto(savedPartnership), HttpStatus.OK);
 
 		} catch (Exception e) {
 			log.error("Error transitioning partnership status", e);

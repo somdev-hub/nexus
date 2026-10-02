@@ -99,6 +99,10 @@ public class PartnershipInvitationServiceImpl implements PartnershipInvitationSe
 				.orElseThrow(
 						() -> new ResourceNotFoundException("PartnershipInvitation", "invitationId", invitationId));
 
+		if (responseDto.getStatus() == null) {
+			throw new ValidationException("Response status is required");
+		}
+
 		// Update invitation with response
 		invitation.setStatus(responseDto.getStatus());
 		invitation.setRespondedAt(Timestamp.valueOf(LocalDateTime.now()));
@@ -135,6 +139,16 @@ public class PartnershipInvitationServiceImpl implements PartnershipInvitationSe
 			partnershipDto.setSecondaryOrg(invitation.getInvitedOrg().getAccountId());
 			partnershipDto.setPartnershipTerm(invitation.getProposedTerms());
 			partnershipDto.setDiscountRate(invitation.getProposedDiscountRate());
+			String context = invitation.getPartnershipContext();
+			if (context != null) {
+				if (context.endsWith("LOGISTICS")) {
+					partnershipDto.setPartnershipType("LOGISTICS");
+				} else if (context.endsWith("SUPPLIER")) {
+					partnershipDto.setPartnershipType("SUPPLIER");
+				} else {
+					partnershipDto.setPartnershipType(context);
+				}
+			}
 			partnershipDto.setStatus(PartnershipStatus.DRAFT);
 			partnershipDto.setStartDate(Timestamp.valueOf(LocalDateTime.now()));
 			partnershipDto.setInvitationId(invitationId);

@@ -34,7 +34,7 @@ public class PartnershipInvitationController {
 	@PutMapping("/{id}/respond")
 	@LogActivity("Respond to Partnership Invitation")
 	public ResponseEntity<?> respondToInvitation(@PathVariable Long id,
-			@Valid @RequestBody PartnershipInvitationDto responseDto) {
+			@RequestBody PartnershipInvitationDto responseDto) {
 		return invitationService.respondToInvitation(id, responseDto);
 	}
 

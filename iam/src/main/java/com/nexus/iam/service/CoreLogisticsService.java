@@ -107,6 +107,10 @@ public interface CoreLogisticsService {
     // Partnerships visible to this org (primary OR secondary side)
     ResponseEntity<?> getAllPartnerships(String auth, String org, Pageable p);
 
+    ResponseEntity<?> updatePartnership(Long id, Map<String, Object> partnershipDto, String auth, String org);
+
+    ResponseEntity<?> updatePartnershipStatus(Long id, String status, String auth, String org);
+
     // Freight invoice passthroughs (Core P1)
     ResponseEntity<?> getFreightInvoicesByLogisticsOrg(String auth, String org, Pageable p);
     ResponseEntity<?> getFreightInvoicesByShipment(Long shipmentId, String auth, String org);

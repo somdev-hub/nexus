@@ -100,6 +100,23 @@ public final class OrganizationContextHolder {
 		return getCurrentOrganizationId() != null;
 	}
 
+	public static String getCurrentAuthToken() {
+		try {
+			ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder
+					.getRequestAttributes();
+			if (attributes != null) {
+				Object token = attributes.getRequest()
+						.getAttribute(OrganizationContextFilter.AUTH_TOKEN_ATTRIBUTE);
+				if (token instanceof String s && !s.isBlank()) {
+					return s;
+				}
+			}
+		} catch (Exception e) {
+			// ignore
+		}
+		return null;
+	}
+
 	/**
 	 * Require organization context, throwing an exception if not available.
 	 * 

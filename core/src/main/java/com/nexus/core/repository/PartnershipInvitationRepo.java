@@ -22,6 +22,8 @@ public interface PartnershipInvitationRepo extends JpaRepository<PartnershipInvi
 	Optional<List<PartnershipInvitation>> findByInvitedOrgAccountIdAndStatus(Long orgId,
 			PartnershipInvitationStatus status);
 
+	Optional<PartnershipInvitation> findByInvitationId(Long invitationId);
+
 	Optional<PartnershipInvitation> findByInvitationIdAndInvitingOrgAccountId(Long invitationId, Long orgId);
 
 	Optional<PartnershipInvitation> findByInvitationIdAndInvitedOrgAccountId(Long invitationId, Long orgId);

@@ -37,6 +37,7 @@ public class OrganizationContextFilter extends OncePerRequestFilter {
 	public static final String ORGANIZATION_ID_HEADER = "X-Organization-ID";
 	public static final String ORGANIZATION_CONTEXT_ATTRIBUTE = "suite.organizationContext";
 	public static final String ORGANIZATION_TYPE_ATTRIBUTE = "suite.organizationType";
+	public static final String AUTH_TOKEN_ATTRIBUTE = "suite.authToken";
 
 	private final CommonUtils commonUtils;
 	private final WebConstants webConstants;
@@ -74,10 +75,14 @@ public class OrganizationContextFilter extends OncePerRequestFilter {
 			// Get authenticated user
 			Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
-			String authToken = extractAuthToken(request);
+		String authToken = extractAuthToken(request);
 
-			// Validate organization exists and is active via IAM service
-			if (authToken != null) {
+		if (authToken != null) {
+			request.setAttribute(AUTH_TOKEN_ATTRIBUTE, authToken);
+		}
+
+		// Validate organization exists and is active via IAM service
+		if (authToken != null) {
 				var orgResponse = commonUtils.getOrganizationFromIam(organizationId, authToken);
 				if (!orgResponse.getStatusCode().is2xxSuccessful()) {
 					response.sendError(HttpServletResponse.SC_NOT_FOUND,

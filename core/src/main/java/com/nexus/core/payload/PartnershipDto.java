@@ -16,7 +16,14 @@ public class PartnershipDto {
 	@NotNull(message = "Secondary organization is required")
 	private Long secondaryOrg;
 
+	// Display names (populated server-side; clients must not send them).
+	private String primaryOrgName;
+
+	private String secondaryOrgName;
+
 	private String partnershipTerm;
+
+	private String partnershipType;
 
 	private Double discountRate;
 
