@@ -673,6 +673,20 @@ public class CoreRetailerServiceImpl implements CoreRetailerService {
 	}
 
 	@Override
+	public ResponseEntity<?> deletePurchaseOrder(Long id, String authToken,
+			String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCorePurchaseOrderGetUrl() + "/" + id;
+		return restService.iamRestCall(
+				url,
+				null,
+				headers,
+				HttpMethod.DELETE,
+				null);
+	}
+
+	@Override
 	public ResponseEntity<?> transitionPurchaseOrderStatus(Long id, String newStatus, Map<String, Object> params,
 			String authToken, String orgIdHeader) {
 		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);

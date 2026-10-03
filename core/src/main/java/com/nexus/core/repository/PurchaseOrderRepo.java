@@ -49,11 +49,19 @@ public interface PurchaseOrderRepo extends JpaRepository<PurchaseOrder, Long> {
 	// Scoped supplier visibility: supplierOrg == :orgId OR partnership.secondaryOrg == :orgId
 	// OR partnership.primaryOrg == :orgId OR (supplierOrg null AND status == SENT_TO_SUPPLIER).
 	// Mirrors SupplierOrderServiceImpl.isSupplierOrder including the fallback.
+	// Pre-release retailer-internal states (DRAFT, PENDING_APPROVAL, APPROVED,
+	// REJECTED) are never visible: the PO is released to the supplier only at
+	// SENT_TO_SUPPLIER.
 	@Query("""
 			SELECT po FROM PurchaseOrder po
 			LEFT JOIN po.supplierOrg so LEFT JOIN po.partnership p
 			LEFT JOIN p.secondaryOrg sec LEFT JOIN p.primaryOrg pri
 			WHERE po.purchaseOrderId = :id
+			AND po.status NOT IN (
+				com.nexus.core.model.enums.PurchaseOrderStatus.DRAFT,
+				com.nexus.core.model.enums.PurchaseOrderStatus.PENDING_APPROVAL,
+				com.nexus.core.model.enums.PurchaseOrderStatus.APPROVED,
+				com.nexus.core.model.enums.PurchaseOrderStatus.REJECTED)
 			AND (so.accountId = :orgId
 				OR sec.accountId = :orgId
 				OR pri.accountId = :orgId
@@ -66,7 +74,12 @@ public interface PurchaseOrderRepo extends JpaRepository<PurchaseOrder, Long> {
 			LEFT JOIN po.supplierOrg so LEFT JOIN po.partnership p
 			LEFT JOIN p.secondaryOrg sec LEFT JOIN p.primaryOrg pri
 			LEFT JOIN po.buyerOrg b
-			WHERE (so.accountId = :orgId
+			WHERE po.status NOT IN (
+				com.nexus.core.model.enums.PurchaseOrderStatus.DRAFT,
+				com.nexus.core.model.enums.PurchaseOrderStatus.PENDING_APPROVAL,
+				com.nexus.core.model.enums.PurchaseOrderStatus.APPROVED,
+				com.nexus.core.model.enums.PurchaseOrderStatus.REJECTED)
+			AND (so.accountId = :orgId
 				OR sec.accountId = :orgId
 				OR pri.accountId = :orgId
 				OR (po.supplierOrg IS NULL AND po.status = com.nexus.core.model.enums.PurchaseOrderStatus.SENT_TO_SUPPLIER))
@@ -83,7 +96,12 @@ public interface PurchaseOrderRepo extends JpaRepository<PurchaseOrder, Long> {
 			SELECT po FROM PurchaseOrder po
 			LEFT JOIN po.supplierOrg so LEFT JOIN po.partnership p
 			LEFT JOIN p.secondaryOrg sec LEFT JOIN p.primaryOrg pri
-			WHERE (so.accountId = :orgId
+			WHERE po.status NOT IN (
+				com.nexus.core.model.enums.PurchaseOrderStatus.DRAFT,
+				com.nexus.core.model.enums.PurchaseOrderStatus.PENDING_APPROVAL,
+				com.nexus.core.model.enums.PurchaseOrderStatus.APPROVED,
+				com.nexus.core.model.enums.PurchaseOrderStatus.REJECTED)
+			AND (so.accountId = :orgId
 				OR sec.accountId = :orgId
 				OR pri.accountId = :orgId
 				OR (po.supplierOrg IS NULL AND po.status = com.nexus.core.model.enums.PurchaseOrderStatus.SENT_TO_SUPPLIER))

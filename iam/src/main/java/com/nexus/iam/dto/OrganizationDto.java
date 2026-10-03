@@ -39,4 +39,6 @@ public class OrganizationDto {
     private String pinCode;
 
     private String country;
+
+    private String defaultCurrency;
 }

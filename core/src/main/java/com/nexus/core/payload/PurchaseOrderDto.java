@@ -17,6 +17,20 @@ public class PurchaseOrderDto {
 	@NotBlank(message = "PO number is required")
 	private String poNumber;
 
+	// Read alias for poNumber (UI table column).
+	private String purchaseOrderNumber;
+
+	// Read alias for createdAt (UI "Order Date" column).
+	private java.sql.Timestamp orderDate;
+
+	private String buyerOrgName;
+
+	private String supplierOrgName;
+
+	private Long supplierOrgId;
+
+	private String supplierName;
+
 	private Integer revisionNumber = 0;
 
 	private Long parentPoId;

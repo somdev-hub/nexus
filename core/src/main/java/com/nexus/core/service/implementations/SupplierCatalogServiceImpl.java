@@ -119,6 +119,7 @@ public class SupplierCatalogServiceImpl implements SupplierCatalogService {
         if (dto.getAttributes() != null) catalog.setAttributes(dto.getAttributes());
         if (dto.getSpecifications() != null) catalog.setSpecifications(dto.getSpecifications());
         if (dto.getBasePrice() != null) catalog.setBasePrice(dto.getBasePrice());
+        if (dto.getUnitOfMeasure() != null) catalog.setUnitOfMeasure(dto.getUnitOfMeasure());
         if (dto.getCurrency() != null) catalog.setCurrency(dto.getCurrency());
         if (dto.getAccessLevel() != null) catalog.setAccessLevel(dto.getAccessLevel());
         if (dto.getAllowedPartnerOrgIds() != null) catalog.setAllowedPartnerOrgIds(dto.getAllowedPartnerOrgIds());
@@ -227,6 +228,7 @@ public class SupplierCatalogServiceImpl implements SupplierCatalogService {
                 .category(c.getCategory())
                 .family(c.getFamily())
                 .basePrice(c.getBasePrice())
+                .unitOfMeasure(c.getUnitOfMeasure())
                 .currency(c.getCurrency())
                 .status(c.getStatus())
                 .accessLevel(c.getAccessLevel())

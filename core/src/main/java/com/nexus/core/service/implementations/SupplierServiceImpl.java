@@ -50,14 +50,51 @@ public class SupplierServiceImpl implements SupplierService {
 		supplier.setQualityScore(0.0);
 
 		Supplier saved = supplierRepository.save(supplier);
-		return ResponseEntity.status(HttpStatus.CREATED).body(saved);
+		return ResponseEntity.status(HttpStatus.CREATED).body(toSafeDto(saved));
 	}
 
 	@Override
 	public ResponseEntity<?> getSupplierById(Long id) {
 		return supplierRepository.findById(id)
-				.map(ResponseEntity::ok)
+				.map(supplier -> ResponseEntity.ok(toSafeDto(supplier)))
 				.orElse(ResponseEntity.notFound().build());
+	}
+
+	/**
+	 * Entity graphs (Supplier → Account → Partnerships → …) serialize
+	 * infinitely with Jackson, so list/detail reads return scalar maps.
+	 */
+	private java.util.Map<String, Object> toSafeDto(Supplier supplier) {
+		java.util.Map<String, Object> dto = new java.util.LinkedHashMap<>();
+		dto.put("supplierId", supplier.getSupplierId());
+		dto.put("accountId",
+				supplier.getAccount() != null ? supplier.getAccount().getAccountId() : null);
+		dto.put("businessName", supplier.getBusinessName());
+		dto.put("category", supplier.getCategory());
+		dto.put("location", supplier.getLocation());
+		dto.put("website", supplier.getWebsite());
+		dto.put("contactPerson", supplier.getContactPerson());
+		dto.put("contactEmail", supplier.getContactEmail());
+		dto.put("contactPhone", supplier.getContactPhone());
+		dto.put("certifications", supplier.getCertifications());
+		dto.put("rating", supplier.getRating());
+		dto.put("totalOrders", supplier.getTotalOrders());
+		dto.put("onTimeDeliveryRate", supplier.getOnTimeDeliveryRate());
+		dto.put("qualityScore", supplier.getQualityScore());
+		dto.put("status", supplier.getStatus() != null ? supplier.getStatus().name() : null);
+		dto.put("supplierOrgAccountId", supplier.getSupplierOrgAccountId());
+		dto.put("createdAt", supplier.getCreatedAt());
+		dto.put("updatedAt", supplier.getUpdatedAt());
+		return dto;
+	}
+
+	private org.springframework.data.domain.Page<java.util.Map<String, Object>> toSafePage(
+			Page<Supplier> page) {
+		java.util.List<java.util.Map<String, Object>> content = page.getContent().stream()
+				.map(this::toSafeDto)
+				.collect(java.util.stream.Collectors.toList());
+		return new org.springframework.data.domain.PageImpl<>(content, page.getPageable(),
+				page.getTotalElements());
 	}
 
 	@Override
@@ -78,28 +115,30 @@ public class SupplierServiceImpl implements SupplierService {
 				return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Access denied to this account");
 			}
 			Page<Supplier> suppliers = supplierRepository.findByAccount(account, pageable);
-			return ResponseEntity.ok(suppliers);
+			return ResponseEntity.ok(toSafePage(suppliers));
 		}
 
 		// Build dynamic query based on filters
 		if (category != null && !category.isBlank()) {
-			return ResponseEntity.ok(supplierRepository.findByCategoryAndAccountAccountId(category, orgId, pageable));
+			return ResponseEntity.ok(toSafePage(
+					supplierRepository.findByCategoryAndAccountAccountId(category, orgId, pageable)));
 		}
 		if (location != null && !location.isBlank()) {
-			return ResponseEntity.ok(supplierRepository.findByLocationAndAccountAccountId(location, orgId, pageable));
+			return ResponseEntity.ok(toSafePage(
+					supplierRepository.findByLocationAndAccountAccountId(location, orgId, pageable)));
 		}
 		if (minRating != null) {
-			return ResponseEntity
-					.ok(supplierRepository.findByRatingGreaterThanEqualAndAccountAccountId(minRating, orgId, pageable));
+			return ResponseEntity.ok(toSafePage(supplierRepository
+					.findByRatingGreaterThanEqualAndAccountAccountId(minRating, orgId, pageable)));
 		}
 		if (certification != null && !certification.isBlank()) {
-			return ResponseEntity
-					.ok(supplierRepository.findByCertificationAndAccountAccountId(certification, orgId, pageable));
+			return ResponseEntity.ok(toSafePage(
+					supplierRepository.findByCertificationAndAccountAccountId(certification, orgId, pageable)));
 		}
 
 		// No filters - return all suppliers for the organization
 		Page<Supplier> suppliers = supplierRepository.findByAccountAccountId(orgId, pageable);
-		return ResponseEntity.ok(suppliers);
+		return ResponseEntity.ok(toSafePage(suppliers));
 	}
 
 	/**
@@ -123,8 +162,7 @@ public class SupplierServiceImpl implements SupplierService {
 			// New partnerships start as DRAFT and become ACTIVE; skip only
 			// dead ones (terminated / rejected / expired).
 			if (partnership.getStatus() == com.nexus.core.model.enums.PartnershipStatus.TERMINATED
-					|| partnership.getStatus() == com.nexus.core.model.enums.PartnershipStatus.REJECTED
-					|| partnership.getStatus() == com.nexus.core.model.enums.PartnershipStatus.EXPIRED) {
+					|| partnership.getStatus() == com.nexus.core.model.enums.PartnershipStatus.REJECTED) {
 				continue;
 			}
 			String type = partnership.getPartnershipType();
@@ -221,29 +259,29 @@ public class SupplierServiceImpl implements SupplierService {
 
 		// Build dynamic query based on filters
 		if (discoveryDto.getCategory() != null && !discoveryDto.getCategory().isBlank()) {
-			return ResponseEntity.ok(
-					supplierRepository.findByCategoryAndAccountAccountId(discoveryDto.getCategory(), orgId, pageable));
+			return ResponseEntity.ok(toSafePage(
+					supplierRepository.findByCategoryAndAccountAccountId(discoveryDto.getCategory(), orgId, pageable)));
 		}
 		if (discoveryDto.getLocation() != null && !discoveryDto.getLocation().isBlank()) {
-			return ResponseEntity.ok(
-					supplierRepository.findByLocationAndAccountAccountId(discoveryDto.getLocation(), orgId, pageable));
+			return ResponseEntity.ok(toSafePage(
+					supplierRepository.findByLocationAndAccountAccountId(discoveryDto.getLocation(), orgId, pageable)));
 		}
 		if (discoveryDto.getMinRating() != null) {
-			return ResponseEntity.ok(supplierRepository
-					.findByRatingGreaterThanEqualAndAccountAccountId(discoveryDto.getMinRating(), orgId, pageable));
+			return ResponseEntity.ok(toSafePage(supplierRepository
+					.findByRatingGreaterThanEqualAndAccountAccountId(discoveryDto.getMinRating(), orgId, pageable)));
 		}
 		if (discoveryDto.getCertifications() != null && !discoveryDto.getCertifications().isBlank()) {
-			return ResponseEntity.ok(supplierRepository
-					.findByCertificationAndAccountAccountId(discoveryDto.getCertifications(), orgId, pageable));
+			return ResponseEntity.ok(toSafePage(supplierRepository
+					.findByCertificationAndAccountAccountId(discoveryDto.getCertifications(), orgId, pageable)));
 		}
 		if (discoveryDto.getCertificationList() != null && !discoveryDto.getCertificationList().isEmpty()) {
 			// For multiple certifications, we'll use the first one for now
-			return ResponseEntity.ok(supplierRepository.findByCertificationAndAccountAccountId(
-					discoveryDto.getCertificationList().get(0), orgId, pageable));
+			return ResponseEntity.ok(toSafePage(supplierRepository.findByCertificationAndAccountAccountId(
+					discoveryDto.getCertificationList().get(0), orgId, pageable)));
 		}
 
 		// No filters - return all suppliers for the organization
 		Page<Supplier> suppliers = supplierRepository.findByAccountAccountId(orgId, pageable);
-		return ResponseEntity.ok(suppliers);
+		return ResponseEntity.ok(toSafePage(suppliers));
 	}
 }

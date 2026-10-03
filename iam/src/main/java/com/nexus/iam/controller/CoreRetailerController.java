@@ -434,6 +434,14 @@ public class CoreRetailerController {
 		return coreRetailerService.updatePurchaseOrder(id, poDto, authToken, orgIdHeader);
 	}
 
+	@LogActivity("Delete Purchase Order for Retailer")
+	@DeleteMapping("/purchase-orders/{id}")
+	public ResponseEntity<?> deletePurchaseOrder(@PathVariable Long id,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.deletePurchaseOrder(id, authToken, orgIdHeader);
+	}
+
 	@LogActivity("Transition Purchase Order Status for Retailer")
 	@PutMapping("/purchase-orders/{id}/transition")
 	public ResponseEntity<?> transitionPurchaseOrderStatus(@PathVariable Long id,

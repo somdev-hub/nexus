@@ -21,5 +21,7 @@ public class OrganizationFetchDto {
 
     private Timestamp createdAt;
 
+    private String defaultCurrency;
+
     private Long employeeCount;
 }

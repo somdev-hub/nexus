@@ -17,6 +17,8 @@ public interface PurchaseOrderService {
 
 	ResponseEntity<?> updatePurchaseOrder(Long id, PurchaseOrderDto poDto);
 
+	ResponseEntity<?> deletePurchaseOrder(Long id);
+
 	ResponseEntity<?> transitionStatus(Long id, com.nexus.core.model.enums.PurchaseOrderStatus newStatus,
 			Map<String, Object> params);
 

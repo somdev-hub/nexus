@@ -48,7 +48,7 @@ public class SupplierOrderServiceImpl implements SupplierOrderService {
     public ResponseEntity<?> getOrderById(Long id) {
         Long orgId = OrganizationContextHolder.requireOrganizationId();
         PurchaseOrder po = findSupplierOrder(id, orgId);
-        return ResponseEntity.ok(modelMapper.map(po, com.nexus.core.payload.PurchaseOrderDto.class));
+        return ResponseEntity.ok(PurchaseOrderServiceImpl.toDto(po));
     }
 
     @Override
@@ -67,7 +67,7 @@ public class SupplierOrderServiceImpl implements SupplierOrderService {
         String poNum = poNumber;
         var page = poRepo.findSupplierVisibleOrders(orgId, st, poNum, buyerOrgId, pageable);
         var dtos = page.getContent().stream()
-                .map(po -> modelMapper.map(po, com.nexus.core.payload.PurchaseOrderDto.class))
+                .map(po -> PurchaseOrderServiceImpl.toDto(po))
                 .collect(Collectors.toList());
         return ResponseEntity.ok(new org.springframework.data.domain.PageImpl<>(dtos, pageable, page.getTotalElements()));
     }
@@ -86,7 +86,7 @@ public class SupplierOrderServiceImpl implements SupplierOrderService {
         po.setSupplierNotes(notes);
         po.setAcknowledgedBy(String.valueOf(orgId));
         PurchaseOrder saved = poRepo.save(po);
-        return ResponseEntity.ok(modelMapper.map(saved, com.nexus.core.payload.PurchaseOrderDto.class));
+        return ResponseEntity.ok(PurchaseOrderServiceImpl.toDto(saved));
     }
 
     @Override
@@ -119,7 +119,7 @@ public class SupplierOrderServiceImpl implements SupplierOrderService {
             }
         }
         PurchaseOrder saved = poRepo.save(po);
-        return ResponseEntity.ok(modelMapper.map(saved, com.nexus.core.payload.PurchaseOrderDto.class));
+        return ResponseEntity.ok(PurchaseOrderServiceImpl.toDto(saved));
     }
 
     @Override
@@ -195,7 +195,7 @@ public class SupplierOrderServiceImpl implements SupplierOrderService {
         Long orgId = OrganizationContextHolder.requireOrganizationId();
         var page = poRepo.findSupplierVisibleOrders(orgId, PurchaseOrderStatus.PARTIALLY_RECEIVED, null, null, pageable);
         List<com.nexus.core.payload.PurchaseOrderDto> dtos = page.getContent().stream()
-                .map(po -> modelMapper.map(po, com.nexus.core.payload.PurchaseOrderDto.class))
+                .map(po -> PurchaseOrderServiceImpl.toDto(po))
                 .collect(Collectors.toList());
         return ResponseEntity.ok(new org.springframework.data.domain.PageImpl<>(dtos, pageable, page.getTotalElements()));
     }

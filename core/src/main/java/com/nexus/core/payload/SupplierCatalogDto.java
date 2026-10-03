@@ -39,6 +39,8 @@ public class SupplierCatalogDto {
 
     private Double basePrice;
 
+    private String unitOfMeasure;
+
     private String currency;
 
     private CatalogStatus status;

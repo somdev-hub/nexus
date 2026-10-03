@@ -73,6 +73,9 @@ public class SupplierCatalog extends BaseEntity {
     @Column(name = "base_price")
     private Double basePrice;
 
+    @Column(name = "unit_of_measure", length = 20)
+    private String unitOfMeasure;
+
     @Column(name = "currency", length = 3)
     private String currency = "USD";
 

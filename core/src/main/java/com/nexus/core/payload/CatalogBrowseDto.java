@@ -39,6 +39,8 @@ public class CatalogBrowseDto {
 
     private Double basePrice;
 
+    private String unitOfMeasure;
+
     private String currency;
 
     private CatalogStatus status;

@@ -33,13 +33,19 @@ public interface InvoiceRepo extends JpaRepository<Invoice, Long> {
 	boolean existsByInvoiceNumber(String invoiceNumber);
 
 	// Invoices visible to a supplier org via the linked purchase order's supplier scope
-	// (same visibility predicate as PurchaseOrderRepo.findSupplierVisibleOrders).
+	// (same visibility predicate as PurchaseOrderRepo.findSupplierVisibleOrders,
+	// including the pre-release exclusion).
 	@Query("""
 			SELECT i FROM Invoice i JOIN i.purchaseOrder po
 			LEFT JOIN po.supplierOrg so LEFT JOIN po.partnership p
 			LEFT JOIN p.secondaryOrg sec LEFT JOIN p.primaryOrg pri
 			LEFT JOIN po.buyerOrg b
-			WHERE (so.accountId = :orgId
+			WHERE po.status NOT IN (
+				com.nexus.core.model.enums.PurchaseOrderStatus.DRAFT,
+				com.nexus.core.model.enums.PurchaseOrderStatus.PENDING_APPROVAL,
+				com.nexus.core.model.enums.PurchaseOrderStatus.APPROVED,
+				com.nexus.core.model.enums.PurchaseOrderStatus.REJECTED)
+			AND (so.accountId = :orgId
 				OR sec.accountId = :orgId
 				OR pri.accountId = :orgId
 				OR (po.supplierOrg IS NULL AND po.status = com.nexus.core.model.enums.PurchaseOrderStatus.SENT_TO_SUPPLIER))

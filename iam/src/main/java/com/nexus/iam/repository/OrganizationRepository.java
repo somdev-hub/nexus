@@ -21,8 +21,8 @@ public interface OrganizationRepository extends JpaRepository<Organization, Long
 
     Boolean existsByOrgName(String orgName);
 
-    @Query("SELECT new com.nexus.iam.dto.OrganizationFetchDto(o.id, o.orgName, o.orgType, o.trustScore, o.createdAt, " +
-            "COUNT(u)) FROM Organization o LEFT JOIN o.users u WHERE o.id = :orgId GROUP BY o.id, o.orgName, o.orgType, o.trustScore, o.createdAt")
+    @Query("SELECT new com.nexus.iam.dto.OrganizationFetchDto(o.id, o.orgName, o.orgType, o.trustScore, o.createdAt, o.defaultCurrency, " +
+            "COUNT(u)) FROM Organization o LEFT JOIN o.users u WHERE o.id = :orgId GROUP BY o.id, o.orgName, o.orgType, o.trustScore, o.createdAt, o.defaultCurrency")
     Optional<OrganizationFetchDto> fetchByOrgId(Long orgId);
 
     @Query("SELECT new com.nexus.iam.dto.OrganizationDirectoryDto(o.id, o.orgName, o.orgType, o.city, o.country, o.trustScore) " +

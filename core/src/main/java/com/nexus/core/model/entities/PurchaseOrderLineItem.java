@@ -67,4 +67,8 @@ public class PurchaseOrderLineItem extends BaseEntity {
 	private String incoterms;
 
 	private String deliveryLocation;
+
+	// Supplier catalog item this line was ordered from (nullable for
+	// free-text lines). Links the line to what the supplier sells.
+	private Long catalogId;
 }

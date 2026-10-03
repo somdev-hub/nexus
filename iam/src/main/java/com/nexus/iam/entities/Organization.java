@@ -43,6 +43,8 @@ public class Organization {
 
     private String country;
 
+    private String defaultCurrency = "USD";
+
     @OneToMany(mappedBy = "organization")
     @JsonManagedReference(value = "organization-users")
     private List<User> users = new ArrayList<>();

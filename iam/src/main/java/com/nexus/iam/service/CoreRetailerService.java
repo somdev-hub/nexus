@@ -123,6 +123,8 @@ public interface CoreRetailerService {
 
 	ResponseEntity<?> updatePurchaseOrder(Long id, Map<String, Object> poDto, String authToken, String orgIdHeader);
 
+	ResponseEntity<?> deletePurchaseOrder(Long id, String authToken, String orgIdHeader);
+
 	ResponseEntity<?> transitionPurchaseOrderStatus(Long id, String newStatus, Map<String, Object> params,
 			String authToken, String orgIdHeader);
 

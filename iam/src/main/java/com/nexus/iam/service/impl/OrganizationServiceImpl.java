@@ -170,8 +170,16 @@ public class OrganizationServiceImpl implements OrganizationService {
 					"Organization with name already exists: " + organizationDto.getOrgName());
 		}
 		Timestamp createdAt = organization.getCreatedAt();
+		String existingCurrency = organization.getDefaultCurrency();
 		modelMapper.map(organizationDto, organization);
 		organization.setCreatedAt(createdAt);
+		if (organizationDto.getDefaultCurrency() == null
+				|| organizationDto.getDefaultCurrency().isBlank()) {
+			organization.setDefaultCurrency(
+					existingCurrency != null && !existingCurrency.isBlank() ? existingCurrency : "USD");
+		} else {
+			organization.setDefaultCurrency(organizationDto.getDefaultCurrency().trim().toUpperCase());
+		}
 		Organization updatedOrganization = organizationRepository.save(organization);
 		return modelMapper.map(updatedOrganization, OrganizationDto.class);
 	}
@@ -243,6 +251,7 @@ public class OrganizationServiceImpl implements OrganizationService {
 			}
 			result.put("orgName", organization.getOrgName());
 			result.put("orgId", organization.getId());
+			result.put("defaultCurrency", organization.getDefaultCurrency());
 			result.put("userRoles", user.getRoles().stream().map(Role::getName).toList());
 			result.put("orgType", organization.getOrgType());
 			return result;

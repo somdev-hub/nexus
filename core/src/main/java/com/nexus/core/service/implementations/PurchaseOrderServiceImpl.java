@@ -138,7 +138,7 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 		// Add line items
 		if (poDto.getLineItems() != null && !poDto.getLineItems().isEmpty()) {
 			for (PurchaseOrderLineItemDto lineDto : poDto.getLineItems()) {
-				PurchaseOrderLineItem lineItem = modelMapper.map(lineDto, PurchaseOrderLineItem.class);
+				PurchaseOrderLineItem lineItem = toLineItemEntity(lineDto);
 
 				// Validate material
 				if (lineDto.getMaterialId() != null) {
@@ -167,7 +167,7 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 		}
 
 		PurchaseOrder savedPo = purchaseOrderRepo.save(po);
-		return new ResponseEntity<>(modelMapper.map(savedPo, PurchaseOrderDto.class), HttpStatus.CREATED);
+		return new ResponseEntity<>(toDto(savedPo), HttpStatus.CREATED);
 	}
 
 	/**
@@ -202,7 +202,7 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 	public ResponseEntity<?> getPurchaseOrderById(Long id) {		Long orgId = OrganizationContextHolder.requireOrganizationId();
 		PurchaseOrder po = purchaseOrderRepo.findByPurchaseOrderIdAndBuyerOrgAccountId(id, orgId)
 				.orElseThrow(() -> new ResourceNotFoundException("PurchaseOrder", "purchaseOrderId", id));
-		return new ResponseEntity<>(modelMapper.map(po, PurchaseOrderDto.class), HttpStatus.OK);
+		return new ResponseEntity<>(toDto(po), HttpStatus.OK);
 	}
 
 	@Override
@@ -219,7 +219,7 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 		} else {
 			pos = purchaseOrderRepo.findByBuyerOrgAccountId(orgId, pageable);
 		}
-		Page<PurchaseOrderDto> poDtos = pos.map(po -> modelMapper.map(po, PurchaseOrderDto.class));
+		Page<PurchaseOrderDto> poDtos = pos.map(po -> toDto(po));
 		return new ResponseEntity<>(poDtos, HttpStatus.OK);
 	}
 
@@ -250,7 +250,7 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 		po.getLineItems().clear();
 		if (poDto.getLineItems() != null && !poDto.getLineItems().isEmpty()) {
 			for (PurchaseOrderLineItemDto lineDto : poDto.getLineItems()) {
-				PurchaseOrderLineItem lineItem = modelMapper.map(lineDto, PurchaseOrderLineItem.class);
+				PurchaseOrderLineItem lineItem = toLineItemEntity(lineDto);
 				if (lineItem.getQuantityOrdered() != null && lineItem.getUnitPrice() != null) {
 					lineItem.setTotalPrice(lineItem.getQuantityOrdered() * lineItem.getUnitPrice());
 				}
@@ -259,7 +259,115 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 		}
 
 		PurchaseOrder savedPo = purchaseOrderRepo.save(po);
-		return new ResponseEntity<>(modelMapper.map(savedPo, PurchaseOrderDto.class), HttpStatus.OK);
+		return new ResponseEntity<>(toDto(savedPo), HttpStatus.OK);
+	}
+
+	@Override
+	@Transactional
+	public ResponseEntity<?> deletePurchaseOrder(Long id) {
+		Long orgId = OrganizationContextHolder.requireOrganizationId();
+		PurchaseOrder po = purchaseOrderRepo.findByPurchaseOrderIdAndBuyerOrgAccountId(id, orgId)
+				.orElseThrow(() -> new ResourceNotFoundException("PurchaseOrder", "purchaseOrderId", id));
+
+		// Only allow deletes in DRAFT status
+		if (po.getStatus() != PurchaseOrderStatus.DRAFT) {
+			throw new ValidationException("Can only delete purchase orders in DRAFT status");
+		}
+
+		purchaseOrderRepo.delete(po);
+		return ResponseEntity.ok(java.util.Map.of("message", "Purchase order deleted successfully"));
+	}
+
+	/**
+	 * ModelMapper cannot map PurchaseOrder → PurchaseOrderDto: nested *Id
+	 * properties (partnership.partnershipId/invitationId/…, buyerOrg.accountId,
+	 * supplier.supplierId/…, line items) are ambiguous for the scalar id
+	 * destinations. Map explicitly with ids only — never entity graphs (also
+	 * avoids infinite Jackson nesting on reads).
+	 */
+	public static PurchaseOrderDto toDto(PurchaseOrder po) {
+		PurchaseOrderDto dto = new PurchaseOrderDto();
+		dto.setPurchaseOrderId(po.getPurchaseOrderId());
+		dto.setPoNumber(po.getPoNumber());
+		dto.setPurchaseOrderNumber(po.getPoNumber());
+		dto.setOrderDate(po.getCreatedAt());
+		dto.setRevisionNumber(po.getRevisionNumber());
+		dto.setParentPoId(po.getParentPoId());
+		dto.setBuyerOrgId(po.getBuyerOrg() != null ? po.getBuyerOrg().getAccountId() : null);
+		dto.setBuyerOrgName(po.getBuyerOrg() != null ? po.getBuyerOrg().getName() : null);
+		dto.setSupplierId(po.getSupplier() != null ? po.getSupplier().getSupplierId() : null);
+		dto.setSupplierName(po.getSupplier() != null ? po.getSupplier().getBusinessName() : null);
+		dto.setSupplierOrgId(po.getSupplierOrg() != null ? po.getSupplierOrg().getAccountId() : null);
+		String supplierOrgName = po.getSupplierOrg() != null ? po.getSupplierOrg().getName() : null;
+		if ((supplierOrgName == null || supplierOrgName.isBlank()) && po.getSupplier() != null) {
+			supplierOrgName = po.getSupplier().getBusinessName();
+		}
+		dto.setSupplierOrgName(supplierOrgName);
+		dto.setPartnershipId(po.getPartnership() != null ? po.getPartnership().getPartnershipId() : null);
+		dto.setStatus(po.getStatus());
+		dto.setTotalAmount(po.getTotalAmount());
+		dto.setCurrency(po.getCurrency());
+		dto.setPaymentTerms(po.getPaymentTerms());
+		dto.setIncoterms(po.getIncoterms());
+		dto.setRequestedDeliveryDate(po.getRequestedDeliveryDate());
+		dto.setExpectedDeliveryDate(po.getExpectedDeliveryDate());
+		dto.setNotes(po.getNotes());
+		dto.setIsBlanketOrder(po.getIsBlanketOrder());
+		dto.setBlanketStartDate(po.getBlanketStartDate());
+		dto.setBlanketEndDate(po.getBlanketEndDate());
+		dto.setReleaseSchedule(po.getReleaseSchedule());
+		dto.setApprovedBy(po.getApprovedBy());
+		dto.setRejectionReason(po.getRejectionReason());
+		dto.setApprovalLevel(po.getApprovalLevel());
+		dto.setRequiredApproverLevel(po.getRequiredApproverLevel());
+		dto.setCurrentApprover(po.getCurrentApprover());
+		dto.setApprovalDelegatedTo(po.getApprovalDelegatedTo());
+		if (po.getLineItems() != null) {
+			java.util.List<PurchaseOrderLineItemDto> lines = new java.util.ArrayList<>(po.getLineItems().size());
+			for (PurchaseOrderLineItem line : po.getLineItems()) {
+				PurchaseOrderLineItemDto lineDto = new PurchaseOrderLineItemDto();
+				lineDto.setLineItemId(line.getLineItemId());
+				lineDto.setLineNumber(line.getLineNumber());
+				lineDto.setMaterialId(line.getMaterial() != null ? line.getMaterial().getMaterialId() : null);
+				lineDto.setProductId(line.getProduct() != null ? line.getProduct().getProductId() : null);
+				lineDto.setDescription(line.getDescription());
+				lineDto.setQuantityOrdered(line.getQuantityOrdered());
+				lineDto.setQuantityReceived(line.getQuantityReceived());
+				lineDto.setQuantityInvoiced(line.getQuantityInvoiced());
+				lineDto.setUnitPrice(line.getUnitPrice());
+				lineDto.setTotalPrice(line.getTotalPrice());
+				lineDto.setUnitOfMeasure(line.getUnitOfMeasure());
+				lineDto.setIncoterms(line.getIncoterms());
+				lineDto.setDeliveryLocation(line.getDeliveryLocation());
+				lineDto.setCatalogId(line.getCatalogId());
+				lines.add(lineDto);
+			}
+			dto.setLineItems(lines);
+		}
+		return dto;
+	}
+
+	/**
+	 * ModelMapper cannot map PurchaseOrderLineItemDto → PurchaseOrderLineItem:
+	 * the *Id fields (lineItemId/productId/materialId/catalogId) all match the
+	 * nested destination purchaseOrder.purchaseOrderId. Map scalars explicitly;
+	 * material/product links are resolved by the caller.
+	 */
+	private PurchaseOrderLineItem toLineItemEntity(PurchaseOrderLineItemDto lineDto) {
+		PurchaseOrderLineItem lineItem = new PurchaseOrderLineItem();
+		lineItem.setLineItemId(lineDto.getLineItemId());
+		lineItem.setLineNumber(lineDto.getLineNumber());
+		lineItem.setDescription(lineDto.getDescription());
+		lineItem.setQuantityOrdered(lineDto.getQuantityOrdered());
+		lineItem.setQuantityReceived(lineDto.getQuantityReceived());
+		lineItem.setQuantityInvoiced(lineDto.getQuantityInvoiced());
+		lineItem.setUnitPrice(lineDto.getUnitPrice());
+		lineItem.setTotalPrice(lineDto.getTotalPrice());
+		lineItem.setUnitOfMeasure(lineDto.getUnitOfMeasure());
+		lineItem.setIncoterms(lineDto.getIncoterms());
+		lineItem.setDeliveryLocation(lineDto.getDeliveryLocation());
+		lineItem.setCatalogId(lineDto.getCatalogId());
+		return lineItem;
 	}
 
 	@Override
@@ -272,7 +380,7 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 		PurchaseOrderStatus currentStatus = po.getStatus();
 
 		// Validate state transition
-		validateTransition(currentStatus, newStatus, params);
+		validateTransition(po, currentStatus, newStatus, params);
 
 		// Execute transition
 		executeTransition(po, currentStatus, newStatus, params);
@@ -284,15 +392,15 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 		if (currentStatus == PurchaseOrderStatus.DRAFT && newStatus == PurchaseOrderStatus.PENDING_APPROVAL
 				&& po.getStatus() == PurchaseOrderStatus.APPROVED) {
 			// Auto-approval occurred, return the approved PO
-			PurchaseOrder savedPo = purchaseOrderRepo.save(po);
-			return new ResponseEntity<>(modelMapper.map(savedPo, PurchaseOrderDto.class), HttpStatus.OK);
-		}
-
 		PurchaseOrder savedPo = purchaseOrderRepo.save(po);
-		return new ResponseEntity<>(modelMapper.map(savedPo, PurchaseOrderDto.class), HttpStatus.OK);
+		return new ResponseEntity<>(toDto(savedPo), HttpStatus.OK);
 	}
 
-	private void validateTransition(PurchaseOrderStatus currentStatus, PurchaseOrderStatus newStatus,
+		PurchaseOrder savedPo = purchaseOrderRepo.save(po);
+		return new ResponseEntity<>(toDto(savedPo), HttpStatus.OK);
+	}
+
+	private void validateTransition(PurchaseOrder po, PurchaseOrderStatus currentStatus, PurchaseOrderStatus newStatus,
 			Map<String, Object> params) {
 		// Define valid transitions
 		switch (currentStatus) {
@@ -301,8 +409,9 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 					throw new ValidationException("From DRAFT, can only transition to PENDING_APPROVAL or CANCELLED");
 				}
 				if (newStatus == PurchaseOrderStatus.PENDING_APPROVAL) {
-					if (params == null || params.get("lineItems") == null
-							|| ((List<?>) params.get("lineItems")).isEmpty()) {
+					// The PO's stored line items count — callers are not
+					// required to resend them in the transition body.
+					if (po.getLineItems() == null || po.getLineItems().isEmpty()) {
 						throw new ValidationException("Cannot submit PO without line items");
 					}
 				}
@@ -551,7 +660,7 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 		Long orgId = OrganizationContextHolder.requireOrganizationId();
 		List<PurchaseOrder> amendments = purchaseOrderRepo.findAmendmentsByParentPoId(orgId, parentPoId);
 		List<PurchaseOrderDto> amendmentDtos = amendments.stream()
-				.map(po -> modelMapper.map(po, PurchaseOrderDto.class))
+				.map(po -> toDto(po))
 				.collect(Collectors.toList());
 		return new ResponseEntity<>(amendmentDtos, HttpStatus.OK);
 	}
@@ -590,7 +699,7 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 		for (LocalDateTime releaseDate : releaseDates) {
 			if (releaseDate.isAfter(LocalDateTime.now())) {
 				// Create release PO
-				PurchaseOrderDto releaseDto = modelMapper.map(blanketPo, PurchaseOrderDto.class);
+				PurchaseOrderDto releaseDto = toDto(blanketPo);
 				releaseDto.setPurchaseOrderId(null); // New PO
 				releaseDto.setParentPoId(blanketPoId);
 				releaseDto.setRevisionNumber(blanketPo.getRevisionNumber() + 1);
@@ -676,7 +785,7 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 		Long orgId = OrganizationContextHolder.requireOrganizationId();
 		Page<PurchaseOrder> blanketOrders = purchaseOrderRepo.findByBuyerOrgAccountIdAndIsBlanketOrderTrue(orgId,
 				pageable);
-		Page<PurchaseOrderDto> dtoPage = blanketOrders.map(po -> modelMapper.map(po, PurchaseOrderDto.class));
+		Page<PurchaseOrderDto> dtoPage = blanketOrders.map(po -> toDto(po));
 		return new ResponseEntity<>(dtoPage, HttpStatus.OK);
 	}
 
@@ -688,7 +797,7 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 		Long orgId = OrganizationContextHolder.requireOrganizationId();
 		List<PurchaseOrder> releases = purchaseOrderRepo.findByParentPoIdAndIsBlanketOrderFalse(orgId, blanketPoId);
 		List<PurchaseOrderDto> releaseDtos = releases.stream()
-				.map(po -> modelMapper.map(po, PurchaseOrderDto.class))
+				.map(po -> toDto(po))
 				.collect(Collectors.toList());
 		return new ResponseEntity<>(releaseDtos, HttpStatus.OK);
 	}

@@ -42,4 +42,6 @@ public class PurchaseOrderLineItemDto {
 	private String incoterms;
 
 	private String deliveryLocation;
+
+	private Long catalogId;
 }
