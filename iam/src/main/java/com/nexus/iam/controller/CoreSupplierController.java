@@ -138,6 +138,13 @@ public class CoreSupplierController {
 		return supplierService.deletePriceTier(id, auth, org);
 	}
 
+	@LogActivity("Update Price Tier via IAM")
+	@PutMapping("/price-tiers/{id}/update")
+	public ResponseEntity<?> updatePriceTier(@PathVariable Long id, @RequestBody Map<String, Object> dto,
+			@RequestHeader("Authorization") String auth, @RequestHeader("X-Organization-ID") String org) {
+		return supplierService.updatePriceTier(id, dto, auth, org);
+	}
+
 	@LogActivity("Get Price For Quantity via IAM")
 	@GetMapping("/price-tiers/price-for-quantity")
 	public ResponseEntity<?> getPriceForQty(@RequestParam Long catalogId, @RequestParam Double quantity,
@@ -174,6 +181,14 @@ public class CoreSupplierController {
 	public ResponseEntity<?> deleteAsset(@PathVariable Long id, @RequestHeader("Authorization") String auth,
 			@RequestHeader("X-Organization-ID") String org) {
 		return supplierService.deleteDigitalAsset(id, auth, org);
+	}
+
+	@LogActivity("Upload Digital Asset File via IAM")
+	@PostMapping("/digital-assets/{id}/file")
+	public ResponseEntity<?> uploadAssetFile(@PathVariable Long id,
+			@RequestParam("file") org.springframework.web.multipart.MultipartFile file,
+			@RequestHeader("Authorization") String auth, @RequestHeader("X-Organization-ID") String org) {
+		return supplierService.uploadDigitalAssetFile(id, file, auth, org);
 	}
 
 	// Capacity
@@ -639,5 +654,54 @@ public class CoreSupplierController {
 			@RequestHeader("Authorization") String auth, @RequestHeader("X-Organization-ID") String org) {
 		String status = statusDto != null ? (String) statusDto.get("status") : null;
 		return supplierService.updatePartnershipStatus(id, status, auth, org);
+	}
+
+	// Supplier contracts shared with this supplier org (countersign flow)
+	@LogActivity("Get Supplier Contracts for Supplier")
+	@GetMapping("/contracts/all")
+	public ResponseEntity<?> getSupplierContracts(@RequestHeader("Authorization") String auth,
+			@RequestHeader("X-Organization-ID") String org,
+			@PageableDefault(size = 20) Pageable pageable) {
+		return supplierService.getSupplierContracts(auth, org, pageable);
+	}
+
+	@LogActivity("Get Supplier Contract for Supplier")
+	@GetMapping("/contracts/{id}")
+	public ResponseEntity<?> getSupplierContract(@PathVariable Long id,
+			@RequestHeader("Authorization") String auth, @RequestHeader("X-Organization-ID") String org) {
+		return supplierService.getSupplierContract(id, auth, org);
+	}
+
+	@LogActivity("Approve Supplier Contract for Supplier")
+	@PostMapping("/contracts/{id}/approve")
+	public ResponseEntity<?> approveSupplierContract(@PathVariable Long id,
+			@RequestParam(required = false) String decidedBy,
+			@RequestHeader("Authorization") String auth, @RequestHeader("X-Organization-ID") String org) {
+		return supplierService.approveSupplierContract(id, decidedBy, auth, org);
+	}
+
+	@LogActivity("Reject Supplier Contract for Supplier")
+	@PostMapping("/contracts/{id}/reject")
+	public ResponseEntity<?> rejectSupplierContract(@PathVariable Long id,
+			@RequestParam String comments,
+			@RequestParam(required = false) String decidedBy,
+			@RequestHeader("Authorization") String auth, @RequestHeader("X-Organization-ID") String org) {
+		return supplierService.rejectSupplierContract(id, comments, decidedBy, auth, org);
+	}
+
+	@LogActivity("Request Supplier Contract Amendments for Supplier")
+	@PostMapping("/contracts/{id}/request-amendments")
+	public ResponseEntity<?> requestSupplierContractAmendments(@PathVariable Long id,
+			@RequestParam String comments,
+			@RequestParam(required = false) String decidedBy,
+			@RequestHeader("Authorization") String auth, @RequestHeader("X-Organization-ID") String org) {
+		return supplierService.requestSupplierContractAmendments(id, comments, decidedBy, auth, org);
+	}
+
+	@LogActivity("Get Supplier Contract Document Content for Supplier")
+	@GetMapping("/contracts/{id}/document-content")
+	public ResponseEntity<?> getSupplierContractDocumentContent(@PathVariable Long id,
+			@RequestHeader("Authorization") String auth, @RequestHeader("X-Organization-ID") String org) {
+		return supplierService.getSupplierContractDocumentContent(id, auth, org);
 	}
 }

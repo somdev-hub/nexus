@@ -36,7 +36,7 @@ public interface CoreSupplierService {
     ResponseEntity<?> getDigitalAsset(Long id, String authToken, String orgId);
     ResponseEntity<?> getAllDigitalAssets(String authToken, String orgId, Pageable pageable, Long catalogId, String assetType);
     ResponseEntity<?> deleteDigitalAsset(Long id, String authToken, String orgId);
-
+    ResponseEntity<?> uploadDigitalAssetFile(Long id, org.springframework.web.multipart.MultipartFile file, String authToken, String orgId);
     // Capacity
     ResponseEntity<?> createCapacity(Map<String, Object> dto, String authToken, String orgId);
     ResponseEntity<?> getCapacity(Long id, String authToken, String orgId);
@@ -129,4 +129,12 @@ public interface CoreSupplierService {
             String orgId);
 
     ResponseEntity<?> updatePartnershipStatus(Long id, String status, String authToken, String orgId);
+
+    // Supplier contracts shared with this supplier org (countersign flow)
+    ResponseEntity<?> getSupplierContracts(String authToken, String orgId, Pageable pageable);
+    ResponseEntity<?> getSupplierContract(Long id, String authToken, String orgId);
+    ResponseEntity<?> approveSupplierContract(Long id, String decidedBy, String authToken, String orgId);
+    ResponseEntity<?> rejectSupplierContract(Long id, String comments, String decidedBy, String authToken, String orgId);
+    ResponseEntity<?> requestSupplierContractAmendments(Long id, String comments, String decidedBy, String authToken, String orgId);
+    ResponseEntity<?> getSupplierContractDocumentContent(Long id, String authToken, String orgId);
 }

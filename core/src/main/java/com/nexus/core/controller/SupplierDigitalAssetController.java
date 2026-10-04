@@ -46,6 +46,15 @@ public class SupplierDigitalAssetController {
         return assetService.updateAsset(id, dto);
     }
 
+    @PostMapping("/{id}/file")
+    @LogActivity("Upload Supplier Digital Asset File")
+    public ResponseEntity<?> uploadAssetFile(
+            @PathVariable Long id,
+            @RequestParam("file") org.springframework.web.multipart.MultipartFile file,
+            @RequestHeader(value = "Authorization", required = false) String authToken) {
+        return assetService.uploadAssetFile(id, file, authToken);
+    }
+
     @DeleteMapping("/{id}")
     @LogActivity("Delete Supplier Digital Asset")
     public ResponseEntity<?> deleteAsset(@PathVariable Long id) {

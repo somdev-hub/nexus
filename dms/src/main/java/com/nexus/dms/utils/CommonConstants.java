@@ -10,7 +10,9 @@ public class CommonConstants {
             "image/jpg",
             "image/png",
             "text/html",
-            "text/plain"
+            "text/plain",
+			// markdown
+			"text/markdown"
             );
 
     public static final long MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024; // 20 MB

@@ -50,6 +50,8 @@ public class SupplierQuotationDto {
 
     private Long supplierOrgId;
 
+    private String supplierOrgName;
+
     private Timestamp createdAt;
     private Timestamp updatedAt;
 }

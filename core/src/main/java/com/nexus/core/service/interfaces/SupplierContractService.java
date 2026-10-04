@@ -46,6 +46,10 @@ public interface SupplierContractService {
 	ResponseEntity<?> uploadContractDocument(Long contractId, MultipartFile file, String documentName, String remarks,
 			String authToken);
 
+	ResponseEntity<?> uploadContractTextDocument(Long contractId, String fileName, String content, String authToken);
+
+	ResponseEntity<?> getContractDocumentContent(Long contractId, String authToken);
+
 	ResponseEntity<?> getContractDocument(Long contractId, String authToken);
 
 	ResponseEntity<?> deleteContractDocument(Long contractId, String authToken);
@@ -61,4 +65,17 @@ public interface SupplierContractService {
 	ResponseEntity<?> renewContract(Long contractId, LocalDate newExpiryDate);
 
 	ResponseEntity<?> deleteContract(Long contractId);
+
+	// Supplier-side (countersign) flow: contracts shared with the supplier org
+	ResponseEntity<?> getSupplierContracts(org.springframework.data.domain.Pageable pageable);
+
+	ResponseEntity<?> getSupplierContractById(Long contractId);
+
+	ResponseEntity<?> approveSupplierContract(Long contractId, String decidedBy);
+
+	ResponseEntity<?> rejectSupplierContract(Long contractId, String comments, String decidedBy);
+
+	ResponseEntity<?> requestSupplierContractAmendments(Long contractId, String comments, String decidedBy);
+
+	ResponseEntity<?> getSupplierContractDocumentContent(Long contractId, String authToken);
 }

@@ -8,6 +8,8 @@ import com.nexus.core.repository.SupplierCatalogRepo;
 import com.nexus.core.repository.SupplierDigitalAssetRepo;
 import com.nexus.core.security.OrganizationContextHolder;
 import com.nexus.core.service.interfaces.SupplierDigitalAssetService;
+import com.nexus.core.utils.RestService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
@@ -26,6 +28,11 @@ public class SupplierDigitalAssetServiceImpl implements SupplierDigitalAssetServ
     private final SupplierDigitalAssetRepo assetRepo;
     private final SupplierCatalogRepo catalogRepo;
     private final ModelMapper modelMapper;
+    private final RestService restService;
+    private final ObjectMapper objectMapper;
+
+    private static final java.util.Set<String> ALLOWED_CONTENT_TYPES = java.util.Set.of(
+            "image/jpeg", "image/png", "application/pdf");
 
     @Override
     @Transactional
@@ -77,6 +84,56 @@ public class SupplierDigitalAssetServiceImpl implements SupplierDigitalAssetServ
         if (dto.getVersion() != null) asset.setVersion(dto.getVersion());
         SupplierDigitalAsset saved = assetRepo.save(asset);
         return ResponseEntity.ok(mapToDto(saved));
+    }
+
+    @Override
+    @Transactional
+    public ResponseEntity<?> uploadAssetFile(Long id, org.springframework.web.multipart.MultipartFile file,
+            String authToken) {
+        Long orgId = OrganizationContextHolder.requireOrganizationId();
+        SupplierDigitalAsset asset = assetRepo.findByAssetIdAndCatalogSupplierOrgAccountId(id, orgId)
+                .orElseThrow(() -> new ResourceNotFoundException("SupplierDigitalAsset", "assetId", id));
+        if (file == null || file.isEmpty()) {
+            return ResponseEntity.badRequest().body(java.util.Map.of("error", "File is required"));
+        }
+        String contentType = file.getContentType() != null ? file.getContentType().toLowerCase() : "";
+        // Allow jpg/png/pdf only (extension fallback when browsers omit the type).
+        String filename = file.getOriginalFilename() != null ? file.getOriginalFilename().toLowerCase() : "";
+        boolean allowed = ALLOWED_CONTENT_TYPES.contains(contentType)
+                || filename.endsWith(".jpg") || filename.endsWith(".jpeg")
+                || filename.endsWith(".png") || filename.endsWith(".pdf");
+        if (!allowed) {
+            return ResponseEntity.badRequest()
+                    .body(java.util.Map.of("error", "Only JPG, PNG and PDF files are allowed"));
+        }
+        try {
+            ResponseEntity<String> response = restService.uploadToDmsOrg(
+                    file,
+                    file.getOriginalFilename(),
+                    orgId,
+                    "Supplier digital asset for catalog: "
+                            + (asset.getCatalog() != null ? asset.getCatalog().getCatalogId() : null),
+                    "SUPPLIER_ASSET",
+                    "SUPPLIER",
+                    authToken,
+                    orgId);
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                com.fasterxml.jackson.databind.JsonNode node = objectMapper.readTree(response.getBody());
+                asset.setDmsDocumentId(node.path("dmsId").asText(null));
+                String documentUrl = node.path("documentUrl").asText(null);
+                asset.setDmsDocumentUrl(documentUrl);
+                if (asset.getFileName() == null || asset.getFileName().isBlank()) {
+                    asset.setFileName(file.getOriginalFilename());
+                }
+                return ResponseEntity.ok(mapToDto(assetRepo.save(asset)));
+            }
+            return ResponseEntity.status(response.getStatusCode())
+                    .body(java.util.Map.of("error", "DMS upload failed: " + response.getBody()));
+        } catch (Exception e) {
+            log.error("Error uploading asset file", e);
+            return ResponseEntity.internalServerError()
+                    .body(java.util.Map.of("error", "Error uploading file: " + e.getMessage()));
+        }
     }
 
     @Override

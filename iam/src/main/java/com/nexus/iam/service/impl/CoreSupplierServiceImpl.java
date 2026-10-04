@@ -1,5 +1,6 @@
 package com.nexus.iam.service.impl;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.Optional;
 
@@ -9,6 +10,7 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.util.UriComponentsBuilder;
+import org.springframework.web.util.UriUtils;
 
 import com.nexus.iam.service.CoreSupplierService;
 import com.nexus.iam.utils.CommonUtils;
@@ -162,6 +164,26 @@ public class CoreSupplierServiceImpl implements CoreSupplierService {
 	@Override
 	public ResponseEntity<?> deleteDigitalAsset(Long id, String authToken, String orgId) {
 		return callDelete(webConstants.getCoreSupplierDigitalAssetGetUrl() + "/" + id, authToken, orgId);
+	}
+
+	@Override
+	public ResponseEntity<?> uploadDigitalAssetFile(Long id, org.springframework.web.multipart.MultipartFile file,
+			String authToken, String orgId) {
+		Map<String, String> headers = commonUtils.buildMultipartHeaders(authToken);
+		headers.put("X-Organization-ID", orgId);
+		String url = webConstants.getCoreSupplierDigitalAssetGetUrl() + "/" + id + "/file";
+		org.springframework.util.MultiValueMap<String, Object> body = new org.springframework.util.LinkedMultiValueMap<>();
+		try {
+			body.add("file", new org.springframework.core.io.ByteArrayResource(file.getBytes()) {
+				@Override
+				public String getFilename() {
+					return file.getOriginalFilename();
+				}
+			});
+		} catch (java.io.IOException e) {
+			return ResponseEntity.internalServerError().body(Map.of("error", "Failed to read file"));
+		}
+		return restService.iamRestCall(url, body, headers, HttpMethod.POST, null);
 	}
 
 	// Capacity
@@ -545,6 +567,58 @@ public class CoreSupplierServiceImpl implements CoreSupplierService {
 			String orgId) {
 		String url = webConstants.getCorePartnershipUpdateStatusUrl() + "/" + id + "/status";
 		return callPost(url, Map.of("status", status), authToken, orgId);
+	}
+
+	// Supplier contracts shared with this supplier org (countersign flow).
+	// Core serves these at /api/core/supplier-contracts/by-supplier/... .
+	private String supplierContractBaseUrl() {
+		return webConstants.getCoreServiceUrl() + "/api/core/supplier-contracts/by-supplier";
+	}
+
+	@Override
+	public ResponseEntity<?> getSupplierContracts(String authToken, String orgId, Pageable pageable) {
+		return callGet(buildPaginatedUrl(supplierContractBaseUrl(), pageable), authToken, orgId);
+	}
+
+	@Override
+	public ResponseEntity<?> getSupplierContract(Long id, String authToken, String orgId) {
+		return callGet(supplierContractBaseUrl() + "/" + id, authToken, orgId);
+	}
+
+	@Override
+	public ResponseEntity<?> approveSupplierContract(Long id, String decidedBy, String authToken, String orgId) {
+		String url = supplierContractBaseUrl() + "/" + id + "/approve";
+		if (decidedBy != null && !decidedBy.isBlank()) {
+			url = url + "?decidedBy=" + UriUtils.encodeQueryParam(decidedBy, StandardCharsets.UTF_8);
+		}
+		return callPost(url, null, authToken, orgId);
+	}
+
+	@Override
+	public ResponseEntity<?> rejectSupplierContract(Long id, String comments, String decidedBy, String authToken,
+			String orgId) {
+		String url = supplierContractBaseUrl() + "/" + id + "/reject?comments="
+				+ UriUtils.encodeQueryParam(comments, StandardCharsets.UTF_8);
+		if (decidedBy != null && !decidedBy.isBlank()) {
+			url = url + "&decidedBy=" + UriUtils.encodeQueryParam(decidedBy, StandardCharsets.UTF_8);
+		}
+		return callPost(url, null, authToken, orgId);
+	}
+
+	@Override
+	public ResponseEntity<?> requestSupplierContractAmendments(Long id, String comments, String decidedBy,
+			String authToken, String orgId) {
+		String url = supplierContractBaseUrl() + "/" + id + "/request-amendments?comments="
+				+ UriUtils.encodeQueryParam(comments, StandardCharsets.UTF_8);
+		if (decidedBy != null && !decidedBy.isBlank()) {
+			url = url + "&decidedBy=" + UriUtils.encodeQueryParam(decidedBy, StandardCharsets.UTF_8);
+		}
+		return callPost(url, null, authToken, orgId);
+	}
+
+	@Override
+	public ResponseEntity<?> getSupplierContractDocumentContent(Long id, String authToken, String orgId) {
+		return callGet(supplierContractBaseUrl() + "/" + id + "/document-content", authToken, orgId);
 	}
 
 	private ResponseEntity<?> callGet(String url, String authToken, String orgId) {

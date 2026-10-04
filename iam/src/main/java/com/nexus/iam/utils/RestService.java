@@ -164,10 +164,13 @@ public class RestService {
                 // Create a copy to avoid serializing MultipartFile objects
                 Map<String, Object> safeMap = new java.util.HashMap<>();
                 for (Map.Entry<String, Object> entry : map.entrySet()) {
-                    if (entry.getValue() instanceof MultipartFile) {
-                        safeMap.put(entry.getKey(), "MultipartFile");
+                    Object value = entry.getValue();
+                    if (value instanceof MultipartFile
+                            || value instanceof org.springframework.core.io.Resource
+                            || value instanceof byte[]) {
+                        safeMap.put(entry.getKey(), "[binary content omitted]");
                     } else {
-                        safeMap.put(entry.getKey(), entry.getValue());
+                        safeMap.put(entry.getKey(), value);
                     }
                 }
                 ObjectMapper mapper = new ObjectMapper();

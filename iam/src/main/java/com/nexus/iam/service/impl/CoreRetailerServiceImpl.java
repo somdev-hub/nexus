@@ -1696,7 +1696,7 @@ public class CoreRetailerServiceImpl implements CoreRetailerService {
 			String orgIdHeader) {
 		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
 		headers.put("X-Organization-ID", orgIdHeader);
-		String url = webConstants.getCoreSupplierContractUpdateUrl() + "/" + id + "/update";
+		String url = webConstants.getCoreSupplierContractUpdateUrl() + "/" + id;
 		return restService.iamRestCall(
 				url,
 				contractDto,
@@ -1781,6 +1781,33 @@ public class CoreRetailerServiceImpl implements CoreRetailerService {
 				null,
 				headers,
 				HttpMethod.DELETE,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> uploadSupplierContractTextDocument(Long id, Map<String, String> body, String authToken,
+			String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCoreSupplierContractDocumentUrl() + "/" + id + "/document-text";
+		return restService.iamRestCall(
+				url,
+				body,
+				headers,
+				HttpMethod.POST,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> getSupplierContractDocumentContent(Long id, String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCoreSupplierContractDocumentUrl() + "/" + id + "/document-content";
+		return restService.iamRestCall(
+				url,
+				null,
+				headers,
+				HttpMethod.GET,
 				null);
 	}
 
@@ -1870,7 +1897,7 @@ public class CoreRetailerServiceImpl implements CoreRetailerService {
 	public ResponseEntity<?> deleteSupplierContract(Long id, String authToken, String orgIdHeader) {
 		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
 		headers.put("X-Organization-ID", orgIdHeader);
-		String url = webConstants.getCoreSupplierContractDeleteUrl() + "/" + id + "/delete";
+		String url = webConstants.getCoreSupplierContractDeleteUrl() + "/" + id;
 		return restService.iamRestCall(
 				url,
 				null,

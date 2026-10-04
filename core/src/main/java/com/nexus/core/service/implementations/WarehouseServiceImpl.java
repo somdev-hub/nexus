@@ -26,21 +26,38 @@ public class WarehouseServiceImpl implements WarehouseService {
 	public ResponseEntity<?> addWarehouse(WarehouseDto warehouseDto) {
 		Warehouse warehouse = modelMapper.map(warehouseDto, Warehouse.class);
 		Warehouse savedWarehouse = warehouseRepo.save(warehouse);
-		return new ResponseEntity<>(modelMapper.map(savedWarehouse, WarehouseDto.class), HttpStatus.CREATED);
+		return new ResponseEntity<>(toDto(savedWarehouse), HttpStatus.CREATED);
 	}
 
 	@Override
 	public ResponseEntity<?> getWarehouseByIdAndOrg(Long id, Long orgId) {
 		Warehouse warehouse = warehouseRepo.findByWarehouseIdAndOrg(id, orgId)
 				.orElseThrow(() -> new ResourceNotFoundException("Warehouse", "warehouseId", id));
-		return new ResponseEntity<>(modelMapper.map(warehouse, WarehouseDto.class), HttpStatus.OK);
+		return new ResponseEntity<>(toDto(warehouse), HttpStatus.OK);
 	}
 
 	@Override
 	public ResponseEntity<?> getAllWarehousesByOrgId(Long orgId, Pageable pageable) {
 		Page<Warehouse> warehouses = warehouseRepo.findByOrg(orgId, pageable);
-		Page<WarehouseDto> warehouseDtos = warehouses.map(w -> modelMapper.map(w, WarehouseDto.class));
+		Page<WarehouseDto> warehouseDtos = warehouses.map(WarehouseServiceImpl::toDto);
 		return new ResponseEntity<>(warehouseDtos, HttpStatus.OK);
+	}
+
+	/**
+	 * Explicit mapping: ModelMapper cannot disambiguate Warehouse.materials[].*
+	 * hierarchies for the scalar destinations, and entity graphs must never
+	 * leak into JSON (infinite nesting).
+	 */
+	private static WarehouseDto toDto(Warehouse warehouse) {
+		WarehouseDto dto = new WarehouseDto();
+		dto.setWarehouseId(warehouse.getWarehouseId());
+		dto.setCode(warehouse.getCode());
+		dto.setWarehouseManager(warehouse.getWarehouseManager());
+		dto.setOrg(warehouse.getOrg());
+		dto.setLocation(warehouse.getLocation());
+		dto.setStorageCapacity(warehouse.getStorageCapacity());
+		dto.setCurrentUtilization(warehouse.getCurrentUtilization());
+		return dto;
 	}
 
 }

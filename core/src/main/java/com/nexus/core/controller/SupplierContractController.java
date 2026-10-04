@@ -149,6 +149,27 @@ public class SupplierContractController {
 		return contractService.deleteContractDocument(contractId, authToken);
 	}
 
+	@PostMapping("/{contractId}/document-text")
+	@LogActivity("UPLOAD_CONTRACT_TEXT_DOCUMENT")
+	public ResponseEntity<?> uploadContractTextDocument(
+			@PathVariable Long contractId,
+			@RequestBody java.util.Map<String, String> body,
+			@RequestHeader(value = "Authorization", required = false) String authToken) {
+		return contractService.uploadContractTextDocument(
+				contractId,
+				body != null ? body.get("fileName") : null,
+				body != null ? body.get("content") : null,
+				authToken);
+	}
+
+	@GetMapping("/{contractId}/document-content")
+	@LogActivity("GET_CONTRACT_DOCUMENT_CONTENT")
+	public ResponseEntity<?> getContractDocumentContent(
+			@PathVariable Long contractId,
+			@RequestHeader(value = "Authorization", required = false) String authToken) {
+		return contractService.getContractDocumentContent(contractId, authToken);
+	}
+
 	@PostMapping("/{contractId}/approve")
 	@LogActivity("APPROVE_SUPPLIER_CONTRACT")
 	public ResponseEntity<?> approveContract(
@@ -194,5 +215,55 @@ public class SupplierContractController {
 	public ResponseEntity<?> deleteContract(
 			@PathVariable Long contractId) {
 		return contractService.deleteContract(contractId);
+	}
+
+	// Supplier-side (countersign) endpoints: scoped to contracts shared with
+	// the caller's supplier org.
+	@GetMapping("/by-supplier")
+	@LogActivity("LIST_SUPPLIER_CONTRACTS_FOR_SUPPLIER")
+	public ResponseEntity<?> getSupplierContracts(
+			@PageableDefault(size = 20) Pageable pageable) {
+		return contractService.getSupplierContracts(pageable);
+	}
+
+	@GetMapping("/by-supplier/{contractId}")
+	@LogActivity("GET_SUPPLIER_CONTRACT_FOR_SUPPLIER")
+	public ResponseEntity<?> getSupplierContractById(
+			@PathVariable Long contractId) {
+		return contractService.getSupplierContractById(contractId);
+	}
+
+	@PostMapping("/by-supplier/{contractId}/approve")
+	@LogActivity("APPROVE_SUPPLIER_CONTRACT_BY_SUPPLIER")
+	public ResponseEntity<?> approveSupplierContract(
+			@PathVariable Long contractId,
+			@RequestParam(required = false) String decidedBy) {
+		return contractService.approveSupplierContract(contractId, decidedBy);
+	}
+
+	@PostMapping("/by-supplier/{contractId}/reject")
+	@LogActivity("REJECT_SUPPLIER_CONTRACT_BY_SUPPLIER")
+	public ResponseEntity<?> rejectSupplierContract(
+			@PathVariable Long contractId,
+			@RequestParam String comments,
+			@RequestParam(required = false) String decidedBy) {
+		return contractService.rejectSupplierContract(contractId, comments, decidedBy);
+	}
+
+	@PostMapping("/by-supplier/{contractId}/request-amendments")
+	@LogActivity("REQUEST_SUPPLIER_CONTRACT_AMENDMENTS")
+	public ResponseEntity<?> requestSupplierContractAmendments(
+			@PathVariable Long contractId,
+			@RequestParam String comments,
+			@RequestParam(required = false) String decidedBy) {
+		return contractService.requestSupplierContractAmendments(contractId, comments, decidedBy);
+	}
+
+	@GetMapping("/by-supplier/{contractId}/document-content")
+	@LogActivity("GET_SUPPLIER_CONTRACT_DOCUMENT_FOR_SUPPLIER")
+	public ResponseEntity<?> getSupplierContractDocumentContent(
+			@PathVariable Long contractId,
+			@RequestHeader(value = "Authorization", required = false) String authToken) {
+		return contractService.getSupplierContractDocumentContent(contractId, authToken);
 	}
 }

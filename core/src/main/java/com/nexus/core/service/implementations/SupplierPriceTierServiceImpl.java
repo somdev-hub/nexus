@@ -44,9 +44,15 @@ public class SupplierPriceTierServiceImpl implements SupplierPriceTierService {
         tier.setTierId(null);
         tier.setCatalog(catalog);
         if (dto.getContractId() != null) {
+            // Contracts are owned by the retailer account; a supplier may
+            // link tiers only to contracts shared with their org (same rule
+            // as the supplier contract visibility endpoints).
             SupplierContract contract = contractRepo.findById(dto.getContractId())
-                    .filter(c -> c.getAccount().getAccountId().equals(orgId))
-                    .orElseThrow(() -> new ResourceNotFoundException("SupplierContract", "contractId", dto.getContractId()));
+                    .filter(c -> c.getSupplier() != null
+                            && c.getSupplier().getSupplierOrgAccountId() != null
+                            && c.getSupplier().getSupplierOrgAccountId().equals(orgId))
+                    .orElseThrow(() -> new ResourceNotFoundException("SupplierContract", "contractId",
+                            dto.getContractId()));
             tier.setContract(contract);
         }
         SupplierPriceTier saved = tierRepo.save(tier);
@@ -85,6 +91,17 @@ public class SupplierPriceTierServiceImpl implements SupplierPriceTierService {
         if (dto.getCurrency() != null) tier.setCurrency(dto.getCurrency());
         if (dto.getValidFrom() != null) tier.setValidFrom(dto.getValidFrom());
         if (dto.getValidTo() != null) tier.setValidTo(dto.getValidTo());
+        if (Boolean.TRUE.equals(dto.getClearContract())) {
+            tier.setContract(null);
+        } else if (dto.getContractId() != null) {
+            SupplierContract contract = contractRepo.findById(dto.getContractId())
+                    .filter(c -> c.getSupplier() != null
+                            && c.getSupplier().getSupplierOrgAccountId() != null
+                            && c.getSupplier().getSupplierOrgAccountId().equals(orgId))
+                    .orElseThrow(() -> new ResourceNotFoundException("SupplierContract", "contractId",
+                            dto.getContractId()));
+            tier.setContract(contract);
+        }
         SupplierPriceTier saved = tierRepo.save(tier);
         return ResponseEntity.ok(mapToDto(saved));
     }
@@ -128,7 +145,10 @@ public class SupplierPriceTierServiceImpl implements SupplierPriceTierService {
             dto.setCatalogId(t.getCatalog().getCatalogId());
             dto.setCatalogName(t.getCatalog().getName());
         }
-        if (t.getContract() != null) dto.setContractId(t.getContract().getContractId());
+        if (t.getContract() != null) {
+            dto.setContractId(t.getContract().getContractId());
+            dto.setContractNumber(t.getContract().getContractNumber());
+        }
         return dto;
     }
 }

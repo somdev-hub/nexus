@@ -15,5 +15,8 @@ public interface SupplierDigitalAssetService {
 
     ResponseEntity<?> updateAsset(Long id, SupplierDigitalAssetDto dto);
 
+    ResponseEntity<?> uploadAssetFile(Long id, org.springframework.web.multipart.MultipartFile file,
+            String authToken);
+
     ResponseEntity<?> deleteAsset(Long id);
 }

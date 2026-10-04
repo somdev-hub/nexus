@@ -38,6 +38,14 @@ public class SupplierPriceTierDto {
 
     private Long contractId;
 
+    private String contractNumber;
+
+    /**
+     * Update-only flag: when true, unlink any existing contract.
+     * (contractId == null otherwise means "no change".)
+     */
+    private Boolean clearContract;
+
     private Date validFrom;
 
     private Date validTo;

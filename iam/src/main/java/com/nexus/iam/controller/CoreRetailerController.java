@@ -1128,6 +1128,23 @@ public class CoreRetailerController {
 		return coreRetailerService.deleteSupplierContractDocument(id, authToken, orgIdHeader);
 	}
 
+	@LogActivity("Upload Supplier Contract Text Document for Retailer")
+	@PostMapping("/supplier-contracts/{id}/document-text")
+	public ResponseEntity<?> uploadSupplierContractTextDocument(@PathVariable Long id,
+			@RequestBody Map<String, String> body,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.uploadSupplierContractTextDocument(id, body, authToken, orgIdHeader);
+	}
+
+	@LogActivity("Get Supplier Contract Document Content for Retailer")
+	@GetMapping("/supplier-contracts/{id}/document-content")
+	public ResponseEntity<?> getSupplierContractDocumentContent(@PathVariable Long id,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.getSupplierContractDocumentContent(id, authToken, orgIdHeader);
+	}
+
 	@LogActivity("Approve Supplier Contract for Retailer")
 	@PostMapping("/supplier-contracts/{id}/approve")
 	public ResponseEntity<?> approveSupplierContract(@PathVariable Long id,

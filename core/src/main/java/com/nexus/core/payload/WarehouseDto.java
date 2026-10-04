@@ -6,6 +6,8 @@ import lombok.Data;
 
 @Data
 public class WarehouseDto {
+	private Long warehouseId;
+
 	@NotBlank(message = "Warehouse code is required")
 	private String code;
 

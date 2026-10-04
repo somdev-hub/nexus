@@ -3,6 +3,8 @@ package com.nexus.core.model.entities;
 import java.math.BigDecimal;
 
 import jakarta.persistence.Column;
+import jakarta.persistence.CollectionTable;
+import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
@@ -38,6 +40,20 @@ public class QuotationLineItem extends BaseEntity {
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     private SupplierCatalog catalog;
+
+    // Optional supporting document for the line (e.g. the variant's
+    // datasheet). Must belong to the line's catalog when both are set.
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "digital_asset_id", referencedColumnName = "asset_id")
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private SupplierDigitalAsset digitalAsset;
+
+    // Additional supporting documents for the line (multi-select).
+    @ElementCollection(fetch = FetchType.LAZY)
+    @CollectionTable(name = "t_quotation_line_digital_assets", schema = "core", joinColumns = @JoinColumn(name = "line_id"))
+    @Column(name = "digital_asset_id")
+    private java.util.List<Long> digitalAssetIds = new java.util.ArrayList<>();
 
     @Column(name = "description")
     private String description;

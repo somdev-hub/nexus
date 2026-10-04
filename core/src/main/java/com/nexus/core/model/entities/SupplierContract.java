@@ -136,8 +136,34 @@ public class SupplierContract extends BaseEntity {
 	@Column(name = "approved_at")
 	private java.time.LocalDateTime approvedAt;
 
+	@Column(name = "contract_amount", precision = 19, scale = 4)
+	private java.math.BigDecimal contractAmount;
+
 	@Column(name = "rejection_reason", columnDefinition = "TEXT")
 	private String rejectionReason;
+
+	// Supplier-side decision (countersign flow): the supplier sees contracts
+	// shared with them and can approve, reject (with comments) or request
+	// amendments (with comments, sends the retailer status back to DRAFT).
+	@Enumerated(EnumType.STRING)
+	@Column(name = "supplier_status")
+	private SupplierStatus supplierStatus = SupplierStatus.PENDING;
+
+	@Column(name = "supplier_comments", columnDefinition = "TEXT")
+	private String supplierComments;
+
+	@Column(name = "supplier_decided_at")
+	private java.time.LocalDateTime supplierDecidedAt;
+
+	@Column(name = "supplier_decided_by")
+	private String supplierDecidedBy;
+
+	public enum SupplierStatus {
+		PENDING,
+		APPROVED,
+		REJECTED,
+		AMENDMENTS_REQUESTED
+	}
 
 	public enum ContractType {
 		STANDARD, // Standard purchase agreement

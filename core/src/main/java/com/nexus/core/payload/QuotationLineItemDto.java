@@ -21,6 +21,14 @@ public class QuotationLineItemDto {
 
     private String catalogName;
 
+    private Long digitalAssetId;
+
+    private String digitalAssetName;
+
+    private java.util.List<Long> digitalAssetIds;
+
+    private java.util.List<String> digitalAssetNames;
+
     private String description;
 
     @NotNull(message = "Quantity is required")

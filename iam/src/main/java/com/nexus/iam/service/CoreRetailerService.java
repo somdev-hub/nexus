@@ -317,6 +317,11 @@ public interface CoreRetailerService {
 
 	ResponseEntity<?> deleteSupplierContractDocument(Long id, String authToken, String orgIdHeader);
 
+	ResponseEntity<?> uploadSupplierContractTextDocument(Long id, Map<String, String> body, String authToken,
+			String orgIdHeader);
+
+	ResponseEntity<?> getSupplierContractDocumentContent(Long id, String authToken, String orgIdHeader);
+
 	ResponseEntity<?> approveSupplierContract(Long id, String approvedBy, String authToken, String orgIdHeader);
 
 	ResponseEntity<?> rejectSupplierContract(Long id, String rejectionReason, String authToken, String orgIdHeader);

@@ -6,6 +6,7 @@ import com.nexus.core.model.entities.PurchaseOrderLineItem;
 import com.nexus.core.model.enums.PurchaseOrderStatus;
 import com.nexus.core.model.entities.QuotationLineItem;
 import com.nexus.core.model.entities.SupplierCatalog;
+import com.nexus.core.model.entities.SupplierDigitalAsset;
 import com.nexus.core.model.entities.SupplierQuotation;
 import com.nexus.core.exception.ResourceNotFoundException;
 import com.nexus.core.exception.ValidationException;
@@ -14,6 +15,7 @@ import com.nexus.core.payload.SupplierQuotationDto;
 import com.nexus.core.repository.AccountRepository;
 import com.nexus.core.repository.PurchaseOrderRepo;
 import com.nexus.core.repository.SupplierCatalogRepo;
+import com.nexus.core.repository.SupplierDigitalAssetRepo;
 import com.nexus.core.repository.SupplierQuotationRepo;
 import com.nexus.core.security.OrganizationContextHolder;
 import com.nexus.core.service.interfaces.SupplierQuotationService;
@@ -40,6 +42,7 @@ public class SupplierQuotationServiceImpl implements SupplierQuotationService {
 
     private final SupplierQuotationRepo quotationRepo;
     private final SupplierCatalogRepo catalogRepo;
+    private final SupplierDigitalAssetRepo digitalAssetRepo;
     private final AccountRepository accountRepo;
     private final PurchaseOrderRepo poRepo;
     private final ModelMapper modelMapper;
@@ -156,6 +159,7 @@ public class SupplierQuotationServiceImpl implements SupplierQuotationService {
                             .orElseThrow(() -> new ResourceNotFoundException("SupplierCatalog", "catalogId", liDto.getCatalogId()));
                     li.setCatalog(catalog);
                 }
+                resolveLineAsset(li, liDto.getCatalogId() != null ? li.getCatalog() : null, liDto, orgId);
                 li.setDescription(liDto.getDescription());
                 li.setQuantity(liDto.getQuantity());
                 li.setUnitPrice(liDto.getUnitPrice());
@@ -213,11 +217,12 @@ public class SupplierQuotationServiceImpl implements SupplierQuotationService {
         }).toList();
         for (QuotationLineItemDto liDto : lineItems) {
             QuotationLineItem li = new QuotationLineItem();
-            if (liDto.getCatalogId() != null) {
-                SupplierCatalog catalog = catalogRepo.findByCatalogIdAndSupplierOrgAccountId(liDto.getCatalogId(), orgId)
-                        .orElseThrow(() -> new ResourceNotFoundException("SupplierCatalog", "catalogId", liDto.getCatalogId()));
-                li.setCatalog(catalog);
-            }
+                if (liDto.getCatalogId() != null) {
+                    SupplierCatalog catalog = catalogRepo.findByCatalogIdAndSupplierOrgAccountId(liDto.getCatalogId(), orgId)
+                            .orElseThrow(() -> new ResourceNotFoundException("SupplierCatalog", "catalogId", liDto.getCatalogId()));
+                    li.setCatalog(catalog);
+                }
+                resolveLineAsset(li, liDto.getCatalogId() != null ? li.getCatalog() : null, liDto, orgId);
             li.setDescription(liDto.getDescription());
             li.setQuantity(liDto.getQuantity());
             li.setUnitPrice(liDto.getUnitPrice());
@@ -319,9 +324,49 @@ public class SupplierQuotationServiceImpl implements SupplierQuotationService {
         return ResponseEntity.ok(mapToDto(quotationRepo.save(q)));
     }
 
-    private SupplierQuotationDto mapToDto(SupplierQuotation q) {
-        SupplierQuotationDto dto = modelMapper.map(q, SupplierQuotationDto.class);
-        if (q.getSupplierOrg() != null) dto.setSupplierOrgId(q.getSupplierOrg().getAccountId());
+    /**
+     * Resolve the line's supporting digital assets: each must exist under the
+     * caller's org, and when the line also has a catalog each asset must
+     * belong to that same catalog. The first id is also kept on the legacy
+     * single-asset link for backward compatibility.
+     */
+    private void resolveLineAsset(QuotationLineItem li, SupplierCatalog catalog,
+            QuotationLineItemDto liDto, Long orgId) {
+        java.util.List<Long> ids = liDto.getDigitalAssetIds() != null
+                ? liDto.getDigitalAssetIds().stream()
+                        .filter(java.util.Objects::nonNull)
+                        .distinct()
+                        .collect(java.util.stream.Collectors.toList())
+                : new java.util.ArrayList<>();
+        if (ids.isEmpty() && liDto.getDigitalAssetId() != null) {
+            ids = java.util.List.of(liDto.getDigitalAssetId());
+        }
+        java.util.List<Long> storedIds = new java.util.ArrayList<>();
+        SupplierDigitalAsset first = null;
+        for (Long assetId : ids) {
+            SupplierDigitalAsset asset = digitalAssetRepo
+                    .findByAssetIdAndCatalogSupplierOrgAccountId(assetId, orgId)
+                    .orElseThrow(() -> new ResourceNotFoundException("SupplierDigitalAsset", "assetId",
+                            assetId));
+            if (catalog != null && asset.getCatalog() != null
+                    && !asset.getCatalog().getCatalogId().equals(catalog.getCatalogId())) {
+                throw new ValidationException(
+                        "Digital asset does not belong to the line's catalog");
+            }
+            if (first == null) {
+                first = asset;
+            }
+            storedIds.add(asset.getAssetId());
+        }
+        li.setDigitalAsset(first);
+        li.setDigitalAssetIds(storedIds);
+    }
+
+    private SupplierQuotationDto mapToDto(SupplierQuotation q) {        SupplierQuotationDto dto = modelMapper.map(q, SupplierQuotationDto.class);
+        if (q.getSupplierOrg() != null) {
+            dto.setSupplierOrgId(q.getSupplierOrg().getAccountId());
+            dto.setSupplierOrgName(q.getSupplierOrg().getName());
+        }
         if (q.getBuyerOrg() != null) {
             dto.setBuyerOrgId(q.getBuyerOrg().getAccountId());
             dto.setBuyerOrgName(q.getBuyerOrg().getName());
@@ -331,6 +376,20 @@ public class SupplierQuotationServiceImpl implements SupplierQuotationService {
             if (li.getCatalog() != null) {
                 d.setCatalogId(li.getCatalog().getCatalogId());
                 d.setCatalogName(li.getCatalog().getName());
+            }
+            if (li.getDigitalAsset() != null) {
+                d.setDigitalAssetId(li.getDigitalAsset().getAssetId());
+                d.setDigitalAssetName(li.getDigitalAsset().getFileName());
+            }
+            if (li.getDigitalAssetIds() != null && !li.getDigitalAssetIds().isEmpty()) {
+                d.setDigitalAssetIds(new java.util.ArrayList<>(li.getDigitalAssetIds()));
+                java.util.List<String> names = new java.util.ArrayList<>();
+                for (Long assetId : li.getDigitalAssetIds()) {
+                    names.add(digitalAssetRepo.findById(assetId)
+                            .map(a -> a.getFileName() != null ? a.getFileName() : ("Asset #" + assetId))
+                            .orElse("Asset #" + assetId));
+                }
+                d.setDigitalAssetNames(names);
             }
             return d;
         }).toList());

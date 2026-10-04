@@ -14,6 +14,13 @@ public interface SupplierContractRepo extends JpaRepository<SupplierContract, Lo
 
 	Optional<SupplierContract> findByAccountAccountIdAndContractNumber(Long accountId, String contractNumber);
 
+	// Supplier-side visibility: contracts whose supplier row is linked to the
+	// supplier org's account.
+	Page<SupplierContract> findBySupplierSupplierOrgAccountId(Long supplierOrgAccountId, Pageable pageable);
+
+	Optional<SupplierContract> findByContractIdAndSupplierSupplierOrgAccountId(Long contractId,
+			Long supplierOrgAccountId);
+
 	Page<SupplierContract> findByAccountAccountId(Long accountId, Pageable pageable);
 
 	@Query("SELECT sc FROM SupplierContract sc WHERE sc.account.accountId = :accountId " +

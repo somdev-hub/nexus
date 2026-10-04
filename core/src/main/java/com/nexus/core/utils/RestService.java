@@ -338,6 +338,24 @@ public class RestService {
 	}
 
 	/**
+	 * Plain GET of a document URL (e.g. a DMS file URL returned at upload
+	 * time). No auth headers — mirrors the CMS template-URL fetch pattern.
+	 */
+	public ResponseEntity<String> fetchTextFromUrl(String url) {
+		try {
+			String body = restClient.get()
+					.uri(url)
+					.retrieve()
+					.body(String.class);
+			return ResponseEntity.ok(body);
+		} catch (Exception e) {
+			log.error("Error fetching text from URL {}: {}", url, e.getMessage());
+			return new ResponseEntity<>("Error fetching from URL: " + e.getMessage(),
+					HttpStatus.INTERNAL_SERVER_ERROR);
+		}
+	}
+
+	/**
 	 * Get a document from DMS
 	 * 
 	 * @param documentId  DMS document ID

@@ -23,6 +23,8 @@ public class SupplierContractDto {
 	@NotNull(message = "Supplier ID is required")
 	private Long supplierId;
 
+	private String supplierName;
+
 	@NotBlank(message = "Contract number is required")
 	@Size(max = 50, message = "Contract number must not exceed 50 characters")
 	private String contractNumber;
@@ -104,7 +106,19 @@ public class SupplierContractDto {
 
 	private LocalDateTime approvedAt;
 
+	private java.math.BigDecimal contractAmount;
+
+	private String retailerOrgName;
+
 	private String rejectionReason;
+
+	private com.nexus.core.model.entities.SupplierContract.SupplierStatus supplierStatus;
+
+	private String supplierComments;
+
+	private java.time.LocalDateTime supplierDecidedAt;
+
+	private String supplierDecidedBy;
 
 	private LocalDateTime createdAt;
 
