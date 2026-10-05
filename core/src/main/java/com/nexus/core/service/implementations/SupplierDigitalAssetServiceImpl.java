@@ -3,6 +3,7 @@ package com.nexus.core.service.implementations;
 import com.nexus.core.model.entities.SupplierCatalog;
 import com.nexus.core.model.entities.SupplierDigitalAsset;
 import com.nexus.core.exception.ResourceNotFoundException;
+import com.nexus.core.exception.ServiceLevelException;
 import com.nexus.core.payload.SupplierDigitalAssetDto;
 import com.nexus.core.repository.SupplierCatalogRepo;
 import com.nexus.core.repository.SupplierDigitalAssetRepo;
@@ -18,7 +19,11 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.DefaultTransactionDefinition;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @Service
 @RequiredArgsConstructor
@@ -30,6 +35,7 @@ public class SupplierDigitalAssetServiceImpl implements SupplierDigitalAssetServ
     private final ModelMapper modelMapper;
     private final RestService restService;
     private final ObjectMapper objectMapper;
+    private final PlatformTransactionManager transactionManager;
 
     private static final java.util.Set<String> ALLOWED_CONTENT_TYPES = java.util.Set.of(
             "image/jpeg", "image/png", "application/pdf");
@@ -106,8 +112,14 @@ public class SupplierDigitalAssetServiceImpl implements SupplierDigitalAssetServ
             return ResponseEntity.badRequest()
                     .body(java.util.Map.of("error", "Only JPG, PNG and PDF files are allowed"));
         }
+        // A digital asset is meaningless without its file: if this upload
+        // fails and the asset has no DMS url yet, the row is removed so a
+        // file-less entry never persists. A re-upload over an existing file
+        // keeps the old row (and its url) on failure.
+        boolean hadUrl = asset.getDmsDocumentUrl() != null && !asset.getDmsDocumentUrl().isBlank();
+        ResponseEntity<String> response;
         try {
-            ResponseEntity<String> response = restService.uploadToDmsOrg(
+            response = restService.uploadToDmsOrg(
                     file,
                     file.getOriginalFilename(),
                     orgId,
@@ -117,22 +129,60 @@ public class SupplierDigitalAssetServiceImpl implements SupplierDigitalAssetServ
                     "SUPPLIER",
                     authToken,
                     orgId);
-            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
-                com.fasterxml.jackson.databind.JsonNode node = objectMapper.readTree(response.getBody());
-                asset.setDmsDocumentId(node.path("dmsId").asText(null));
-                String documentUrl = node.path("documentUrl").asText(null);
-                asset.setDmsDocumentUrl(documentUrl);
-                if (asset.getFileName() == null || asset.getFileName().isBlank()) {
-                    asset.setFileName(file.getOriginalFilename());
-                }
-                return ResponseEntity.ok(mapToDto(assetRepo.save(asset)));
-            }
-            return ResponseEntity.status(response.getStatusCode())
-                    .body(java.util.Map.of("error", "DMS upload failed: " + response.getBody()));
         } catch (Exception e) {
-            log.error("Error uploading asset file", e);
-            return ResponseEntity.internalServerError()
-                    .body(java.util.Map.of("error", "Error uploading file: " + e.getMessage()));
+            log.error("Error uploading asset file to DMS", e);
+            discardUrlLessAsset(asset.getAssetId(), hadUrl);
+            throw new ServiceLevelException("DMS", "DMS upload failed: " + e.getMessage(), "uploadAssetFile",
+                    e.getClass().getSimpleName(), "Supplier digital asset file upload");
+        }
+        if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
+            discardUrlLessAsset(asset.getAssetId(), hadUrl);
+            throw new ServiceLevelException("DMS",
+                    "DMS upload failed: " + (response.getBody() != null ? response.getBody() : response.getStatusCode()),
+                    "uploadAssetFile", "DmsUploadFailed", "Supplier digital asset file upload");
+        }
+        try {
+            com.fasterxml.jackson.databind.JsonNode node = objectMapper.readTree(response.getBody());
+            String documentUrl = node.path("documentUrl").asText(null);
+            if (documentUrl == null || documentUrl.isBlank()) {
+                discardUrlLessAsset(asset.getAssetId(), hadUrl);
+                throw new ServiceLevelException("DMS", "DMS upload failed: no documentUrl in DMS response",
+                        "uploadAssetFile", "DmsUploadFailed", "Supplier digital asset file upload");
+            }
+            asset.setDmsDocumentId(node.path("dmsId").asText(null));
+            asset.setDmsDocumentUrl(documentUrl);
+            if (asset.getFileName() == null || asset.getFileName().isBlank()) {
+                asset.setFileName(file.getOriginalFilename());
+            }
+            return ResponseEntity.ok(mapToDto(assetRepo.save(asset)));
+        } catch (ServiceLevelException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("Error processing DMS upload response", e);
+            discardUrlLessAsset(asset.getAssetId(), hadUrl);
+            throw new ServiceLevelException("DMS", "DMS upload failed: " + e.getMessage(), "uploadAssetFile",
+                    e.getClass().getSimpleName(), "Supplier digital asset file upload");
+        }
+    }
+
+    /**
+     * Remove an asset row that would otherwise persist without a file.
+     * Rows that already carry a DMS url (re-uploads) are left untouched.
+     * Runs in its own transaction: the caller throws afterwards, which rolls
+     * back the caller's transaction — a shared transaction would undo this
+     * delete as well.
+     */
+    private void discardUrlLessAsset(Long assetId, boolean hadUrl) {
+        if (hadUrl || assetId == null) {
+            return;
+        }
+        try {
+            DefaultTransactionDefinition def = new DefaultTransactionDefinition();
+            def.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+            new TransactionTemplate(transactionManager, def)
+                    .executeWithoutResult(status -> assetRepo.deleteById(assetId));
+        } catch (Exception deleteError) {
+            log.error("Failed to discard file-less digital asset {}", assetId, deleteError);
         }
     }
 

@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.nexus.core.annotation.LogActivity;
@@ -27,13 +28,26 @@ public class QuotationController {
 
     @GetMapping("/by-buyer")
     @LogActivity("Get Quotations by Buyer")
-    public ResponseEntity<?> getByBuyer(@PageableDefault(size = 20) Pageable pageable) {
-        return quotationService.getByBuyer(pageable);
+    public ResponseEntity<?> getByBuyer(@RequestParam(required = false) String status,
+            @PageableDefault(size = 20) Pageable pageable) {
+        return quotationService.getByBuyer(status, pageable);
+    }
+
+    @GetMapping("/{id}")
+    @LogActivity("Get Quotation as Buyer")
+    public ResponseEntity<?> getQuotationAsBuyer(@PathVariable Long id) {
+        return quotationService.getQuotationAsBuyer(id);
     }
 
     @PutMapping("/{id}/accept")
     @LogActivity("Accept Quotation as Buyer")
     public ResponseEntity<?> acceptAsBuyer(@PathVariable Long id) {
         return quotationService.acceptAsBuyer(id);
+    }
+
+    @PutMapping("/{id}/reject")
+    @LogActivity("Reject Quotation as Buyer")
+    public ResponseEntity<?> rejectAsBuyer(@PathVariable Long id) {
+        return quotationService.rejectAsBuyer(id);
     }
 }

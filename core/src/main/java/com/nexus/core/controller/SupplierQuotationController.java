@@ -92,8 +92,9 @@ public class SupplierQuotationController {
 
     @GetMapping("/by-buyer")
     @LogActivity("Get Quotations by Buyer")
-    public ResponseEntity<?> getByBuyer(@PageableDefault(size = 20) Pageable pageable) {
-        return quotationService.getByBuyer(pageable);
+    public ResponseEntity<?> getByBuyer(@RequestParam(required = false) String status,
+            @PageableDefault(size = 20) Pageable pageable) {
+        return quotationService.getByBuyer(status, pageable);
     }
 
     @PutMapping("/{id}/accept")

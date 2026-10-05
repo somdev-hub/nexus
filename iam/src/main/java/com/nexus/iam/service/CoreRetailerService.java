@@ -449,7 +449,11 @@ public interface CoreRetailerService {
 
 	ResponseEntity<?> getShipmentPod(Long id, String authToken, String orgIdHeader);
 
-	ResponseEntity<?> getQuotationsByBuyer(String authToken, String orgIdHeader, Pageable pageable);
+	ResponseEntity<?> getQuotationsByBuyer(String authToken, String orgIdHeader, String status, Pageable pageable);
+
+	ResponseEntity<?> getRetailerQuotation(Long id, String authToken, String orgIdHeader);
 
 	ResponseEntity<?> acceptQuotation(Long id, String authToken, String orgIdHeader);
+
+	ResponseEntity<?> rejectQuotation(Long id, String authToken, String orgIdHeader);
 }

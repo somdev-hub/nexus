@@ -186,8 +186,12 @@ public class CoreSupplierController {
 	@LogActivity("Upload Digital Asset File via IAM")
 	@PostMapping("/digital-assets/{id}/file")
 	public ResponseEntity<?> uploadAssetFile(@PathVariable Long id,
-			@RequestParam("file") org.springframework.web.multipart.MultipartFile file,
+			@RequestParam(value = "file", required = false) org.springframework.web.multipart.MultipartFile file,
 			@RequestHeader("Authorization") String auth, @RequestHeader("X-Organization-ID") String org) {
+		if (file == null || file.isEmpty()) {
+			return ResponseEntity.badRequest().body(Map.of("error",
+					"File is required to add a digital asset. Only JPG, PNG and PDF files are allowed."));
+		}
 		return supplierService.uploadDigitalAssetFile(id, file, auth, org);
 	}
 
@@ -351,6 +355,13 @@ public class CoreSupplierController {
 			@RequestParam(required = false) Long buyerOrgId,
 			@RequestParam(required = false) String quotationNumber) {
 		return supplierService.getAllQuotations(auth, org, p, status, buyerOrgId, quotationNumber);
+	}
+
+	@LogActivity("Update Quotation via IAM")
+	@PutMapping("/quotations/{id}/update")
+	public ResponseEntity<?> updateQ(@PathVariable Long id, @RequestBody Map<String, Object> dto,
+			@RequestHeader("Authorization") String auth, @RequestHeader("X-Organization-ID") String org) {
+		return supplierService.updateQuotation(id, dto, auth, org);
 	}
 
 	@LogActivity("Transition Quotation via IAM")

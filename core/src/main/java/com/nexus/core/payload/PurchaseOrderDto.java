@@ -43,6 +43,12 @@ public class PurchaseOrderDto {
 
 	private Long partnershipId;
 
+	// Quotation this order is converted from (retailer flow). When set, the
+	// quotation must be ACCEPTED and is moved to CONVERTED on PO creation.
+	private Long sourceQuotationId;
+
+	private String sourceQuotationNumber;
+
 	private com.nexus.core.model.enums.PurchaseOrderStatus status = com.nexus.core.model.enums.PurchaseOrderStatus.DRAFT;
 
 	private Double totalAmount = 0.0;

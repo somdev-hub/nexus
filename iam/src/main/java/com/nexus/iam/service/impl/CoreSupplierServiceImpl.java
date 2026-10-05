@@ -169,20 +169,18 @@ public class CoreSupplierServiceImpl implements CoreSupplierService {
 	@Override
 	public ResponseEntity<?> uploadDigitalAssetFile(Long id, org.springframework.web.multipart.MultipartFile file,
 			String authToken, String orgId) {
+		if (file == null || file.isEmpty()) {
+			return ResponseEntity.badRequest().body(Map.of("error",
+					"File is required to add a digital asset. Only JPG, PNG and PDF files are allowed."));
+		}
 		Map<String, String> headers = commonUtils.buildMultipartHeaders(authToken);
 		headers.put("X-Organization-ID", orgId);
 		String url = webConstants.getCoreSupplierDigitalAssetGetUrl() + "/" + id + "/file";
+		// Pass the original MultipartFile through so its filename AND content
+		// type reach Core/DMS (re-wrapping in a bare Resource would downgrade
+		// the part to application/octet-stream and fail DMS type validation).
 		org.springframework.util.MultiValueMap<String, Object> body = new org.springframework.util.LinkedMultiValueMap<>();
-		try {
-			body.add("file", new org.springframework.core.io.ByteArrayResource(file.getBytes()) {
-				@Override
-				public String getFilename() {
-					return file.getOriginalFilename();
-				}
-			});
-		} catch (java.io.IOException e) {
-			return ResponseEntity.internalServerError().body(Map.of("error", "Failed to read file"));
-		}
+		body.add("file", file);
 		return restService.iamRestCall(url, body, headers, HttpMethod.POST, null);
 	}
 
@@ -325,6 +323,12 @@ public class CoreSupplierServiceImpl implements CoreSupplierService {
 		String url = buildPaginatedUrlWithFilters(webConstants.getCoreSupplierQuotationAllUrl(), pageable, "status",
 				status, "buyerOrgId", buyerOrgId, "quotationNumber", quotationNumber);
 		return callGet(url, authToken, orgId);
+	}
+
+	@Override
+	public ResponseEntity<?> updateQuotation(Long id, Map<String, Object> dto, String authToken, String orgId) {
+		String url = webConstants.getCoreSupplierQuotationGetUrl() + "/" + id + "/update";
+		return callPut(url, dto, authToken, orgId);
 	}
 
 	@Override

@@ -70,6 +70,14 @@ public class PurchaseOrder extends BaseEntity {
 	@EqualsAndHashCode.Exclude
 	private Account supplierOrg;
 
+	// Quotation this order was converted from (nullable for manually
+	// created orders). Foreign key to the supplier quotation.
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "source_quotation_id", referencedColumnName = "quotation_id")
+	@ToString.Exclude
+	@EqualsAndHashCode.Exclude
+	private SupplierQuotation sourceQuotation;
+
 	@Column(name = "confirmed_delivery_date")
 	private Date confirmedDeliveryDate;
 

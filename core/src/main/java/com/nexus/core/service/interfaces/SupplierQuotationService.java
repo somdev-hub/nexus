@@ -30,7 +30,11 @@ public interface SupplierQuotationService {
 
     ResponseEntity<?> getSummary();
 
-    ResponseEntity<?> getByBuyer(Pageable pageable);
+    ResponseEntity<?> getByBuyer(String status, Pageable pageable);
+
+    ResponseEntity<?> getQuotationAsBuyer(Long id);
 
     ResponseEntity<?> acceptAsBuyer(Long id);
+
+    ResponseEntity<?> rejectAsBuyer(Long id);
 }

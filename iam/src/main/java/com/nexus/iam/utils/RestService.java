@@ -96,15 +96,19 @@ public class RestService {
                                     && e.getValue() != null
                                     && e.getValue().toLowerCase().contains(MediaType.MULTIPART_FORM_DATA_VALUE));
 
-            // Check if payload contains multipart files - handle any Map implementation
+            // Check if payload contains multipart files - handle any Map implementation.
+            // NOTE: MultiValueMap bodies store values as lists, so look inside
+            // lists too; and buildMultipartHeaders() deliberately omits
+            // Content-Type (boundary is auto-set), so the header alone is not
+            // a reliable signal.
             boolean hasMultipartFile = false;
             if (payload instanceof Map) {
                 @SuppressWarnings("rawtypes")
                 Map payloadMap = (Map) payload;
                 System.out.println("DEBUG RestService: payloadMap size=" + payloadMap.size() + ", keys=" + payloadMap.keySet());
                 for (Object value : payloadMap.values()) {
-                    System.out.println("DEBUG RestService: iterating value=" + value + ", class=" + (value != null ? value.getClass().getName() : "null") + ", isMultipartFile=" + (value instanceof MultipartFile));
-                    if (value instanceof MultipartFile) {
+                    System.out.println("DEBUG RestService: iterating value=" + value + ", class=" + (value != null ? value.getClass().getName() : "null") + ", isBinary=" + isBinaryPayload(value));
+                    if (isBinaryPayload(value)) {
                         hasMultipartFile = true;
                         break;
                     }
@@ -128,20 +132,26 @@ public class RestService {
                     HttpStatus.INTERNAL_SERVER_ERROR);
             requestLog = payload != null ? serializePayload(payload) : null;
         } finally {
-            Logs log = new Logs();
-            log.setRequestUrl(url);
-            log.setHttpMethod(method.name());
-            log.setRequest(requestLog);
-            if (responseEntity != null) {
-                String responseString = responseEntity.getBody();
-                if (responseString != null) {
-                    log.setResponse(commonUtils.jsonValidator(responseString));
+            // Request logging must never break the proxied call (e.g. file
+            // uploads): persist best-effort and swallow logging failures.
+            try {
+                Logs log = new Logs();
+                log.setRequestUrl(url);
+                log.setHttpMethod(method.name());
+                log.setRequest(requestLog);
+                if (responseEntity != null) {
+                    String responseString = responseEntity.getBody();
+                    if (responseString != null) {
+                        log.setResponse(commonUtils.jsonValidator(responseString));
+                    }
+                    log.setResponseStatus(responseEntity.getStatusCode().value());
                 }
-                log.setResponseStatus(responseEntity.getStatusCode().value());
-            }
-            log.setUserId(userId != null ? userId : 0L);
+                log.setUserId(userId != null ? userId : 0L);
 
-            logsRepo.save(log);
+                logsRepo.save(log);
+            } catch (Exception logException) {
+                System.err.println("Failed to save REST log for " + url + ": " + logException.getMessage());
+            }
         }
 
         return responseEntity;
@@ -149,8 +159,33 @@ public class RestService {
 
     private boolean containsMultipartFile(Map<String, Object> map) {
         for (Object value : map.values()) {
-            if (value instanceof MultipartFile) {
+            if (isBinaryPayload(value)) {
                 return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * True for file-ish payload content: MultipartFile, Spring Resource,
+     * raw bytes/streams, or lists holding any of those (MultiValueMap
+     * bodies wrap every value in a list).
+     */
+    private boolean isBinaryPayload(Object value) {
+        if (value == null) {
+            return false;
+        }
+        if (value instanceof MultipartFile
+                || value instanceof org.springframework.core.io.Resource
+                || value instanceof byte[]
+                || value instanceof java.io.InputStream) {
+            return true;
+        }
+        if (value instanceof java.util.List) {
+            for (Object item : (java.util.List<?>) value) {
+                if (isBinaryPayload(item)) {
+                    return true;
+                }
             }
         }
         return false;
@@ -161,27 +196,49 @@ public class RestService {
             if (payload instanceof Map) {
                 @SuppressWarnings("unchecked")
                 Map<String, Object> map = (Map<String, Object>) payload;
-                // Create a copy to avoid serializing MultipartFile objects
+                // Create a copy to avoid serializing binary content
+                // (MultipartFile, resources, or MultiValueMap lists holding them).
                 Map<String, Object> safeMap = new java.util.HashMap<>();
                 for (Map.Entry<String, Object> entry : map.entrySet()) {
-                    Object value = entry.getValue();
-                    if (value instanceof MultipartFile
-                            || value instanceof org.springframework.core.io.Resource
-                            || value instanceof byte[]) {
-                        safeMap.put(entry.getKey(), "[binary content omitted]");
-                    } else {
-                        safeMap.put(entry.getKey(), value);
-                    }
+                    safeMap.put(entry.getKey(), sanitizeForLog(entry.getValue()));
                 }
                 ObjectMapper mapper = new ObjectMapper();
                 return mapper.writeValueAsString(safeMap);
             } else {
                 ObjectMapper mapper = new ObjectMapper();
-                return mapper.writeValueAsString(payload);
+                return mapper.writeValueAsString(sanitizeForLog(payload));
             }
         } catch (Exception e) {
-            return payload.toString();
+            // The request column is jsonb: never fall back to toString(),
+            // which is not valid JSON (e.g. "{file=[...]}" for uploads).
+            return "\"[unserializable payload omitted]\"";
         }
+    }
+
+    /**
+     * Replace binary content with a placeholder so request logging stays
+     * valid JSON. Handles direct values as well as MultiValueMap-style
+     * lists holding files/resources.
+     */
+    private Object sanitizeForLog(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof MultipartFile
+                || value instanceof org.springframework.core.io.Resource
+                || value instanceof byte[]
+                || value instanceof java.io.InputStream) {
+            return "[binary content omitted]";
+        }
+        if (value instanceof java.util.List) {
+            java.util.List<?> list = (java.util.List<?>) value;
+            java.util.List<Object> safeList = new java.util.ArrayList<>(list.size());
+            for (Object item : list) {
+                safeList.add(sanitizeForLog(item));
+            }
+            return safeList;
+        }
+        return value;
     }
 
     private ResponseEntity<String> handleMultipartRequest(String url, Map<String, Object> payload,
@@ -189,54 +246,19 @@ public class RestService {
         System.out.println("DEBUG handleMultipartRequest: payload keys=" + payload.keySet());
         // Create multipart body
         MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
+        ObjectMapper mapper = new ObjectMapper();
 
         for (Map.Entry<String, Object> entry : payload.entrySet()) {
             Object value = entry.getValue();
             System.out.println("DEBUG handleMultipartRequest: key=" + entry.getKey() + ", valueClass=" + (value != null ? value.getClass().getName() : "null"));
-
-            if (value instanceof MultipartFile) {
-                MultipartFile file = (MultipartFile) value;
-                ByteArrayResource fileResource = new ByteArrayResource(file.getBytes()) {
-                    @Override
-                    public String getFilename() {
-                        return file.getOriginalFilename();
-                    }
-                };
-                HttpHeaders fileHeaders = new HttpHeaders();
-                if (file.getContentType() != null) {
-                    fileHeaders.setContentType(MediaType.parseMediaType(file.getContentType()));
+            // MultiValueMap-style bodies store values as lists: flatten them so
+            // each file/resource becomes its own part.
+            if (value instanceof java.util.List) {
+                for (Object item : (java.util.List<?>) value) {
+                    addMultipartPart(body, entry.getKey(), item, mapper);
                 }
-                HttpEntity<ByteArrayResource> filePart = new HttpEntity<>(fileResource, fileHeaders);
-                body.add(entry.getKey(), filePart);
             } else {
-                String jsonPart;
-                ObjectMapper mapper = new ObjectMapper();
-                if (value instanceof String) {
-                    String s = (String) value;
-                    String current = s;
-                    String normalized = null;
-                    for (int i = 0; i < 5; i++) {
-                        try {
-                            JsonNode node = mapper.readTree(current);
-                            if (node.isTextual()) {
-                                current = node.textValue();
-                                continue;
-                            } else {
-                                normalized = mapper.writeValueAsString(node);
-                                break;
-                            }
-                        } catch (Exception ex) {
-                            break;
-                        }
-                    }
-                    jsonPart = normalized != null ? normalized : current;
-                } else {
-                    jsonPart = mapper.writeValueAsString(value);
-                }
-                HttpHeaders partHeaders = new HttpHeaders();
-                partHeaders.setContentType(MediaType.APPLICATION_JSON);
-                HttpEntity<String> partEntity = new HttpEntity<>(jsonPart, partHeaders);
-                body.add(entry.getKey(), partEntity);
+                addMultipartPart(body, entry.getKey(), value, mapper);
             }
         }
 
@@ -259,6 +281,65 @@ public class RestService {
                 .body(body)
                 .retrieve()
                 .toEntity(String.class);
+    }
+
+    /**
+     * Add one part to a multipart body: files/resources become file parts
+     * (never JSON-serialized), everything else becomes a JSON part.
+     */
+    private void addMultipartPart(MultiValueMap<String, Object> body, String key, Object value,
+            ObjectMapper mapper) throws IOException {
+        if (value instanceof MultipartFile) {
+            MultipartFile file = (MultipartFile) value;
+            ByteArrayResource fileResource = new ByteArrayResource(file.getBytes()) {
+                @Override
+                public String getFilename() {
+                    return file.getOriginalFilename();
+                }
+            };
+            HttpHeaders fileHeaders = new HttpHeaders();
+            if (file.getContentType() != null) {
+                fileHeaders.setContentType(MediaType.parseMediaType(file.getContentType()));
+            }
+            HttpEntity<ByteArrayResource> filePart = new HttpEntity<>(fileResource, fileHeaders);
+            body.add(key, filePart);
+            return;
+        }
+        if (value instanceof org.springframework.core.io.Resource) {
+            org.springframework.core.io.Resource resource = (org.springframework.core.io.Resource) value;
+            HttpHeaders fileHeaders = new HttpHeaders();
+            fileHeaders.setContentType(MediaType.APPLICATION_OCTET_STREAM);
+            HttpEntity<org.springframework.core.io.Resource> filePart = new HttpEntity<>(resource, fileHeaders);
+            body.add(key, filePart);
+            return;
+        }
+        String jsonPart;
+        if (value instanceof String) {
+            String s = (String) value;
+            String current = s;
+            String normalized = null;
+            for (int i = 0; i < 5; i++) {
+                try {
+                    JsonNode node = mapper.readTree(current);
+                    if (node.isTextual()) {
+                        current = node.textValue();
+                        continue;
+                    } else {
+                        normalized = mapper.writeValueAsString(node);
+                        break;
+                    }
+                } catch (Exception ex) {
+                    break;
+                }
+            }
+            jsonPart = normalized != null ? normalized : current;
+        } else {
+            jsonPart = mapper.writeValueAsString(value);
+        }
+        HttpHeaders partHeaders = new HttpHeaders();
+        partHeaders.setContentType(MediaType.APPLICATION_JSON);
+        HttpEntity<String> partEntity = new HttpEntity<>(jsonPart, partHeaders);
+        body.add(key, partEntity);
     }
 
     private ResponseEntity<String> handleRegularRequest(String url, Object payload, Map<String, String> headers,

@@ -55,6 +55,16 @@ public class QuotationLineItem extends BaseEntity {
     @Column(name = "digital_asset_id")
     private java.util.List<Long> digitalAssetIds = new java.util.ArrayList<>();
 
+    // Price tier the line's unit price was taken from (optional selection
+    // record; must belong to the line's catalog when both are set).
+    @Column(name = "price_tier_id")
+    private Long priceTierId;
+
+    // Product variant the line was configured with (optional selection
+    // record; must belong to the line's catalog when both are set).
+    @Column(name = "variant_id")
+    private Long variantId;
+
     @Column(name = "description")
     private String description;
 

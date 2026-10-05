@@ -27,6 +27,7 @@ import com.nexus.core.model.entities.Product;
 import com.nexus.core.model.entities.PurchaseOrder;
 import com.nexus.core.model.entities.PurchaseOrderLineItem;
 import com.nexus.core.model.entities.Supplier;
+import com.nexus.core.model.entities.SupplierQuotation;
 import com.nexus.core.model.enums.ApprovalLevel;
 import com.nexus.core.model.enums.InvoiceStatus;
 import com.nexus.core.model.enums.PurchaseOrderStatus;
@@ -38,6 +39,7 @@ import com.nexus.core.repository.MaterialRepo;
 import com.nexus.core.repository.PartnershipRepo;
 import com.nexus.core.repository.ProductRepo;
 import com.nexus.core.repository.PurchaseOrderRepo;
+import com.nexus.core.repository.SupplierQuotationRepo;
 import com.nexus.core.repository.SupplierRepository;
 import com.nexus.core.security.OrganizationContextHolder;
 import com.nexus.core.service.interfaces.PurchaseOrderService;
@@ -57,6 +59,7 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 	private final PurchaseOrderRepo purchaseOrderRepo;
 	private final AccountRepo accountRepo;
 	private final SupplierRepository supplierRepo;
+	private final SupplierQuotationRepo quotationRepo;
 	private final PartnershipRepo partnershipRepo;
 	private final MaterialRepo materialRepo;
 	private final ProductRepo productRepo;
@@ -116,6 +119,28 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 			throw new ValidationException("PO number already exists for this organization");
 		}
 
+		// Validate source quotation when converting from one (retailer flow):
+		// only the buyer org may convert, only ACCEPTED quotations, only once.
+		SupplierQuotation sourceQuotation = null;
+		if (poDto.getSourceQuotationId() != null) {
+			sourceQuotation = quotationRepo.findById(poDto.getSourceQuotationId())
+					.orElseThrow(() -> new ResourceNotFoundException("SupplierQuotation", "quotationId",
+							poDto.getSourceQuotationId()));
+			if (sourceQuotation.getBuyerOrg() == null
+					|| !sourceQuotation.getBuyerOrg().getAccountId().equals(orgId)) {
+				throw new ValidationException("Only the buyer organization can convert quotation "
+						+ poDto.getSourceQuotationId() + " to an order");
+			}
+			if (sourceQuotation.getStatus() != SupplierQuotation.QuotationStatus.ACCEPTED) {
+				throw new ValidationException("Only ACCEPTED quotations can be converted to order. Current: "
+						+ sourceQuotation.getStatus());
+			}
+			if (sourceQuotation.getConvertedToPoId() != null) {
+				throw new ValidationException(
+						"Quotation already converted to PO: " + sourceQuotation.getConvertedToPoId());
+			}
+		}
+
 		// Create purchase order
 		PurchaseOrder po = new PurchaseOrder();
 		po.setPoNumber(poDto.getPoNumber());
@@ -134,6 +159,7 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 		po.setBlanketStartDate(poDto.getBlanketStartDate());
 		po.setBlanketEndDate(poDto.getBlanketEndDate());
 		po.setReleaseSchedule(poDto.getReleaseSchedule());
+		po.setSourceQuotation(sourceQuotation);
 
 		// Add line items
 		if (poDto.getLineItems() != null && !poDto.getLineItems().isEmpty()) {
@@ -167,6 +193,11 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 		}
 
 		PurchaseOrder savedPo = purchaseOrderRepo.save(po);
+		if (sourceQuotation != null) {
+			sourceQuotation.setStatus(SupplierQuotation.QuotationStatus.CONVERTED);
+			sourceQuotation.setConvertedToPoId(savedPo.getPurchaseOrderId());
+			quotationRepo.save(sourceQuotation);
+		}
 		return new ResponseEntity<>(toDto(savedPo), HttpStatus.CREATED);
 	}
 
@@ -304,6 +335,10 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 		}
 		dto.setSupplierOrgName(supplierOrgName);
 		dto.setPartnershipId(po.getPartnership() != null ? po.getPartnership().getPartnershipId() : null);
+		dto.setSourceQuotationId(
+				po.getSourceQuotation() != null ? po.getSourceQuotation().getQuotationId() : null);
+		dto.setSourceQuotationNumber(
+				po.getSourceQuotation() != null ? po.getSourceQuotation().getQuotationNumber() : null);
 		dto.setStatus(po.getStatus());
 		dto.setTotalAmount(po.getTotalAmount());
 		dto.setCurrency(po.getCurrency());

@@ -67,6 +67,7 @@ public interface CoreSupplierService {
     ResponseEntity<?> createQuotation(Map<String, Object> dto, String authToken, String orgId);
     ResponseEntity<?> getQuotation(Long id, String authToken, String orgId);
     ResponseEntity<?> getAllQuotations(String authToken, String orgId, Pageable pageable, String status, Long buyerOrgId, String quotationNumber);
+    ResponseEntity<?> updateQuotation(Long id, Map<String, Object> dto, String authToken, String orgId);
     ResponseEntity<?> transitionQuotation(Long id, String newStatus, Map<String, Object> params, String authToken, String orgId);
     ResponseEntity<?> convertQuotation(Long id, String authToken, String orgId);
     ResponseEntity<?> deleteQuotation(Long id, String authToken, String orgId);

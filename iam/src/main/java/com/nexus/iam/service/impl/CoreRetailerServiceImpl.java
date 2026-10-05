@@ -340,17 +340,10 @@ public class CoreRetailerServiceImpl implements CoreRetailerService {
 		String url = webConstants.getCorePartnershipAgreementUploadUrl() + "/" + id + "/agreement";
 
 		org.springframework.util.MultiValueMap<String, Object> body = new org.springframework.util.LinkedMultiValueMap<>();
-		try {
-			body.add("file", new org.springframework.core.io.ByteArrayResource(file.getBytes()) {
-				@Override
-				public String getFilename() {
-					return file.getOriginalFilename();
-				}
-			});
-		} catch (java.io.IOException e) {
-			log.error("Failed to read file bytes: {}", e.getMessage());
-			return ResponseEntity.internalServerError().body(Map.of("error", "Failed to read file"));
-		}
+		// Pass the original MultipartFile through so its filename AND content
+		// type are preserved (re-wrapping in a bare Resource would downgrade
+		// the part to application/octet-stream).
+		body.add("file", file);
 		if (documentName != null) {
 			body.add("documentName", documentName);
 		}
@@ -1732,17 +1725,10 @@ public class CoreRetailerServiceImpl implements CoreRetailerService {
 		String url = webConstants.getCoreSupplierContractDocumentUrl() + "/" + id + "/documents";
 
 		org.springframework.util.MultiValueMap<String, Object> body = new org.springframework.util.LinkedMultiValueMap<>();
-		try {
-			body.add("file", new org.springframework.core.io.ByteArrayResource(file.getBytes()) {
-				@Override
-				public String getFilename() {
-					return file.getOriginalFilename();
-				}
-			});
-		} catch (java.io.IOException e) {
-			log.error("Failed to read file bytes: {}", e.getMessage());
-			return ResponseEntity.internalServerError().body(Map.of("error", "Failed to read file"));
-		}
+		// Pass the original MultipartFile through so its filename AND content
+		// type are preserved (re-wrapping in a bare Resource would downgrade
+		// the part to application/octet-stream).
+		body.add("file", file);
 		if (documentName != null) {
 			body.add("documentName", documentName);
 		}
@@ -2124,17 +2110,10 @@ public class CoreRetailerServiceImpl implements CoreRetailerService {
 		String url = webConstants.getCoreShipmentDocumentUrl() + "/" + shipmentId + "/documents";
 
 		org.springframework.util.MultiValueMap<String, Object> body = new org.springframework.util.LinkedMultiValueMap<>();
-		try {
-			body.add("file", new org.springframework.core.io.ByteArrayResource(file.getBytes()) {
-				@Override
-				public String getFilename() {
-					return file.getOriginalFilename();
-				}
-			});
-		} catch (java.io.IOException e) {
-			log.error("Failed to read file bytes: {}", e.getMessage());
-			return ResponseEntity.internalServerError().body(Map.of("error", "Failed to read file"));
-		}
+		// Pass the original MultipartFile through so its filename AND content
+		// type are preserved (re-wrapping in a bare Resource would downgrade
+		// the part to application/octet-stream).
+		body.add("file", file);
 		if (documentType != null) {
 			body.add("documentType", documentType);
 		}
@@ -2466,10 +2445,18 @@ public class CoreRetailerServiceImpl implements CoreRetailerService {
 	}
 
 	@Override
-	public ResponseEntity<?> getQuotationsByBuyer(String authToken, String orgIdHeader, Pageable pageable) {
+	public ResponseEntity<?> getQuotationsByBuyer(String authToken, String orgIdHeader, String status, Pageable pageable) {
 		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
 		headers.put("X-Organization-ID", orgIdHeader);
-		String url = buildPaginatedUrl(webConstants.getCoreServiceUrl() + "/core/quotations/by-buyer", pageable);
+		String url = buildPaginatedUrlWithFilters(webConstants.getCoreServiceUrl() + "/core/quotations/by-buyer", pageable, "status", status);
+		return restService.iamRestCall(url, null, headers, HttpMethod.GET, null);
+	}
+
+	@Override
+	public ResponseEntity<?> getRetailerQuotation(Long id, String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCoreServiceUrl() + "/core/quotations/" + id;
 		return restService.iamRestCall(url, null, headers, HttpMethod.GET, null);
 	}
 
@@ -2478,6 +2465,14 @@ public class CoreRetailerServiceImpl implements CoreRetailerService {
 		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
 		headers.put("X-Organization-ID", orgIdHeader);
 		String url = webConstants.getCoreServiceUrl() + "/core/quotations/" + id + "/accept";
+		return restService.iamRestCall(url, null, headers, HttpMethod.PUT, null);
+	}
+
+	@Override
+	public ResponseEntity<?> rejectQuotation(Long id, String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCoreServiceUrl() + "/core/quotations/" + id + "/reject";
 		return restService.iamRestCall(url, null, headers, HttpMethod.PUT, null);
 	}
 

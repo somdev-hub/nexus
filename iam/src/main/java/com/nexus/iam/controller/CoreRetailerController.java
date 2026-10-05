@@ -1633,8 +1633,17 @@ public class CoreRetailerController {
 	@GetMapping("/quotations/all")
 	public ResponseEntity<?> getQuotationsByBuyer(@RequestHeader("Authorization") String authToken,
 			@RequestHeader("X-Organization-ID") String orgIdHeader,
+			@RequestParam(required = false) String status,
 			@PageableDefault(size = 20) Pageable pageable) {
-		return coreRetailerService.getQuotationsByBuyer(authToken, orgIdHeader, pageable);
+		return coreRetailerService.getQuotationsByBuyer(authToken, orgIdHeader, status, pageable);
+	}
+
+	@LogActivity("Get Quotation by Id for Retailer")
+	@GetMapping("/quotations/{id}")
+	public ResponseEntity<?> getQuotationById(@PathVariable Long id,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.getRetailerQuotation(id, authToken, orgIdHeader);
 	}
 
 	@LogActivity("Accept Quotation for Retailer")
@@ -1643,5 +1652,13 @@ public class CoreRetailerController {
 			@RequestHeader("Authorization") String authToken,
 			@RequestHeader("X-Organization-ID") String orgIdHeader) {
 		return coreRetailerService.acceptQuotation(id, authToken, orgIdHeader);
+	}
+
+	@LogActivity("Reject Quotation for Retailer")
+	@PutMapping("/quotations/{id}/reject")
+	public ResponseEntity<?> rejectQuotation(@PathVariable Long id,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.rejectQuotation(id, authToken, orgIdHeader);
 	}
 }
