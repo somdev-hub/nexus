@@ -137,6 +137,12 @@ public class PurchaseOrder extends BaseEntity {
 	@Column(name = "notes")
 	private String notes;
 
+	@Column(name = "shipping_address", columnDefinition = "TEXT")
+	private String shippingAddress;
+
+	@Column(name = "billing_address", columnDefinition = "TEXT")
+	private String billingAddress;
+
 	@Column(name = "is_blanket_order")
 	private Boolean isBlanketOrder = false;
 

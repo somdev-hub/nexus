@@ -67,6 +67,10 @@ public class PurchaseOrderDto {
 
 	private String notes;
 
+	private String shippingAddress;
+
+	private String billingAddress;
+
 	private Boolean isBlanketOrder = false;
 
 	private Date blanketStartDate;

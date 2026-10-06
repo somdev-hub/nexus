@@ -160,6 +160,18 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 		po.setBlanketEndDate(poDto.getBlanketEndDate());
 		po.setReleaseSchedule(poDto.getReleaseSchedule());
 		po.setSourceQuotation(sourceQuotation);
+		po.setShippingAddress(poDto.getShippingAddress());
+		po.setBillingAddress(poDto.getBillingAddress());
+
+		// TEMP-ADDRESS-DEFAULTS-START: fill blank shipping/billing addresses
+		// from the buyer (creator) org's HR addresses (default-flagged, else
+		// the single address if only one exists). TEMPORARY migration logic
+		// — delete this call together with the TEMP-ADDRESS-DEFAULTS helpers
+		// below once every PO is created with explicit addresses.
+		// NOTE: always the PO's buyer org, never the viewing caller's org —
+		// a supplier viewing the PO must not stamp its own addresses onto it.
+		applyOrgAddressDefaults(po, buyerOrgIdOf(po, orgId));
+		// TEMP-ADDRESS-DEFAULTS-END
 
 		// Add line items
 		if (poDto.getLineItems() != null && !poDto.getLineItems().isEmpty()) {
@@ -233,6 +245,35 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 	public ResponseEntity<?> getPurchaseOrderById(Long id) {		Long orgId = OrganizationContextHolder.requireOrganizationId();
 		PurchaseOrder po = purchaseOrderRepo.findByPurchaseOrderIdAndBuyerOrgAccountId(id, orgId)
 				.orElseThrow(() -> new ResourceNotFoundException("PurchaseOrder", "purchaseOrderId", id));
+		// TEMP-ADDRESS-BACKFILL-START: persist org-default addresses onto old
+		// POs that were created before addresses existed. TEMPORARY migration
+		// logic — delete this block together with the TEMP-ADDRESS-DEFAULTS
+		// helpers below once every PO carries its own addresses.
+		// NOTE: always the PO's buyer (creator) org, never the viewing
+		// caller's org.
+		if (isBlank(po.getShippingAddress()) || isBlank(po.getBillingAddress())) {
+			boolean touched = false;
+			java.util.List<com.fasterxml.jackson.databind.JsonNode> addresses = fetchOrgAddressesQuietly(
+					buyerOrgIdOf(po, orgId));
+			if (isBlank(po.getShippingAddress())) {
+				String resolved = selectOrgAddressText(addresses, true);
+				if (resolved != null) {
+					po.setShippingAddress(resolved);
+					touched = true;
+				}
+			}
+			if (isBlank(po.getBillingAddress())) {
+				String resolved = selectOrgAddressText(addresses, false);
+				if (resolved != null) {
+					po.setBillingAddress(resolved);
+					touched = true;
+				}
+			}
+			if (touched) {
+				po = purchaseOrderRepo.save(po);
+			}
+		}
+		// TEMP-ADDRESS-BACKFILL-END
 		return new ResponseEntity<>(toDto(po), HttpStatus.OK);
 	}
 
@@ -272,6 +313,8 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 		po.setRequestedDeliveryDate(poDto.getRequestedDeliveryDate());
 		po.setExpectedDeliveryDate(poDto.getExpectedDeliveryDate());
 		po.setNotes(poDto.getNotes());
+		po.setShippingAddress(poDto.getShippingAddress());
+		po.setBillingAddress(poDto.getBillingAddress());
 		po.setIsBlanketOrder(poDto.getIsBlanketOrder());
 		po.setBlanketStartDate(poDto.getBlanketStartDate());
 		po.setBlanketEndDate(poDto.getBlanketEndDate());
@@ -316,6 +359,146 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 	 * destinations. Map explicitly with ids only — never entity graphs (also
 	 * avoids infinite Jackson nesting on reads).
 	 */
+	// TEMP-ADDRESS-DEFAULTS-START: temporary migration helpers that fill PO
+	// shipping/billing addresses from the buyer org's HR addresses. Delete
+	// this whole block (and its two call sites marked TEMP-ADDRESS-DEFAULTS /
+	// TEMP-ADDRESS-BACKFILL) once every PO is created with explicit
+	// addresses — nothing else depends on it.
+	/**
+	 * The org whose addresses may backfill this PO: always the buyer
+	 * (creator) org. Falls back to the caller only when the buyer link is
+	 * unexpectedly absent.
+	 */
+	private static Long buyerOrgIdOf(PurchaseOrder po, Long callerOrgId) {
+		if (po.getBuyerOrg() != null && po.getBuyerOrg().getAccountId() != null) {
+			return po.getBuyerOrg().getAccountId();
+		}
+		return callerOrgId;
+	}
+
+	private void applyOrgAddressDefaults(PurchaseOrder po, Long orgId) {		if (!isBlank(po.getShippingAddress()) && !isBlank(po.getBillingAddress())) {
+			return;
+		}
+		java.util.List<com.fasterxml.jackson.databind.JsonNode> addresses = fetchOrgAddressesQuietly(orgId);
+		if (isBlank(po.getShippingAddress())) {
+			String resolved = selectOrgAddressText(addresses, true);
+			if (resolved != null) {
+				po.setShippingAddress(resolved);
+			}
+		}
+		if (isBlank(po.getBillingAddress())) {
+			String resolved = selectOrgAddressText(addresses, false);
+			if (resolved != null) {
+				po.setBillingAddress(resolved);
+			}
+		}
+	}
+
+	private static boolean isBlank(String value) {
+		return value == null || value.isBlank();
+	}
+
+	/**
+	 * Pick an address display string: the default-flagged address for the
+	 * purpose (shipping/billing) wins; otherwise a lone address — whatever
+	 * its flags — serves both purposes; otherwise null (leave blank).
+	 */
+	private static String selectOrgAddressText(
+			java.util.List<com.fasterxml.jackson.databind.JsonNode> addresses, boolean shipping) {
+		if (addresses == null || addresses.isEmpty()) {
+			return null;
+		}
+		for (com.fasterxml.jackson.databind.JsonNode a : addresses) {
+			boolean flagged = shipping ? isTrue(a.path("isDefaultShipping"))
+					: isTrue(a.path("isDefaultBilling"));
+			if (flagged) {
+				return formatOrgAddress(a);
+			}
+		}
+		if (addresses.size() == 1) {
+			return formatOrgAddress(addresses.get(0));
+		}
+		return null;
+	}
+
+	private static boolean isTrue(com.fasterxml.jackson.databind.JsonNode node) {
+		return node != null && node.isBoolean() && node.booleanValue();
+	}
+
+	private static String formatOrgAddress(com.fasterxml.jackson.databind.JsonNode a) {
+		java.util.List<String> parts = new java.util.ArrayList<>();
+		addIfPresent(parts, text(a, "label"));
+		addIfPresent(parts, text(a, "addressLine1"));
+		addIfPresent(parts, text(a, "addressLine2"));
+		String cityLine = joinNonBlank(", ", text(a, "city"), text(a, "state"), text(a, "pincode"));
+		addIfPresent(parts, cityLine);
+		addIfPresent(parts, text(a, "country"));
+		String contact = joinNonBlank(" ", text(a, "contactName"), text(a, "contactPhone"));
+		String joined = String.join(", ", parts);
+		if (contact.isEmpty()) {
+			return joined;
+		}
+		return joined.isEmpty() ? ("Contact: " + contact) : (joined + " (Contact: " + contact + ")");
+	}
+
+	private static String text(com.fasterxml.jackson.databind.JsonNode a, String field) {
+		if (a == null || !a.has(field) || a.path(field).isNull()) {
+			return "";
+		}
+		String value = a.path(field).asText("");
+		return value == null ? "" : value.trim();
+	}
+
+	private static void addIfPresent(java.util.List<String> parts, String value) {
+		if (value != null && !value.isEmpty()) {
+			parts.add(value);
+		}
+	}
+
+	private static String joinNonBlank(String delimiter, String... values) {
+		java.util.List<String> kept = new java.util.ArrayList<>();
+		for (String value : values) {
+			if (value != null && !value.isEmpty()) {
+				kept.add(value);
+			}
+		}
+		return String.join(delimiter, kept);
+	}
+
+	/**
+	 * Best-effort fetch of the org's HR addresses. Never throws: HR being
+	 * down must not break PO creation or reads — the PO simply keeps blank
+	 * addresses in that case.
+	 */
+	private java.util.List<com.fasterxml.jackson.databind.JsonNode> fetchOrgAddressesQuietly(Long orgId) {
+		java.util.List<com.fasterxml.jackson.databind.JsonNode> empty = java.util.Collections.emptyList();
+		try {
+			String url = webConstants.getHrOrgAddressesBaseUrl() + "/" + orgId + "/addresses";
+			String token = OrganizationContextHolder.getCurrentAuthToken();
+			java.util.Map<String, String> headers = new java.util.HashMap<>();
+			headers.put("Content-Type", "application/json");
+			if (token != null && !token.isBlank()) {
+				headers.put("Authorization", token.startsWith("Bearer ") ? token : "Bearer " + token);
+			}
+			org.springframework.http.ResponseEntity<String> response = restService.coreRestCall(url, null, headers,
+					org.springframework.http.HttpMethod.GET, orgId);
+			if (response == null || !response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
+				return empty;
+			}
+			com.fasterxml.jackson.databind.JsonNode root = new com.fasterxml.jackson.databind.ObjectMapper()
+					.readTree(response.getBody());
+			java.util.List<com.fasterxml.jackson.databind.JsonNode> out = new java.util.ArrayList<>();
+			if (root != null && root.isArray()) {
+				root.forEach(out::add);
+			}
+			return out;
+		} catch (Exception e) {
+			log.warn("Skipping org address defaults for org {}: {}", orgId, e.getMessage());
+			return empty;
+		}
+	}
+	// TEMP-ADDRESS-DEFAULTS-END
+
 	public static PurchaseOrderDto toDto(PurchaseOrder po) {
 		PurchaseOrderDto dto = new PurchaseOrderDto();
 		dto.setPurchaseOrderId(po.getPurchaseOrderId());
@@ -347,6 +530,8 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 		dto.setRequestedDeliveryDate(po.getRequestedDeliveryDate());
 		dto.setExpectedDeliveryDate(po.getExpectedDeliveryDate());
 		dto.setNotes(po.getNotes());
+		dto.setShippingAddress(po.getShippingAddress());
+		dto.setBillingAddress(po.getBillingAddress());
 		dto.setIsBlanketOrder(po.getIsBlanketOrder());
 		dto.setBlanketStartDate(po.getBlanketStartDate());
 		dto.setBlanketEndDate(po.getBlanketEndDate());

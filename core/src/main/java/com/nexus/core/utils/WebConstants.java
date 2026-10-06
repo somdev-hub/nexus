@@ -54,7 +54,7 @@ public class WebConstants {
 	private String commonDmsUrl;
 
 	// HR Service URLs
-	@Value("${hr.service.url:http://localhost:8084}")
+	@Value("${hr.service.url:http://localhost:8085}")
 	private String hrServiceUrl;
 
 	@Value("${hr.init.url}")
@@ -71,6 +71,9 @@ public class WebConstants {
 
 	@Value("${hr.employee.details.by.id.url:/hr/employee/details/{employeeId}}")
 	private String hrEmployeeDetailsByIdUrl;
+
+	@Value("${hr.org.addresses.url:/hr/orgs}")
+	private String hrOrgAddressesUrl;
 
 	// CMS Service URLs
 	@Value("${cms.service.url:http://localhost:8085}")
@@ -155,5 +158,9 @@ public class WebConstants {
 
 	public String getHrEmployeeDetailsByIdUrl() {
 		return hrServiceUrl + hrEmployeeDetailsByIdUrl;
+	}
+
+	public String getHrOrgAddressesBaseUrl() {
+		return hrServiceUrl + hrOrgAddressesUrl;
 	}
 }

@@ -8,6 +8,8 @@ import com.nexus.core.repository.LogsRepo;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.sql.Timestamp;
 
@@ -22,20 +24,18 @@ public class Logger {
 		this.logsRepo = logsRepo;
 	}
 
-	/**
-	 * Save logs to database
-	 * Handles both request and response objects
-	 * Serializes objects to JSON if they're not already serialized
-	 *
-	 * @param requestUrl The API endpoint URL
-	 * @param httpMethod The HTTP method (GET, POST, PUT, DELETE, etc.)
-	 * @param httpStatus The HTTP response status code
-	 * @param request    The request body (can be a DTO object or String)
-	 * @param response   The response body (can be any object or String)
-	 * @param userId     The ID of the document (if available)
-	 */
-	public void saveLogs(String requestUrl, HttpMethod httpMethod, HttpStatus httpStatus, Object request,
-			Object response, Long userId) {
+    /**
+     * Save logs to database
+     * <p>
+     * Runs in its own transaction: activity logging also fires inside
+     * {@code @Transactional(readOnly = true)} request handlers (e.g. ASN
+     * lookups), where an INSERT would otherwise mark the surrounding
+     * read-only transaction rollback-only and fail the request with
+     * UnexpectedRollbackException.
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void saveLogs(String requestUrl, HttpMethod httpMethod, HttpStatus httpStatus, Object request,
+                         Object response, Long userId) {
 		try {
 			Logs log = new Logs();
 			log.setRequestUrl(requestUrl);

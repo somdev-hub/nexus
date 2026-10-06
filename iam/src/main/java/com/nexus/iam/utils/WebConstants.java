@@ -177,6 +177,9 @@ public class WebConstants {
 	@Value("${hr.applicant.url}")
 	private String applicantUrl;
 
+	@Value("${hr.org.base.url}")
+	private String hrOrgBaseUrl;
+
 	@Value("${cms.conversation.url}")
 	private String cmsConversationUrl;
 
