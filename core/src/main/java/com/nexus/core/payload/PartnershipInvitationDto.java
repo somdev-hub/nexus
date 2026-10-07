@@ -24,6 +24,22 @@ public class PartnershipInvitationDto {
 
 	private String proposedTerms;
 
+	// SHORT_TERM | LONG_TERM for supplier-logistics proposals.
+	private String partnershipTermType;
+
+	private Timestamp validityStart;
+
+	private Timestamp validityEnd;
+
+	private Long linkedCapacityForecastId;
+
+	// LONG_TERM wish list defined by the supplier.
+	private String desiredRoutesJson;
+
+	private Double desiredCapacity;
+
+	private String desiredCapacityUnit;
+
 	private Double proposedDiscountRate;
 
 	private Timestamp invitedAt;

@@ -25,6 +25,15 @@ public class PartnershipDto {
 
 	private String partnershipType;
 
+	// SHORT_TERM | LONG_TERM for supplier-logistics partnerships.
+	private String partnershipTermType;
+
+	private Timestamp validityStart;
+
+	private Timestamp validityEnd;
+
+	private Long linkedCapacityForecastId;
+
 	private Double discountRate;
 
 	private com.nexus.core.model.enums.PartnershipStatus status;

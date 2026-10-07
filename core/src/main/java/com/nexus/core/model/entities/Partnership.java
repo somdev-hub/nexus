@@ -50,6 +50,18 @@ public class Partnership extends BaseEntity {
 
 	private String partnershipTerm;
 
+	// Supplier-logistics term model: SHORT_TERM (bound to a routing-capacity
+	// period) or LONG_TERM (logistics may extend its routing-capacity period
+	// so the partner supplier keeps flexibility).
+	private String partnershipTermType;
+
+	private Timestamp validityStart;
+
+	private Timestamp validityEnd;
+
+	// CapacityForecast.forecastId this partnership proposal was anchored to.
+	private Long linkedCapacityForecastId;
+
 	private Double discountRate;
 
 	@Enumerated(EnumType.STRING)

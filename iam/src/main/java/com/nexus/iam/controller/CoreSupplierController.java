@@ -715,4 +715,43 @@ public class CoreSupplierController {
 			@RequestHeader("Authorization") String auth, @RequestHeader("X-Organization-ID") String org) {
 		return supplierService.getSupplierContractDocumentContent(id, auth, org);
 	}
+
+	// Supplier-owned delivery: logistics marketplace + shipment handover
+	@LogActivity("Browse Logistics Marketplace for Supplier")
+	@GetMapping("/logistics-marketplace/available")
+	public ResponseEntity<?> getAvailableLogistics(@RequestParam(required = false) String search,
+			@RequestHeader("Authorization") String auth, @RequestHeader("X-Organization-ID") String org,
+			@PageableDefault(size = 20) Pageable p) {
+		return supplierService.getAvailableLogistics(search, auth, org, p);
+	}
+
+	@LogActivity("Get Supplier Logistics Partnerships")
+	@GetMapping("/logistics-marketplace/partnerships")
+	public ResponseEntity<?> getSupplierLogisticsPartnerships(@RequestHeader("Authorization") String auth,
+			@RequestHeader("X-Organization-ID") String org, @PageableDefault(size = 20) Pageable p) {
+		return supplierService.getSupplierLogisticsPartnerships(auth, org, p);
+	}
+
+	@LogActivity("Propose Supplier Logistics Partnership")
+	@PostMapping("/logistics-marketplace/proposals")
+	public ResponseEntity<?> createLogisticsProposal(@RequestBody Map<String, Object> dto,
+			@RequestHeader("Authorization") String auth, @RequestHeader("X-Organization-ID") String org) {
+		return supplierService.createLogisticsProposal(dto, auth, org);
+	}
+
+	@LogActivity("Get Supplier Shipments")
+	@GetMapping("/logistics-marketplace/shipments")
+	public ResponseEntity<?> getSupplierShipments(@RequestParam(required = false) String status,
+			@RequestHeader("Authorization") String auth, @RequestHeader("X-Organization-ID") String org,
+			@PageableDefault(size = 20) Pageable p) {
+		return supplierService.getSupplierShipments(status, auth, org, p);
+	}
+
+	@LogActivity("Handover Supplier Shipment to Logistics")
+	@PostMapping("/logistics-marketplace/shipments/{shipmentId}/handover")
+	public ResponseEntity<?> handoverShipment(@PathVariable Long shipmentId,
+			@RequestBody Map<String, Object> dto, @RequestHeader("Authorization") String auth,
+			@RequestHeader("X-Organization-ID") String org) {
+		return supplierService.handoverShipment(shipmentId, dto, auth, org);
+	}
 }

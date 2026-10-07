@@ -625,6 +625,43 @@ public class CoreSupplierServiceImpl implements CoreSupplierService {
 		return callGet(supplierContractBaseUrl() + "/" + id + "/document-content", authToken, orgId);
 	}
 
+	// Supplier-owned delivery: logistics marketplace + shipment handover
+	private String supplierLogisticsMarketplaceBaseUrl() {
+		return webConstants.getCoreServiceUrl() + "/core/supplier/logistics-marketplace";
+	}
+
+	@Override
+	public ResponseEntity<?> getAvailableLogistics(String search, String authToken, String orgId, Pageable pageable) {
+		String url = buildPaginatedUrlWithFilters(supplierLogisticsMarketplaceBaseUrl() + "/available", pageable,
+				"search", search);
+		return callGet(url, authToken, orgId);
+	}
+
+	@Override
+	public ResponseEntity<?> getSupplierLogisticsPartnerships(String authToken, String orgId, Pageable pageable) {
+		return callGet(buildPaginatedUrl(supplierLogisticsMarketplaceBaseUrl() + "/partnerships", pageable),
+				authToken, orgId);
+	}
+
+	@Override
+	public ResponseEntity<?> createLogisticsProposal(Map<String, Object> dto, String authToken, String orgId) {
+		return callPost(supplierLogisticsMarketplaceBaseUrl() + "/proposals", dto, authToken, orgId);
+	}
+
+	@Override
+	public ResponseEntity<?> getSupplierShipments(String status, String authToken, String orgId, Pageable pageable) {
+		String url = buildPaginatedUrlWithFilters(supplierLogisticsMarketplaceBaseUrl() + "/shipments", pageable,
+				"status", status);
+		return callGet(url, authToken, orgId);
+	}
+
+	@Override
+	public ResponseEntity<?> handoverShipment(Long shipmentId, Map<String, Object> dto, String authToken,
+			String orgId) {
+		return callPost(supplierLogisticsMarketplaceBaseUrl() + "/shipments/" + shipmentId + "/handover", dto,
+				authToken, orgId);
+	}
+
 	private ResponseEntity<?> callGet(String url, String authToken, String orgId) {
 		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
 		headers.put("X-Organization-ID", orgId);

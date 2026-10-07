@@ -18,12 +18,15 @@ import com.nexus.core.exception.ResourceNotFoundException;
 import com.nexus.core.exception.ValidationException;
 import com.nexus.core.model.entities.Account;
 import com.nexus.core.model.entities.AdvanceShipmentNotice;
+import com.nexus.core.model.entities.Partnership;
 import com.nexus.core.model.entities.PurchaseOrder;
 import com.nexus.core.model.entities.Shipment;
+import com.nexus.core.model.enums.PartnershipStatus;
 import com.nexus.core.model.enums.PurchaseOrderStatus;
 import com.nexus.core.model.enums.ShipmentStatus;
 import com.nexus.core.repository.AccountRepository;
 import com.nexus.core.repository.AdvanceShipmentNoticeRepo;
+import com.nexus.core.repository.PartnershipRepo;
 import com.nexus.core.repository.PurchaseOrderRepo;
 import com.nexus.core.repository.ShipmentRepo;
 import com.nexus.core.security.OrganizationContextHolder;
@@ -41,6 +44,7 @@ public class SupplierOrderServiceImpl implements SupplierOrderService {
     private final ShipmentRepo shipmentRepo;
     private final AdvanceShipmentNoticeRepo asnRepo;
     private final AccountRepository accountRepo;
+    private final PartnershipRepo partnershipRepo;
     private final ModelMapper modelMapper;
 
     @Override
@@ -152,6 +156,42 @@ public class SupplierOrderServiceImpl implements SupplierOrderService {
         if (shipmentDto.containsKey("trackingNumber")) shipment.setTrackingNumber(shipmentDto.get("trackingNumber").toString());
         if (shipmentDto.containsKey("carrierName")) shipment.setCarrierName(shipmentDto.get("carrierName").toString());
         if (shipmentDto.containsKey("notes")) shipment.setNotes(shipmentDto.get("notes").toString());
+        if (shipmentDto.containsKey("pickupLocation")) shipment.setPickupLocation(shipmentDto.get("pickupLocation").toString());
+        if (shipmentDto.containsKey("deliveryLocation")) shipment.setDeliveryLocation(shipmentDto.get("deliveryLocation").toString());
+
+        // Supplier-owned delivery: hand the shipment to a partnered logistics
+        // org at creation time. Requires an ACTIVE supplier-logistics
+        // partnership; the shipment is then BOOKED immediately.
+        boolean handedOver = false;
+        Object partnershipIdRaw = shipmentDto.get("partnershipId");
+        Object logisticsOrgIdRaw = shipmentDto.get("logisticsOrgId");
+        boolean wantsHandover = (partnershipIdRaw != null && !partnershipIdRaw.toString().isBlank())
+                || (logisticsOrgIdRaw != null && !logisticsOrgIdRaw.toString().isBlank());
+        if (wantsHandover) {
+            Partnership partnership = resolveLogisticsPartnership(orgId,
+                    logisticsOrgIdRaw != null && !logisticsOrgIdRaw.toString().isBlank()
+                            ? Long.valueOf(logisticsOrgIdRaw.toString())
+                            : null,
+                    partnershipIdRaw);
+            // The logistics side is always the partnership counterparty, so a
+            // caller can never hand a shipment over to its own org.
+            Long logisticsOrgId = counterpartyOf(partnership, orgId);
+            if (logisticsOrgId == null) {
+                throw new ValidationException("Partnership does not involve your organization");
+            }
+            if (logisticsOrgIdRaw != null && !logisticsOrgIdRaw.toString().isBlank()) {
+                Long requested = Long.valueOf(logisticsOrgIdRaw.toString());
+                if (!requested.equals(logisticsOrgId) && !requested.equals(orgId)) {
+                    throw new ValidationException("logisticsOrgId does not match the selected partnership");
+                }
+            }
+            Account logisticsOrg = accountRepo.findById(logisticsOrgId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Account", "accountId", logisticsOrgId));
+            shipment.setLogisticsOrg(logisticsOrg);
+            shipment.setPartnership(partnership);
+            shipment.setStatus(ShipmentStatus.BOOKED);
+            handedOver = true;
+        }
 
         Shipment saved = shipmentRepo.save(shipment);
 
@@ -171,13 +211,16 @@ public class SupplierOrderServiceImpl implements SupplierOrderService {
         else po.setStatus(PurchaseOrderStatus.RECEIVED);
         poRepo.save(po);
 
-        return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(
-                "shipmentId", saved.getShipmentId(),
-                "shipmentNumber", saved.getShipmentNumber(),
-                "purchaseOrderId", po.getPurchaseOrderId(),
-                "backorderedQuantity", backordered,
-                "status", saved.getStatus().name()
-        ));
+        java.util.Map<String, Object> resp = new java.util.LinkedHashMap<>();
+        resp.put("shipmentId", saved.getShipmentId());
+        resp.put("shipmentNumber", saved.getShipmentNumber());
+        resp.put("purchaseOrderId", po.getPurchaseOrderId());
+        resp.put("backorderedQuantity", backordered);
+        resp.put("status", saved.getStatus().name());
+        resp.put("handedOverToLogistics", handedOver);
+        resp.put("logisticsOrgId",
+                saved.getLogisticsOrg() != null ? saved.getLogisticsOrg().getAccountId() : null);
+        return ResponseEntity.status(HttpStatus.CREATED).body(resp);
     }
 
     @Override
@@ -216,6 +259,55 @@ public class SupplierOrderServiceImpl implements SupplierOrderService {
     private PurchaseOrder findSupplierOrder(Long id, Long orgId) {
         return poRepo.findSupplierVisibleOrderById(id, orgId)
                 .orElseThrow(() -> new ResourceNotFoundException("PurchaseOrder", "purchaseOrderId", id));
+    }
+
+    private Long counterpartyOf(Partnership p, Long ownOrgId) {
+        if (p.getPrimaryOrg() != null && !p.getPrimaryOrg().getAccountId().equals(ownOrgId)) {
+            return p.getPrimaryOrg().getAccountId();
+        }
+        if (p.getSecondaryOrg() != null && !p.getSecondaryOrg().getAccountId().equals(ownOrgId)) {
+            return p.getSecondaryOrg().getAccountId();
+        }
+        return null;
+    }
+
+    // Supplier-owned delivery: only an ACTIVE supplier-logistics partnership
+    // permits handover of a shipment to the logistics org. When a
+    // partnershipId is supplied, the logistics side is derived as the
+    // partnership counterparty so callers cannot hand over to themselves.
+    private Partnership resolveLogisticsPartnership(Long supplierOrgId, Long logisticsOrgId, Object partnershipIdRaw) {
+        if (partnershipIdRaw != null && !partnershipIdRaw.toString().isBlank()) {
+            Long pid = Long.valueOf(partnershipIdRaw.toString());
+            Partnership p = partnershipRepo.findById(pid)
+                    .orElseThrow(() -> new ResourceNotFoundException("Partnership", "partnershipId", pid));
+            if (p.getStatus() != PartnershipStatus.ACTIVE) {
+                throw new ValidationException("Partnership is not ACTIVE: " + p.getStatus());
+            }
+            boolean involvesSupplier = (p.getPrimaryOrg() != null && p.getPrimaryOrg().getAccountId().equals(supplierOrgId))
+                    || (p.getSecondaryOrg() != null && p.getSecondaryOrg().getAccountId().equals(supplierOrgId));
+            if (!involvesSupplier) {
+                throw new ValidationException("Partnership does not involve your organization");
+            }
+            return p;
+        }
+        java.util.List<Partnership> mine = new java.util.ArrayList<>();
+        mine.addAll(partnershipRepo.findByPrimaryOrgAccountId(supplierOrgId,
+                org.springframework.data.domain.Pageable.ofSize(200)).getContent());
+        mine.addAll(partnershipRepo.findBySecondaryOrgAccountId(supplierOrgId,
+                org.springframework.data.domain.Pageable.ofSize(200)).getContent());
+        for (Partnership p : mine) {
+            if (p.getStatus() != PartnershipStatus.ACTIVE) continue;
+            if (!"LOGISTICS".equals(p.getPartnershipType())) continue;
+            Long counter = null;
+            if (p.getPrimaryOrg() != null && !p.getPrimaryOrg().getAccountId().equals(supplierOrgId)) {
+                counter = p.getPrimaryOrg().getAccountId();
+            } else if (p.getSecondaryOrg() != null && !p.getSecondaryOrg().getAccountId().equals(supplierOrgId)) {
+                counter = p.getSecondaryOrg().getAccountId();
+            }
+            if (logisticsOrgId.equals(counter)) return p;
+        }
+        throw new ValidationException("No ACTIVE logistics partnership with org " + logisticsOrgId
+                + ". Send a proposal from the logistics marketplace first.");
     }
 
     // Kept for reference / fallback parity checks; live reads use the scoped

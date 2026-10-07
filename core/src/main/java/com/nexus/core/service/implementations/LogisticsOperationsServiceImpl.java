@@ -2,6 +2,7 @@ package com.nexus.core.service.implementations;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -20,6 +21,7 @@ import com.nexus.core.model.entities.Account;
 import com.nexus.core.model.entities.CapacityForecast;
 import com.nexus.core.model.entities.CarrierPayable;
 import com.nexus.core.model.entities.ConsolidationGroup;
+import com.nexus.core.model.entities.Partnership;
 import com.nexus.core.model.enums.ConsolidationStatus;
 import com.nexus.core.model.enums.FleetAssetStatus;
 import com.nexus.core.model.enums.FleetAssetType;
@@ -34,6 +36,7 @@ import com.nexus.core.repository.CapacityForecastRepo;
 import com.nexus.core.repository.CarrierPayableRepo;
 import com.nexus.core.repository.ConsolidationGroupRepo;
 import com.nexus.core.repository.FleetAssetRepo;
+import com.nexus.core.repository.PartnershipRepo;
 import com.nexus.core.repository.ShipmentRepo;
 import com.nexus.core.security.OrganizationContextHolder;
 import com.nexus.core.service.interfaces.AccountDirectory;
@@ -52,6 +55,7 @@ public class LogisticsOperationsServiceImpl implements LogisticsOperationsServic
     private final CarrierPayableRepo payableRepo;
     private final ShipmentRepo shipmentRepo;
     private final FleetAssetRepo assetRepo;
+    private final PartnershipRepo partnershipRepo;
     private final AccountDirectory accountDirectory;
     private final ModelMapper modelMapper;
 
@@ -191,6 +195,11 @@ public class LogisticsOperationsServiceImpl implements LogisticsOperationsServic
         var capacity = modelMapper.map(dto, CapacityForecast.class);
         capacity.setForecastId(null);
         capacity.setLogisticsOrg(org);
+        var error = validateCapacitySpecs(capacity);
+        if (error != null) {
+            return ResponseEntity.badRequest().body(Map.of("error", error));
+        }
+        deriveUnitVolume(capacity);
         return ResponseEntity.status(HttpStatus.CREATED).body(modelMapper.map(capacityRepo.save(capacity), CapacityForecastDto.class));
     }
 
@@ -229,7 +238,54 @@ public class LogisticsOperationsServiceImpl implements LogisticsOperationsServic
         modelMapper.map(dto, existing);
         existing.setForecastId(id);
         existing.setLogisticsOrg(org);
+        var error = validateCapacitySpecs(existing);
+        if (error != null) {
+            return ResponseEntity.badRequest().body(Map.of("error", error));
+        }
+        deriveUnitVolume(existing);
         return ResponseEntity.ok(modelMapper.map(capacityRepo.save(existing), CapacityForecastDto.class));
+    }
+
+    // Unitized capacities (pallets/containers) count load units, so the
+    // per-unit dimensions are mandatory — otherwise suppliers cannot tell
+    // whether their freight fits.
+    private String validateCapacitySpecs(CapacityForecast capacity) {
+        if (capacity.getCapacityUnit() == null) {
+            capacity.setCapacityUnit(com.nexus.core.model.enums.CapacityUnit.KG);
+        }
+        if (!capacity.getCapacityUnit().isUnitized()) {
+            return null;
+        }
+        if (capacity.getUnitLength() == null || capacity.getUnitWidth() == null
+                || capacity.getUnitHeight() == null) {
+            return "Unitized capacity (" + capacity.getCapacityUnit()
+                    + ") requires unit length, width and height specifications";
+        }
+        if (capacity.getUnitLength() <= 0 || capacity.getUnitWidth() <= 0
+                || capacity.getUnitHeight() <= 0) {
+            return "Unit dimensions must be positive numbers";
+        }
+        return null;
+    }
+
+    // Auto-fill unit volume from LxWxH when the caller did not supply one,
+    // normalizing to the declared volume UoM.
+    private void deriveUnitVolume(CapacityForecast capacity) {
+        if (capacity.getUnitVolume() != null) return;
+        if (capacity.getUnitLength() == null || capacity.getUnitWidth() == null
+                || capacity.getUnitHeight() == null) return;
+        double toMeters = "FT".equalsIgnoreCase(capacity.getDimensionUom()) ? 0.3048 : 1.0;
+        double cbm = capacity.getUnitLength() * toMeters
+                * capacity.getUnitWidth() * toMeters
+                * capacity.getUnitHeight() * toMeters;
+        String vuom = capacity.getVolumeUom() != null ? capacity.getVolumeUom().toUpperCase() : "CBM";
+        double volume = switch (vuom) {
+            case "CFT" -> cbm * 35.3147;
+            case "L" -> cbm * 1000.0;
+            default -> cbm;
+        };
+        capacity.setUnitVolume(Math.round(volume * 100.0) / 100.0);
+        if (capacity.getVolumeUom() == null) capacity.setVolumeUom("CBM");
     }
 
     @Override
@@ -241,6 +297,52 @@ public class LogisticsOperationsServiceImpl implements LogisticsOperationsServic
         capacity.setIsActive(false);
         capacityRepo.save(capacity);
         return ResponseEntity.noContent().build();
+    }
+
+    @Override
+    @Transactional
+    public ResponseEntity<?> extendCapacityForPartnership(Long id, Map<String, Object> body) {
+        var orgId = OrganizationContextHolder.requireOrganizationId();
+        var capacity = capacityRepo.findByIdAndOrg(id, orgId)
+                .orElseThrow(() -> new ResourceNotFoundException("CapacityForecast", "forecastId", id));
+        if (body == null || body.get("partnershipId") == null || body.get("newPeriodEnd") == null) {
+            return ResponseEntity.badRequest().body(Map.of("error", "partnershipId and newPeriodEnd are required"));
+        }
+        Long partnershipId = Long.valueOf(body.get("partnershipId").toString());
+        var partnership = partnershipRepo.findById(partnershipId)
+                .orElseThrow(() -> new ResourceNotFoundException("Partnership", "partnershipId", partnershipId));
+        boolean involvesCaller = (partnership.getPrimaryOrg() != null && partnership.getPrimaryOrg().getAccountId().equals(orgId))
+                || (partnership.getSecondaryOrg() != null && partnership.getSecondaryOrg().getAccountId().equals(orgId));
+        if (!involvesCaller) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Partnership does not involve your organization"));
+        }
+        if (!"LONG_TERM".equals(partnership.getPartnershipTermType())) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "Only LONG_TERM partnerships allow routing-capacity extension"));
+        }
+        java.sql.Date newEnd;
+        try {
+            newEnd = java.sql.Date.valueOf(body.get("newPeriodEnd").toString());
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", "newPeriodEnd must be yyyy-MM-dd"));
+        }
+        if (capacity.getPeriodEnd() != null && !newEnd.after(capacity.getPeriodEnd())) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "newPeriodEnd must be after the current period end"));
+        }
+        capacity.setPeriodEnd(newEnd);
+        if (body.get("availableCapacity") != null) {
+            capacity.setAvailableCapacity(Double.valueOf(body.get("availableCapacity").toString()));
+        }
+        String note = "Extended for LONG_TERM partnership " + partnershipId;
+        capacity.setNotes(capacity.getNotes() == null ? note : capacity.getNotes() + " | " + note);
+        // Keep the partnership validity aligned with the extended routing window.
+        if (partnership.getValidityEnd() == null
+                || partnership.getValidityEnd().before(Timestamp.valueOf(newEnd.toLocalDate().atTime(23, 59, 59)))) {
+            partnership.setValidityEnd(Timestamp.valueOf(newEnd.toLocalDate().atTime(23, 59, 59)));
+            partnershipRepo.save(partnership);
+        }
+        return ResponseEntity.ok(modelMapper.map(capacityRepo.save(capacity), CapacityForecastDto.class));
     }
 
     @Override

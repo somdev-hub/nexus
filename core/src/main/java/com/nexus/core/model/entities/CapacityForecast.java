@@ -1,5 +1,6 @@
 package com.nexus.core.model.entities;
 
+import com.nexus.core.model.enums.CapacityUnit;
 import com.nexus.core.model.enums.FleetAssetType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -58,6 +59,36 @@ public class CapacityForecast extends BaseEntity {
 
     @Column(name = "booked_capacity")
     private Double bookedCapacity = 0.0;
+
+    // Unit for the capacity quantities above (KG, LBS, LITRES,
+    // SHIPPING_CONTAINER, FREIGHT_CONTAINER, ...). Defaults to KG so
+    // legacy rows keep their meaning.
+    @Enumerated(EnumType.STRING)
+    @Column(name = "capacity_unit")
+    private CapacityUnit capacityUnit = CapacityUnit.KG;
+
+    // Per-unit specifications. Required when capacityUnit is unitized
+    // (PALLETS, SHIPPING_CONTAINER, FREIGHT_CONTAINER): internal
+    // length/width/height plus total volume of one unit.
+    @Column(name = "unit_length")
+    private Double unitLength;
+
+    @Column(name = "unit_width")
+    private Double unitWidth;
+
+    @Column(name = "unit_height")
+    private Double unitHeight;
+
+    // Dimension UoM for length/width/height: M (meters) or FT (feet).
+    @Column(name = "dimension_uom")
+    private String dimensionUom = "M";
+
+    @Column(name = "unit_volume")
+    private Double unitVolume;
+
+    // Volume UoM for unitVolume: CBM, CFT or L.
+    @Column(name = "volume_uom")
+    private String volumeUom = "CBM";
 
     private String notes;
 

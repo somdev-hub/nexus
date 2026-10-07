@@ -134,6 +134,10 @@ public class PartnershipServiceImpl implements PartnershipService {
 			dto.setPartnershipId(partnership.getPartnershipId());
 		}
 		dto.setPartnershipTerm(partnership.getPartnershipTerm());
+		dto.setPartnershipTermType(partnership.getPartnershipTermType());
+		dto.setValidityStart(partnership.getValidityStart());
+		dto.setValidityEnd(partnership.getValidityEnd());
+		dto.setLinkedCapacityForecastId(partnership.getLinkedCapacityForecastId());
 		dto.setPartnershipType(partnership.getPartnershipType());
 		dto.setDiscountRate(partnership.getDiscountRate());
 		dto.setStatus(partnership.getStatus());

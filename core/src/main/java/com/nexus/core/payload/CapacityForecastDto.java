@@ -1,5 +1,6 @@
 package com.nexus.core.payload;
 
+import com.nexus.core.model.enums.CapacityUnit;
 import com.nexus.core.model.enums.FleetAssetType;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -21,5 +22,13 @@ public class CapacityForecastDto {
     private Date periodEnd;
     private Double availableCapacity;
     private Double bookedCapacity;
+    private CapacityUnit capacityUnit;
+    // Per-unit specs, required for unitized units (pallets/containers).
+    private Double unitLength;
+    private Double unitWidth;
+    private Double unitHeight;
+    private String dimensionUom;
+    private Double unitVolume;
+    private String volumeUom;
     private String notes;
 }

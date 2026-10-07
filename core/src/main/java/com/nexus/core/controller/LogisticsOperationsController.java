@@ -109,6 +109,13 @@ public class LogisticsOperationsController {
         return operationsService.deleteCapacity(id);
     }
 
+    @PutMapping("/capacity/{id}/extend-for-partnership")
+    @LogActivity("Extend Capacity For Long-Term Partnership")
+    public ResponseEntity<?> extendCapacityForPartnership(@PathVariable Long id,
+            @RequestBody Map<String, Object> body) {
+        return operationsService.extendCapacityForPartnership(id, body);
+    }
+
     @PostMapping("/payables/create")
     @LogActivity("Create Carrier Payable")
     public ResponseEntity<?> createPayable(@Valid @RequestBody CarrierPayableDto dto) {

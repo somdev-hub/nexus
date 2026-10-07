@@ -490,6 +490,14 @@ public class CoreLogisticsController {
 		return logisticsService.deleteCapacity(id, auth, org);
 	}
 
+	@LogActivity("Extend Capacity For Partnership via IAM")
+	@PutMapping("/operations/capacity/{id}/extend-for-partnership")
+	public ResponseEntity<?> extendCapacityForPartnership(@PathVariable Long id,
+			@RequestBody Map<String, Object> dto, @RequestHeader("Authorization") String auth,
+			@RequestHeader("X-Organization-ID") String org) {
+		return logisticsService.extendCapacityForPartnership(id, dto, auth, org);
+	}
+
 	@LogActivity("Create Carrier Payable via IAM")
 	@PostMapping("/operations/payables/create")
 	public ResponseEntity<?> createPayable(@RequestBody Map<String, Object> dto,

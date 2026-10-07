@@ -26,6 +26,10 @@ public interface LogisticsOperationsService {
     ResponseEntity<?> updateCapacity(Long id, CapacityForecastDto dto);
     ResponseEntity<?> deleteCapacity(Long id);
 
+    // LONG_TERM partner flexibility: extend a routing-capacity period so the
+    // partner supplier keeps logistics availability beyond the current window.
+    ResponseEntity<?> extendCapacityForPartnership(Long id, Map<String, Object> body);
+
     // Carrier payables (FR-LOG-032, settlement execution delegated to PMS)
     ResponseEntity<?> createPayable(CarrierPayableDto dto);
     ResponseEntity<?> getPayable(Long id);

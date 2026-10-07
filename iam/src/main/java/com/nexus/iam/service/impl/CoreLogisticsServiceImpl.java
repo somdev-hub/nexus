@@ -347,6 +347,11 @@ public class CoreLogisticsServiceImpl implements CoreLogisticsService {
     }
 
     @Override
+    public ResponseEntity<?> extendCapacityForPartnership(Long id, Map<String, Object> dto, String auth, String org) {
+        return callPut(webConstants.getCoreLogisticsOperationsBaseUrl() + "/capacity/" + id + "/extend-for-partnership", dto, auth, org);
+    }
+
+    @Override
     public ResponseEntity<?> createPayable(Map<String, Object> dto, String auth, String org) {
         return callPost(webConstants.getCoreLogisticsOperationsBaseUrl() + "/payables/create", dto, auth, org);
     }

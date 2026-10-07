@@ -138,4 +138,11 @@ public interface CoreSupplierService {
     ResponseEntity<?> rejectSupplierContract(Long id, String comments, String decidedBy, String authToken, String orgId);
     ResponseEntity<?> requestSupplierContractAmendments(Long id, String comments, String decidedBy, String authToken, String orgId);
     ResponseEntity<?> getSupplierContractDocumentContent(Long id, String authToken, String orgId);
+
+    // Supplier-owned delivery: logistics marketplace + shipment handover
+    ResponseEntity<?> getAvailableLogistics(String search, String authToken, String orgId, Pageable pageable);
+    ResponseEntity<?> getSupplierLogisticsPartnerships(String authToken, String orgId, Pageable pageable);
+    ResponseEntity<?> createLogisticsProposal(Map<String, Object> dto, String authToken, String orgId);
+    ResponseEntity<?> getSupplierShipments(String status, String authToken, String orgId, Pageable pageable);
+    ResponseEntity<?> handoverShipment(Long shipmentId, Map<String, Object> dto, String authToken, String orgId);
 }

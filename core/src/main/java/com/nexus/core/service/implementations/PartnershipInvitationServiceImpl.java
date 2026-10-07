@@ -138,6 +138,10 @@ public class PartnershipInvitationServiceImpl implements PartnershipInvitationSe
 			partnershipDto.setPrimaryOrg(invitation.getInvitingOrg().getAccountId());
 			partnershipDto.setSecondaryOrg(invitation.getInvitedOrg().getAccountId());
 			partnershipDto.setPartnershipTerm(invitation.getProposedTerms());
+			partnershipDto.setPartnershipTermType(invitation.getPartnershipTermType());
+			partnershipDto.setValidityStart(invitation.getValidityStart());
+			partnershipDto.setValidityEnd(invitation.getValidityEnd());
+			partnershipDto.setLinkedCapacityForecastId(invitation.getLinkedCapacityForecastId());
 			partnershipDto.setDiscountRate(invitation.getProposedDiscountRate());
 			String context = invitation.getPartnershipContext();
 			if (context != null) {
@@ -152,6 +156,14 @@ public class PartnershipInvitationServiceImpl implements PartnershipInvitationSe
 			partnershipDto.setStatus(PartnershipStatus.DRAFT);
 			partnershipDto.setStartDate(Timestamp.valueOf(LocalDateTime.now()));
 			partnershipDto.setInvitationId(invitationId);
+
+			// Supplier-logistics acceptance establishes the partnership
+			// immediately: no portal flow drives DRAFT → … → ACTIVE, while
+			// handover, proposal exclusivity and marketplace chips all
+			// require an ACTIVE partnership.
+			if ("SUPPLIER_LOGISTICS".equals(invitation.getPartnershipContext())) {
+				partnershipDto.setStatus(PartnershipStatus.ACTIVE);
+			}
 
 			partnershipService.addPartnership(partnershipDto);
 		}

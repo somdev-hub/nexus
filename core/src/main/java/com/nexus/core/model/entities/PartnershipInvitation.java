@@ -49,6 +49,26 @@ public class PartnershipInvitation extends BaseEntity {
 
 	private String proposedTerms;
 
+	// Supplier-logistics proposal term: SHORT_TERM or LONG_TERM.
+	private String partnershipTermType;
+
+	private Timestamp validityStart;
+
+	private Timestamp validityEnd;
+
+	// CapacityForecast.forecastId the proposal is anchored to (routing capacity).
+	// Used by SHORT_TERM proposals (supplier picks a published route).
+	private Long linkedCapacityForecastId;
+
+	// LONG_TERM proposals: supplier-defined wish list. JSON array of
+	// {from, to, capacity} rows plus the total desired capacity below —
+	// the supplier decides terms instead of picking a published route.
+	private String desiredRoutesJson;
+
+	private Double desiredCapacity;
+
+	private String desiredCapacityUnit;
+
 	private Double proposedDiscountRate;
 
 	private Timestamp invitedAt;
