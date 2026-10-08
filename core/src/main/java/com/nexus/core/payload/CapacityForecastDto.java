@@ -23,6 +23,9 @@ public class CapacityForecastDto {
     private Double availableCapacity;
     private Double bookedCapacity;
     private CapacityUnit capacityUnit;
+    private Double unitPrice;
+    private String currency;
+    private Long partnershipId;
     // Per-unit specs, required for unitized units (pallets/containers).
     private Double unitLength;
     private Double unitWidth;

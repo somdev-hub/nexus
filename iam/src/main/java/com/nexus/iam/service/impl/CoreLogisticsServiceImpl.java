@@ -351,6 +351,40 @@ public class CoreLogisticsServiceImpl implements CoreLogisticsService {
         return callPut(webConstants.getCoreLogisticsOperationsBaseUrl() + "/capacity/" + id + "/extend-for-partnership", dto, auth, org);
     }
 
+    private String partnershipBaseUrl() {
+        return webConstants.getCoreServiceUrl() + "/core/logistics/partnerships";
+    }
+
+    @Override
+    public ResponseEntity<?> createPartnershipQuotation(Map<String, Object> dto, String auth, String org) {
+        return callPost(partnershipBaseUrl() + "/quotations", dto, auth, org);
+    }
+
+    @Override
+    public ResponseEntity<?> getPartnershipQuotations(String auth, String org, Pageable p, String status) {
+        return callGet(buildPaginatedUrlWithFilters(partnershipBaseUrl() + "/quotations", p, "status", status), auth, org);
+    }
+
+    @Override
+    public ResponseEntity<?> getPartnershipQuotation(Long id, String auth, String org) {
+        return callGet(partnershipBaseUrl() + "/quotations/" + id, auth, org);
+    }
+
+    @Override
+    public ResponseEntity<?> getPartnershipRoutes(Long id, String auth, String org, Pageable p) {
+        return callGet(buildPaginatedUrl(partnershipBaseUrl() + "/" + id + "/routes", p), auth, org);
+    }
+
+    @Override
+    public ResponseEntity<?> activatePartnership(Long id, String auth, String org) {
+        return callPost(partnershipBaseUrl() + "/" + id + "/activate", null, auth, org);
+    }
+
+    @Override
+    public ResponseEntity<?> terminatePartnership(Long id, Map<String, Object> dto, String auth, String org) {
+        return callPost(partnershipBaseUrl() + "/" + id + "/terminate", dto, auth, org);
+    }
+
     @Override
     public ResponseEntity<?> createPayable(Map<String, Object> dto, String auth, String org) {
         return callPost(webConstants.getCoreLogisticsOperationsBaseUrl() + "/payables/create", dto, auth, org);

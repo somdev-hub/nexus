@@ -662,6 +662,38 @@ public class CoreSupplierServiceImpl implements CoreSupplierService {
 				authToken, orgId);
 	}
 
+	@Override
+	public ResponseEntity<?> getLogisticsQuotations(String status, String authToken, String orgId, Pageable pageable) {
+		String url = buildPaginatedUrlWithFilters(supplierLogisticsMarketplaceBaseUrl() + "/quotations", pageable,
+				"status", status);
+		return callGet(url, authToken, orgId);
+	}
+
+	@Override
+	public ResponseEntity<?> getLogisticsQuotation(Long id, String authToken, String orgId) {
+		return callGet(supplierLogisticsMarketplaceBaseUrl() + "/quotations/" + id, authToken, orgId);
+	}
+
+	@Override
+	public ResponseEntity<?> respondToLogisticsQuotation(Long id, Map<String, Object> dto, String authToken,
+			String orgId) {
+		return callPost(supplierLogisticsMarketplaceBaseUrl() + "/quotations/" + id + "/respond", dto, authToken,
+				orgId);
+	}
+
+	@Override
+	public ResponseEntity<?> getMyPrivateRoutes(String authToken, String orgId, Pageable pageable) {
+		return callGet(buildPaginatedUrl(supplierLogisticsMarketplaceBaseUrl() + "/my-routes", pageable), authToken,
+				orgId);
+	}
+
+	@Override
+	public ResponseEntity<?> terminateLogisticsPartnership(Long id, Map<String, Object> dto, String authToken,
+			String orgId) {
+		return callPost(supplierLogisticsMarketplaceBaseUrl() + "/partnerships/" + id + "/terminate", dto, authToken,
+				orgId);
+	}
+
 	private ResponseEntity<?> callGet(String url, String authToken, String orgId) {
 		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
 		headers.put("X-Organization-ID", orgId);

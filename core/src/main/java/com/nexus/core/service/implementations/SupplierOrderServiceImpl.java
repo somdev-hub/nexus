@@ -150,6 +150,10 @@ public class SupplierOrderServiceImpl implements SupplierOrderService {
         // backordered calculation
         Double orderedQty = po.getLineItems().stream().mapToDouble(li -> li.getQuantityOrdered() != null ? li.getQuantityOrdered() : 0).sum();
         Double shippedQty = shipmentDto.containsKey("shippedQuantity") ? Double.valueOf(shipmentDto.get("shippedQuantity").toString()) : 0.0;
+        if (shippedQty != null && orderedQty != null && shippedQty > orderedQty) {
+            throw new ValidationException("Shipped quantity (" + shippedQty
+                    + ") cannot exceed the ordered quantity (" + orderedQty + ")");
+        }
         double backordered = Math.max(0, orderedQty - shippedQty);
         shipment.setBackorderedQuantity(backordered);
 

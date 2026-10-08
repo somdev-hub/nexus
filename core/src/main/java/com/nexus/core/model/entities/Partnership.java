@@ -62,6 +62,14 @@ public class Partnership extends BaseEntity {
 	// CapacityForecast.forecastId this partnership proposal was anchored to.
 	private Long linkedCapacityForecastId;
 
+	// LONG_TERM wish list carried over from the accepted invitation:
+	// JSON array of {from, to, capacity} plus totals.
+	private String desiredRoutesJson;
+
+	private Double desiredCapacity;
+
+	private String desiredCapacityUnit;
+
 	private Double discountRate;
 
 	@Enumerated(EnumType.STRING)

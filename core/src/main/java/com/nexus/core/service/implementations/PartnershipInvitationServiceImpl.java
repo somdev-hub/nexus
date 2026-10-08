@@ -142,6 +142,9 @@ public class PartnershipInvitationServiceImpl implements PartnershipInvitationSe
 			partnershipDto.setValidityStart(invitation.getValidityStart());
 			partnershipDto.setValidityEnd(invitation.getValidityEnd());
 			partnershipDto.setLinkedCapacityForecastId(invitation.getLinkedCapacityForecastId());
+			partnershipDto.setDesiredRoutesJson(invitation.getDesiredRoutesJson());
+			partnershipDto.setDesiredCapacity(invitation.getDesiredCapacity());
+			partnershipDto.setDesiredCapacityUnit(invitation.getDesiredCapacityUnit());
 			partnershipDto.setDiscountRate(invitation.getProposedDiscountRate());
 			String context = invitation.getPartnershipContext();
 			if (context != null) {
@@ -157,11 +160,14 @@ public class PartnershipInvitationServiceImpl implements PartnershipInvitationSe
 			partnershipDto.setStartDate(Timestamp.valueOf(LocalDateTime.now()));
 			partnershipDto.setInvitationId(invitationId);
 
-			// Supplier-logistics acceptance establishes the partnership
-			// immediately: no portal flow drives DRAFT → … → ACTIVE, while
-			// handover, proposal exclusivity and marketplace chips all
-			// require an ACTIVE partnership.
-			if ("SUPPLIER_LOGISTICS".equals(invitation.getPartnershipContext())) {
+			// Supplier-logistics acceptance establishes short-term
+			// partnerships immediately: no portal flow drives DRAFT → … →
+			// ACTIVE, while handover, proposal exclusivity and marketplace
+			// chips all require an ACTIVE partnership. Long-term
+			// partnerships stay DRAFT until the quotation is accepted and
+			// every agreed route is added (activation flow).
+			if ("SUPPLIER_LOGISTICS".equals(invitation.getPartnershipContext())
+					&& !"LONG_TERM".equals(invitation.getPartnershipTermType())) {
 				partnershipDto.setStatus(PartnershipStatus.ACTIVE);
 			}
 

@@ -754,4 +754,42 @@ public class CoreSupplierController {
 			@RequestHeader("X-Organization-ID") String org) {
 		return supplierService.handoverShipment(shipmentId, dto, auth, org);
 	}
+
+	@LogActivity("Get Supplier Logistics Quotations")
+	@GetMapping("/logistics-marketplace/quotations")
+	public ResponseEntity<?> getLogisticsQuotations(@RequestParam(required = false) String status,
+			@RequestHeader("Authorization") String auth, @RequestHeader("X-Organization-ID") String org,
+			@PageableDefault(size = 20) Pageable p) {
+		return supplierService.getLogisticsQuotations(status, auth, org, p);
+	}
+
+	@LogActivity("Get Supplier Logistics Quotation")
+	@GetMapping("/logistics-marketplace/quotations/{id}")
+	public ResponseEntity<?> getLogisticsQuotation(@PathVariable Long id,
+			@RequestHeader("Authorization") String auth, @RequestHeader("X-Organization-ID") String org) {
+		return supplierService.getLogisticsQuotation(id, auth, org);
+	}
+
+	@LogActivity("Respond to Logistics Quotation")
+	@PostMapping("/logistics-marketplace/quotations/{id}/respond")
+	public ResponseEntity<?> respondToLogisticsQuotation(@PathVariable Long id,
+			@RequestBody Map<String, Object> dto, @RequestHeader("Authorization") String auth,
+			@RequestHeader("X-Organization-ID") String org) {
+		return supplierService.respondToLogisticsQuotation(id, dto, auth, org);
+	}
+
+	@LogActivity("Get Supplier Private Routes")
+	@GetMapping("/logistics-marketplace/my-routes")
+	public ResponseEntity<?> getMyPrivateRoutes(@RequestHeader("Authorization") String auth,
+			@RequestHeader("X-Organization-ID") String org, @PageableDefault(size = 50) Pageable p) {
+		return supplierService.getMyPrivateRoutes(auth, org, p);
+	}
+
+	@LogActivity("Terminate Supplier Logistics Partnership")
+	@PostMapping("/logistics-marketplace/partnerships/{id}/terminate")
+	public ResponseEntity<?> terminateLogisticsPartnership(@PathVariable Long id,
+			@RequestBody(required = false) Map<String, Object> dto,
+			@RequestHeader("Authorization") String auth, @RequestHeader("X-Organization-ID") String org) {
+		return supplierService.terminateLogisticsPartnership(id, dto, auth, org);
+	}
 }

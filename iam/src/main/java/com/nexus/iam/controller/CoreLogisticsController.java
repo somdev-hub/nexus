@@ -498,6 +498,52 @@ public class CoreLogisticsController {
 		return logisticsService.extendCapacityForPartnership(id, dto, auth, org);
 	}
 
+	@LogActivity("Raise Partnership Quotation via IAM")
+	@PostMapping("/partnerships/quotations")
+	public ResponseEntity<?> createPartnershipQuotation(@RequestBody Map<String, Object> dto,
+			@RequestHeader("Authorization") String auth, @RequestHeader("X-Organization-ID") String org) {
+		return logisticsService.createPartnershipQuotation(dto, auth, org);
+	}
+
+	@LogActivity("Get Partnership Quotations via IAM")
+	@GetMapping("/partnerships/quotations")
+	public ResponseEntity<?> getPartnershipQuotations(@RequestHeader("Authorization") String auth,
+			@RequestHeader("X-Organization-ID") String org,
+			@RequestParam(required = false) String status,
+			@PageableDefault(size = 20) Pageable p) {
+		return logisticsService.getPartnershipQuotations(auth, org, p, status);
+	}
+
+	@LogActivity("Get Partnership Quotation via IAM")
+	@GetMapping("/partnerships/quotations/{id}")
+	public ResponseEntity<?> getPartnershipQuotation(@PathVariable Long id,
+			@RequestHeader("Authorization") String auth, @RequestHeader("X-Organization-ID") String org) {
+		return logisticsService.getPartnershipQuotation(id, auth, org);
+	}
+
+	@LogActivity("Get Partnership Routes via IAM")
+	@GetMapping("/partnerships/{id}/routes")
+	public ResponseEntity<?> getPartnershipRoutes(@PathVariable Long id,
+			@RequestHeader("Authorization") String auth, @RequestHeader("X-Organization-ID") String org,
+			@PageableDefault(size = 50) Pageable p) {
+		return logisticsService.getPartnershipRoutes(id, auth, org, p);
+	}
+
+	@LogActivity("Activate Partnership via IAM")
+	@PostMapping("/partnerships/{id}/activate")
+	public ResponseEntity<?> activatePartnership(@PathVariable Long id,
+			@RequestHeader("Authorization") String auth, @RequestHeader("X-Organization-ID") String org) {
+		return logisticsService.activatePartnership(id, auth, org);
+	}
+
+	@LogActivity("Terminate Partnership via IAM")
+	@PostMapping("/partnerships/{id}/terminate")
+	public ResponseEntity<?> terminatePartnership(@PathVariable Long id,
+			@RequestBody(required = false) Map<String, Object> dto,
+			@RequestHeader("Authorization") String auth, @RequestHeader("X-Organization-ID") String org) {
+		return logisticsService.terminatePartnership(id, dto, auth, org);
+	}
+
 	@LogActivity("Create Carrier Payable via IAM")
 	@PostMapping("/operations/payables/create")
 	public ResponseEntity<?> createPayable(@RequestBody Map<String, Object> dto,

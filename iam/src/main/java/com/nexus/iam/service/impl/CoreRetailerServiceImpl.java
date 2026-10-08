@@ -1901,7 +1901,7 @@ public class CoreRetailerServiceImpl implements CoreRetailerService {
 		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
 		headers.put("X-Organization-ID", orgIdHeader);
 		return restService.iamRestCall(
-				webConstants.getCoreShipmentBaseUrl(),
+				webConstants.getCoreShipmentBaseUrl() + "/create",
 				shipmentDto,
 				headers,
 				HttpMethod.POST,
@@ -1927,7 +1927,7 @@ public class CoreRetailerServiceImpl implements CoreRetailerService {
 			java.sql.Timestamp startDate, java.sql.Timestamp endDate) {
 		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
 		headers.put("X-Organization-ID", orgIdHeader);
-		String url = buildPaginatedUrlWithFilters(webConstants.getCoreShipmentBaseUrl(), pageable,
+		String url = buildPaginatedUrlWithFilters(webConstants.getCoreShipmentBaseUrl() + "/all", pageable,
 				"status", status,
 				"mode", mode,
 				"supplierId", supplierId,
@@ -1947,7 +1947,7 @@ public class CoreRetailerServiceImpl implements CoreRetailerService {
 			String orgIdHeader) {
 		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
 		headers.put("X-Organization-ID", orgIdHeader);
-		String url = webConstants.getCoreShipmentBaseUrl() + "/" + id;
+		String url = webConstants.getCoreShipmentBaseUrl() + "/" + id + "/update";
 		return restService.iamRestCall(
 				url,
 				shipmentDto,
@@ -1982,7 +1982,7 @@ public class CoreRetailerServiceImpl implements CoreRetailerService {
 				url,
 				params,
 				headers,
-				HttpMethod.POST,
+				HttpMethod.PUT,
 				null);
 	}
 
@@ -2055,7 +2055,7 @@ public class CoreRetailerServiceImpl implements CoreRetailerService {
 				url,
 				params,
 				headers,
-				HttpMethod.POST,
+				HttpMethod.PUT,
 				null);
 	}
 
@@ -2150,7 +2150,7 @@ public class CoreRetailerServiceImpl implements CoreRetailerService {
 			String orgIdHeader) {
 		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
 		headers.put("X-Organization-ID", orgIdHeader);
-		String url = webConstants.getCoreShipmentDocumentUrl() + "/" + shipmentId + "/documents/" + documentId;
+		String url = webConstants.getCoreShipmentDocumentUrl() + "/documents/" + documentId;
 		return restService.iamRestCall(
 				url,
 				null,
@@ -2174,7 +2174,7 @@ public class CoreRetailerServiceImpl implements CoreRetailerService {
 				url,
 				null,
 				headers,
-				HttpMethod.POST,
+				HttpMethod.PUT,
 				null);
 	}
 
@@ -2183,13 +2183,20 @@ public class CoreRetailerServiceImpl implements CoreRetailerService {
 			Pageable pageable) {
 		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
 		headers.put("X-Organization-ID", orgIdHeader);
-		String url = buildPaginatedUrl(webConstants.getCoreShipmentSearchUrl(), pageable);
-		return restService.iamRestCall(
-				url,
-				searchDto,
-				headers,
-				HttpMethod.POST,
-				null);
+		// Core exposes search as GET /search?q= (not POST with a body).
+		Object rawQ = searchDto != null
+				? (searchDto.get("q") != null ? searchDto.get("q")
+						: searchDto.get("query") != null ? searchDto.get("query")
+								: searchDto.get("searchTerm") != null ? searchDto.get("searchTerm")
+										: searchDto.get("search"))
+				: null;
+		String q = rawQ != null ? String.valueOf(rawQ).trim() : "";
+		if (q.isEmpty()) {
+			String url = buildPaginatedUrl(webConstants.getCoreShipmentBaseUrl() + "/all", pageable);
+			return restService.iamRestCall(url, null, headers, HttpMethod.GET, null);
+		}
+		String url = buildPaginatedUrlWithFilters(webConstants.getCoreShipmentSearchUrl(), pageable, "q", q);
+		return restService.iamRestCall(url, null, headers, HttpMethod.GET, null);
 	}
 
 	@Override
@@ -2223,9 +2230,13 @@ public class CoreRetailerServiceImpl implements CoreRetailerService {
 			String authToken, String orgIdHeader, Pageable pageable) {
 		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
 		headers.put("X-Organization-ID", orgIdHeader);
+		// Core parses startDate/endDate via LocalDateTime.parse (ISO-8601),
+		// so forward ISO strings rather than Timestamp.toString() output.
+		String from = startDate != null ? startDate.toLocalDateTime().toString() : null;
+		String to = endDate != null ? endDate.toLocalDateTime().toString() : null;
 		String url = buildPaginatedUrlWithFilters(webConstants.getCoreShipmentDateRangeUrl(), pageable,
-				"startDate", startDate,
-				"endDate", endDate);
+				"startDate", from,
+				"endDate", to);
 		return restService.iamRestCall(
 				url,
 				null,

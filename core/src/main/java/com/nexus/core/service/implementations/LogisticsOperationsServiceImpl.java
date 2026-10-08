@@ -192,15 +192,37 @@ public class LogisticsOperationsServiceImpl implements LogisticsOperationsServic
     public ResponseEntity<?> createCapacity(CapacityForecastDto dto) {
         var orgId = OrganizationContextHolder.requireOrganizationId();
         Account org = accountDirectory.getOrCreateAccount(orgId);
-        var capacity = modelMapper.map(dto, CapacityForecast.class);
+        var capacity = new CapacityForecast();
+        copyCapacityFields(dto, capacity);
         capacity.setForecastId(null);
         capacity.setLogisticsOrg(org);
+        // Private partnership capacity: lane belongs to one long-term
+        // partnership only (hidden from the public marketplace).
+        if (dto.getPartnershipId() != null) {
+            var partnership = partnershipRepo.findById(dto.getPartnershipId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Partnership", "partnershipId",
+                            dto.getPartnershipId()));
+            boolean involvesCaller = (partnership.getPrimaryOrg() != null
+                    && partnership.getPrimaryOrg().getAccountId().equals(orgId))
+                    || (partnership.getSecondaryOrg() != null
+                            && partnership.getSecondaryOrg().getAccountId().equals(orgId));
+            if (!involvesCaller) {
+                return ResponseEntity.badRequest()
+                        .body(Map.of("error", "Partnership does not involve your organization"));
+            }
+            if (!"LOGISTICS".equals(partnership.getPartnershipType())
+                    || !"LONG_TERM".equals(partnership.getPartnershipTermType())) {
+                return ResponseEntity.badRequest().body(Map.of("error",
+                        "Private capacities require a long-term logistics partnership"));
+            }
+            capacity.setPartnership(partnership);
+        }
         var error = validateCapacitySpecs(capacity);
         if (error != null) {
             return ResponseEntity.badRequest().body(Map.of("error", error));
         }
         deriveUnitVolume(capacity);
-        return ResponseEntity.status(HttpStatus.CREATED).body(modelMapper.map(capacityRepo.save(capacity), CapacityForecastDto.class));
+        return ResponseEntity.status(HttpStatus.CREATED).body(toCapacityDto(capacityRepo.save(capacity)));
     }
 
     @Override
@@ -209,7 +231,7 @@ public class LogisticsOperationsServiceImpl implements LogisticsOperationsServic
         var orgId = OrganizationContextHolder.requireOrganizationId();
         var capacity = capacityRepo.findByIdAndOrg(id, orgId)
                 .orElseThrow(() -> new ResourceNotFoundException("CapacityForecast", "forecastId", id));
-        return ResponseEntity.ok(modelMapper.map(capacity, CapacityForecastDto.class));
+        return ResponseEntity.ok(toCapacityDto(capacity));
     }
 
     @Override
@@ -225,7 +247,7 @@ public class LogisticsOperationsServiceImpl implements LogisticsOperationsServic
             }
         }
         Page<CapacityForecast> page = capacityRepo.findByOrgWithFilters(orgId, et, blankToNull(search), pageable);
-        return ResponseEntity.ok(page.map(c -> modelMapper.map(c, CapacityForecastDto.class)));
+        return ResponseEntity.ok(page.map(this::toCapacityDto));
     }
 
     @Override
@@ -235,7 +257,7 @@ public class LogisticsOperationsServiceImpl implements LogisticsOperationsServic
         var existing = capacityRepo.findByIdAndOrg(id, orgId)
                 .orElseThrow(() -> new ResourceNotFoundException("CapacityForecast", "forecastId", id));
         var org = existing.getLogisticsOrg();
-        modelMapper.map(dto, existing);
+        copyCapacityFields(dto, existing);
         existing.setForecastId(id);
         existing.setLogisticsOrg(org);
         var error = validateCapacitySpecs(existing);
@@ -243,7 +265,56 @@ public class LogisticsOperationsServiceImpl implements LogisticsOperationsServic
             return ResponseEntity.badRequest().body(Map.of("error", error));
         }
         deriveUnitVolume(existing);
-        return ResponseEntity.ok(modelMapper.map(capacityRepo.save(existing), CapacityForecastDto.class));
+        return ResponseEntity.ok(toCapacityDto(capacityRepo.save(existing)));
+    }
+
+    // Manual mapping: ModelMapper cannot disambiguate *Id fields across
+    // the joined relations (Partnership.partnershipId/invitationId/… all
+    // match CapacityForecastDto.partnershipId), so both directions are
+    // copied explicitly.
+    private CapacityForecastDto toCapacityDto(CapacityForecast c) {
+        CapacityForecastDto dto = new CapacityForecastDto();
+        dto.setForecastId(c.getForecastId());
+        dto.setOriginLane(c.getOriginLane());
+        dto.setDestinationLane(c.getDestinationLane());
+        dto.setEquipmentType(c.getEquipmentType());
+        dto.setPeriodStart(c.getPeriodStart());
+        dto.setPeriodEnd(c.getPeriodEnd());
+        dto.setAvailableCapacity(c.getAvailableCapacity());
+        dto.setBookedCapacity(c.getBookedCapacity());
+        dto.setCapacityUnit(c.getCapacityUnit());
+        dto.setUnitPrice(c.getUnitPrice());
+        dto.setCurrency(c.getCurrency());
+        dto.setPartnershipId(
+                c.getPartnership() != null ? c.getPartnership().getPartnershipId() : null);
+        dto.setUnitLength(c.getUnitLength());
+        dto.setUnitWidth(c.getUnitWidth());
+        dto.setUnitHeight(c.getUnitHeight());
+        dto.setDimensionUom(c.getDimensionUom());
+        dto.setUnitVolume(c.getUnitVolume());
+        dto.setVolumeUom(c.getVolumeUom());
+        dto.setNotes(c.getNotes());
+        return dto;
+    }
+
+    private void copyCapacityFields(CapacityForecastDto dto, CapacityForecast target) {
+        if (dto.getOriginLane() != null) target.setOriginLane(dto.getOriginLane());
+        if (dto.getDestinationLane() != null) target.setDestinationLane(dto.getDestinationLane());
+        if (dto.getEquipmentType() != null) target.setEquipmentType(dto.getEquipmentType());
+        if (dto.getPeriodStart() != null) target.setPeriodStart(dto.getPeriodStart());
+        if (dto.getPeriodEnd() != null) target.setPeriodEnd(dto.getPeriodEnd());
+        if (dto.getAvailableCapacity() != null) target.setAvailableCapacity(dto.getAvailableCapacity());
+        if (dto.getBookedCapacity() != null) target.setBookedCapacity(dto.getBookedCapacity());
+        if (dto.getCapacityUnit() != null) target.setCapacityUnit(dto.getCapacityUnit());
+        if (dto.getUnitPrice() != null) target.setUnitPrice(dto.getUnitPrice());
+        if (dto.getCurrency() != null) target.setCurrency(dto.getCurrency());
+        if (dto.getUnitLength() != null) target.setUnitLength(dto.getUnitLength());
+        if (dto.getUnitWidth() != null) target.setUnitWidth(dto.getUnitWidth());
+        if (dto.getUnitHeight() != null) target.setUnitHeight(dto.getUnitHeight());
+        if (dto.getDimensionUom() != null) target.setDimensionUom(dto.getDimensionUom());
+        if (dto.getUnitVolume() != null) target.setUnitVolume(dto.getUnitVolume());
+        if (dto.getVolumeUom() != null) target.setVolumeUom(dto.getVolumeUom());
+        if (dto.getNotes() != null) target.setNotes(dto.getNotes());
     }
 
     // Unitized capacities (pallets/containers) count load units, so the
@@ -342,7 +413,7 @@ public class LogisticsOperationsServiceImpl implements LogisticsOperationsServic
             partnership.setValidityEnd(Timestamp.valueOf(newEnd.toLocalDate().atTime(23, 59, 59)));
             partnershipRepo.save(partnership);
         }
-        return ResponseEntity.ok(modelMapper.map(capacityRepo.save(capacity), CapacityForecastDto.class));
+        return ResponseEntity.ok(toCapacityDto(capacityRepo.save(capacity)));
     }
 
     @Override

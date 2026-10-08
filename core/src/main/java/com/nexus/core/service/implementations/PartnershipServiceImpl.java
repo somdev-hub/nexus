@@ -138,6 +138,9 @@ public class PartnershipServiceImpl implements PartnershipService {
 		dto.setValidityStart(partnership.getValidityStart());
 		dto.setValidityEnd(partnership.getValidityEnd());
 		dto.setLinkedCapacityForecastId(partnership.getLinkedCapacityForecastId());
+		dto.setDesiredRoutesJson(partnership.getDesiredRoutesJson());
+		dto.setDesiredCapacity(partnership.getDesiredCapacity());
+		dto.setDesiredCapacityUnit(partnership.getDesiredCapacityUnit());
 		dto.setPartnershipType(partnership.getPartnershipType());
 		dto.setDiscountRate(partnership.getDiscountRate());
 		dto.setStatus(partnership.getStatus());

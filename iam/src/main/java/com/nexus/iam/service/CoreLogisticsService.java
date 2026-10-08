@@ -85,6 +85,14 @@ public interface CoreLogisticsService {
     ResponseEntity<?> updateCapacity(Long id, Map<String, Object> dto, String auth, String org);
     ResponseEntity<?> deleteCapacity(Long id, String auth, String org);
     ResponseEntity<?> extendCapacityForPartnership(Long id, Map<String, Object> dto, String auth, String org);
+
+    // Long-term partnership quotations, activation & termination
+    ResponseEntity<?> createPartnershipQuotation(Map<String, Object> dto, String auth, String org);
+    ResponseEntity<?> getPartnershipQuotations(String auth, String org, Pageable p, String status);
+    ResponseEntity<?> getPartnershipQuotation(Long id, String auth, String org);
+    ResponseEntity<?> getPartnershipRoutes(Long id, String auth, String org, Pageable p);
+    ResponseEntity<?> activatePartnership(Long id, String auth, String org);
+    ResponseEntity<?> terminatePartnership(Long id, Map<String, Object> dto, String auth, String org);
     ResponseEntity<?> createPayable(Map<String, Object> dto, String auth, String org);
     ResponseEntity<?> updatePayable(Long id, Map<String, Object> dto, String auth, String org);
     ResponseEntity<?> getPayable(Long id, String auth, String org);

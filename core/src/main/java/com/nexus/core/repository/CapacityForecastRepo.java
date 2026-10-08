@@ -26,15 +26,19 @@ public interface CapacityForecastRepo extends JpaRepository<CapacityForecast, Lo
             @Param("search") String search,
             Pageable pageable);
 
-    // Supplier logistics marketplace: all active routing capacities across
-    // logistics orgs so suppliers can compare lanes/periods before proposing.
+    // Supplier logistics marketplace: all active PUBLIC routing capacities
+    // across logistics orgs. Private partnership capacities (partnership
+    // set) are excluded — they belong to one partnership only.
     @Query("""
             SELECT c FROM CapacityForecast c
             WHERE c.isActive = true
+            AND c.partnership IS NULL
             AND (:search IS NULL OR LOWER(c.originLane) LIKE LOWER(CONCAT('%', :search, '%'))
                  OR LOWER(c.destinationLane) LIKE LOWER(CONCAT('%', :search, '%')))
             """)
     Page<CapacityForecast> findMarketplaceAvailabilities(
             @Param("search") String search,
             Pageable pageable);
+
+    Page<CapacityForecast> findByPartnershipPartnershipId(Long partnershipId, Pageable pageable);
 }

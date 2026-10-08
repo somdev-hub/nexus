@@ -34,6 +34,12 @@ public class PartnershipDto {
 
 	private Long linkedCapacityForecastId;
 
+	private String desiredRoutesJson;
+
+	private Double desiredCapacity;
+
+	private String desiredCapacityUnit;
+
 	private Double discountRate;
 
 	private com.nexus.core.model.enums.PartnershipStatus status;

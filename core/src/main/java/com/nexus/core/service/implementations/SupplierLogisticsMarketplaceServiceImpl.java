@@ -67,6 +67,8 @@ public class SupplierLogisticsMarketplaceServiceImpl implements SupplierLogistic
         row.put("periodEnd", c.getPeriodEnd() != null ? c.getPeriodEnd().toString() : null);
         row.put("availableCapacity", c.getAvailableCapacity());
         row.put("bookedCapacity", c.getBookedCapacity());
+        row.put("unitPrice", c.getUnitPrice());
+        row.put("currency", c.getCurrency());
         row.put("capacityUnit", c.getCapacityUnit() != null ? c.getCapacityUnit().name() : null);
         row.put("unitLength", c.getUnitLength());
         row.put("unitWidth", c.getUnitWidth());
@@ -116,6 +118,9 @@ public class SupplierLogisticsMarketplaceServiceImpl implements SupplierLogistic
             row.put("validityStart", p.getValidityStart() != null ? p.getValidityStart().toString() : null);
             row.put("validityEnd", p.getValidityEnd() != null ? p.getValidityEnd().toString() : null);
             row.put("linkedCapacityForecastId", p.getLinkedCapacityForecastId());
+            row.put("desiredRoutesJson", p.getDesiredRoutesJson());
+            row.put("desiredCapacity", p.getDesiredCapacity());
+            row.put("desiredCapacityUnit", p.getDesiredCapacityUnit());
             row.put("status", p.getStatus() != null ? p.getStatus().name() : null);
             row.put("startDate", p.getStartDate() != null ? p.getStartDate().toString() : null);
             row.put("endDate", p.getEndDate() != null ? p.getEndDate().toString() : null);
@@ -342,11 +347,14 @@ public class SupplierLogisticsMarketplaceServiceImpl implements SupplierLogistic
         return null;
     }
 
-    // Self-healing: partnerships accepted before acceptance started
-    // establishing them directly were left DRAFT with no portal path to
-    // ACTIVE. An ACCEPTED supplier-logistics invitation means established.
+    // Self-healing: short-term partnerships accepted before acceptance
+    // started establishing them directly were left DRAFT with no portal
+    // path to ACTIVE. An ACCEPTED non-long-term invitation means
+    // established. (Long-term partnerships activate through route
+    // completion instead.)
     private void healAcceptedPartnership(Partnership p) {
         if (p.getStatus() != PartnershipStatus.DRAFT) return;
+        if ("LONG_TERM".equals(p.getPartnershipTermType())) return;
         if (p.getInvitationId() == null) return;
         var inv = invitationRepo.findByInvitationId(p.getInvitationId()).orElse(null);
         if (inv == null) return;

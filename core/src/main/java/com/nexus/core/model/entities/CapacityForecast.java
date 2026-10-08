@@ -60,6 +60,13 @@ public class CapacityForecast extends BaseEntity {
     @Column(name = "booked_capacity")
     private Double bookedCapacity = 0.0;
 
+    // Price per capacityUnit for this lane/period.
+    @Column(name = "unit_price")
+    private Double unitPrice;
+
+    @Column(name = "currency")
+    private String currency = "USD";
+
     // Unit for the capacity quantities above (KG, LBS, LITRES,
     // SHIPPING_CONTAINER, FREIGHT_CONTAINER, ...). Defaults to KG so
     // legacy rows keep their meaning.
@@ -89,6 +96,15 @@ public class CapacityForecast extends BaseEntity {
     // Volume UoM for unitVolume: CBM, CFT or L.
     @Column(name = "volume_uom")
     private String volumeUom = "CBM";
+
+    // Private route capacity: when set, this lane belongs to one
+    // long-term partnership only and is hidden from the public
+    // marketplace (other suppliers never see it).
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "partnership_id", referencedColumnName = "partnership_id")
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private Partnership partnership;
 
     private String notes;
 

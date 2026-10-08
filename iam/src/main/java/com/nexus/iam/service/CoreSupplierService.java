@@ -145,4 +145,11 @@ public interface CoreSupplierService {
     ResponseEntity<?> createLogisticsProposal(Map<String, Object> dto, String authToken, String orgId);
     ResponseEntity<?> getSupplierShipments(String status, String authToken, String orgId, Pageable pageable);
     ResponseEntity<?> handoverShipment(Long shipmentId, Map<String, Object> dto, String authToken, String orgId);
+
+    // Long-term quotation review + private routes + termination
+    ResponseEntity<?> getLogisticsQuotations(String status, String authToken, String orgId, Pageable pageable);
+    ResponseEntity<?> getLogisticsQuotation(Long id, String authToken, String orgId);
+    ResponseEntity<?> respondToLogisticsQuotation(Long id, Map<String, Object> dto, String authToken, String orgId);
+    ResponseEntity<?> getMyPrivateRoutes(String authToken, String orgId, Pageable pageable);
+    ResponseEntity<?> terminateLogisticsPartnership(Long id, Map<String, Object> dto, String authToken, String orgId);
 }
