@@ -21,6 +21,8 @@ import com.nexus.core.dto.TrackingEventDto;
 import com.nexus.core.dto.ShipmentDocumentDto;
 import com.nexus.core.model.entities.ShipmentDocument;
 import com.nexus.core.model.entities.Shipment;import com.nexus.core.model.enums.ShipmentDocumentType;
+import com.nexus.core.model.enums.PurchaseOrderStatus;
+import com.nexus.core.repository.PurchaseOrderRepo;
 import com.nexus.core.model.enums.ShipmentMode;
 import com.nexus.core.model.enums.ShipmentStatus;
 import com.nexus.core.model.entities.ShipmentStop;
@@ -43,6 +45,7 @@ import lombok.extern.slf4j.Slf4j;
 public class ShipmentServiceImpl implements ShipmentService {
 
     private final ShipmentRepo shipmentRepo;
+    private final PurchaseOrderRepo purchaseOrderRepo;
     private final ShipmentStopRepo shipmentStopRepo;
     private final TrackingEventRepo trackingEventRepo;
     private final ShipmentDocumentRepo shipmentDocumentRepo;
@@ -362,7 +365,22 @@ public class ShipmentServiceImpl implements ShipmentService {
         String notes = shipment.getSpecialInstructions() != null ? shipment.getSpecialInstructions() + "\n" : "";
         shipment.setSpecialInstructions(notes + "Status changed: " + oldStatus + " -> " + newStatus + " (" + reason + ")");
         shipment.setUpdatedAt(new Timestamp(System.currentTimeMillis()));
-        return modelMapper.map(shipmentRepo.save(shipment), ShipmentDto.class);
+        Shipment saved = shipmentRepo.save(shipment);
+        // The linked purchase order follows the physical flow: once the
+        // carrier picks the goods up, the PO is picked up too. RECEIVED
+        // stays reserved for the retailer's goods receipt.
+        if (newStatus == ShipmentStatus.PICKED_UP && saved.getPurchaseOrder() != null
+                && saved.getPurchaseOrder().getPurchaseOrderId() != null) {
+            purchaseOrderRepo.findById(saved.getPurchaseOrder().getPurchaseOrderId()).ifPresent(po -> {
+                if (po.getStatus() == PurchaseOrderStatus.ACKNOWLEDGED
+                        || po.getStatus() == PurchaseOrderStatus.PARTIALLY_RECEIVED
+                        || po.getStatus() == PurchaseOrderStatus.AWAITING_PICKUP) {
+                    po.setStatus(PurchaseOrderStatus.PICKED_UP);
+                    purchaseOrderRepo.save(po);
+                }
+            });
+        }
+        return modelMapper.map(saved, ShipmentDto.class);
     }
 
     private String generateShipmentNumber() {

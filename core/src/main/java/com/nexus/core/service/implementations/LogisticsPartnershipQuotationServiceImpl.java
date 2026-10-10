@@ -357,6 +357,14 @@ public class LogisticsPartnershipQuotationServiceImpl implements LogisticsPartne
         row.put("capacityUnit", c.getCapacityUnit() != null ? c.getCapacityUnit().name() : null);
         row.put("unitPrice", c.getUnitPrice());
         row.put("currency", c.getCurrency());
+        row.put("totalFuelRequired", c.getTotalFuelRequired());
+        row.put("fuelPrice", c.getFuelPrice());
+        row.put("fuelSurcharge", c.getFuelSurcharge());
+        row.put("driverFees", c.getDriverFees());
+        row.put("miscPrice", c.getMiscPrice());
+        row.put("totalDistance", c.getTotalDistance());
+        row.put("averageDeliveryTime", c.getAverageDeliveryTime());
+        row.put("deliveryTimeUom", c.getDeliveryTimeUom());
         row.put("unitLength", c.getUnitLength());
         row.put("unitWidth", c.getUnitWidth());
         row.put("unitHeight", c.getUnitHeight());

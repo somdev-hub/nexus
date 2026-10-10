@@ -24,12 +24,14 @@ import com.nexus.core.model.entities.Partnership;
 import com.nexus.core.model.entities.Shipment;
 import com.nexus.core.model.enums.PartnershipInvitationStatus;
 import com.nexus.core.model.enums.PartnershipStatus;
+import com.nexus.core.model.enums.PurchaseOrderStatus;
 import com.nexus.core.model.enums.ShipmentStatus;
 import com.nexus.core.payload.PartnershipInvitationDto;
 import com.nexus.core.repository.AccountRepository;
 import com.nexus.core.repository.CapacityForecastRepo;
 import com.nexus.core.repository.PartnershipInvitationRepo;
 import com.nexus.core.repository.PartnershipRepo;
+import com.nexus.core.repository.PurchaseOrderRepo;
 import com.nexus.core.repository.ShipmentRepo;
 import com.nexus.core.security.OrganizationContextHolder;
 import com.nexus.core.service.interfaces.PartnershipInvitationService;
@@ -47,6 +49,7 @@ public class SupplierLogisticsMarketplaceServiceImpl implements SupplierLogistic
     private final PartnershipRepo partnershipRepo;
     private final PartnershipInvitationRepo invitationRepo;
     private final ShipmentRepo shipmentRepo;
+    private final PurchaseOrderRepo purchaseOrderRepo;
     private final AccountRepository accountRepo;
     private final PartnershipInvitationService invitationService;
 
@@ -63,12 +66,21 @@ public class SupplierLogisticsMarketplaceServiceImpl implements SupplierLogistic
         row.put("originLane", c.getOriginLane());
         row.put("destinationLane", c.getDestinationLane());
         row.put("equipmentType", c.getEquipmentType() != null ? c.getEquipmentType().name() : null);
+        row.put("transportMode", c.getTransportMode() != null ? c.getTransportMode().name() : null);
         row.put("periodStart", c.getPeriodStart() != null ? c.getPeriodStart().toString() : null);
         row.put("periodEnd", c.getPeriodEnd() != null ? c.getPeriodEnd().toString() : null);
         row.put("availableCapacity", c.getAvailableCapacity());
         row.put("bookedCapacity", c.getBookedCapacity());
         row.put("unitPrice", c.getUnitPrice());
         row.put("currency", c.getCurrency());
+        row.put("totalFuelRequired", c.getTotalFuelRequired());
+        row.put("fuelPrice", c.getFuelPrice());
+        row.put("fuelSurcharge", c.getFuelSurcharge());
+        row.put("driverFees", c.getDriverFees());
+        row.put("miscPrice", c.getMiscPrice());
+        row.put("totalDistance", c.getTotalDistance());
+        row.put("averageDeliveryTime", c.getAverageDeliveryTime());
+        row.put("deliveryTimeUom", c.getDeliveryTimeUom());
         row.put("capacityUnit", c.getCapacityUnit() != null ? c.getCapacityUnit().name() : null);
         row.put("unitLength", c.getUnitLength());
         row.put("unitWidth", c.getUnitWidth());
@@ -250,9 +262,45 @@ public class SupplierLogisticsMarketplaceServiceImpl implements SupplierLogistic
         if (body.get("pickupDate") != null) shipment.setPickupDate(Date.valueOf(body.get("pickupDate").toString()));
         if (body.get("deliveryDate") != null) shipment.setDeliveryDate(Date.valueOf(body.get("deliveryDate").toString()));
         if (body.get("notes") != null) shipment.setNotes(body.get("notes").toString());
+        // Persist the transport mode from the matched route capacity so the
+        // load board shows it even though the shipment carries none.
+        if (shipment.getShipmentMode() == null) {
+            String pickup = shipment.getPickupLocation() != null
+                    ? shipment.getPickupLocation() : shipment.getPickupAddress();
+            String delivery = shipment.getDeliveryLocation() != null
+                    ? shipment.getDeliveryLocation() : shipment.getDeliveryAddress();
+            com.nexus.core.model.entities.CapacityForecast route = null;
+            if (partnership.getLinkedCapacityForecastId() != null) {
+                route = capacityRepo.findById(partnership.getLinkedCapacityForecastId()).orElse(null);
+                if (route != null && (route.getTransportMode() == null
+                        || !com.nexus.core.utils.RouteCapacityMatcher.routeCovers(route, pickup, delivery))) {
+                    route = null;
+                }
+            }
+            if (route == null) {
+                java.util.List<com.nexus.core.model.entities.CapacityForecast> privates = capacityRepo
+                        .findByPartnershipPartnershipId(partnership.getPartnershipId(),
+                                Pageable.unpaged())
+                        .getContent();
+                route = com.nexus.core.utils.RouteCapacityMatcher.matchWithMode(privates, pickup, delivery);
+            }
+            if (route != null && route.getTransportMode() != null) {
+                shipment.setShipmentMode(route.getTransportMode());
+            }
+        }
         shipment.setStatus(ShipmentStatus.BOOKED);
 
         Shipment saved = shipmentRepo.save(shipment);
+        // The linked PO waits for pickup instead of jumping to RECEIVED.
+        if (saved.getPurchaseOrder() != null && saved.getPurchaseOrder().getPurchaseOrderId() != null) {
+            purchaseOrderRepo.findById(saved.getPurchaseOrder().getPurchaseOrderId()).ifPresent(po -> {
+                if (po.getStatus() == PurchaseOrderStatus.ACKNOWLEDGED
+                        || po.getStatus() == PurchaseOrderStatus.PARTIALLY_RECEIVED) {
+                    po.setStatus(PurchaseOrderStatus.AWAITING_PICKUP);
+                    purchaseOrderRepo.save(po);
+                }
+            });
+        }
         Map<String, Object> resp = new LinkedHashMap<>();
         resp.put("shipmentId", saved.getShipmentId());
         resp.put("shipmentNumber", saved.getShipmentNumber());
@@ -299,6 +347,10 @@ public class SupplierLogisticsMarketplaceServiceImpl implements SupplierLogistic
             row.put("pickupLocation", s.getPickupLocation());
             row.put("deliveryLocation", s.getDeliveryLocation());
             row.put("trackingNumber", s.getTrackingNumber());
+            row.put("backorderedQuantity", s.getBackorderedQuantity());
+            row.put("isPartialShipment", s.getIsPartialShipment());
+            row.put("actualDeparture", s.getActualDeparture() != null ? s.getActualDeparture().toString() : null);
+            row.put("estimatedArrival", s.getEstimatedArrival() != null ? s.getEstimatedArrival().toString() : null);
             rows.add(row);
         }
         return ResponseEntity.ok(new PageImpl<>(rows, pageable, page.getTotalElements()));

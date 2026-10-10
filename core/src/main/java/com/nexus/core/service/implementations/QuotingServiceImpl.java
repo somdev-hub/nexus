@@ -3,6 +3,7 @@ package com.nexus.core.service.implementations;
 import com.nexus.core.dto.ShipmentDto;
 import com.nexus.core.model.entities.Account;
 import com.nexus.core.model.enums.FleetAssetType;
+import com.nexus.core.model.entities.CapacityForecast;
 import com.nexus.core.model.entities.FreightRate;
 import com.nexus.core.model.enums.QuoteStatus;
 import com.nexus.core.model.enums.RateType;
@@ -13,6 +14,7 @@ import com.nexus.core.model.enums.ShipmentStatus;
 import com.nexus.core.exception.ResourceNotFoundException;
 import com.nexus.core.payload.FreightRateDto;
 import com.nexus.core.payload.ShipmentQuoteDto;
+import com.nexus.core.repository.CapacityForecastRepo;
 import com.nexus.core.repository.FreightRateRepo;
 import com.nexus.core.repository.ShipmentQuoteRepo;
 import com.nexus.core.repository.ShipmentRepo;
@@ -42,6 +44,7 @@ public class QuotingServiceImpl implements QuotingService {
     private final ShipmentQuoteRepo quoteRepo;
     private final FreightRateRepo rateRepo;
     private final ShipmentRepo shipmentRepo;
+    private final CapacityForecastRepo capacityForecastRepo;
     private final AccountDirectory accountDirectory;
     private final ModelMapper modelMapper;
 
@@ -70,22 +73,130 @@ public class QuotingServiceImpl implements QuotingService {
         final String searchFilter = search;
         // Available loads: BOOKED/APPROVED shipments not yet assigned to this logistics org
         Page<Shipment> page = shipmentRepo.findByLogisticsOrgAccountId(orgId, pageable);
-        List<ShipmentDto> mine = page.getContent().stream().map(s -> modelMapper.map(s, ShipmentDto.class)).toList();
+        // Route capacities for mode resolution: public lanes once, plus each
+        // involved logistics org's own lanes (private included) cached.
+        List<CapacityForecast> publicCapacities = capacityForecastRepo
+                .findMarketplaceAvailabilities(null, Pageable.unpaged()).getContent();
+        Map<Long, List<CapacityForecast>> orgCapacityCache = new java.util.HashMap<>();
+        java.util.function.Function<Shipment, Map<String, Object>> toRow =
+                s -> toLoadBoardRow(s, publicCapacities, orgCapacityCache);
+        List<Map<String, Object>> mine = page.getContent().stream().map(toRow).toList();
         // Also surface open demand: shipments in BOOKED status across partnerships (org-scoped view)
         var open = shipmentRepo.findAll(pageable).stream()
                 .filter(s -> s.getStatus() == ShipmentStatus.BOOKED || s.getStatus() == ShipmentStatus.APPROVED)
                 .filter(s -> shipmentMode == null || s.getShipmentMode() == shipmentMode)
                 .filter(s -> searchFilter == null || searchFilter.isBlank()
-                        || (s.getShipmentNumber() != null && s.getShipmentNumber().toLowerCase().contains(searchFilter.toLowerCase())))
-                .map(s -> modelMapper.map(s, ShipmentDto.class))
+                        || (s.getShipmentNumber() != null && s.getShipmentNumber().toLowerCase().contains(searchFilter.toLowerCase()))
+                        || (s.getPurchaseOrder() != null && s.getPurchaseOrder().getPoNumber() != null
+                                && s.getPurchaseOrder().getPoNumber().toLowerCase().contains(searchFilter.toLowerCase())))
+                .map(toRow)
                 .toList();
         var combined = new java.util.ArrayList<>(open);
         for (var dto : mine) {
-            if (combined.stream().noneMatch(o -> o.getShipmentId() != null && o.getShipmentId().equals(dto.getShipmentId()))) {
+            if (combined.stream().noneMatch(o -> o.get("shipmentId") != null && o.get("shipmentId").equals(dto.get("shipmentId")))) {
                 combined.add(dto);
             }
         }
         return ResponseEntity.ok(new org.springframework.data.domain.PageImpl<>(combined, pageable, combined.size()));
+    }
+
+    // Explicit load-board row: the legacy ShipmentDto uses different field
+    // names than the entity (pickupAddress vs pickupLocation, mode vs
+    // shipmentMode, …), so ModelMapper left most values null. Every field
+    // the board displays is mapped here by hand.
+    private Map<String, Object> toLoadBoardRow(Shipment s,
+            List<CapacityForecast> publicCapacities,
+            Map<Long, List<CapacityForecast>> orgCapacityCache) {
+        Map<String, Object> row = new java.util.LinkedHashMap<>();
+        row.put("shipmentId", s.getShipmentId());
+        row.put("shipmentNumber", s.getShipmentNumber());
+        row.put("status", s.getStatus() != null ? s.getStatus().name() : null);
+        row.put("shipmentMode", s.getShipmentMode() != null ? s.getShipmentMode().name() : null);
+        // Mode comes from the matched route capacity: shipments handed over
+        // by suppliers rarely carry one themselves.
+        CapacityForecast route = matchRouteCapacity(s, publicCapacities, orgCapacityCache);
+        if (route != null) {
+            if (route.getTransportMode() != null) {
+                row.put("routeMode", route.getTransportMode().name());
+            }
+            row.put("routeCapacityId", route.getForecastId());
+        }
+        row.put("pickupLocation", s.getPickupLocation());
+        row.put("pickupAddress", s.getPickupAddress());
+        row.put("deliveryLocation", s.getDeliveryLocation());
+        row.put("deliveryAddress", s.getDeliveryAddress());
+        row.put("pickupDate", s.getPickupDate() != null ? s.getPickupDate().toString() : null);
+        row.put("deliveryDate", s.getDeliveryDate() != null ? s.getDeliveryDate().toString() : null);
+        row.put("estimatedArrival", s.getEstimatedArrival() != null ? s.getEstimatedArrival().toString() : null);
+        row.put("totalWeight", s.getTotalWeight());
+        row.put("totalVolume", s.getTotalVolume());
+        row.put("totalPackages", s.getTotalPackages());
+        row.put("freightCost", s.getFreightCost());
+        row.put("currency", s.getCurrency());
+        row.put("freightTerms", s.getFreightTerms());
+        row.put("trackingNumber", s.getTrackingNumber());
+        row.put("carrierName", s.getCarrierName());
+        row.put("carrierReference", s.getCarrierReference());
+        row.put("isPartialShipment", s.getIsPartialShipment());
+        row.put("backorderedQuantity", s.getBackorderedQuantity());
+        row.put("specialInstructions", s.getSpecialInstructions());
+        row.put("hazardousMaterial", s.getHazardousMaterial());
+        row.put("temperatureControlled", s.getTemperatureControlled());
+        row.put("pickupContactName", s.getPickupContactName());
+        row.put("pickupContactPhone", s.getPickupContactPhone());
+        row.put("deliveryContactName", s.getDeliveryContactName());
+        row.put("deliveryContactPhone", s.getDeliveryContactPhone());
+        if (s.getSupplierOrg() != null) {
+            row.put("supplierOrgId", s.getSupplierOrg().getAccountId());
+            row.put("supplierOrgName", s.getSupplierOrg().getName());
+        }
+        if (s.getRetailerOrg() != null) {
+            row.put("retailerOrgId", s.getRetailerOrg().getAccountId());
+            row.put("retailerOrgName", s.getRetailerOrg().getName());
+        }
+        if (s.getLogisticsOrg() != null) {
+            row.put("logisticsOrgId", s.getLogisticsOrg().getAccountId());
+            row.put("logisticsOrgName", s.getLogisticsOrg().getName());
+        }
+        if (s.getPurchaseOrder() != null) {
+            row.put("purchaseOrderId", s.getPurchaseOrder().getPurchaseOrderId());
+            row.put("poNumber", s.getPurchaseOrder().getPoNumber());
+        }
+        return row;
+    }
+
+    private static String normLane(String s) {
+        return s == null ? "" : s.trim().toLowerCase();
+    }
+
+    private static boolean laneCovers(String lane, String place) {
+        String a = normLane(lane);
+        String b = normLane(place);
+        return !a.isEmpty() && !b.isEmpty() && (a.equals(b) || a.contains(b) || b.contains(a));
+    }
+
+    // Find the route capacity covering this shipment's lanes: the assigned
+    // logistics org's own lanes (private included) when set, else any
+    // public lane. First covering lane with a transport mode wins.
+    private CapacityForecast matchRouteCapacity(Shipment s,
+            List<CapacityForecast> publicCapacities,
+            Map<Long, List<CapacityForecast>> orgCapacityCache) {
+        List<CapacityForecast> candidates = publicCapacities;
+        if (s.getLogisticsOrg() != null && s.getLogisticsOrg().getAccountId() != null) {
+            Long logisticsOrgId = s.getLogisticsOrg().getAccountId();
+            candidates = orgCapacityCache.computeIfAbsent(logisticsOrgId,
+                    k -> capacityForecastRepo.findByOrgWithFilters(k, null, null, Pageable.unpaged())
+                            .getContent());
+        }
+        String pickup = s.getPickupLocation() != null ? s.getPickupLocation() : s.getPickupAddress();
+        String delivery = s.getDeliveryLocation() != null ? s.getDeliveryLocation() : s.getDeliveryAddress();
+        for (CapacityForecast c : candidates) {
+            if (c.getTransportMode() == null) continue;
+            if (laneCovers(c.getOriginLane(), pickup) && laneCovers(c.getDestinationLane(), delivery)) {
+                return c;
+            }
+        }
+        return null;
     }
 
     @Override

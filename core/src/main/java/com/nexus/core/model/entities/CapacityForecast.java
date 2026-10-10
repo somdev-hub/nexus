@@ -2,6 +2,7 @@ package com.nexus.core.model.entities;
 
 import com.nexus.core.model.enums.CapacityUnit;
 import com.nexus.core.model.enums.FleetAssetType;
+import com.nexus.core.model.enums.ShipmentMode;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -48,6 +49,13 @@ public class CapacityForecast extends BaseEntity {
     @Column(name = "equipment_type")
     private FleetAssetType equipmentType;
 
+    // Transport mode served on this lane (ROAD/RAIL/AIR/SEA/MULTIMODAL).
+    // The logistics load board reads the shipment mode from the matched
+    // route capacity — shipments themselves rarely carry a mode.
+    @Enumerated(EnumType.STRING)
+    @Column(name = "transport_mode")
+    private ShipmentMode transportMode;
+
     @Column(name = "period_start")
     private Date periodStart;
 
@@ -66,6 +74,34 @@ public class CapacityForecast extends BaseEntity {
 
     @Column(name = "currency")
     private String currency = "USD";
+
+    // Cost breakdown for the lane.
+    @Column(name = "total_fuel_required")
+    private Double totalFuelRequired;
+
+    @Column(name = "fuel_price")
+    private Double fuelPrice;
+
+    // Auto-derived as totalFuelRequired * fuelPrice when not supplied.
+    @Column(name = "fuel_surcharge")
+    private Double fuelSurcharge;
+
+    @Column(name = "driver_fees")
+    private Double driverFees;
+
+    @Column(name = "misc_price")
+    private Double miscPrice;
+
+    // Lane transit facts.
+    @Column(name = "total_distance")
+    private Double totalDistance;
+
+    @Column(name = "average_delivery_time")
+    private Double averageDeliveryTime;
+
+    // HOURS or DAYS.
+    @Column(name = "delivery_time_uom")
+    private String deliveryTimeUom = "HOURS";
 
     // Unit for the capacity quantities above (KG, LBS, LITRES,
     // SHIPPING_CONTAINER, FREIGHT_CONTAINER, ...). Defaults to KG so

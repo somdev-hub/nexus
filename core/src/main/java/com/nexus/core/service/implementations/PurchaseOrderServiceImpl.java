@@ -664,9 +664,23 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 				break;
 			case ACKNOWLEDGED:
 				if (newStatus != PurchaseOrderStatus.PARTIALLY_RECEIVED && newStatus != PurchaseOrderStatus.RECEIVED
+						&& newStatus != PurchaseOrderStatus.AWAITING_PICKUP
 						&& newStatus != PurchaseOrderStatus.CANCELLED) {
 					throw new ValidationException(
-							"From ACKNOWLEDGED, can only transition to PARTIALLY_RECEIVED, RECEIVED, or CANCELLED");
+							"From ACKNOWLEDGED, can only transition to PARTIALLY_RECEIVED, RECEIVED, AWAITING_PICKUP, or CANCELLED");
+				}
+				break;
+			case AWAITING_PICKUP:
+				if (newStatus != PurchaseOrderStatus.PICKED_UP && newStatus != PurchaseOrderStatus.CANCELLED) {
+					throw new ValidationException(
+							"From AWAITING_PICKUP, can only transition to PICKED_UP or CANCELLED");
+				}
+				break;
+			case PICKED_UP:
+				if (newStatus != PurchaseOrderStatus.PARTIALLY_RECEIVED && newStatus != PurchaseOrderStatus.RECEIVED
+						&& newStatus != PurchaseOrderStatus.CANCELLED) {
+					throw new ValidationException(
+							"From PICKED_UP, can only transition to PARTIALLY_RECEIVED, RECEIVED, or CANCELLED");
 				}
 				break;
 			case PARTIALLY_RECEIVED:

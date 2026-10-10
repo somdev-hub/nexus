@@ -222,6 +222,7 @@ public class LogisticsOperationsServiceImpl implements LogisticsOperationsServic
             return ResponseEntity.badRequest().body(Map.of("error", error));
         }
         deriveUnitVolume(capacity);
+        deriveFuelSurcharge(capacity);
         return ResponseEntity.status(HttpStatus.CREATED).body(toCapacityDto(capacityRepo.save(capacity)));
     }
 
@@ -265,6 +266,7 @@ public class LogisticsOperationsServiceImpl implements LogisticsOperationsServic
             return ResponseEntity.badRequest().body(Map.of("error", error));
         }
         deriveUnitVolume(existing);
+        deriveFuelSurcharge(existing);
         return ResponseEntity.ok(toCapacityDto(capacityRepo.save(existing)));
     }
 
@@ -278,6 +280,7 @@ public class LogisticsOperationsServiceImpl implements LogisticsOperationsServic
         dto.setOriginLane(c.getOriginLane());
         dto.setDestinationLane(c.getDestinationLane());
         dto.setEquipmentType(c.getEquipmentType());
+        dto.setTransportMode(c.getTransportMode());
         dto.setPeriodStart(c.getPeriodStart());
         dto.setPeriodEnd(c.getPeriodEnd());
         dto.setAvailableCapacity(c.getAvailableCapacity());
@@ -285,6 +288,14 @@ public class LogisticsOperationsServiceImpl implements LogisticsOperationsServic
         dto.setCapacityUnit(c.getCapacityUnit());
         dto.setUnitPrice(c.getUnitPrice());
         dto.setCurrency(c.getCurrency());
+        dto.setTotalFuelRequired(c.getTotalFuelRequired());
+        dto.setFuelPrice(c.getFuelPrice());
+        dto.setFuelSurcharge(c.getFuelSurcharge());
+        dto.setDriverFees(c.getDriverFees());
+        dto.setMiscPrice(c.getMiscPrice());
+        dto.setTotalDistance(c.getTotalDistance());
+        dto.setAverageDeliveryTime(c.getAverageDeliveryTime());
+        dto.setDeliveryTimeUom(c.getDeliveryTimeUom());
         dto.setPartnershipId(
                 c.getPartnership() != null ? c.getPartnership().getPartnershipId() : null);
         dto.setUnitLength(c.getUnitLength());
@@ -301,6 +312,7 @@ public class LogisticsOperationsServiceImpl implements LogisticsOperationsServic
         if (dto.getOriginLane() != null) target.setOriginLane(dto.getOriginLane());
         if (dto.getDestinationLane() != null) target.setDestinationLane(dto.getDestinationLane());
         if (dto.getEquipmentType() != null) target.setEquipmentType(dto.getEquipmentType());
+        if (dto.getTransportMode() != null) target.setTransportMode(dto.getTransportMode());
         if (dto.getPeriodStart() != null) target.setPeriodStart(dto.getPeriodStart());
         if (dto.getPeriodEnd() != null) target.setPeriodEnd(dto.getPeriodEnd());
         if (dto.getAvailableCapacity() != null) target.setAvailableCapacity(dto.getAvailableCapacity());
@@ -308,6 +320,14 @@ public class LogisticsOperationsServiceImpl implements LogisticsOperationsServic
         if (dto.getCapacityUnit() != null) target.setCapacityUnit(dto.getCapacityUnit());
         if (dto.getUnitPrice() != null) target.setUnitPrice(dto.getUnitPrice());
         if (dto.getCurrency() != null) target.setCurrency(dto.getCurrency());
+        if (dto.getTotalFuelRequired() != null) target.setTotalFuelRequired(dto.getTotalFuelRequired());
+        if (dto.getFuelPrice() != null) target.setFuelPrice(dto.getFuelPrice());
+        if (dto.getFuelSurcharge() != null) target.setFuelSurcharge(dto.getFuelSurcharge());
+        if (dto.getDriverFees() != null) target.setDriverFees(dto.getDriverFees());
+        if (dto.getMiscPrice() != null) target.setMiscPrice(dto.getMiscPrice());
+        if (dto.getTotalDistance() != null) target.setTotalDistance(dto.getTotalDistance());
+        if (dto.getAverageDeliveryTime() != null) target.setAverageDeliveryTime(dto.getAverageDeliveryTime());
+        if (dto.getDeliveryTimeUom() != null) target.setDeliveryTimeUom(dto.getDeliveryTimeUom());
         if (dto.getUnitLength() != null) target.setUnitLength(dto.getUnitLength());
         if (dto.getUnitWidth() != null) target.setUnitWidth(dto.getUnitWidth());
         if (dto.getUnitHeight() != null) target.setUnitHeight(dto.getUnitHeight());
@@ -339,9 +359,16 @@ public class LogisticsOperationsServiceImpl implements LogisticsOperationsServic
         return null;
     }
 
-    // Auto-fill unit volume from LxWxH when the caller did not supply one,
-    // normalizing to the declared volume UoM.
+    // Auto-fill fuel surcharge as required fuel (L) × fuel price when
+    // the caller did not supply one explicitly.
+    private void deriveFuelSurcharge(CapacityForecast capacity) {
+        if (capacity.getFuelSurcharge() != null) return;
+        if (capacity.getTotalFuelRequired() == null || capacity.getFuelPrice() == null) return;
+        double surcharge = capacity.getTotalFuelRequired() * capacity.getFuelPrice();
+        capacity.setFuelSurcharge(Math.round(surcharge * 100.0) / 100.0);
+    }
     private void deriveUnitVolume(CapacityForecast capacity) {
+        // Auto-fill unit volume from LxWxH (normalized to the volume UoM).
         if (capacity.getUnitVolume() != null) return;
         if (capacity.getUnitLength() == null || capacity.getUnitWidth() == null
                 || capacity.getUnitHeight() == null) return;

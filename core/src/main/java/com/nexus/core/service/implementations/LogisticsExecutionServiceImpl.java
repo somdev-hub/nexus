@@ -3,6 +3,7 @@ package com.nexus.core.service.implementations;
 import com.nexus.core.dto.TrackingEventDto;
 import com.nexus.core.model.entities.Driver;
 import com.nexus.core.model.enums.DriverStatus;
+import com.nexus.core.model.entities.CapacityForecast;
 import com.nexus.core.model.entities.FleetAsset;
 import com.nexus.core.model.enums.FleetAssetStatus;
 import com.nexus.core.model.enums.IncidentStatus;
@@ -18,7 +19,9 @@ import com.nexus.core.exception.ResourceNotFoundException;
 import com.nexus.core.payload.ProofOfDeliveryDto;
 import com.nexus.core.payload.ShipmentIncidentDto;
 import com.nexus.core.repository.DriverRepo;
+import com.nexus.core.repository.CapacityForecastRepo;
 import com.nexus.core.repository.FleetAssetRepo;
+import com.nexus.core.repository.PurchaseOrderRepo;
 import com.nexus.core.repository.ProofOfDeliveryRepo;
 import com.nexus.core.repository.ShipmentDocumentRepo;
 import com.nexus.core.repository.ShipmentIncidentRepo;
@@ -38,6 +41,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.sql.Timestamp;
+import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -49,6 +53,8 @@ import java.util.Set;
 public class LogisticsExecutionServiceImpl implements LogisticsExecutionService {
 
     private final ShipmentRepo shipmentRepo;
+    private final PurchaseOrderRepo purchaseOrderRepo;
+    private final CapacityForecastRepo capacityForecastRepo;
     private final DriverRepo driverRepo;
     private final FleetAssetRepo assetRepo;
     private final ProofOfDeliveryRepo podRepo;
@@ -115,7 +121,87 @@ public class LogisticsExecutionServiceImpl implements LogisticsExecutionService 
             documentRepo.save(doc);
         }
         shipment.setStatus(ShipmentStatus.ASSIGNED);
-        return ResponseEntity.ok(modelMapper.map(shipmentRepo.save(shipment), com.nexus.core.dto.ShipmentDto.class));
+        Shipment saved = shipmentRepo.save(shipment);
+
+        // Optional immediate pickup: the carrier collects the goods right
+        // away. Actual pickup is stamped, the shipment moves to PICKED_UP
+        // (which also flips the linked PO), and the expected delivery is
+        // computed from the route capacity's average delivery time.
+        boolean startPickup = assignment != null && Boolean.TRUE.equals(toBoolean(assignment.get("startPickup")));
+        Timestamp pickupAt = null;
+        Timestamp expectedAt = null;
+        if (startPickup) {
+            pickupAt = Timestamp.valueOf(LocalDateTime.now());
+            saved.setActualDeparture(pickupAt);
+            shipmentRepo.save(saved);
+            shipmentService.transitionShipmentStatus(saved.getShipmentId(), ShipmentStatus.PICKED_UP, Map.of());
+            expectedAt = computeExpectedDelivery(saved);
+            if (expectedAt != null) {
+                saved.setEstimatedArrival(expectedAt);
+                shipmentRepo.save(saved);
+                final Timestamp finalExpectedAt = expectedAt;
+                if (saved.getPurchaseOrder() != null && saved.getPurchaseOrder().getPurchaseOrderId() != null) {
+                    purchaseOrderRepo.findById(saved.getPurchaseOrder().getPurchaseOrderId()).ifPresent(po -> {
+                        po.setExpectedDeliveryDate(new java.sql.Date(finalExpectedAt.getTime()));
+                        purchaseOrderRepo.save(po);
+                    });
+                }
+            }
+        }
+        Map<String, Object> resp = new LinkedHashMap<>();
+        resp.put("shipmentId", saved.getShipmentId());
+        resp.put("shipmentNumber", saved.getShipmentNumber());
+        resp.put("status", startPickup ? ShipmentStatus.PICKED_UP.name() : ShipmentStatus.ASSIGNED.name());
+        resp.put("actualDeparture", pickupAt != null ? pickupAt.toString() : null);
+        resp.put("estimatedArrival", expectedAt != null ? expectedAt.toString() : null);
+        return ResponseEntity.ok(resp);
+    }
+
+    private static Boolean toBoolean(Object v) {
+        if (v instanceof Boolean b) return b;
+        if (v == null) return null;
+        return Boolean.parseBoolean(v.toString());
+    }
+
+    private static String normLane(String s) {
+        return s == null ? "" : s.trim().toLowerCase();
+    }
+
+    private static boolean laneCovers(String lane, String place) {
+        String a = normLane(lane);
+        String b = normLane(place);
+        return !a.isEmpty() && !b.isEmpty() && (a.equals(b) || a.contains(b) || b.contains(a));
+    }
+
+    // Expected delivery = pickup moment + the matched route capacity's
+    // average delivery time. Prefers this org's own lanes (private
+    // included), else any public lane covering the shipment's route.
+    private Timestamp computeExpectedDelivery(Shipment shipment) {
+        String pickup = shipment.getPickupLocation() != null
+                ? shipment.getPickupLocation() : shipment.getPickupAddress();
+        String delivery = shipment.getDeliveryLocation() != null
+                ? shipment.getDeliveryLocation() : shipment.getDeliveryAddress();
+        List<CapacityForecast> candidates = null;
+        if (shipment.getLogisticsOrg() != null && shipment.getLogisticsOrg().getAccountId() != null) {
+            candidates = capacityForecastRepo.findByOrgWithFilters(
+                    shipment.getLogisticsOrg().getAccountId(), null, null,
+                    org.springframework.data.domain.Pageable.unpaged()).getContent();
+        }
+        if (candidates == null || candidates.isEmpty()) {
+            candidates = capacityForecastRepo.findMarketplaceAvailabilities(
+                    null, org.springframework.data.domain.Pageable.unpaged()).getContent();
+        }
+        LocalDateTime base = shipment.getActualDeparture() != null
+                ? shipment.getActualDeparture().toLocalDateTime() : LocalDateTime.now();
+        for (CapacityForecast c : candidates) {
+            if (c.getAverageDeliveryTime() == null || c.getAverageDeliveryTime() <= 0) continue;
+            if (!laneCovers(c.getOriginLane(), pickup) || !laneCovers(c.getDestinationLane(), delivery)) continue;
+            long amount = Math.round(c.getAverageDeliveryTime());
+            LocalDateTime eta = "DAYS".equalsIgnoreCase(c.getDeliveryTimeUom())
+                    ? base.plusDays(amount) : base.plusHours(amount);
+            return Timestamp.valueOf(eta);
+        }
+        return null;
     }
 
     @Override

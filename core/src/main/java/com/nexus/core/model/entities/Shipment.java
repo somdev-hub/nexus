@@ -149,6 +149,23 @@ public class Shipment extends BaseEntity {
 	@Column(name = "package_type")
 	private String packageType;
 
+	// Per-package facts (kg + meters/ft). Totals derive from these when
+	// the caller leaves totalWeight/totalVolume empty.
+	@Column(name = "package_weight")
+	private Double packageWeight;
+
+	@Column(name = "package_length")
+	private Double packageLength;
+
+	@Column(name = "package_width")
+	private Double packageWidth;
+
+	@Column(name = "package_height")
+	private Double packageHeight;
+
+	@Column(name = "package_dimension_uom")
+	private String packageDimensionUom = "M";
+
 	@Column(name = "special_instructions")
 	private String specialInstructions;
 

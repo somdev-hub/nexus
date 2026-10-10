@@ -2,7 +2,6 @@ package com.nexus.iam.utils;
 
 import java.io.IOException;
 import java.util.Map;
-
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -13,7 +12,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
-import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -28,14 +27,18 @@ public class RestService {
 
     private final CommonUtils commonUtils;
 
-    private final RestClient restClient;
+    // Used for the terminal response read: its StringHttpMessageConverter
+    // supports ALL media types, so JSON, text and binary (octet-stream)
+    // bodies are all readable as text — something RestClient's String
+    // decoding cannot do.
+    private final RestTemplate restTemplate;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    public RestService(LogsRepo logsRepo, CommonUtils commonUtils, RestClient restClient) {
+    public RestService(LogsRepo logsRepo, CommonUtils commonUtils, RestTemplate restTemplate) {
         this.logsRepo = logsRepo;
         this.commonUtils = commonUtils;
-        this.restClient = restClient;
+        this.restTemplate = restTemplate;
     }
 
     /**
@@ -273,14 +276,10 @@ public class RestService {
         }
 
         // Always read response as String to handle any content type
-        // (JSON, plain text, XML, etc.) without converter errors
-        return restClient.method(method)
-                .uri(url)
-                .headers(h -> h.addAll(httpHeaders))
-                .contentType(MediaType.MULTIPART_FORM_DATA)
-                .body(body)
-                .retrieve()
-                .toEntity(String.class);
+        // (JSON, plain text, XML, binary, etc.) without converter errors.
+        // RestTemplate is used for the terminal read because its String
+        // converter supports ALL media types, unlike RestClient's.
+        return restTemplate.exchange(url, method, new HttpEntity<>(body, httpHeaders), String.class);
     }
 
     /**
@@ -349,18 +348,13 @@ public class RestService {
             headers.forEach(httpHeaders::set);
         }
 
-        // Always read response as String to handle any content type
-        // (JSON, plain text, XML, etc.) without converter errors
-        var requestSpec = restClient.method(method)
-                .uri(url)
-                .headers(h -> h.addAll(httpHeaders));
-
-        // Only add body for non-GET/HEAD requests with non-null payload
-        if (payload != null && method != HttpMethod.GET && method != HttpMethod.HEAD) {
-            requestSpec.body(payload);
-        }
-
-        return requestSpec.retrieve().toEntity(String.class);
+        // Only add body for non-GET/HEAD requests with non-null payload.
+        // Terminal read goes through RestTemplate (see above) so every
+        // content type is readable as text.
+        HttpEntity<?> entity = (payload != null && method != HttpMethod.GET && method != HttpMethod.HEAD)
+                ? new HttpEntity<>(payload, httpHeaders)
+                : new HttpEntity<>(httpHeaders);
+        return restTemplate.exchange(url, method, entity, String.class);
     }
 
 }

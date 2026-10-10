@@ -18,6 +18,7 @@ import com.nexus.core.exception.ResourceNotFoundException;
 import com.nexus.core.exception.ValidationException;
 import com.nexus.core.model.entities.Account;
 import com.nexus.core.model.entities.AdvanceShipmentNotice;
+import com.nexus.core.model.entities.CapacityForecast;
 import com.nexus.core.model.entities.Partnership;
 import com.nexus.core.model.entities.PurchaseOrder;
 import com.nexus.core.model.entities.Shipment;
@@ -26,11 +27,13 @@ import com.nexus.core.model.enums.PurchaseOrderStatus;
 import com.nexus.core.model.enums.ShipmentStatus;
 import com.nexus.core.repository.AccountRepository;
 import com.nexus.core.repository.AdvanceShipmentNoticeRepo;
+import com.nexus.core.repository.CapacityForecastRepo;
 import com.nexus.core.repository.PartnershipRepo;
 import com.nexus.core.repository.PurchaseOrderRepo;
 import com.nexus.core.repository.ShipmentRepo;
 import com.nexus.core.security.OrganizationContextHolder;
 import com.nexus.core.service.interfaces.SupplierOrderService;
+import com.nexus.core.utils.RouteCapacityMatcher;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -45,6 +48,7 @@ public class SupplierOrderServiceImpl implements SupplierOrderService {
     private final AdvanceShipmentNoticeRepo asnRepo;
     private final AccountRepository accountRepo;
     private final PartnershipRepo partnershipRepo;
+    private final CapacityForecastRepo capacityForecastRepo;
     private final ModelMapper modelMapper;
 
     @Override
@@ -131,8 +135,11 @@ public class SupplierOrderServiceImpl implements SupplierOrderService {
     public ResponseEntity<?> createPartialShipment(Long purchaseOrderId, Map<String, Object> shipmentDto) {
         Long orgId = OrganizationContextHolder.requireOrganizationId();
         PurchaseOrder po = findSupplierOrder(purchaseOrderId, orgId);
-        if (po.getStatus() != PurchaseOrderStatus.ACKNOWLEDGED && po.getStatus() != PurchaseOrderStatus.PARTIALLY_RECEIVED) {
-            throw new ValidationException("Order must be ACKNOWLEDGED or PARTIALLY_RECEIVED to create partial shipment");
+        if (po.getStatus() != PurchaseOrderStatus.ACKNOWLEDGED
+                && po.getStatus() != PurchaseOrderStatus.PARTIALLY_RECEIVED
+                && po.getStatus() != PurchaseOrderStatus.AWAITING_PICKUP
+                && po.getStatus() != PurchaseOrderStatus.PICKED_UP) {
+            throw new ValidationException("Order must be ACKNOWLEDGED, PARTIALLY_RECEIVED, AWAITING_PICKUP or PICKED_UP to create partial shipment");
         }
 
         Account supplierOrg = accountRepo.findById(orgId)
@@ -162,6 +169,36 @@ public class SupplierOrderServiceImpl implements SupplierOrderService {
         if (shipmentDto.containsKey("notes")) shipment.setNotes(shipmentDto.get("notes").toString());
         if (shipmentDto.containsKey("pickupLocation")) shipment.setPickupLocation(shipmentDto.get("pickupLocation").toString());
         if (shipmentDto.containsKey("deliveryLocation")) shipment.setDeliveryLocation(shipmentDto.get("deliveryLocation").toString());
+
+        // Package facts: totals derive from per-package values when the
+        // caller leaves them empty (packages × weight, packages × L×W×H).
+        Integer totalPackages = toInt(shipmentDto.get("totalPackages"));
+        Double packageWeight = toDouble(shipmentDto.get("packageWeight"));
+        Double packageLength = toDouble(shipmentDto.get("packageLength"));
+        Double packageWidth = toDouble(shipmentDto.get("packageWidth"));
+        Double packageHeight = toDouble(shipmentDto.get("packageHeight"));
+        String packageDimensionUom = shipmentDto.get("packageDimensionUom") != null
+                ? shipmentDto.get("packageDimensionUom").toString() : "M";
+        if (totalPackages != null) shipment.setTotalPackages(totalPackages);
+        if (packageWeight != null) shipment.setPackageWeight(packageWeight);
+        if (packageLength != null) shipment.setPackageLength(packageLength);
+        if (packageWidth != null) shipment.setPackageWidth(packageWidth);
+        if (packageHeight != null) shipment.setPackageHeight(packageHeight);
+        shipment.setPackageDimensionUom(packageDimensionUom);
+        if (shipmentDto.get("totalWeight") != null) {
+            shipment.setTotalWeight(toDouble(shipmentDto.get("totalWeight")));
+        } else if (totalPackages != null && packageWeight != null) {
+            shipment.setTotalWeight(Math.round(totalPackages * packageWeight * 100.0) / 100.0);
+        }
+        if (shipmentDto.get("totalVolume") != null) {
+            shipment.setTotalVolume(toDouble(shipmentDto.get("totalVolume")));
+        } else if (totalPackages != null && packageLength != null && packageWidth != null
+                && packageHeight != null) {
+            double toMeters = "FT".equalsIgnoreCase(packageDimensionUom) ? 0.3048 : 1.0;
+            double cbm = totalPackages * packageLength * toMeters * packageWidth * toMeters
+                    * packageHeight * toMeters;
+            shipment.setTotalVolume(Math.round(cbm * 100.0) / 100.0);
+        }
 
         // Supplier-owned delivery: hand the shipment to a partnered logistics
         // org at creation time. Requires an ACTIVE supplier-logistics
@@ -194,6 +231,14 @@ public class SupplierOrderServiceImpl implements SupplierOrderService {
             shipment.setLogisticsOrg(logisticsOrg);
             shipment.setPartnership(partnership);
             shipment.setStatus(ShipmentStatus.BOOKED);
+            // Persist the transport mode from the matched route capacity —
+            // supplier shipments rarely carry one themselves and the load
+            // board reads it from here first.
+            CapacityForecast route = matchPartnershipRoute(partnership, logisticsOrgId,
+                    shipment.getPickupLocation(), shipment.getDeliveryLocation());
+            if (route != null && route.getTransportMode() != null) {
+                shipment.setShipmentMode(route.getTransportMode());
+            }
             handedOver = true;
         }
 
@@ -210,9 +255,19 @@ public class SupplierOrderServiceImpl implements SupplierOrderService {
         if (shipmentDto.containsKey("notes") && shipmentDto.get("notes") != null) asn.setNotes(shipmentDto.get("notes").toString());
         asnRepo.save(asn);
 
-        // update PO status to PARTIALLY_RECEIVED if backordered >0 else RECEIVED
-        if (backordered > 0) po.setStatus(PurchaseOrderStatus.PARTIALLY_RECEIVED);
-        else po.setStatus(PurchaseOrderStatus.RECEIVED);
+        // PO follows the physical flow, never jumps to RECEIVED here:
+        // handed-over shipments wait for pickup, and RECEIVED stays
+        // reserved for the retailer's goods receipt.
+        if (handedOver) {
+            if (po.getStatus() == PurchaseOrderStatus.ACKNOWLEDGED
+                    || po.getStatus() == PurchaseOrderStatus.PARTIALLY_RECEIVED) {
+                po.setStatus(PurchaseOrderStatus.AWAITING_PICKUP);
+            }
+        } else if (backordered > 0) {
+            po.setStatus(PurchaseOrderStatus.PARTIALLY_RECEIVED);
+        } else {
+            po.setStatus(PurchaseOrderStatus.RECEIVED);
+        }
         poRepo.save(po);
 
         java.util.Map<String, Object> resp = new java.util.LinkedHashMap<>();
@@ -256,8 +311,18 @@ public class SupplierOrderServiceImpl implements SupplierOrderService {
         long pending = orders.stream().filter(po -> po.getStatus() == PurchaseOrderStatus.SENT_TO_SUPPLIER).count();
         long acknowledged = orders.stream().filter(po -> po.getStatus() == PurchaseOrderStatus.ACKNOWLEDGED).count();
         long partial = orders.stream().filter(po -> po.getStatus() == PurchaseOrderStatus.PARTIALLY_RECEIVED).count();
+        long awaitingPickup = orders.stream().filter(po -> po.getStatus() == PurchaseOrderStatus.AWAITING_PICKUP).count();
+        long pickedUp = orders.stream().filter(po -> po.getStatus() == PurchaseOrderStatus.PICKED_UP).count();
         long received = orders.stream().filter(po -> po.getStatus() == PurchaseOrderStatus.RECEIVED).count();
-        return ResponseEntity.ok(Map.of("total", total, "pendingAck", pending, "acknowledged", acknowledged, "partiallyReceived", partial, "received", received));
+        java.util.Map<String, Object> summary = new java.util.LinkedHashMap<>();
+        summary.put("total", total);
+        summary.put("pendingAck", pending);
+        summary.put("acknowledged", acknowledged);
+        summary.put("partiallyReceived", partial);
+        summary.put("awaitingPickup", awaitingPickup);
+        summary.put("pickedUp", pickedUp);
+        summary.put("received", received);
+        return ResponseEntity.ok(summary);
     }
 
     private PurchaseOrder findSupplierOrder(Long id, Long orgId) {
@@ -265,8 +330,53 @@ public class SupplierOrderServiceImpl implements SupplierOrderService {
                 .orElseThrow(() -> new ResourceNotFoundException("PurchaseOrder", "purchaseOrderId", id));
     }
 
-    private Long counterpartyOf(Partnership p, Long ownOrgId) {
-        if (p.getPrimaryOrg() != null && !p.getPrimaryOrg().getAccountId().equals(ownOrgId)) {
+    private static Double toDouble(Object v) {
+        if (v == null) return null;
+        if (v instanceof Number n) return n.doubleValue();
+        try {
+            return Double.valueOf(v.toString());
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    private static Integer toInt(Object v) {
+        Double d = toDouble(v);
+        return d != null ? (int) Math.round(d) : null;
+    }
+
+    // Mode for a handed-over shipment, resolved from route capacities:
+    // the linked route for short-term, the partnership's private lanes
+    // for long-term, falling back to the logistics org's lanes.
+    private CapacityForecast matchPartnershipRoute(Partnership partnership, Long logisticsOrgId,
+            String pickup, String delivery) {
+        if (partnership.getLinkedCapacityForecastId() != null) {
+            CapacityForecast linked = capacityForecastRepo
+                    .findById(partnership.getLinkedCapacityForecastId()).orElse(null);
+            if (linked != null && linked.getTransportMode() != null
+                    && RouteCapacityMatcher.routeCovers(linked, pickup, delivery)) {
+                return linked;
+            }
+        }
+        java.util.List<CapacityForecast> privates = capacityForecastRepo
+                .findByPartnershipPartnershipId(partnership.getPartnershipId(),
+                        org.springframework.data.domain.Pageable.unpaged())
+                .getContent();
+        CapacityForecast hit = RouteCapacityMatcher.matchWithMode(privates, pickup, delivery);
+        if (hit != null) return hit;
+        java.util.List<CapacityForecast> orgLanes = capacityForecastRepo
+                .findByOrgWithFilters(logisticsOrgId, null, null,
+                        org.springframework.data.domain.Pageable.unpaged())
+                .getContent();
+        hit = RouteCapacityMatcher.matchWithMode(orgLanes, pickup, delivery);
+        if (hit != null) return hit;
+        return RouteCapacityMatcher.matchWithMode(capacityForecastRepo
+                .findMarketplaceAvailabilities(null,
+                        org.springframework.data.domain.Pageable.unpaged())
+                .getContent(), pickup, delivery);
+    }
+
+    private Long counterpartyOf(Partnership p, Long ownOrgId) {        if (p.getPrimaryOrg() != null && !p.getPrimaryOrg().getAccountId().equals(ownOrgId)) {
             return p.getPrimaryOrg().getAccountId();
         }
         if (p.getSecondaryOrg() != null && !p.getSecondaryOrg().getAccountId().equals(ownOrgId)) {
