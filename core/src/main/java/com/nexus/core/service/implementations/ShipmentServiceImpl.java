@@ -367,20 +367,39 @@ public class ShipmentServiceImpl implements ShipmentService {
         shipment.setUpdatedAt(new Timestamp(System.currentTimeMillis()));
         Shipment saved = shipmentRepo.save(shipment);
         // The linked purchase order follows the physical flow: once the
-        // carrier picks the goods up, the PO is picked up too. RECEIVED
-        // stays reserved for the retailer's goods receipt.
-        if (newStatus == ShipmentStatus.PICKED_UP && saved.getPurchaseOrder() != null
-                && saved.getPurchaseOrder().getPurchaseOrderId() != null) {
-            purchaseOrderRepo.findById(saved.getPurchaseOrder().getPurchaseOrderId()).ifPresent(po -> {
-                if (po.getStatus() == PurchaseOrderStatus.ACKNOWLEDGED
-                        || po.getStatus() == PurchaseOrderStatus.PARTIALLY_RECEIVED
-                        || po.getStatus() == PurchaseOrderStatus.AWAITING_PICKUP) {
-                    po.setStatus(PurchaseOrderStatus.PICKED_UP);
-                    purchaseOrderRepo.save(po);
-                }
-            });
-        }
+        // carrier picks the goods up, the PO is picked up too; once they
+        // are delivered, the PO is received. RECEIVED via goods receipt
+        // still works — these moves are forward-only and idempotent.
+        syncPurchaseOrder(saved, newStatus);
         return modelMapper.map(saved, ShipmentDto.class);
+    }
+
+    private void syncPurchaseOrder(Shipment shipment, ShipmentStatus newStatus) {
+        if (shipment.getPurchaseOrder() == null || shipment.getPurchaseOrder().getPurchaseOrderId() == null) {
+            return;
+        }
+        purchaseOrderRepo.findById(shipment.getPurchaseOrder().getPurchaseOrderId()).ifPresent(po -> {
+            PurchaseOrderStatus current = po.getStatus();
+            if (current == PurchaseOrderStatus.INVOICED || current == PurchaseOrderStatus.PAID
+                    || current == PurchaseOrderStatus.CANCELLED || current == PurchaseOrderStatus.CLOSED) {
+                return;
+            }
+            if (newStatus == ShipmentStatus.PICKED_UP
+                    && (current == PurchaseOrderStatus.ACKNOWLEDGED
+                            || current == PurchaseOrderStatus.PARTIALLY_RECEIVED
+                            || current == PurchaseOrderStatus.AWAITING_PICKUP)) {
+                po.setStatus(PurchaseOrderStatus.PICKED_UP);
+                purchaseOrderRepo.save(po);
+            } else if (newStatus == ShipmentStatus.DELIVERED && current != PurchaseOrderStatus.RECEIVED) {
+                po.setStatus(PurchaseOrderStatus.RECEIVED);
+                purchaseOrderRepo.save(po);
+            } else if (newStatus == ShipmentStatus.PARTIALLY_DELIVERED
+                    && current != PurchaseOrderStatus.RECEIVED
+                    && current != PurchaseOrderStatus.PARTIALLY_RECEIVED) {
+                po.setStatus(PurchaseOrderStatus.PARTIALLY_RECEIVED);
+                purchaseOrderRepo.save(po);
+            }
+        });
     }
 
     private String generateShipmentNumber() {

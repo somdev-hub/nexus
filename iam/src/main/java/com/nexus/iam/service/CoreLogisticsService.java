@@ -43,6 +43,9 @@ public interface CoreLogisticsService {
 
     // Load board + quotes + rates
     ResponseEntity<?> getLoadBoard(String auth, String org, Pageable p, String mode, String search);
+    ResponseEntity<?> getPickedUpLoads(String auth, String org, Pageable p);
+    ResponseEntity<?> getDeliveredLoads(String auth, String org, Pageable p);
+    ResponseEntity<?> getMyShipmentBoard(String auth, String org, Pageable p, String search);
     ResponseEntity<?> createQuote(Map<String, Object> dto, String auth, String org);
     ResponseEntity<?> getQuote(Long id, String auth, String org);
     ResponseEntity<?> getAllQuotes(String auth, String org, Pageable p, Long shipmentId, String status, String search);

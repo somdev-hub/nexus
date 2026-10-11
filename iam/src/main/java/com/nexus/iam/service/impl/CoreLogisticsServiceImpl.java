@@ -8,6 +8,7 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.util.UriComponentsBuilder;
+import org.springframework.web.util.UriComponentsBuilder;
 
 import com.nexus.iam.service.CoreLogisticsService;
 import com.nexus.iam.utils.CommonUtils;
@@ -152,6 +153,22 @@ public class CoreLogisticsServiceImpl implements CoreLogisticsService {
     public ResponseEntity<?> getLoadBoard(String auth, String org, Pageable p, String mode, String search) {
         return callGet(buildPaginatedUrlWithFilters(webConstants.getCoreLogisticsLoadBoardUrl(), p,
                 "mode", mode, "search", search), auth, org);
+    }
+
+    @Override
+    public ResponseEntity<?> getPickedUpLoads(String auth, String org, Pageable p) {
+        return callGet(buildPaginatedUrl(webConstants.getCoreServiceUrl() + "/core/logistics/quoting/picked-up", p), auth, org);
+    }
+
+    @Override
+    public ResponseEntity<?> getDeliveredLoads(String auth, String org, Pageable p) {
+        return callGet(buildPaginatedUrl(webConstants.getCoreServiceUrl() + "/core/logistics/quoting/delivered", p), auth, org);
+    }
+
+    @Override
+    public ResponseEntity<?> getMyShipmentBoard(String auth, String org, Pageable p, String search) {
+        return callGet(buildPaginatedUrlWithFilters(webConstants.getCoreServiceUrl() + "/core/logistics/quoting/my-shipments", p,
+                "search", search), auth, org);
     }
 
     @Override

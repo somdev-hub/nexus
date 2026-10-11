@@ -37,6 +37,28 @@ public class QuotingController {
         return quotingService.getLoadBoard(mode, search, pageable);
     }
 
+    @GetMapping("/picked-up")
+    @LogActivity("Get Picked Up Loads")
+    public ResponseEntity<?> getPickedUpLoads(
+            @PageableDefault(size = 20) Pageable pageable) {
+        return quotingService.getPickedUpLoads(pageable);
+    }
+
+    @GetMapping("/delivered")
+    @LogActivity("Get Delivered Loads")
+    public ResponseEntity<?> getDeliveredLoads(
+            @PageableDefault(size = 20) Pageable pageable) {
+        return quotingService.getDeliveredLoads(pageable);
+    }
+
+    @GetMapping("/my-shipments")
+    @LogActivity("Get My Shipments")
+    public ResponseEntity<?> getMyShipments(
+            @RequestParam(required = false) String search,
+            @PageableDefault(size = 20) Pageable pageable) {
+        return quotingService.getMyShipments(search, pageable);
+    }
+
     @PostMapping("/quotes/create")
     @LogActivity("Create Shipment Quote")
     public ResponseEntity<?> createQuote(@Valid @RequestBody ShipmentQuoteDto dto) {

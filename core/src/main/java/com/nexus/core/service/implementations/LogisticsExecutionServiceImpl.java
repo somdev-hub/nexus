@@ -381,9 +381,16 @@ public class LogisticsExecutionServiceImpl implements LogisticsExecutionService 
         pod.setShipment(shipment);
         if (pod.getDeliveredAt() == null) pod.setDeliveredAt(new Timestamp(System.currentTimeMillis()));
         var saved = podRepo.save(pod);
-        shipment.setStatus(ShipmentStatus.DELIVERED);
         shipment.setActualArrival(saved.getDeliveredAt());
         shipmentRepo.save(shipment);
+        // Route the DELIVERED flip through the shared transition so the
+        // linked PO follows to RECEIVED as well.
+        try {
+            shipmentService.transitionShipmentStatus(shipment.getShipmentId(), ShipmentStatus.DELIVERED, Map.of());
+        } catch (IllegalArgumentException e) {
+            // Shipment was already delivered — POD is still recorded.
+            log.debug("POD captured but status transition skipped: {}", e.getMessage());
+        }
         return ResponseEntity.status(HttpStatus.CREATED).body(toPodDto(saved));
     }
 

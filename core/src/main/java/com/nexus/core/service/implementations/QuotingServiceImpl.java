@@ -72,15 +72,20 @@ public class QuotingServiceImpl implements QuotingService {
         final ShipmentMode shipmentMode = filterMode;
         final String searchFilter = search;
         // Available loads: BOOKED/APPROVED shipments not yet assigned to this logistics org
-        Page<Shipment> page = shipmentRepo.findByLogisticsOrgAccountId(orgId, pageable);
-        // Route capacities for mode resolution: public lanes once, plus each
+        Page<Shipment> page = shipmentRepo.findByLogisticsOrgAccountId(orgId, pageable);        // Route capacities for mode resolution: public lanes once, plus each
         // involved logistics org's own lanes (private included) cached.
         List<CapacityForecast> publicCapacities = capacityForecastRepo
                 .findMarketplaceAvailabilities(null, Pageable.unpaged()).getContent();
         Map<Long, List<CapacityForecast>> orgCapacityCache = new java.util.HashMap<>();
         java.util.function.Function<Shipment, Map<String, Object>> toRow =
                 s -> toLoadBoardRow(s, publicCapacities, orgCapacityCache);
-        List<Map<String, Object>> mine = page.getContent().stream().map(toRow).toList();
+        // Own loads still needing action: booked/approved/assigned. Anything
+        // picked up or beyond lives on the Picked Up tab instead.
+        java.util.Set<ShipmentStatus> actionable = java.util.Set.of(
+                ShipmentStatus.BOOKED, ShipmentStatus.APPROVED, ShipmentStatus.ASSIGNED);
+        List<Map<String, Object>> mine = page.getContent().stream()
+                .filter(s -> s.getStatus() != null && actionable.contains(s.getStatus()))
+                .map(toRow).toList();
         // Also surface open demand: shipments in BOOKED status across partnerships (org-scoped view)
         var open = shipmentRepo.findAll(pageable).stream()
                 .filter(s -> s.getStatus() == ShipmentStatus.BOOKED || s.getStatus() == ShipmentStatus.APPROVED)
@@ -128,6 +133,7 @@ public class QuotingServiceImpl implements QuotingService {
         row.put("pickupDate", s.getPickupDate() != null ? s.getPickupDate().toString() : null);
         row.put("deliveryDate", s.getDeliveryDate() != null ? s.getDeliveryDate().toString() : null);
         row.put("estimatedArrival", s.getEstimatedArrival() != null ? s.getEstimatedArrival().toString() : null);
+        row.put("actualDeparture", s.getActualDeparture() != null ? s.getActualDeparture().toString() : null);
         row.put("totalWeight", s.getTotalWeight());
         row.put("totalVolume", s.getTotalVolume());
         row.put("totalPackages", s.getTotalPackages());
@@ -162,6 +168,10 @@ public class QuotingServiceImpl implements QuotingService {
             row.put("purchaseOrderId", s.getPurchaseOrder().getPurchaseOrderId());
             row.put("poNumber", s.getPurchaseOrder().getPoNumber());
         }
+        row.put("actualDeparture", s.getActualDeparture() != null ? s.getActualDeparture().toString() : null);
+        row.put("actualArrival", s.getActualArrival() != null ? s.getActualArrival().toString() : null);
+        row.put("createdAt", s.getCreatedAt() != null ? s.getCreatedAt().toString() : null);
+        row.put("updatedAt", s.getUpdatedAt() != null ? s.getUpdatedAt().toString() : null);
         return row;
     }
 
@@ -197,6 +207,68 @@ public class QuotingServiceImpl implements QuotingService {
             }
         }
         return null;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ResponseEntity<?> getPickedUpLoads(Pageable pageable) {
+        var orgId = OrganizationContextHolder.requireOrganizationId();
+        java.util.Set<ShipmentStatus> inMotion = java.util.Set.of(
+                ShipmentStatus.PICKED_UP, ShipmentStatus.IN_TRANSIT, ShipmentStatus.OUT_FOR_DELIVERY);
+        List<CapacityForecast> publicCapacities = capacityForecastRepo
+                .findMarketplaceAvailabilities(null, Pageable.unpaged()).getContent();
+        Map<Long, List<CapacityForecast>> orgCapacityCache = new java.util.HashMap<>();
+        var rows = shipmentRepo.findByLogisticsOrgAccountId(orgId, Pageable.unpaged()).getContent().stream()
+                .filter(s -> s.getStatus() != null && inMotion.contains(s.getStatus()))
+                .map(s -> toLoadBoardRow(s, publicCapacities, orgCapacityCache))
+                .toList();
+        int total = rows.size();
+        int start = (int) Math.min(pageable.getOffset(), total);
+        int end = Math.min(start + pageable.getPageSize(), total);
+        return ResponseEntity.ok(new org.springframework.data.domain.PageImpl<>(
+                rows.subList(start, end), pageable, total));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ResponseEntity<?> getDeliveredLoads(Pageable pageable) {
+        var orgId = OrganizationContextHolder.requireOrganizationId();
+        java.util.Set<ShipmentStatus> finished = java.util.Set.of(
+                ShipmentStatus.DELIVERED, ShipmentStatus.PARTIALLY_DELIVERED, ShipmentStatus.CLOSED);
+        List<CapacityForecast> publicCapacities = capacityForecastRepo
+                .findMarketplaceAvailabilities(null, Pageable.unpaged()).getContent();
+        Map<Long, List<CapacityForecast>> orgCapacityCache = new java.util.HashMap<>();
+        var rows = shipmentRepo.findByLogisticsOrgAccountId(orgId, Pageable.unpaged()).getContent().stream()
+                .filter(s -> s.getStatus() != null && finished.contains(s.getStatus()))
+                .map(s -> toLoadBoardRow(s, publicCapacities, orgCapacityCache))
+                .toList();
+        int finishedTotal = rows.size();
+        int finishedStart = (int) Math.min(pageable.getOffset(), finishedTotal);
+        int finishedEnd = Math.min(finishedStart + pageable.getPageSize(), finishedTotal);
+        return ResponseEntity.ok(new org.springframework.data.domain.PageImpl<>(
+                rows.subList(finishedStart, finishedEnd), pageable, finishedTotal));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ResponseEntity<?> getMyShipments(String search, Pageable pageable) {
+        var orgId = OrganizationContextHolder.requireOrganizationId();
+        List<CapacityForecast> publicCapacities = capacityForecastRepo
+                .findMarketplaceAvailabilities(null, Pageable.unpaged()).getContent();
+        Map<Long, List<CapacityForecast>> orgCapacityCache = new java.util.HashMap<>();
+        final String searchFilter = search;
+        var rows = shipmentRepo.findByLogisticsOrgAccountId(orgId, Pageable.unpaged()).getContent().stream()
+                .filter(s -> searchFilter == null || searchFilter.isBlank()
+                        || (s.getShipmentNumber() != null && s.getShipmentNumber().toLowerCase().contains(searchFilter.toLowerCase()))
+                        || (s.getPurchaseOrder() != null && s.getPurchaseOrder().getPoNumber() != null
+                                && s.getPurchaseOrder().getPoNumber().toLowerCase().contains(searchFilter.toLowerCase())))
+                .map(s -> toLoadBoardRow(s, publicCapacities, orgCapacityCache))
+                .toList();
+        int total = rows.size();
+        int start = (int) Math.min(pageable.getOffset(), total);
+        int end = Math.min(start + pageable.getPageSize(), total);
+        return ResponseEntity.ok(new org.springframework.data.domain.PageImpl<>(
+                rows.subList(start, end), pageable, total));
     }
 
     @Override

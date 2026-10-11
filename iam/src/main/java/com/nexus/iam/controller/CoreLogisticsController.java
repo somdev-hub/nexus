@@ -214,6 +214,28 @@ public class CoreLogisticsController {
 		return logisticsService.getLoadBoard(auth, org, p, mode, search);
 	}
 
+	@LogActivity("Get Picked Up Loads via IAM")
+	@GetMapping("/quoting/picked-up")
+	public ResponseEntity<?> getPickedUpLoads(@RequestHeader("Authorization") String auth,
+			@RequestHeader("X-Organization-ID") String org, @PageableDefault(size = 20) Pageable p) {
+		return logisticsService.getPickedUpLoads(auth, org, p);
+	}
+
+	@LogActivity("Get Delivered Loads via IAM")
+	@GetMapping("/quoting/delivered")
+	public ResponseEntity<?> getDeliveredLoads(@RequestHeader("Authorization") String auth,
+			@RequestHeader("X-Organization-ID") String org, @PageableDefault(size = 20) Pageable p) {
+		return logisticsService.getDeliveredLoads(auth, org, p);
+	}
+
+	@LogActivity("Get My Shipment Board via IAM")
+	@GetMapping("/quoting/my-shipments")
+	public ResponseEntity<?> getMyShipmentBoard(@RequestHeader("Authorization") String auth,
+			@RequestHeader("X-Organization-ID") String org, @PageableDefault(size = 20) Pageable p,
+			@RequestParam(required = false) String search) {
+		return logisticsService.getMyShipmentBoard(auth, org, p, search);
+	}
+
 	@LogActivity("Create Shipment Quote via IAM")
 	@PostMapping("/quoting/quotes/create")
 	public ResponseEntity<?> createQuote(@RequestBody Map<String, Object> dto,
