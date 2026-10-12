@@ -56,7 +56,7 @@ public class SupplierOrderServiceImpl implements SupplierOrderService {
     public ResponseEntity<?> getOrderById(Long id) {
         Long orgId = OrganizationContextHolder.requireOrganizationId();
         PurchaseOrder po = findSupplierOrder(id, orgId);
-        return ResponseEntity.ok(PurchaseOrderServiceImpl.toDto(po));
+        return ResponseEntity.ok(withShipmentProgress(PurchaseOrderServiceImpl.toDto(po), po));
     }
 
     @Override
@@ -75,7 +75,7 @@ public class SupplierOrderServiceImpl implements SupplierOrderService {
         String poNum = poNumber;
         var page = poRepo.findSupplierVisibleOrders(orgId, st, poNum, buyerOrgId, pageable);
         var dtos = page.getContent().stream()
-                .map(po -> PurchaseOrderServiceImpl.toDto(po))
+                .map(po -> withShipmentProgress(PurchaseOrderServiceImpl.toDto(po), po))
                 .collect(Collectors.toList());
         return ResponseEntity.ok(new org.springframework.data.domain.PageImpl<>(dtos, pageable, page.getTotalElements()));
     }
@@ -94,7 +94,7 @@ public class SupplierOrderServiceImpl implements SupplierOrderService {
         po.setSupplierNotes(notes);
         po.setAcknowledgedBy(String.valueOf(orgId));
         PurchaseOrder saved = poRepo.save(po);
-        return ResponseEntity.ok(PurchaseOrderServiceImpl.toDto(saved));
+        return ResponseEntity.ok(withShipmentProgress(PurchaseOrderServiceImpl.toDto(saved), saved));
     }
 
     @Override
@@ -127,7 +127,7 @@ public class SupplierOrderServiceImpl implements SupplierOrderService {
             }
         }
         PurchaseOrder saved = poRepo.save(po);
-        return ResponseEntity.ok(PurchaseOrderServiceImpl.toDto(saved));
+        return ResponseEntity.ok(withShipmentProgress(PurchaseOrderServiceImpl.toDto(saved), saved));
     }
 
     @Override
@@ -163,6 +163,7 @@ public class SupplierOrderServiceImpl implements SupplierOrderService {
         }
         double backordered = Math.max(0, orderedQty - shippedQty);
         shipment.setBackorderedQuantity(backordered);
+        shipment.setShippedQuantity(shippedQty);
 
         if (shipmentDto.containsKey("trackingNumber")) shipment.setTrackingNumber(shipmentDto.get("trackingNumber").toString());
         if (shipmentDto.containsKey("carrierName")) shipment.setCarrierName(shipmentDto.get("carrierName").toString());
@@ -297,7 +298,7 @@ public class SupplierOrderServiceImpl implements SupplierOrderService {
         Long orgId = OrganizationContextHolder.requireOrganizationId();
         var page = poRepo.findSupplierVisibleOrders(orgId, PurchaseOrderStatus.PARTIALLY_RECEIVED, null, null, pageable);
         List<com.nexus.core.payload.PurchaseOrderDto> dtos = page.getContent().stream()
-                .map(po -> PurchaseOrderServiceImpl.toDto(po))
+                .map(po -> withShipmentProgress(PurchaseOrderServiceImpl.toDto(po), po))
                 .collect(Collectors.toList());
         return ResponseEntity.ok(new org.springframework.data.domain.PageImpl<>(dtos, pageable, page.getTotalElements()));
     }
@@ -328,6 +329,35 @@ public class SupplierOrderServiceImpl implements SupplierOrderService {
     private PurchaseOrder findSupplierOrder(Long id, Long orgId) {
         return poRepo.findSupplierVisibleOrderById(id, orgId)
                 .orElseThrow(() -> new ResourceNotFoundException("PurchaseOrder", "purchaseOrderId", id));
+    }
+
+    /**
+     * Shipment progress for the supplier orders table: total shipped across
+     * the PO's partial shipments and what is still left to ship. Drives the
+     * "hide Partial Ship when fully shipped" rule in the UI.
+     */
+    private com.nexus.core.payload.PurchaseOrderDto withShipmentProgress(
+            com.nexus.core.payload.PurchaseOrderDto dto, PurchaseOrder po) {
+        double ordered = 0.0;
+        if (po.getLineItems() != null) {
+            ordered = po.getLineItems().stream()
+                    .mapToDouble(li -> li.getQuantityOrdered() != null ? li.getQuantityOrdered() : 0)
+                    .sum();
+        }
+        double shipped = 0.0;
+        try {
+            shipped = shipmentRepo
+                    .findByPurchaseOrderPurchaseOrderIdAndIsPartialShipmentTrue(
+                            po.getPurchaseOrderId(), Pageable.unpaged())
+                    .getContent().stream()
+                    .mapToDouble(s -> s.getShippedQuantity() != null ? s.getShippedQuantity() : 0)
+                    .sum();
+        } catch (Exception e) {
+            log.warn("Skipping shipment progress for PO {}: {}", po.getPurchaseOrderId(), e.getMessage());
+        }
+        dto.setTotalShippedQuantity(shipped);
+        dto.setRemainingQuantity(Math.max(0, ordered - shipped));
+        return dto;
     }
 
     private static Double toDouble(Object v) {

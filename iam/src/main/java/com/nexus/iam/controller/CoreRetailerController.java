@@ -1613,12 +1613,28 @@ public class CoreRetailerController {
 	// ============================================
 	// ASN / POD / Buyer Quotation passthroughs (Core P1)
 	// ============================================
+	@LogActivity("Get All ASNs for Retailer")
+	@GetMapping("/asn/all")
+	public ResponseEntity<?> getAllAsns(@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader,
+			@PageableDefault(size = 20) Pageable pageable) {
+		return coreRetailerService.getAllAsns(authToken, orgIdHeader, pageable);
+	}
+
 	@LogActivity("Get ASN by Purchase Order for Retailer")
 	@GetMapping("/asn/purchase-order/{poId}")
 	public ResponseEntity<?> getAsnByPurchaseOrder(@PathVariable Long poId,
 			@RequestHeader("Authorization") String authToken,
 			@RequestHeader("X-Organization-ID") String orgIdHeader) {
 		return coreRetailerService.getAsnByPurchaseOrder(poId, authToken, orgIdHeader);
+	}
+
+	@LogActivity("Get ASN by PO Number for Retailer")
+	@GetMapping("/asn/purchase-order-number/{poNumber}")
+	public ResponseEntity<?> getAsnByPurchaseOrderNumber(@PathVariable String poNumber,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.getAsnByPurchaseOrderNumber(poNumber, authToken, orgIdHeader);
 	}
 
 	@LogActivity("Get Shipment POD for Retailer")

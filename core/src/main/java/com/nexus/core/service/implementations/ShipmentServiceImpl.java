@@ -25,9 +25,15 @@ import com.nexus.core.model.enums.PurchaseOrderStatus;
 import com.nexus.core.repository.PurchaseOrderRepo;
 import com.nexus.core.model.enums.ShipmentMode;
 import com.nexus.core.model.enums.ShipmentStatus;
+import com.nexus.core.model.entities.Driver;
+import com.nexus.core.model.entities.FleetAsset;
 import com.nexus.core.model.entities.ShipmentStop;
+import com.nexus.core.model.enums.DriverStatus;
+import com.nexus.core.model.enums.FleetAssetStatus;
 import com.nexus.core.model.enums.StopStatus;
 import com.nexus.core.model.entities.TrackingEvent;
+import com.nexus.core.repository.DriverRepo;
+import com.nexus.core.repository.FleetAssetRepo;
 import com.nexus.core.repository.ShipmentDocumentRepo;
 import com.nexus.core.repository.AccountRepo;
 import com.nexus.core.repository.ShipmentRepo;
@@ -50,6 +56,8 @@ public class ShipmentServiceImpl implements ShipmentService {
     private final TrackingEventRepo trackingEventRepo;
     private final ShipmentDocumentRepo shipmentDocumentRepo;
     private final AccountRepo accountRepo;
+    private final DriverRepo driverRepo;
+    private final FleetAssetRepo fleetAssetRepo;
     private final ModelMapper modelMapper;
 
     @Override
@@ -366,12 +374,70 @@ public class ShipmentServiceImpl implements ShipmentService {
         shipment.setSpecialInstructions(notes + "Status changed: " + oldStatus + " -> " + newStatus + " (" + reason + ")");
         shipment.setUpdatedAt(new Timestamp(System.currentTimeMillis()));
         Shipment saved = shipmentRepo.save(shipment);
+        // The trip is over: free the assigned driver and asset so they can
+        // take the next load without a manual release. Only ASSIGNED ones
+        // are touched — any other status (leave, suspension, maintenance,
+        // …) is left alone.
+        if (newStatus == ShipmentStatus.DELIVERED) {
+            releaseDriver(saved);
+            releaseAsset(saved);
+        }
         // The linked purchase order follows the physical flow: once the
         // carrier picks the goods up, the PO is picked up too; once they
         // are delivered, the PO is received. RECEIVED via goods receipt
         // still works — these moves are forward-only and idempotent.
         syncPurchaseOrder(saved, newStatus);
         return modelMapper.map(saved, ShipmentDto.class);
+    }
+
+    private void releaseDriver(Shipment shipment) {
+        if (shipment.getAssignedDriverId() == null) {
+            return;
+        }
+        try {
+            Driver driver = driverRepo.findById(shipment.getAssignedDriverId()).orElse(null);
+            if (driver == null) {
+                log.warn("Shipment {} delivered but assigned driver {} not found",
+                        shipment.getShipmentId(), shipment.getAssignedDriverId());
+                return;
+            }
+            if (driver.getStatus() != DriverStatus.ASSIGNED) {
+                return;
+            }
+            driver.setStatus(DriverStatus.AVAILABLE);
+            driverRepo.save(driver);
+            log.info("Shipment {} delivered — driver {} auto-released to AVAILABLE",
+                    shipment.getShipmentId(), driver.getDriverId());
+        } catch (Exception e) {
+            // Delivery itself must never fail because of the release.
+            log.warn("Auto-release of driver {} on delivery of shipment {} failed: {}",
+                    shipment.getAssignedDriverId(), shipment.getShipmentId(), e.getMessage());
+        }
+    }
+
+    private void releaseAsset(Shipment shipment) {
+        if (shipment.getAssignedAssetId() == null) {
+            return;
+        }
+        try {
+            FleetAsset asset = fleetAssetRepo.findById(shipment.getAssignedAssetId()).orElse(null);
+            if (asset == null) {
+                log.warn("Shipment {} delivered but assigned asset {} not found",
+                        shipment.getShipmentId(), shipment.getAssignedAssetId());
+                return;
+            }
+            if (asset.getStatus() != FleetAssetStatus.ASSIGNED) {
+                return;
+            }
+            asset.setStatus(FleetAssetStatus.AVAILABLE);
+            fleetAssetRepo.save(asset);
+            log.info("Shipment {} delivered — asset {} auto-released to AVAILABLE",
+                    shipment.getShipmentId(), asset.getAssetId());
+        } catch (Exception e) {
+            // Delivery itself must never fail because of the release.
+            log.warn("Auto-release of asset {} on delivery of shipment {} failed: {}",
+                    shipment.getAssignedAssetId(), shipment.getShipmentId(), e.getMessage());
+        }
     }
 
     private void syncPurchaseOrder(Shipment shipment, ShipmentStatus newStatus) {

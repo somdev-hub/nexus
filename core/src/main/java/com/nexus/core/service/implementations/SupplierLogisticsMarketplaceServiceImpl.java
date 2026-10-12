@@ -334,6 +334,15 @@ public class SupplierLogisticsMarketplaceServiceImpl implements SupplierLogistic
                 po.put("purchaseOrderId", s.getPurchaseOrder().getPurchaseOrderId());
                 po.put("poNumber", s.getPurchaseOrder().getPoNumber());
                 row.put("purchaseOrder", po);
+                // Ordered total so clients can derive the shipped quantity
+                // (ordered - backordered) without a second round-trip.
+                double orderedTotal = 0.0;
+                if (s.getPurchaseOrder().getLineItems() != null) {
+                    orderedTotal = s.getPurchaseOrder().getLineItems().stream()
+                            .mapToDouble(li -> li.getQuantityOrdered() != null ? li.getQuantityOrdered() : 0)
+                            .sum();
+                }
+                row.put("orderedQuantity", orderedTotal);
             }
             if (s.getLogisticsOrg() != null) {
                 Map<String, Object> lo = new LinkedHashMap<>();
@@ -345,12 +354,38 @@ public class SupplierLogisticsMarketplaceServiceImpl implements SupplierLogistic
                 row.put("partnership", Map.of("partnershipId", s.getPartnership().getPartnershipId()));
             }
             row.put("pickupLocation", s.getPickupLocation());
+            row.put("pickupAddress", s.getPickupAddress());
             row.put("deliveryLocation", s.getDeliveryLocation());
+            row.put("deliveryAddress", s.getDeliveryAddress());
+            row.put("pickupDate", s.getPickupDate() != null ? s.getPickupDate().toString() : null);
+            row.put("deliveryDate", s.getDeliveryDate() != null ? s.getDeliveryDate().toString() : null);
             row.put("trackingNumber", s.getTrackingNumber());
+            row.put("carrierName", s.getCarrierName());
+            row.put("carrierReference", s.getCarrierReference());
+            row.put("shipmentMode", s.getShipmentMode() != null ? s.getShipmentMode().name() : null);
+            row.put("incoterms", s.getIncoterms());
+            // Package facts captured at partial-ship / handover time.
+            row.put("totalPackages", s.getTotalPackages());
+            row.put("packageWeight", s.getPackageWeight());
+            row.put("packageLength", s.getPackageLength());
+            row.put("packageWidth", s.getPackageWidth());
+            row.put("packageHeight", s.getPackageHeight());
+            row.put("packageDimensionUom", s.getPackageDimensionUom());
+            row.put("totalWeight", s.getTotalWeight());
+            row.put("totalVolume", s.getTotalVolume());
+            row.put("freightCost", s.getFreightCost());
+            row.put("actualFreightCost", s.getActualFreightCost());
+            row.put("currency", s.getCurrency());
+            row.put("freightTerms", s.getFreightTerms());
+            row.put("notes", s.getNotes());
             row.put("backorderedQuantity", s.getBackorderedQuantity());
             row.put("isPartialShipment", s.getIsPartialShipment());
+            row.put("estimatedDeparture", s.getEstimatedDeparture() != null ? s.getEstimatedDeparture().toString() : null);
             row.put("actualDeparture", s.getActualDeparture() != null ? s.getActualDeparture().toString() : null);
             row.put("estimatedArrival", s.getEstimatedArrival() != null ? s.getEstimatedArrival().toString() : null);
+            row.put("actualArrival", s.getActualArrival() != null ? s.getActualArrival().toString() : null);
+            row.put("createdAt", s.getCreatedAt() != null ? s.getCreatedAt().toString() : null);
+            row.put("updatedAt", s.getUpdatedAt() != null ? s.getUpdatedAt().toString() : null);
             rows.add(row);
         }
         return ResponseEntity.ok(new PageImpl<>(rows, pageable, page.getTotalElements()));

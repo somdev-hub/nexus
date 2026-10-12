@@ -111,6 +111,14 @@ public class PurchaseOrder extends BaseEntity {
 	@Column(name = "approved_by")
 	private String approvedBy;
 
+	// Audit: who created / last touched the PO. Core has no user auditor
+	// (only org context), so these carry the acting org's display name.
+	@Column(name = "created_by")
+	private String createdBy;
+
+	@Column(name = "updated_by")
+	private String updatedBy;
+
 	@Column(name = "rejection_reason")
 	private String rejectionReason;
 

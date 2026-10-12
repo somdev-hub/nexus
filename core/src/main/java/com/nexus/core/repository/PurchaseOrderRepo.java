@@ -12,6 +12,8 @@ import com.nexus.core.model.entities.PurchaseOrder;
 import com.nexus.core.model.enums.PurchaseOrderStatus;
 public interface PurchaseOrderRepo extends JpaRepository<PurchaseOrder, Long> {
 
+List<PurchaseOrder> findByPoNumber(String poNumber);
+
 	Page<PurchaseOrder> findByBuyerOrgAccountId(Long orgId, Pageable pageable);
 
 	Optional<PurchaseOrder> findByPurchaseOrderIdAndBuyerOrgAccountId(Long purchaseOrderId, Long orgId);

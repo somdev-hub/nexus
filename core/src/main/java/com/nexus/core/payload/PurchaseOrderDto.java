@@ -23,6 +23,38 @@ public class PurchaseOrderDto {
 	// Read alias for createdAt (UI "Order Date" column).
 	private java.sql.Timestamp orderDate;
 
+	// Audit trail (UI "Notes & Audit" card). createdAt/updatedAt come from
+	// BaseEntity; createdBy/updatedBy carry the acting org's display name
+	// (Core has no user auditor, only org context).
+	private java.sql.Timestamp createdAt;
+
+	private java.sql.Timestamp updatedAt;
+
+	private String createdBy;
+
+	private String updatedBy;
+
+	private java.sql.Timestamp approvedAt;
+
+	// Supplier-side acknowledgement detail (UI supplier order views).
+	// Populated on acknowledgement; null before the supplier acts.
+	private String supplierNotes;
+
+	private Date confirmedDeliveryDate;
+
+	private java.sql.Timestamp acknowledgedAt;
+
+	private String acknowledgedBy;
+
+	private java.sql.Timestamp sentToSupplierAt;
+
+	// Shipment progress (supplier order views only; null elsewhere).
+	// totalShippedQuantity = Σ shippedQuantity over the PO's partial
+	// shipments; remainingQuantity = max(0, ordered - shipped).
+	private Double totalShippedQuantity;
+
+	private Double remainingQuantity;
+
 	private String buyerOrgName;
 
 	private String supplierOrgName;

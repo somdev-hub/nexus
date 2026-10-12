@@ -124,18 +124,21 @@ public class LogisticsExecutionServiceImpl implements LogisticsExecutionService 
         Shipment saved = shipmentRepo.save(shipment);
 
         // Optional immediate pickup: the carrier collects the goods right
-        // away. Actual pickup is stamped, the shipment moves to PICKED_UP
-        // (which also flips the linked PO), and the expected delivery is
-        // computed from the route capacity's average delivery time.
+        // away. Actual pickup is stamped and the shipment moves to PICKED_UP
+        // (which also flips the linked PO).
         boolean startPickup = assignment != null && Boolean.TRUE.equals(toBoolean(assignment.get("startPickup")));
-        Timestamp pickupAt = null;
-        Timestamp expectedAt = null;
         if (startPickup) {
-            pickupAt = Timestamp.valueOf(LocalDateTime.now());
+            Timestamp pickupAt = Timestamp.valueOf(LocalDateTime.now());
             saved.setActualDeparture(pickupAt);
             shipmentRepo.save(saved);
             shipmentService.transitionShipmentStatus(saved.getShipmentId(), ShipmentStatus.PICKED_UP, Map.of());
-            expectedAt = computeExpectedDelivery(saved);
+        }
+        // Expected delivery is filled on every assignment, not only when
+        // pickup starts immediately (computeExpectedDelivery bases on the
+        // actual departure when known, otherwise on now). Never overwrites
+        // an ETA that is already set.
+        if (saved.getEstimatedArrival() == null) {
+            Timestamp expectedAt = computeExpectedDelivery(saved);
             if (expectedAt != null) {
                 saved.setEstimatedArrival(expectedAt);
                 shipmentRepo.save(saved);
@@ -152,8 +155,8 @@ public class LogisticsExecutionServiceImpl implements LogisticsExecutionService 
         resp.put("shipmentId", saved.getShipmentId());
         resp.put("shipmentNumber", saved.getShipmentNumber());
         resp.put("status", startPickup ? ShipmentStatus.PICKED_UP.name() : ShipmentStatus.ASSIGNED.name());
-        resp.put("actualDeparture", pickupAt != null ? pickupAt.toString() : null);
-        resp.put("estimatedArrival", expectedAt != null ? expectedAt.toString() : null);
+        resp.put("actualDeparture", saved.getActualDeparture() != null ? saved.getActualDeparture().toString() : null);
+        resp.put("estimatedArrival", saved.getEstimatedArrival() != null ? saved.getEstimatedArrival().toString() : null);
         return ResponseEntity.ok(resp);
     }
 

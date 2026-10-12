@@ -2440,10 +2440,26 @@ public class CoreRetailerServiceImpl implements CoreRetailerService {
 	// ASN / POD / Buyer Quotation passthroughs (Core P1)
 	// ============================================
 	@Override
+	public ResponseEntity<?> getAllAsns(String authToken, String orgIdHeader, Pageable pageable) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = buildPaginatedUrl(webConstants.getCoreServiceUrl() + "/core/asn/all", pageable);
+		return restService.iamRestCall(url, null, headers, HttpMethod.GET, null);
+	}
+
+	@Override
 	public ResponseEntity<?> getAsnByPurchaseOrder(Long poId, String authToken, String orgIdHeader) {
 		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
 		headers.put("X-Organization-ID", orgIdHeader);
 		String url = webConstants.getCoreServiceUrl() + "/core/asn/purchase-order/" + poId;
+		return restService.iamRestCall(url, null, headers, HttpMethod.GET, null);
+	}
+
+	@Override
+	public ResponseEntity<?> getAsnByPurchaseOrderNumber(String poNumber, String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCoreServiceUrl() + "/core/asn/purchase-order-number/" + poNumber;
 		return restService.iamRestCall(url, null, headers, HttpMethod.GET, null);
 	}
 

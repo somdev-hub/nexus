@@ -149,6 +149,8 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 		po.setPartnership(partnership);
 		po.setSupplierOrg(resolveSupplierOrg(buyerOrg, supplier, partnership));
 		po.setStatus(PurchaseOrderStatus.DRAFT);
+		po.setCreatedBy(buyerOrg.getName());
+		po.setUpdatedBy(buyerOrg.getName());
 		po.setCurrency(poDto.getCurrency());
 		po.setPaymentTerms(poDto.getPaymentTerms());
 		po.setIncoterms(poDto.getIncoterms());
@@ -319,6 +321,9 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 		po.setBlanketStartDate(poDto.getBlanketStartDate());
 		po.setBlanketEndDate(poDto.getBlanketEndDate());
 		po.setReleaseSchedule(poDto.getReleaseSchedule());
+		if (po.getBuyerOrg() != null) {
+			po.setUpdatedBy(po.getBuyerOrg().getName());
+		}
 
 		// Update line items - replace all
 		po.getLineItems().clear();
@@ -537,6 +542,16 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 		dto.setBlanketEndDate(po.getBlanketEndDate());
 		dto.setReleaseSchedule(po.getReleaseSchedule());
 		dto.setApprovedBy(po.getApprovedBy());
+		dto.setApprovedAt(po.getApprovedAt());
+		dto.setSupplierNotes(po.getSupplierNotes());
+		dto.setConfirmedDeliveryDate(po.getConfirmedDeliveryDate());
+		dto.setAcknowledgedAt(po.getAcknowledgedAt());
+		dto.setAcknowledgedBy(po.getAcknowledgedBy());
+		dto.setSentToSupplierAt(po.getSentToSupplierAt());
+		dto.setCreatedAt(po.getCreatedAt());
+		dto.setUpdatedAt(po.getUpdatedAt());
+		dto.setCreatedBy(po.getCreatedBy());
+		dto.setUpdatedBy(po.getUpdatedBy());
 		dto.setRejectionReason(po.getRejectionReason());
 		dto.setApprovalLevel(po.getApprovalLevel());
 		dto.setRequiredApproverLevel(po.getRequiredApproverLevel());
@@ -604,6 +619,9 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 
 		// Execute transition
 		executeTransition(po, currentStatus, newStatus, params);
+		if (po.getBuyerOrg() != null) {
+			po.setUpdatedBy(po.getBuyerOrg().getName());
+		}
 
 		// If AUTO approval was triggered, the status would have been changed to
 		// APPROVED in executeTransition

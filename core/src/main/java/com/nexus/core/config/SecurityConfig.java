@@ -119,6 +119,8 @@ public class SecurityConfig {
 						.requestMatchers("/core/stocks/**").authenticated()
 						.requestMatchers("/core/stock-movements/**").authenticated()
 						.requestMatchers("/core/goods-receipts/**").authenticated()
+						.requestMatchers("/core/asn/**").authenticated()
+						.requestMatchers("/core/quotations/**").authenticated()
 						.requestMatchers("/core/invoices/**").authenticated()
 						.requestMatchers("/core/three-way-match/**").authenticated()
 						.requestMatchers("/core/shipments/**").authenticated()

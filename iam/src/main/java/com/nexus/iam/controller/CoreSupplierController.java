@@ -635,6 +635,13 @@ public class CoreSupplierController {
 		return supplierService.getAsnByPurchaseOrder(poId, auth, org);
 	}
 
+	@LogActivity("Get ASN by PO Number for Supplier")
+	@GetMapping("/asn/purchase-order-number/{poNumber}")
+	public ResponseEntity<?> getAsnByPurchaseOrderNumber(@PathVariable String poNumber,
+			@RequestHeader("Authorization") String auth, @RequestHeader("X-Organization-ID") String org) {
+		return supplierService.getAsnByPurchaseOrderNumber(poNumber, auth, org);
+	}
+
 	@LogActivity("Get Shipment POD for Supplier")
 	@GetMapping("/shipments/{shipmentId}/pod")
 	public ResponseEntity<?> getShipmentPod(@PathVariable Long shipmentId,

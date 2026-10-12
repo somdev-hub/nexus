@@ -121,6 +121,7 @@ public interface CoreSupplierService {
 
     // ASN / POD passthroughs (Core P1)
     ResponseEntity<?> getAsnByPurchaseOrder(Long poId, String authToken, String orgId);
+    ResponseEntity<?> getAsnByPurchaseOrderNumber(String poNumber, String authToken, String orgId);
     ResponseEntity<?> getShipmentPod(Long shipmentId, String authToken, String orgId);
 
     // Partnerships visible to this org (primary OR secondary side)

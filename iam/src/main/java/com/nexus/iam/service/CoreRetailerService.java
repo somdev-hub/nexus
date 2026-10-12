@@ -445,7 +445,9 @@ public interface CoreRetailerService {
 	ResponseEntity<?> getSupplyChainVisibility(Long purchaseOrderId, String authToken, String orgIdHeader);
 
 	// ASN / POD / Buyer Quotation passthroughs (Core P1)
+	ResponseEntity<?> getAllAsns(String authToken, String orgIdHeader, Pageable pageable);
 	ResponseEntity<?> getAsnByPurchaseOrder(Long poId, String authToken, String orgIdHeader);
+	ResponseEntity<?> getAsnByPurchaseOrderNumber(String poNumber, String authToken, String orgIdHeader);
 
 	ResponseEntity<?> getShipmentPod(Long id, String authToken, String orgIdHeader);
 

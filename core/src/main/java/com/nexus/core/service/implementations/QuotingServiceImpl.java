@@ -126,6 +126,17 @@ public class QuotingServiceImpl implements QuotingService {
             }
             row.put("routeCapacityId", route.getForecastId());
         }
+        // City names for the board's Pickup / Delivery display: the matched
+        // lane ends when a route covers the shipment, else the raw location
+        // text (which carries the city) so the field is never blank.
+        row.put("pickupCity", route != null && route.getOriginLane() != null
+                && !route.getOriginLane().isBlank()
+                        ? route.getOriginLane()
+                        : s.getPickupLocation());
+        row.put("deliveryCity", route != null && route.getDestinationLane() != null
+                && !route.getDestinationLane().isBlank()
+                        ? route.getDestinationLane()
+                        : s.getDeliveryLocation());
         row.put("pickupLocation", s.getPickupLocation());
         row.put("pickupAddress", s.getPickupAddress());
         row.put("deliveryLocation", s.getDeliveryLocation());

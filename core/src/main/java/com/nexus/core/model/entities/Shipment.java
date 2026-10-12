@@ -76,6 +76,12 @@ public class Shipment extends BaseEntity {
 	@Column(name = "backordered_quantity")
 	private Double backorderedQuantity = 0.0;
 
+	// Quantity loaded on this dispatch (units). Stored at partial-ship
+	// time so per-PO shipped/remaining totals stay exact across any
+	// number of partial shipments.
+	@Column(name = "shipped_quantity")
+	private Double shippedQuantity;
+
 	@Enumerated(EnumType.STRING)
 	private ShipmentStatus status = ShipmentStatus.DRAFT;
 

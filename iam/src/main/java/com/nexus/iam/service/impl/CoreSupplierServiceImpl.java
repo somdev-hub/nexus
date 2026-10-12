@@ -548,6 +548,12 @@ public class CoreSupplierServiceImpl implements CoreSupplierService {
 	}
 
 	@Override
+	public ResponseEntity<?> getAsnByPurchaseOrderNumber(String poNumber, String authToken, String orgId) {
+		String url = webConstants.getCoreServiceUrl() + "/core/asn/purchase-order-number/" + poNumber;
+		return callGet(url, authToken, orgId);
+	}
+
+	@Override
 	public ResponseEntity<?> getShipmentPod(Long shipmentId, String authToken, String orgId) {
 		String url = webConstants.getCoreShipmentBaseUrl() + "/" + shipmentId + "/pod";
 		return callGet(url, authToken, orgId);
