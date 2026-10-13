@@ -140,6 +140,17 @@ public interface CoreSupplierService {
     ResponseEntity<?> requestSupplierContractAmendments(Long id, String comments, String decidedBy, String authToken, String orgId);
     ResponseEntity<?> getSupplierContractDocumentContent(Long id, String authToken, String orgId);
 
+    // Shared goods receipts (retailer sends GRs for validation/invoicing)
+    ResponseEntity<?> getSupplierGoodsReceipts(String status, String authToken, String orgId, Pageable pageable);
+    ResponseEntity<?> getSupplierGoodsReceipt(Long id, String authToken, String orgId);
+
+    // Supplier-raised invoicing (supplier builds + submits, retailer reviews)
+    ResponseEntity<?> createSupplierInvoice(Map<String, Object> dto, String authToken, String orgId);
+    ResponseEntity<?> getSupplierInvoice(Long id, String authToken, String orgId);
+    ResponseEntity<?> getSupplierInvoices(String status, Long purchaseOrderId, String authToken, String orgId, Pageable pageable);
+    ResponseEntity<?> updateSupplierInvoice(Long id, Map<String, Object> dto, String authToken, String orgId);
+    ResponseEntity<?> transitionSupplierInvoice(Long id, String newStatus, Map<String, Object> params, String authToken, String orgId);
+
     // Supplier-owned delivery: logistics marketplace + shipment handover
     ResponseEntity<?> getAvailableLogistics(String search, String authToken, String orgId, Pageable pageable);
     ResponseEntity<?> getSupplierLogisticsPartnerships(String authToken, String orgId, Pageable pageable);
@@ -153,4 +164,8 @@ public interface CoreSupplierService {
     ResponseEntity<?> respondToLogisticsQuotation(Long id, Map<String, Object> dto, String authToken, String orgId);
     ResponseEntity<?> getMyPrivateRoutes(String authToken, String orgId, Pageable pageable);
     ResponseEntity<?> terminateLogisticsPartnership(Long id, Map<String, Object> dto, String authToken, String orgId);
+
+    // Supplier live tracking (same simulation as the logistics board)
+    ResponseEntity<?> getSupplierShipmentPosition(Long shipmentId, String authToken, String orgId);
+    ResponseEntity<?> getSupplierShipmentEta(Long shipmentId, String authToken, String orgId);
 }

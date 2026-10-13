@@ -63,6 +63,13 @@ public class Invoice extends BaseEntity {
 	@Column(name = "total_amount", precision = 19, scale = 4)
 	private java.math.BigDecimal totalAmount;
 
+	// Supplier-raised charges on top of the line totals.
+	@Column(name = "tax_amount", precision = 19, scale = 4)
+	private java.math.BigDecimal taxAmount;
+
+	@Column(name = "other_charges", precision = 19, scale = 4)
+	private java.math.BigDecimal otherCharges;
+
 	@Column(name = "currency")
 	private String currency = "USD";
 
@@ -118,8 +125,11 @@ public class Invoice extends BaseEntity {
 	}
 
 	public void recalculateTotal() {
-		this.totalAmount = lineItems.stream()
+		BigDecimal lines = lineItems.stream()
 				.map(item -> item.getLineTotal() != null ? item.getLineTotal() : BigDecimal.ZERO)
 				.reduce(BigDecimal.ZERO, BigDecimal::add);
+		this.totalAmount = lines
+				.add(taxAmount != null ? taxAmount : BigDecimal.ZERO)
+				.add(otherCharges != null ? otherCharges : BigDecimal.ZERO);
 	}
 }

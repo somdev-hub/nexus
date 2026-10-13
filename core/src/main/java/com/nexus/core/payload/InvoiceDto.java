@@ -3,7 +3,6 @@ package com.nexus.core.payload;
 import java.sql.Date;
 import java.util.List;
 
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
@@ -13,7 +12,7 @@ public class InvoiceDto {
 
 	private Long invoiceId;
 
-	@NotBlank(message = "Invoice number is required")
+	// Auto-generated server-side when blank (INV-<year>-<6 digits>).
 	private String invoiceNumber;
 
 	@NotNull(message = "Purchase order is required")
@@ -30,6 +29,10 @@ public class InvoiceDto {
 	private Date dueDate;
 
 	private java.math.BigDecimal totalAmount;
+
+	private java.math.BigDecimal taxAmount;
+
+	private java.math.BigDecimal otherCharges;
 
 	private String currency = "USD";
 

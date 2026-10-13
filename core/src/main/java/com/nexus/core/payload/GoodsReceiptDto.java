@@ -3,7 +3,6 @@ package com.nexus.core.payload;
 import java.sql.Date;
 import java.util.List;
 
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
@@ -13,7 +12,7 @@ public class GoodsReceiptDto {
 
 	private Long goodsReceiptId;
 
-	@NotBlank(message = "GR number is required")
+	// Auto-generated server-side when blank (GR-<epoch millis>).
 	private String grNumber;
 
 	@NotNull(message = "Purchase order is required")

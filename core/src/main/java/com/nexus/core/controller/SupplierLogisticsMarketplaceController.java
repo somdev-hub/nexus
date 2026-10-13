@@ -65,6 +65,18 @@ public class SupplierLogisticsMarketplaceController {
         return marketplaceService.handoverShipment(shipmentId, body);
     }
 
+    @GetMapping("/shipments/{shipmentId}/position")
+    @LogActivity("Get Supplier Shipment Live Position")
+    public ResponseEntity<?> getShipmentPosition(@PathVariable Long shipmentId) {
+        return marketplaceService.getShipmentPosition(shipmentId);
+    }
+
+    @GetMapping("/shipments/{shipmentId}/eta")
+    @LogActivity("Get Supplier Shipment ETA")
+    public ResponseEntity<?> getShipmentEta(@PathVariable Long shipmentId) {
+        return marketplaceService.getShipmentEta(shipmentId);
+    }
+
     @GetMapping("/quotations")
     @LogActivity("Get Supplier Logistics Quotations")
     public ResponseEntity<?> getMyQuotations(

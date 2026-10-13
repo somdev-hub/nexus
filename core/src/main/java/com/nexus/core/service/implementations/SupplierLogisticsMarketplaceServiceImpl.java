@@ -34,8 +34,10 @@ import com.nexus.core.repository.PartnershipRepo;
 import com.nexus.core.repository.PurchaseOrderRepo;
 import com.nexus.core.repository.ShipmentRepo;
 import com.nexus.core.security.OrganizationContextHolder;
+import com.nexus.core.service.interfaces.LogisticsExecutionService;
 import com.nexus.core.service.interfaces.PartnershipInvitationService;
 import com.nexus.core.service.interfaces.SupplierLogisticsMarketplaceService;
+import com.nexus.core.utils.RouteCapacityMatcher;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -52,6 +54,7 @@ public class SupplierLogisticsMarketplaceServiceImpl implements SupplierLogistic
     private final PurchaseOrderRepo purchaseOrderRepo;
     private final AccountRepository accountRepo;
     private final PartnershipInvitationService invitationService;
+    private final LogisticsExecutionService executionService;
 
     private static String blankToNull(String s) {
         return (s == null || s.isBlank()) ? null : s;
@@ -259,8 +262,20 @@ public class SupplierLogisticsMarketplaceServiceImpl implements SupplierLogistic
         shipment.setPartnership(partnership);
         if (body.get("pickupLocation") != null) shipment.setPickupLocation(body.get("pickupLocation").toString());
         if (body.get("deliveryLocation") != null) shipment.setDeliveryLocation(body.get("deliveryLocation").toString());
-        if (body.get("pickupDate") != null) shipment.setPickupDate(Date.valueOf(body.get("pickupDate").toString()));
-        if (body.get("deliveryDate") != null) shipment.setDeliveryDate(Date.valueOf(body.get("deliveryDate").toString()));
+        if (body.get("pickupDate") != null && !body.get("pickupDate").toString().isBlank()) {
+            shipment.setPickupDate(Date.valueOf(body.get("pickupDate").toString()));
+        } else if (shipment.getPickupDate() == null) {
+            shipment.setPickupDate(new Date(System.currentTimeMillis()));
+        }
+        if (body.get("deliveryDate") != null && !body.get("deliveryDate").toString().isBlank()) {
+            shipment.setDeliveryDate(Date.valueOf(body.get("deliveryDate").toString()));
+        } else if (shipment.getDeliveryDate() == null && shipment.getPurchaseOrder() != null) {
+            if (shipment.getPurchaseOrder().getExpectedDeliveryDate() != null) {
+                shipment.setDeliveryDate(shipment.getPurchaseOrder().getExpectedDeliveryDate());
+            } else if (shipment.getPurchaseOrder().getRequestedDeliveryDate() != null) {
+                shipment.setDeliveryDate(shipment.getPurchaseOrder().getRequestedDeliveryDate());
+            }
+        }
         if (body.get("notes") != null) shipment.setNotes(body.get("notes").toString());
         // Persist the transport mode from the matched route capacity so the
         // load board shows it even though the shipment carries none.
@@ -357,8 +372,22 @@ public class SupplierLogisticsMarketplaceServiceImpl implements SupplierLogistic
             row.put("pickupAddress", s.getPickupAddress());
             row.put("deliveryLocation", s.getDeliveryLocation());
             row.put("deliveryAddress", s.getDeliveryAddress());
-            row.put("pickupDate", s.getPickupDate() != null ? s.getPickupDate().toString() : null);
-            row.put("deliveryDate", s.getDeliveryDate() != null ? s.getDeliveryDate().toString() : null);
+            // Read-time fallbacks so legacy rows (created before planned
+            // dates were defaulted) still show something sensible: pickup
+            // falls back to creation day, delivery to the PO's expected
+            // (else requested) date.
+            String pickupDate = s.getPickupDate() != null ? s.getPickupDate().toString()
+                    : (s.getCreatedAt() != null ? s.getCreatedAt().toLocalDateTime().toLocalDate().toString() : null);
+            row.put("pickupDate", pickupDate);
+            String deliveryDate = s.getDeliveryDate() != null ? s.getDeliveryDate().toString() : null;
+            if (deliveryDate == null && s.getPurchaseOrder() != null) {
+                if (s.getPurchaseOrder().getExpectedDeliveryDate() != null) {
+                    deliveryDate = s.getPurchaseOrder().getExpectedDeliveryDate().toString();
+                } else if (s.getPurchaseOrder().getRequestedDeliveryDate() != null) {
+                    deliveryDate = s.getPurchaseOrder().getRequestedDeliveryDate().toString();
+                }
+            }
+            row.put("deliveryDate", deliveryDate);
             row.put("trackingNumber", s.getTrackingNumber());
             row.put("carrierName", s.getCarrierName());
             row.put("carrierReference", s.getCarrierReference());
@@ -377,10 +406,39 @@ public class SupplierLogisticsMarketplaceServiceImpl implements SupplierLogistic
             row.put("actualFreightCost", s.getActualFreightCost());
             row.put("currency", s.getCurrency());
             row.put("freightTerms", s.getFreightTerms());
+            // The freight cost lives on the logistics route capacity, not
+            // on the shipment: attach the matched lane's pricing so the
+            // supplier can see what the move costs.
+            try {
+                CapacityForecast lane = matchLaneForShipment(s);
+                if (lane != null) {
+                    Map<String, Object> laneCost = new LinkedHashMap<>();
+                    laneCost.put("forecastId", lane.getForecastId());
+                    laneCost.put("originLane", lane.getOriginLane());
+                    laneCost.put("destinationLane", lane.getDestinationLane());
+                    laneCost.put("unitPrice", lane.getUnitPrice());
+                    laneCost.put("currency", lane.getCurrency());
+                    laneCost.put("capacityUnit",
+                            lane.getCapacityUnit() != null ? lane.getCapacityUnit().name() : null);
+                    laneCost.put("fuelSurcharge", lane.getFuelSurcharge());
+                    laneCost.put("driverFees", lane.getDriverFees());
+                    laneCost.put("miscPrice", lane.getMiscPrice());
+                    laneCost.put("totalDistance", lane.getTotalDistance());
+                    row.put("laneCost", laneCost);
+                }
+            } catch (Exception e) {
+                log.warn("Skipping lane costing for shipment {}: {}",
+                        s.getShipmentId(), e.getMessage());
+            }
             row.put("notes", s.getNotes());
             row.put("backorderedQuantity", s.getBackorderedQuantity());
             row.put("isPartialShipment", s.getIsPartialShipment());
-            row.put("estimatedDeparture", s.getEstimatedDeparture() != null ? s.getEstimatedDeparture().toString() : null);
+            // Estimated departure falls back down the timeline that exists
+            // (actual pickup, else creation) so legacy rows are not blank.
+            String estimatedDeparture = s.getEstimatedDeparture() != null ? s.getEstimatedDeparture().toString()
+                    : (s.getActualDeparture() != null ? s.getActualDeparture().toString()
+                            : (s.getCreatedAt() != null ? s.getCreatedAt().toString() : null));
+            row.put("estimatedDeparture", estimatedDeparture);
             row.put("actualDeparture", s.getActualDeparture() != null ? s.getActualDeparture().toString() : null);
             row.put("estimatedArrival", s.getEstimatedArrival() != null ? s.getEstimatedArrival().toString() : null);
             row.put("actualArrival", s.getActualArrival() != null ? s.getActualArrival().toString() : null);
@@ -389,6 +447,62 @@ public class SupplierLogisticsMarketplaceServiceImpl implements SupplierLogistic
             rows.add(row);
         }
         return ResponseEntity.ok(new PageImpl<>(rows, pageable, page.getTotalElements()));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ResponseEntity<?> getShipmentPosition(Long shipmentId) {
+        requireSupplierShipment(shipmentId);
+        return executionService.getShipmentPosition(shipmentId);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ResponseEntity<?> getShipmentEta(Long shipmentId) {
+        requireSupplierShipment(shipmentId);
+        return executionService.getShipmentEta(shipmentId);
+    }
+
+    private void requireSupplierShipment(Long shipmentId) {
+        Long orgId = OrganizationContextHolder.requireOrganizationId();
+        Shipment shipment = shipmentRepo.findById(shipmentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Shipment", "shipmentId", shipmentId));
+        if (shipment.getSupplierOrg() == null || !shipment.getSupplierOrg().getAccountId().equals(orgId)) {
+            throw new ValidationException("Shipment does not belong to your supplier organization");
+        }
+    }
+
+    /**
+     * Lane covering a shipment for costing display: the partnership's
+     * linked route first, then its private lanes, then the logistics
+     * org's lanes, then any public lane (same chain as handover).
+     */
+    private CapacityForecast matchLaneForShipment(Shipment s) {
+        if (s.getPartnership() == null || s.getLogisticsOrg() == null
+                || s.getLogisticsOrg().getAccountId() == null) {
+            return null;
+        }
+        Long logisticsOrgId = s.getLogisticsOrg().getAccountId();
+        String pickup = s.getPickupLocation() != null ? s.getPickupLocation() : s.getPickupAddress();
+        String delivery = s.getDeliveryLocation() != null ? s.getDeliveryLocation() : s.getDeliveryAddress();
+        Partnership p = s.getPartnership();
+        if (p.getLinkedCapacityForecastId() != null) {
+            CapacityForecast linked = capacityRepo.findById(p.getLinkedCapacityForecastId()).orElse(null);
+            if (linked != null && RouteCapacityMatcher.routeCovers(linked, pickup, delivery)) {
+                return linked;
+            }
+        }
+        List<CapacityForecast> privates = capacityRepo
+                .findByPartnershipPartnershipId(p.getPartnershipId(), Pageable.unpaged()).getContent();
+        CapacityForecast hit = RouteCapacityMatcher.matchWithMode(privates, pickup, delivery);
+        if (hit != null) return hit;
+        List<CapacityForecast> orgLanes = capacityRepo
+                .findByOrgWithFilters(logisticsOrgId, null, null, Pageable.unpaged()).getContent();
+        hit = RouteCapacityMatcher.matchWithMode(orgLanes, pickup, delivery);
+        if (hit != null) return hit;
+        return RouteCapacityMatcher.matchWithMode(
+                capacityRepo.findMarketplaceAvailabilities(null, Pageable.unpaged()).getContent(),
+                pickup, delivery);
     }
 
     private Partnership resolveActiveLogisticsPartnership(Long supplierOrgId, Long logisticsOrgId, Object partnershipIdRaw) {

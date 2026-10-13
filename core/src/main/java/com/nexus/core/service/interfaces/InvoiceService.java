@@ -19,4 +19,18 @@ public interface InvoiceService {
 
 	ResponseEntity<?> transitionStatus(Long id, com.nexus.core.model.enums.InvoiceStatus newStatus,
 			Map<String, Object> params);
+
+	// Supplier-raised invoicing: the supplier builds the invoice (charges,
+	// taxes) from a shared goods receipt and submits it; the retailer only
+	// reviews, approves/rejects and pays.
+	ResponseEntity<?> createSupplierInvoice(InvoiceDto invoiceDto);
+
+	ResponseEntity<?> getSupplierInvoiceById(Long id);
+
+	ResponseEntity<?> getSupplierInvoices(String status, Long purchaseOrderId, Pageable pageable);
+
+	ResponseEntity<?> updateSupplierInvoice(Long id, InvoiceDto invoiceDto);
+
+	ResponseEntity<?> transitionSupplierInvoice(Long id, com.nexus.core.model.enums.InvoiceStatus newStatus,
+			Map<String, Object> params);
 }

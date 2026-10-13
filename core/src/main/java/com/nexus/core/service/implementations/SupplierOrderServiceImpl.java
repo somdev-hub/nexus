@@ -28,6 +28,7 @@ import com.nexus.core.model.enums.ShipmentStatus;
 import com.nexus.core.repository.AccountRepository;
 import com.nexus.core.repository.AdvanceShipmentNoticeRepo;
 import com.nexus.core.repository.CapacityForecastRepo;
+import com.nexus.core.repository.GoodsReceiptRepo;
 import com.nexus.core.repository.PartnershipRepo;
 import com.nexus.core.repository.PurchaseOrderRepo;
 import com.nexus.core.repository.ShipmentRepo;
@@ -46,6 +47,7 @@ public class SupplierOrderServiceImpl implements SupplierOrderService {
     private final PurchaseOrderRepo poRepo;
     private final ShipmentRepo shipmentRepo;
     private final AdvanceShipmentNoticeRepo asnRepo;
+    private final GoodsReceiptRepo goodsReceiptRepo;
     private final AccountRepository accountRepo;
     private final PartnershipRepo partnershipRepo;
     private final CapacityForecastRepo capacityForecastRepo;
@@ -170,6 +172,29 @@ public class SupplierOrderServiceImpl implements SupplierOrderService {
         if (shipmentDto.containsKey("notes")) shipment.setNotes(shipmentDto.get("notes").toString());
         if (shipmentDto.containsKey("pickupLocation")) shipment.setPickupLocation(shipmentDto.get("pickupLocation").toString());
         if (shipmentDto.containsKey("deliveryLocation")) shipment.setDeliveryLocation(shipmentDto.get("deliveryLocation").toString());
+        // Freight costing captured at handover time (supplier-quoted).
+        if (shipmentDto.get("freightCost") != null) shipment.setFreightCost(toDouble(shipmentDto.get("freightCost")));
+        if (shipmentDto.get("currency") != null && !shipmentDto.get("currency").toString().isBlank()) {
+            shipment.setCurrency(shipmentDto.get("currency").toString());
+        }
+        if (shipmentDto.containsKey("freightTerms") && shipmentDto.get("freightTerms") != null
+                && !shipmentDto.get("freightTerms").toString().isBlank()) {
+            shipment.setFreightTerms(shipmentDto.get("freightTerms").toString());
+        }
+        // Planned dates default sensibly when the caller omits them: pickup
+        // today, delivery per the PO's expected (else requested) date.
+        if (shipmentDto.get("pickupDate") != null && !shipmentDto.get("pickupDate").toString().isBlank()) {
+            shipment.setPickupDate(Date.valueOf(shipmentDto.get("pickupDate").toString()));
+        } else {
+            shipment.setPickupDate(new Date(System.currentTimeMillis()));
+        }
+        if (shipmentDto.get("deliveryDate") != null && !shipmentDto.get("deliveryDate").toString().isBlank()) {
+            shipment.setDeliveryDate(Date.valueOf(shipmentDto.get("deliveryDate").toString()));
+        } else if (po.getExpectedDeliveryDate() != null) {
+            shipment.setDeliveryDate(po.getExpectedDeliveryDate());
+        } else if (po.getRequestedDeliveryDate() != null) {
+            shipment.setDeliveryDate(po.getRequestedDeliveryDate());
+        }
 
         // Package facts: totals derive from per-package values when the
         // caller leaves them empty (packages × weight, packages × L×W×H).
@@ -331,10 +356,43 @@ public class SupplierOrderServiceImpl implements SupplierOrderService {
                 .orElseThrow(() -> new ResourceNotFoundException("PurchaseOrder", "purchaseOrderId", id));
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public ResponseEntity<?> getSupplierGoodsReceipts(String status, Pageable pageable) {
+        Long orgId = OrganizationContextHolder.requireOrganizationId();
+        com.nexus.core.model.enums.GoodsReceiptStatus st = null;
+        if (status != null && !status.isBlank()) {
+            try {
+                st = com.nexus.core.model.enums.GoodsReceiptStatus.valueOf(status.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                return ResponseEntity.ok(new org.springframework.data.domain.PageImpl<>(List.of(), pageable, 0));
+            }
+        }
+        var page = goodsReceiptRepo.findSharedWithSupplierOrg(orgId, st, pageable);
+        var dtos = page.getContent().stream()
+                .map(GoodsReceiptServiceImpl::toDto)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(new org.springframework.data.domain.PageImpl<>(dtos, pageable, page.getTotalElements()));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ResponseEntity<?> getSupplierGoodsReceipt(Long id) {
+        Long orgId = OrganizationContextHolder.requireOrganizationId();
+        com.nexus.core.model.entities.GoodsReceipt gr =
+                goodsReceiptRepo.findSharedByIdAndSupplierOrg(id, orgId);
+        if (gr == null) {
+            throw new ResourceNotFoundException("GoodsReceipt", "goodsReceiptId", id);
+        }
+        return ResponseEntity.ok(GoodsReceiptServiceImpl.toDto(gr));
+    }
+
     /**
-     * Shipment progress for the supplier orders table: total shipped across
-     * the PO's partial shipments and what is still left to ship. Drives the
-     * "hide Partial Ship when fully shipped" rule in the UI.
+     * Shipment info for the supplier orders table, in one pass over the
+     * PO's partial shipments: total shipped / remaining (drives the "hide
+     * Partial Ship when fully shipped" rule) plus the latest dispatch refs
+     * (powers the ASN/Shipment column + POD viewer without a second
+     * round-trip).
      */
     private com.nexus.core.payload.PurchaseOrderDto withShipmentProgress(
             com.nexus.core.payload.PurchaseOrderDto dto, PurchaseOrder po) {
@@ -344,19 +402,35 @@ public class SupplierOrderServiceImpl implements SupplierOrderService {
                     .mapToDouble(li -> li.getQuantityOrdered() != null ? li.getQuantityOrdered() : 0)
                     .sum();
         }
-        double shipped = 0.0;
         try {
-            shipped = shipmentRepo
+            List<Shipment> shipments = shipmentRepo
                     .findByPurchaseOrderPurchaseOrderIdAndIsPartialShipmentTrue(
                             po.getPurchaseOrderId(), Pageable.unpaged())
-                    .getContent().stream()
+                    .getContent();
+            double shipped = shipments.stream()
                     .mapToDouble(s -> s.getShippedQuantity() != null ? s.getShippedQuantity() : 0)
                     .sum();
+            dto.setTotalShippedQuantity(shipped);
+            dto.setRemainingQuantity(Math.max(0, ordered - shipped));
+            shipments.stream()
+                    .filter(s -> s.getShipmentId() != null)
+                    .max(java.util.Comparator.comparing(Shipment::getShipmentId))
+                    .ifPresent(latest -> {
+                        dto.setShipmentId(latest.getShipmentId());
+                        dto.setShipmentNumber(latest.getShipmentNumber());
+                    });
         } catch (Exception e) {
             log.warn("Skipping shipment progress for PO {}: {}", po.getPurchaseOrderId(), e.getMessage());
         }
-        dto.setTotalShippedQuantity(shipped);
-        dto.setRemainingQuantity(Math.max(0, ordered - shipped));
+        try {
+            asnRepo.findByPurchaseOrderPurchaseOrderId(po.getPurchaseOrderId()).stream()
+                    .filter(a -> a.getAsnId() != null)
+                    .max(java.util.Comparator.comparing(
+                            com.nexus.core.model.entities.AdvanceShipmentNotice::getAsnId))
+                    .ifPresent(latest -> dto.setAsnNumber(latest.getAsnNumber()));
+        } catch (Exception e) {
+            log.warn("Skipping ASN ref for PO {}: {}", po.getPurchaseOrderId(), e.getMessage());
+        }
         return dto;
     }
 

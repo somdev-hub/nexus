@@ -22,4 +22,9 @@ public interface SupplierOrderService {
     ResponseEntity<?> getBackorderedOrders(Pageable pageable);
 
     ResponseEntity<?> getOrderSummary();
+
+    // Goods receipts the retailer shared for validation/invoicing.
+    ResponseEntity<?> getSupplierGoodsReceipts(String status, Pageable pageable);
+
+    ResponseEntity<?> getSupplierGoodsReceipt(Long id);
 }

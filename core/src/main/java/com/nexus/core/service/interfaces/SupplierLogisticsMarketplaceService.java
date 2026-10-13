@@ -26,4 +26,10 @@ public interface SupplierLogisticsMarketplaceService {
 
     // Supplier's shipments (handover tracking).
     ResponseEntity<?> getMyShipments(String status, Pageable pageable);
+
+    // Live tracking for a supplier-owned shipment (same simulation as the
+    // logistics board): supplier visibility is enforced before delegating.
+    ResponseEntity<?> getShipmentPosition(Long shipmentId);
+
+    ResponseEntity<?> getShipmentEta(Long shipmentId);
 }

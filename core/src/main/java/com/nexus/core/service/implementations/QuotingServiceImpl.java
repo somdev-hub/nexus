@@ -71,8 +71,11 @@ public class QuotingServiceImpl implements QuotingService {
         }
         final ShipmentMode shipmentMode = filterMode;
         final String searchFilter = search;
-        // Available loads: BOOKED/APPROVED shipments not yet assigned to this logistics org
-        Page<Shipment> page = shipmentRepo.findByLogisticsOrgAccountId(orgId, pageable);        // Route capacities for mode resolution: public lanes once, plus each
+        // Available loads: BOOKED/APPROVED shipments not yet assigned to this logistics org.
+        // Both sources are read unpaged, merged, de-duplicated, then sliced —
+        // paging the raw queries first would silently drop open demand.
+        List<Shipment> ownLoads = shipmentRepo.findByLogisticsOrgAccountId(orgId, Pageable.unpaged()).getContent();
+        // Route capacities for mode resolution: public lanes once, plus each
         // involved logistics org's own lanes (private included) cached.
         List<CapacityForecast> publicCapacities = capacityForecastRepo
                 .findMarketplaceAvailabilities(null, Pageable.unpaged()).getContent();
@@ -83,11 +86,11 @@ public class QuotingServiceImpl implements QuotingService {
         // picked up or beyond lives on the Picked Up tab instead.
         java.util.Set<ShipmentStatus> actionable = java.util.Set.of(
                 ShipmentStatus.BOOKED, ShipmentStatus.APPROVED, ShipmentStatus.ASSIGNED);
-        List<Map<String, Object>> mine = page.getContent().stream()
+        List<Map<String, Object>> mine = ownLoads.stream()
                 .filter(s -> s.getStatus() != null && actionable.contains(s.getStatus()))
                 .map(toRow).toList();
         // Also surface open demand: shipments in BOOKED status across partnerships (org-scoped view)
-        var open = shipmentRepo.findAll(pageable).stream()
+        var open = shipmentRepo.findAll(Pageable.unpaged()).getContent().stream()
                 .filter(s -> s.getStatus() == ShipmentStatus.BOOKED || s.getStatus() == ShipmentStatus.APPROVED)
                 .filter(s -> shipmentMode == null || s.getShipmentMode() == shipmentMode)
                 .filter(s -> searchFilter == null || searchFilter.isBlank()
@@ -102,7 +105,11 @@ public class QuotingServiceImpl implements QuotingService {
                 combined.add(dto);
             }
         }
-        return ResponseEntity.ok(new org.springframework.data.domain.PageImpl<>(combined, pageable, combined.size()));
+        int total = combined.size();
+        int start = (int) Math.min(pageable.getOffset(), total);
+        int end = Math.min(start + pageable.getPageSize(), total);
+        return ResponseEntity.ok(new org.springframework.data.domain.PageImpl<>(
+                combined.subList(start, end), pageable, total));
     }
 
     // Explicit load-board row: the legacy ShipmentDto uses different field

@@ -77,6 +77,12 @@ public class GoodsReceipt extends BaseEntity {
 	@Column(name = "cancelled_at")
 	private java.sql.Timestamp cancelledAt;
 
+	// Set when the retailer sends the receipt to the supplier for
+	// validation/invoicing. Only shared receipts are visible to the
+	// supplier org — drafts and unshared receipts stay private.
+	@Column(name = "shared_with_supplier")
+	private Boolean sharedWithSupplier = false;
+
 	@Version
 	private Long version = 0L;
 

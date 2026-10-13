@@ -631,6 +631,57 @@ public class CoreSupplierServiceImpl implements CoreSupplierService {
 		return callGet(supplierContractBaseUrl() + "/" + id + "/document-content", authToken, orgId);
 	}
 
+	// Shared goods receipts (retailer sends GRs for validation/invoicing)
+	@Override
+	public ResponseEntity<?> getSupplierGoodsReceipts(String status, String authToken, String orgId,
+			Pageable pageable) {
+		String url = buildPaginatedUrlWithFilters(webConstants.getCoreServiceUrl() + "/core/supplier/orders/goods-receipts/all",
+				pageable, "status", status);
+		return callGet(url, authToken, orgId);
+	}
+
+	@Override
+	public ResponseEntity<?> getSupplierGoodsReceipt(Long id, String authToken, String orgId) {
+		String url = webConstants.getCoreServiceUrl() + "/core/supplier/orders/goods-receipts/" + id;
+		return callGet(url, authToken, orgId);
+	}
+
+	// Supplier-raised invoicing (supplier builds + submits, retailer reviews)
+	private String supplierInvoiceBaseUrl() {
+		return webConstants.getCoreServiceUrl() + "/core/supplier/invoices";
+	}
+
+	@Override
+	public ResponseEntity<?> createSupplierInvoice(Map<String, Object> dto, String authToken, String orgId) {
+		return callPost(supplierInvoiceBaseUrl() + "/create", dto, authToken, orgId);
+	}
+
+	@Override
+	public ResponseEntity<?> getSupplierInvoice(Long id, String authToken, String orgId) {
+		return callGet(supplierInvoiceBaseUrl() + "/" + id, authToken, orgId);
+	}
+
+	@Override
+	public ResponseEntity<?> getSupplierInvoices(String status, Long purchaseOrderId, String authToken, String orgId,
+			Pageable pageable) {
+		String url = buildPaginatedUrlWithFilters(supplierInvoiceBaseUrl() + "/all", pageable, "status", status,
+				"purchaseOrderId", purchaseOrderId);
+		return callGet(url, authToken, orgId);
+	}
+
+	@Override
+	public ResponseEntity<?> updateSupplierInvoice(Long id, Map<String, Object> dto, String authToken,
+			String orgId) {
+		return callPut(supplierInvoiceBaseUrl() + "/" + id + "/update", dto, authToken, orgId);
+	}
+
+	@Override
+	public ResponseEntity<?> transitionSupplierInvoice(Long id, String newStatus, Map<String, Object> params,
+			String authToken, String orgId) {
+		String url = supplierInvoiceBaseUrl() + "/" + id + "/transition?newStatus=" + newStatus;
+		return callPut(url, params, authToken, orgId);
+	}
+
 	// Supplier-owned delivery: logistics marketplace + shipment handover
 	private String supplierLogisticsMarketplaceBaseUrl() {
 		return webConstants.getCoreServiceUrl() + "/core/supplier/logistics-marketplace";
@@ -697,6 +748,18 @@ public class CoreSupplierServiceImpl implements CoreSupplierService {
 	public ResponseEntity<?> terminateLogisticsPartnership(Long id, Map<String, Object> dto, String authToken,
 			String orgId) {
 		return callPost(supplierLogisticsMarketplaceBaseUrl() + "/partnerships/" + id + "/terminate", dto, authToken,
+				orgId);
+	}
+
+	@Override
+	public ResponseEntity<?> getSupplierShipmentPosition(Long shipmentId, String authToken, String orgId) {
+		return callGet(supplierLogisticsMarketplaceBaseUrl() + "/shipments/" + shipmentId + "/position", authToken,
+				orgId);
+	}
+
+	@Override
+	public ResponseEntity<?> getSupplierShipmentEta(Long shipmentId, String authToken, String orgId) {
+		return callGet(supplierLogisticsMarketplaceBaseUrl() + "/shipments/" + shipmentId + "/eta", authToken,
 				orgId);
 	}
 

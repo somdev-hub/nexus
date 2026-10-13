@@ -65,6 +65,20 @@ public class SupplierOrderController {
         return orderService.getPartialShipments(purchaseOrderId, pageable);
     }
 
+    @GetMapping("/goods-receipts/all")
+    @LogActivity("Get Shared Goods Receipts for Supplier")
+    public ResponseEntity<?> getSupplierGoodsReceipts(
+            @RequestParam(required = false) String status,
+            @PageableDefault(size = 20) Pageable pageable) {
+        return orderService.getSupplierGoodsReceipts(status, pageable);
+    }
+
+    @GetMapping("/goods-receipts/{id}")
+    @LogActivity("Get Shared Goods Receipt for Supplier")
+    public ResponseEntity<?> getSupplierGoodsReceipt(@PathVariable Long id) {
+        return orderService.getSupplierGoodsReceipt(id);
+    }
+
     @GetMapping("/backordered")
     @LogActivity("Get Backordered Orders")
     public ResponseEntity<?> getBackorderedOrders(@PageableDefault(size = 20) Pageable pageable) {

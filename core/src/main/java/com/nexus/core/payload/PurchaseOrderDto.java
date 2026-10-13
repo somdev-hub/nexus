@@ -55,6 +55,15 @@ public class PurchaseOrderDto {
 
 	private Double remainingQuantity;
 
+	// Latest dispatch refs (supplier order views only; null when nothing
+	// shipped yet). Powers the orders table ASN/Shipment column + POD
+	// viewer without a second round-trip.
+	private String asnNumber;
+
+	private Long shipmentId;
+
+	private String shipmentNumber;
+
 	private String buyerOrgName;
 
 	private String supplierOrgName;

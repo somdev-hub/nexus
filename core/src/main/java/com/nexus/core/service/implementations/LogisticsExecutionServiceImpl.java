@@ -121,6 +121,11 @@ public class LogisticsExecutionServiceImpl implements LogisticsExecutionService 
             documentRepo.save(doc);
         }
         shipment.setStatus(ShipmentStatus.ASSIGNED);
+        // Planned departure defaults to the assignment moment so the board
+        // always has something to show (actual departure stamps on pickup).
+        if (shipment.getEstimatedDeparture() == null) {
+            shipment.setEstimatedDeparture(Timestamp.valueOf(LocalDateTime.now()));
+        }
         Shipment saved = shipmentRepo.save(shipment);
 
         // Optional immediate pickup: the carrier collects the goods right

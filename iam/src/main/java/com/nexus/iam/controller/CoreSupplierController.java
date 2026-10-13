@@ -723,6 +723,62 @@ public class CoreSupplierController {
 		return supplierService.getSupplierContractDocumentContent(id, auth, org);
 	}
 
+	// Shared goods receipts (retailer sends GRs for validation/invoicing)
+	@LogActivity("Get Shared Goods Receipts for Supplier")
+	@GetMapping("/orders/goods-receipts/all")
+	public ResponseEntity<?> getSupplierGoodsReceipts(@RequestParam(required = false) String status,
+			@RequestHeader("Authorization") String auth, @RequestHeader("X-Organization-ID") String org,
+			@PageableDefault(size = 20) Pageable p) {
+		return supplierService.getSupplierGoodsReceipts(status, auth, org, p);
+	}
+
+	@LogActivity("Get Shared Goods Receipt for Supplier")
+	@GetMapping("/orders/goods-receipts/{id}")
+	public ResponseEntity<?> getSupplierGoodsReceipt(@PathVariable Long id,
+			@RequestHeader("Authorization") String auth, @RequestHeader("X-Organization-ID") String org) {
+		return supplierService.getSupplierGoodsReceipt(id, auth, org);
+	}
+
+	// Supplier-raised invoicing (supplier builds + submits, retailer reviews)
+	@LogActivity("Create Supplier Invoice")
+	@PostMapping("/invoices/add")
+	public ResponseEntity<?> createSupplierInvoice(@RequestBody Map<String, Object> dto,
+			@RequestHeader("Authorization") String auth, @RequestHeader("X-Organization-ID") String org) {
+		return supplierService.createSupplierInvoice(dto, auth, org);
+	}
+
+	@LogActivity("Get Supplier Invoice")
+	@GetMapping("/invoices/{id}")
+	public ResponseEntity<?> getSupplierInvoice(@PathVariable Long id,
+			@RequestHeader("Authorization") String auth, @RequestHeader("X-Organization-ID") String org) {
+		return supplierService.getSupplierInvoice(id, auth, org);
+	}
+
+	@LogActivity("Get All Supplier Invoices")
+	@GetMapping("/invoices/all")
+	public ResponseEntity<?> getSupplierInvoices(@RequestParam(required = false) String status,
+			@RequestParam(required = false) Long purchaseOrderId,
+			@RequestHeader("Authorization") String auth, @RequestHeader("X-Organization-ID") String org,
+			@PageableDefault(size = 20) Pageable p) {
+		return supplierService.getSupplierInvoices(status, purchaseOrderId, auth, org, p);
+	}
+
+	@LogActivity("Update Supplier Invoice")
+	@PutMapping("/invoices/{id}/update")
+	public ResponseEntity<?> updateSupplierInvoice(@PathVariable Long id,
+			@RequestBody Map<String, Object> dto, @RequestHeader("Authorization") String auth,
+			@RequestHeader("X-Organization-ID") String org) {
+		return supplierService.updateSupplierInvoice(id, dto, auth, org);
+	}
+
+	@LogActivity("Transition Supplier Invoice Status")
+	@PutMapping("/invoices/{id}/transition")
+	public ResponseEntity<?> transitionSupplierInvoice(@PathVariable Long id,
+			@RequestParam String newStatus, @RequestBody(required = false) Map<String, Object> params,
+			@RequestHeader("Authorization") String auth, @RequestHeader("X-Organization-ID") String org) {
+		return supplierService.transitionSupplierInvoice(id, newStatus, params, auth, org);
+	}
+
 	// Supplier-owned delivery: logistics marketplace + shipment handover
 	@LogActivity("Browse Logistics Marketplace for Supplier")
 	@GetMapping("/logistics-marketplace/available")
@@ -760,6 +816,20 @@ public class CoreSupplierController {
 			@RequestBody Map<String, Object> dto, @RequestHeader("Authorization") String auth,
 			@RequestHeader("X-Organization-ID") String org) {
 		return supplierService.handoverShipment(shipmentId, dto, auth, org);
+	}
+
+	@LogActivity("Get Supplier Shipment Live Position")
+	@GetMapping("/logistics-marketplace/shipments/{shipmentId}/position")
+	public ResponseEntity<?> getSupplierShipmentPosition(@PathVariable Long shipmentId,
+			@RequestHeader("Authorization") String auth, @RequestHeader("X-Organization-ID") String org) {
+		return supplierService.getSupplierShipmentPosition(shipmentId, auth, org);
+	}
+
+	@LogActivity("Get Supplier Shipment ETA")
+	@GetMapping("/logistics-marketplace/shipments/{shipmentId}/eta")
+	public ResponseEntity<?> getSupplierShipmentEta(@PathVariable Long shipmentId,
+			@RequestHeader("Authorization") String auth, @RequestHeader("X-Organization-ID") String org) {
+		return supplierService.getSupplierShipmentEta(shipmentId, auth, org);
 	}
 
 	@LogActivity("Get Supplier Logistics Quotations")

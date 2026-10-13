@@ -32,6 +32,20 @@ public interface InvoiceRepo extends JpaRepository<Invoice, Long> {
 
 	boolean existsByInvoiceNumber(String invoiceNumber);
 
+	// Single invoice visible to a supplier org (same predicate family as
+	// findSupplierVisibleInvoices, plus the receipt-row fallback).
+	@Query("""
+			SELECT i FROM Invoice i JOIN i.purchaseOrder po
+			LEFT JOIN po.supplierOrg so LEFT JOIN po.partnership p
+			LEFT JOIN p.secondaryOrg sec LEFT JOIN p.primaryOrg pri
+			WHERE i.invoiceId = :id
+			AND (so.accountId = :orgId
+				OR sec.accountId = :orgId
+				OR pri.accountId = :orgId
+				OR i.supplier.supplierOrgAccountId = :orgId)
+			""")
+	Invoice findByInvoiceIdAndSupplierOrg(@Param("id") Long id, @Param("orgId") Long orgId);
+
 	// Invoices visible to a supplier org via the linked purchase order's supplier scope
 	// (same visibility predicate as PurchaseOrderRepo.findSupplierVisibleOrders,
 	// including the pre-release exclusion).

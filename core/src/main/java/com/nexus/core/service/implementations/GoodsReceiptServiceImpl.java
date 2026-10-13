@@ -6,7 +6,6 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
-import org.modelmapper.ModelMapper;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -44,7 +43,6 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
 	private final PurchaseOrderRepo purchaseOrderRepo;
 	private final PurchaseOrderLineItemRepo poLineItemRepo;
 	private final SupplierRepository supplierRepo;
-	private final ModelMapper modelMapper;
 
 	@Override
 	@Transactional
@@ -71,14 +69,22 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
 			throw new ValidationException("Cannot create goods receipt for PO in " + po.getStatus() + " status");
 		}
 
+		// GR number is auto-generated when the caller leaves it blank:
+		// GR-<year>-<6 digits>, same convention as the PO number form.
+		String grNumber = grDto.getGrNumber();
+		if (grNumber == null || grNumber.isBlank()) {
+			grNumber = String.format("GR-%d-%06d", java.time.LocalDate.now().getYear(),
+					System.currentTimeMillis() % 1000000);
+		}
+
 		// Check for duplicate GR number
-		if (goodsReceiptRepo.existsByGrNumber(grDto.getGrNumber())) {
+		if (goodsReceiptRepo.existsByGrNumber(grNumber)) {
 			throw new ValidationException("GR number already exists");
 		}
 
 		// Create goods receipt
 		GoodsReceipt gr = new GoodsReceipt();
-		gr.setGrNumber(grDto.getGrNumber());
+		gr.setGrNumber(grNumber);
 		gr.setPurchaseOrder(po);
 		gr.setSupplier(supplier);
 		gr.setStatus(GoodsReceiptStatus.DRAFT);
@@ -100,14 +106,14 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
 					throw new ValidationException("PO line item does not belong to the specified purchase order");
 				}
 
-				GoodsReceiptLineItem lineItem = modelMapper.map(lineDto, GoodsReceiptLineItem.class);
+				GoodsReceiptLineItem lineItem = toLineItemEntity(lineDto);
 				lineItem.setPoLineItem(poLineItem);
 				gr.addLineItem(lineItem);
 			}
 		}
 
 		GoodsReceipt savedGr = goodsReceiptRepo.save(gr);
-		return new ResponseEntity<>(modelMapper.map(savedGr, GoodsReceiptDto.class), HttpStatus.CREATED);
+		return new ResponseEntity<>(toDto(savedGr), HttpStatus.CREATED);
 	}
 
 	@Override
@@ -117,7 +123,7 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
 		if (gr == null) {
 			throw new ResourceNotFoundException("GoodsReceipt", "goodsReceiptId", id);
 		}
-		return new ResponseEntity<>(modelMapper.map(gr, GoodsReceiptDto.class), HttpStatus.OK);
+		return new ResponseEntity<>(toDto(gr), HttpStatus.OK);
 	}
 
 	@Override
@@ -147,7 +153,7 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
 			grs = goodsReceiptRepo.findByPurchaseOrderBuyerOrgId(orgId, pageable);
 		}
 
-		Page<GoodsReceiptDto> grDtos = grs.map(gr -> modelMapper.map(gr, GoodsReceiptDto.class));
+		Page<GoodsReceiptDto> grDtos = grs.map(GoodsReceiptServiceImpl::toDto);
 		return new ResponseEntity<>(grDtos, HttpStatus.OK);
 	}
 
@@ -180,14 +186,14 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
 						.orElseThrow(() -> new ResourceNotFoundException("PurchaseOrderLineItem", "poLineItemId",
 								lineDto.getPoLineItemId()));
 
-				GoodsReceiptLineItem lineItem = modelMapper.map(lineDto, GoodsReceiptLineItem.class);
+				GoodsReceiptLineItem lineItem = toLineItemEntity(lineDto);
 				lineItem.setPoLineItem(poLineItem);
 				gr.addLineItem(lineItem);
 			}
 		}
 
 		GoodsReceipt savedGr = goodsReceiptRepo.save(gr);
-		return new ResponseEntity<>(modelMapper.map(savedGr, GoodsReceiptDto.class), HttpStatus.OK);
+		return new ResponseEntity<>(toDto(savedGr), HttpStatus.OK);
 	}
 
 	@Override
@@ -208,7 +214,63 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
 		executeTransition(gr, currentStatus, newStatus, params);
 
 		GoodsReceipt savedGr = goodsReceiptRepo.save(gr);
-		return new ResponseEntity<>(modelMapper.map(savedGr, GoodsReceiptDto.class), HttpStatus.OK);
+		return new ResponseEntity<>(toDto(savedGr), HttpStatus.OK);
+	}
+
+	/**
+	 * ModelMapper cannot map GoodsReceiptLineItemDto → GoodsReceiptLineItem:
+	 * both *Id fields (grLineItemId/poLineItemId) match the nested
+	 * destination goodsReceipt.goodsReceiptId. Map scalars explicitly; the
+	 * identity and both relations are resolved by the caller.
+	 */
+	private GoodsReceiptLineItem toLineItemEntity(GoodsReceiptLineItemDto lineDto) {
+		GoodsReceiptLineItem lineItem = new GoodsReceiptLineItem();
+		lineItem.setLineNumber(lineDto.getLineNumber());
+		lineItem.setQuantityReceived(lineDto.getQuantityReceived());
+		lineItem.setQuantityAccepted(lineDto.getQuantityAccepted());
+		lineItem.setQuantityRejected(lineDto.getQuantityRejected());
+		lineItem.setUnitOfMeasure(lineDto.getUnitOfMeasure());
+		lineItem.setNotes(lineDto.getNotes());
+		return lineItem;
+	}
+
+	/**
+	 * ModelMapper cannot map GoodsReceipt → GoodsReceiptDto either: the
+	 * destination purchaseOrderId matches both nested source paths
+	 * purchaseOrder.purchaseOrderId and purchaseOrder.parentPoId (same
+	 * *Id ambiguity family as the line items). Map explicitly.
+	 */
+	public static GoodsReceiptDto toDto(GoodsReceipt gr) {
+		GoodsReceiptDto dto = new GoodsReceiptDto();
+		dto.setGoodsReceiptId(gr.getGoodsReceiptId());
+		dto.setGrNumber(gr.getGrNumber());
+		dto.setPurchaseOrderId(
+				gr.getPurchaseOrder() != null ? gr.getPurchaseOrder().getPurchaseOrderId() : null);
+		dto.setSupplierId(gr.getSupplier() != null ? gr.getSupplier().getSupplierId() : null);
+		dto.setStatus(gr.getStatus());
+		dto.setReceivedDate(gr.getReceivedDate());
+		dto.setDeliveryNoteNumber(gr.getDeliveryNoteNumber());
+		dto.setCarrier(gr.getCarrier());
+		dto.setTrackingNumber(gr.getTrackingNumber());
+		dto.setNotes(gr.getNotes());
+		if (gr.getLineItems() != null) {
+			java.util.List<GoodsReceiptLineItemDto> lines = new java.util.ArrayList<>(gr.getLineItems().size());
+			for (GoodsReceiptLineItem line : gr.getLineItems()) {
+				GoodsReceiptLineItemDto lineDto = new GoodsReceiptLineItemDto();
+				lineDto.setGrLineItemId(line.getGrLineItemId());
+				lineDto.setPoLineItemId(
+						line.getPoLineItem() != null ? line.getPoLineItem().getLineItemId() : null);
+				lineDto.setLineNumber(line.getLineNumber());
+				lineDto.setQuantityReceived(line.getQuantityReceived());
+				lineDto.setQuantityAccepted(line.getQuantityAccepted());
+				lineDto.setQuantityRejected(line.getQuantityRejected());
+				lineDto.setUnitOfMeasure(line.getUnitOfMeasure());
+				lineDto.setNotes(line.getNotes());
+				lines.add(lineDto);
+			}
+			dto.setLineItems(lines);
+		}
+		return dto;
 	}
 
 	private void validateTransition(GoodsReceiptStatus currentStatus, GoodsReceiptStatus newStatus,
@@ -225,11 +287,20 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
 					}
 				}
 				break;
-			case RECEIVED:
-				if (newStatus != GoodsReceiptStatus.RETURNED && newStatus != GoodsReceiptStatus.CANCELLED) {
-					throw new ValidationException("From RECEIVED, can only transition to RETURNED or CANCELLED");
-				}
-				break;
+		case RECEIVED:
+			if (newStatus != GoodsReceiptStatus.SENT_TO_SUPPLIER
+					&& newStatus != GoodsReceiptStatus.RETURNED
+					&& newStatus != GoodsReceiptStatus.CANCELLED) {
+				throw new ValidationException(
+						"From RECEIVED, can only transition to SENT_TO_SUPPLIER, RETURNED or CANCELLED");
+			}
+			break;
+		case SENT_TO_SUPPLIER:
+			if (newStatus != GoodsReceiptStatus.RETURNED && newStatus != GoodsReceiptStatus.CANCELLED) {
+				throw new ValidationException(
+						"From SENT_TO_SUPPLIER, can only transition to RETURNED or CANCELLED");
+			}
+			break;
 			case RETURNED:
 				if (newStatus != GoodsReceiptStatus.CANCELLED) {
 					throw new ValidationException("From RETURNED, can only transition to CANCELLED");
@@ -247,11 +318,27 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
 		gr.setStatus(newStatus);
 
 		switch (newStatus) {
-			case RECEIVED:
-				gr.setReceivedAt(Timestamp.valueOf(LocalDateTime.now()));
-				// Update PO status if all items received
-				updatePurchaseOrderStatus(gr.getPurchaseOrder());
-				break;
+		case RECEIVED:
+			gr.setReceivedAt(Timestamp.valueOf(LocalDateTime.now()));
+			// Receiving accepts whatever was counted unless the line was
+			// explicitly part-accepted/rejected: without this default the
+			// accepted totals stay null and the PO can never flip to
+			// RECEIVED (which in turn gates invoicing).
+			if (gr.getLineItems() != null) {
+				for (GoodsReceiptLineItem line : gr.getLineItems()) {
+					if (line.getQuantityAccepted() == null) {
+						line.setQuantityAccepted(line.getQuantityReceived());
+					}
+				}
+			}
+			// Update PO status if all items received
+			updatePurchaseOrderStatus(gr.getPurchaseOrder());
+			break;
+		case SENT_TO_SUPPLIER:
+			// Publishing to the supplier: the receipt becomes visible to
+			// the supplier org for validation and invoicing.
+			gr.setSharedWithSupplier(true);
+			break;
 			case RETURNED:
 				gr.setReturnedAt(Timestamp.valueOf(LocalDateTime.now()));
 				break;
@@ -267,9 +354,10 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
 		// Check if all PO line items have been fully received
 		boolean allReceived = po.getLineItems().stream().allMatch(lineItem -> {
 			BigDecimal totalReceived = grLineItemRepo.findByPoLineItemLineItemId(lineItem.getLineItemId()).stream()
-					.map(GoodsReceiptLineItem::getQuantityAccepted)
+					.map(li -> li.getQuantityAccepted() != null ? li.getQuantityAccepted() : BigDecimal.ZERO)
 					.reduce(BigDecimal.ZERO, BigDecimal::add);
-			return totalReceived.compareTo(BigDecimal.valueOf(lineItem.getQuantityOrdered())) >= 0;
+			return lineItem.getQuantityOrdered() != null
+					&& totalReceived.compareTo(BigDecimal.valueOf(lineItem.getQuantityOrdered())) >= 0;
 		});
 
 		if (allReceived) {

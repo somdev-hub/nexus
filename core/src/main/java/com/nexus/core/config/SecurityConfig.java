@@ -115,6 +115,7 @@ public class SecurityConfig {
 						.requestMatchers("/core/supplier-contracts/**").authenticated()
 						.requestMatchers("/core/supplier-performance/**").authenticated()
 						.requestMatchers("/core/supplier-risk-monitoring/**").authenticated()
+						.requestMatchers("/core/supplier/**").authenticated()
 						.requestMatchers("/core/purchase-orders/**").authenticated()
 						.requestMatchers("/core/stocks/**").authenticated()
 						.requestMatchers("/core/stock-movements/**").authenticated()

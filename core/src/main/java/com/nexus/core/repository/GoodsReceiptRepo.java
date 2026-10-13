@@ -30,5 +30,25 @@ public interface GoodsReceiptRepo extends JpaRepository<GoodsReceipt, Long> {
 	@Query("SELECT gr FROM GoodsReceipt gr WHERE gr.goodsReceiptId = :id AND gr.purchaseOrder.buyerOrg.accountId = :orgId")
 	GoodsReceipt findByGoodsReceiptIdAndPurchaseOrderBuyerOrgId(@Param("id") Long id, @Param("orgId") Long orgId);
 
+	// Supplier-visible receipts: shared by the retailer, for a PO whose
+	// supplier side is the caller's org (via the PO or the receipt row).
+	@Query("""
+			SELECT gr FROM GoodsReceipt gr
+			WHERE gr.sharedWithSupplier = true
+			AND (gr.purchaseOrder.supplierOrg.accountId = :orgId
+				OR gr.supplier.supplierOrgAccountId = :orgId)
+			AND (:status IS NULL OR gr.status = :status)
+			""")
+	Page<GoodsReceipt> findSharedWithSupplierOrg(@Param("orgId") Long orgId,
+			@Param("status") GoodsReceiptStatus status, Pageable pageable);
+
+	@Query("""
+			SELECT gr FROM GoodsReceipt gr
+			WHERE gr.goodsReceiptId = :id AND gr.sharedWithSupplier = true
+			AND (gr.purchaseOrder.supplierOrg.accountId = :orgId
+				OR gr.supplier.supplierOrgAccountId = :orgId)
+			""")
+	GoodsReceipt findSharedByIdAndSupplierOrg(@Param("id") Long id, @Param("orgId") Long orgId);
+
 	boolean existsByGrNumber(String grNumber);
 }
