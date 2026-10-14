@@ -18,6 +18,18 @@ public interface ThreeWayMatchingService {
 	MatchingResult performThreeWayMatch(PurchaseOrder purchaseOrder);
 
 	/**
+	 * Match including one extra invoice (the one under review). Approval
+	 * matching must count the PENDING_APPROVAL candidate itself — counting
+	 * only APPROVED invoices would always total zero at approval time and
+	 * no invoice could ever be approved.
+	 *
+	 * @param purchaseOrder The purchase order to match
+	 * @param includeInvoiceId invoice to include regardless of status
+	 * @return Matching result with details
+	 */
+	MatchingResult performThreeWayMatch(PurchaseOrder purchaseOrder, Long includeInvoiceId);
+
+	/**
 	 * Check if a PO can be invoiced (has received goods)
 	 * 
 	 * @param purchaseOrderId The purchase order ID

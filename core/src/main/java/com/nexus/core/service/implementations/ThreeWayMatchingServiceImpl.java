@@ -34,8 +34,18 @@ public class ThreeWayMatchingServiceImpl implements ThreeWayMatchingService {
 
 	private static final BigDecimal TOLERANCE = new BigDecimal("0.01"); // 1 cent tolerance
 
+	// Goods counted as received: accepted on arrival (RECEIVED) plus
+	// receipts already shared with the supplier for invoicing.
+	private static final List<GoodsReceiptStatus> RECEIVED_LIKE = List.of(
+			GoodsReceiptStatus.RECEIVED, GoodsReceiptStatus.SENT_TO_SUPPLIER);
+
 	@Override
 	public MatchingResult performThreeWayMatch(PurchaseOrder purchaseOrder) {
+		return performThreeWayMatch(purchaseOrder, null);
+	}
+
+	@Override
+	public MatchingResult performThreeWayMatch(PurchaseOrder purchaseOrder, Long includeInvoiceId) {
 		List<String> discrepancies = new ArrayList<>();
 
 		// Get PO line items
@@ -47,9 +57,9 @@ public class ThreeWayMatchingServiceImpl implements ThreeWayMatchingService {
 				.map(item -> item.getTotalPrice() != null ? BigDecimal.valueOf(item.getTotalPrice()) : BigDecimal.ZERO)
 				.reduce(BigDecimal.ZERO, BigDecimal::add);
 
-		// Get received goods receipts (only RECEIVED status)
-		List<GoodsReceipt> goodsReceipts = goodsReceiptRepo.findByPurchaseOrderAndStatus(
-				purchaseOrder.getPurchaseOrderId(), GoodsReceiptStatus.RECEIVED, null).getContent();
+		// Get received goods receipts (RECEIVED + SENT_TO_SUPPLIER)
+		List<GoodsReceipt> goodsReceipts = goodsReceiptRepo.findByPurchaseOrderAndStatuses(
+				purchaseOrder.getPurchaseOrderId(), RECEIVED_LIKE, null).getContent();
 
 		// Calculate GR total
 		BigDecimal grTotal = goodsReceipts.stream()
@@ -63,9 +73,25 @@ public class ThreeWayMatchingServiceImpl implements ThreeWayMatchingService {
 				})
 				.reduce(BigDecimal.ZERO, BigDecimal::add);
 
-		// Get approved invoices
-		List<Invoice> invoices = invoiceRepo.findByPurchaseOrderAndStatus(
-				purchaseOrder.getPurchaseOrderId(), InvoiceStatus.APPROVED, null).getContent();
+		// Approved invoices plus the candidate under review (without it
+		// the invoice total is always zero at approval time and nothing
+		// could ever be approved).
+		List<Invoice> invoices = new ArrayList<>(invoiceRepo.findByPurchaseOrderAndStatus(
+				purchaseOrder.getPurchaseOrderId(), InvoiceStatus.APPROVED, null).getContent());
+		if (includeInvoiceId != null) {
+			boolean present = invoices.stream()
+					.anyMatch(inv -> includeInvoiceId.equals(inv.getInvoiceId()));
+			if (!present) {
+				invoiceRepo.findById(includeInvoiceId).ifPresent(candidate -> {
+					if (candidate.getPurchaseOrder() != null
+							&& purchaseOrder.getPurchaseOrderId().equals(
+									candidate.getPurchaseOrder().getPurchaseOrderId())
+							&& candidate.getStatus() != InvoiceStatus.CANCELLED) {
+						invoices.add(candidate);
+					}
+				});
+			}
+		}
 
 		// Calculate invoice total
 		BigDecimal invoiceTotal = invoices.stream()
@@ -147,8 +173,8 @@ public class ThreeWayMatchingServiceImpl implements ThreeWayMatchingService {
 
 	@Override
 	public boolean canInvoice(Long purchaseOrderId) {
-		List<GoodsReceipt> goodsReceipts = goodsReceiptRepo.findByPurchaseOrderAndStatus(
-				purchaseOrderId, GoodsReceiptStatus.RECEIVED, null).getContent();
+		List<GoodsReceipt> goodsReceipts = goodsReceiptRepo.findByPurchaseOrderAndStatuses(
+				purchaseOrderId, RECEIVED_LIKE, null).getContent();
 
 		return !goodsReceipts.isEmpty() && goodsReceipts.stream()
 				.anyMatch(gr -> gr.getLineItems().stream()
@@ -164,7 +190,7 @@ public class ThreeWayMatchingServiceImpl implements ThreeWayMatchingService {
 					List.of("Missing purchase order reference"),
 					BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO);
 		}
-		return performThreeWayMatch(po);
+		return performThreeWayMatch(po, invoice.getInvoiceId());
 	}
 
 	@Override

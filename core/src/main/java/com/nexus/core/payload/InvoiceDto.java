@@ -18,7 +18,11 @@ public class InvoiceDto {
 	@NotNull(message = "Purchase order is required")
 	private Long purchaseOrderId;
 
-	@NotNull(message = "Supplier is required")
+	// Read alias for poNumber (UI table column).
+	private String poNumber;
+
+	// Optional on the way in: the supplier flow derives it from the PO.
+	// The retailer flow validates it explicitly in the service.
 	private Long supplierId;
 
 	private com.nexus.core.model.enums.InvoiceStatus status = com.nexus.core.model.enums.InvoiceStatus.DRAFT;
@@ -33,6 +37,8 @@ public class InvoiceDto {
 	private java.math.BigDecimal taxAmount;
 
 	private java.math.BigDecimal otherCharges;
+
+	private String otherChargesBreakdown;
 
 	private String currency = "USD";
 

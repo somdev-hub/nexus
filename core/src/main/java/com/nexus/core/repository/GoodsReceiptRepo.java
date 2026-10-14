@@ -24,6 +24,10 @@ public interface GoodsReceiptRepo extends JpaRepository<GoodsReceipt, Long> {
 	Page<GoodsReceipt> findByPurchaseOrderAndStatus(@Param("poId") Long poId,
 			@Param("status") GoodsReceiptStatus status, Pageable pageable);
 
+	@Query("SELECT gr FROM GoodsReceipt gr WHERE gr.purchaseOrder.purchaseOrderId = :poId AND gr.status IN :statuses")
+	Page<GoodsReceipt> findByPurchaseOrderAndStatuses(@Param("poId") Long poId,
+			@Param("statuses") List<GoodsReceiptStatus> statuses, Pageable pageable);
+
 	@Query("SELECT gr FROM GoodsReceipt gr WHERE gr.purchaseOrder.buyerOrg.accountId = :orgId")
 	Page<GoodsReceipt> findByPurchaseOrderBuyerOrgId(@Param("orgId") Long orgId, Pageable pageable);
 

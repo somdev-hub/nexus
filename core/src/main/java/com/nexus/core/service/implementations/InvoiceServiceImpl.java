@@ -55,6 +55,9 @@ public class InvoiceServiceImpl implements InvoiceService {
 						invoiceDto.getPurchaseOrderId()));
 
 		// Validate supplier
+		if (invoiceDto.getSupplierId() == null) {
+			throw new ValidationException("Supplier is required");
+		}
 		Supplier supplier = supplierRepo.findBySupplierIdAndAccountAccountId(invoiceDto.getSupplierId(), orgId)
 				.orElseThrow(() -> new ResourceNotFoundException("Supplier", "supplierId", invoiceDto.getSupplierId()));
 
@@ -193,6 +196,7 @@ public class InvoiceServiceImpl implements InvoiceService {
 		invoice.setSupplierInvoiceNumber(invoiceDto.getSupplierInvoiceNumber());
 		invoice.setTaxAmount(invoiceDto.getTaxAmount());
 		invoice.setOtherCharges(invoiceDto.getOtherCharges());
+		invoice.setOtherChargesBreakdown(invoiceDto.getOtherChargesBreakdown());
 		invoice.setNotes(invoiceDto.getNotes());
 		addLineItems(invoice, po, invoiceDto);
 	}
@@ -254,6 +258,8 @@ public class InvoiceServiceImpl implements InvoiceService {
 		dto.setInvoiceNumber(inv.getInvoiceNumber());
 		dto.setPurchaseOrderId(
 				inv.getPurchaseOrder() != null ? inv.getPurchaseOrder().getPurchaseOrderId() : null);
+		dto.setPoNumber(
+				inv.getPurchaseOrder() != null ? inv.getPurchaseOrder().getPoNumber() : null);
 		dto.setSupplierId(inv.getSupplier() != null ? inv.getSupplier().getSupplierId() : null);
 		dto.setStatus(inv.getStatus());
 		dto.setInvoiceDate(inv.getInvoiceDate());
@@ -261,6 +267,7 @@ public class InvoiceServiceImpl implements InvoiceService {
 		dto.setTotalAmount(inv.getTotalAmount());
 		dto.setTaxAmount(inv.getTaxAmount());
 		dto.setOtherCharges(inv.getOtherCharges());
+		dto.setOtherChargesBreakdown(inv.getOtherChargesBreakdown());
 		dto.setCurrency(inv.getCurrency());
 		dto.setPaymentTerms(inv.getPaymentTerms());
 		dto.setSupplierInvoiceNumber(inv.getSupplierInvoiceNumber());
@@ -308,9 +315,10 @@ public class InvoiceServiceImpl implements InvoiceService {
 							"From PENDING_APPROVAL, can only transition to APPROVED, REJECTED, or CANCELLED");
 				}
 				if (newStatus == InvoiceStatus.APPROVED) {
-					// Three-way matching validation before approval
+					// Three-way matching validation before approval — the
+					// invoice under review is included in the match.
 					MatchingResult matchResult = threeWayMatchingService
-							.performThreeWayMatch(invoice.getPurchaseOrder());
+							.performThreeWayMatch(invoice.getPurchaseOrder(), invoice.getInvoiceId());
 					if (!matchResult.isMatched()) {
 						throw new ValidationException("Three-way matching failed: " + matchResult.getMessage());
 					}

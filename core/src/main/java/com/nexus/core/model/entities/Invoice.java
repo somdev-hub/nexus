@@ -70,6 +70,11 @@ public class Invoice extends BaseEntity {
 	@Column(name = "other_charges", precision = 19, scale = 4)
 	private java.math.BigDecimal otherCharges;
 
+	// Itemised other charges as JSON: [{amount, description}, ...].
+	// The summed total lives in otherCharges; this keeps the labels.
+	@Column(name = "other_charges_breakdown", columnDefinition = "TEXT")
+	private String otherChargesBreakdown;
+
 	@Column(name = "currency")
 	private String currency = "USD";
 

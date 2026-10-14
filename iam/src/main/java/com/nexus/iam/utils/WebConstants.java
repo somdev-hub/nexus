@@ -873,4 +873,13 @@ public class WebConstants {
 	@Value("${core.logistics.operations.base.url}")
 	private String coreLogisticsOperationsBaseUrl;
 
+	// ============================================
+	// PMS MOCK PAYMENTS (standalone, no Razorpay)
+	// ============================================
+	@Value("${pms.mock.payments.url}")
+	private String pmsMockPaymentsUrl;
+
+	@Value("${pms.suite.payments.url}")
+	private String pmsSuitePaymentsUrl;
+
 }
