@@ -52,6 +52,10 @@ public class PartnershipInvitation extends BaseEntity {
 	// Supplier-logistics proposal term: SHORT_TERM or LONG_TERM.
 	private String partnershipTermType;
 
+	// LONG_TERM settlement frequency chosen by the supplier: WEEKLY or
+	// MONTHLY. Trip-wise SHORT_TERM proposals leave this null.
+	private String paymentFrequency;
+
 	private Timestamp validityStart;
 
 	private Timestamp validityEnd;

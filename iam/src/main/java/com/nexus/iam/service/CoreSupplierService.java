@@ -168,4 +168,14 @@ public interface CoreSupplierService {
     // Supplier live tracking (same simulation as the logistics board)
     ResponseEntity<?> getSupplierShipmentPosition(Long shipmentId, String authToken, String orgId);
     ResponseEntity<?> getSupplierShipmentEta(Long shipmentId, String authToken, String orgId);
+
+    // Finance analytics + logistics settlement (suite finances pages)
+    ResponseEntity<?> getSupplierFinanceSummary(String period, String authToken, String orgId);
+    ResponseEntity<?> getSupplierFinanceTransactions(String kind, String status, String search,
+            String from, String to, String authToken, String orgId, Pageable pageable);
+    ResponseEntity<?> getBillingOpenTrips(Long partnershipId, String authToken, String orgId);
+    ResponseEntity<?> getBillingStatements(Long partnershipId, String authToken, String orgId);
+    ResponseEntity<?> createBillingQuote(Map<String, Object> dto, String authToken, String orgId);
+    ResponseEntity<?> getBillingQuote(String quoteRef, String authToken, String orgId);
+    ResponseEntity<?> markBillingQuotePaid(Map<String, Object> dto, String authToken, String orgId);
 }

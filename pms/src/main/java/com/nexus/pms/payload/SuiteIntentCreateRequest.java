@@ -26,6 +26,11 @@ public class SuiteIntentCreateRequest {
     private String orgId;
     private String payerRole;
 
+    // Logistics settlement linkage (core LQ-* quote ref).
+    private String quoteRef;
+    private Long partnershipId;
+    private String intentKind;
+
     /** Optional client key; header Idempotency-Key wins. Deterministic per invoice recommended. */
     private String idempotencyKey;
 }

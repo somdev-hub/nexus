@@ -874,6 +874,27 @@ public class WebConstants {
 	private String coreLogisticsOperationsBaseUrl;
 
 	// ============================================
+	// FINANCE ANALYTICS (suite finances pages)
+	// ============================================
+	@Value("${core.finance.retailer.summary.url}")
+	private String coreFinanceRetailerSummaryUrl;
+
+	@Value("${core.finance.retailer.transactions.url}")
+	private String coreFinanceRetailerTransactionsUrl;
+
+	@Value("${core.finance.supplier.summary.url}")
+	private String coreFinanceSupplierSummaryUrl;
+
+	@Value("${core.finance.supplier.transactions.url}")
+	private String coreFinanceSupplierTransactionsUrl;
+
+	@Value("${core.finance.logistics.summary.url}")
+	private String coreFinanceLogisticsSummaryUrl;
+
+	@Value("${core.finance.logistics.transactions.url}")
+	private String coreFinanceLogisticsTransactionsUrl;
+
+	// ============================================
 	// PMS MOCK PAYMENTS (standalone, no Razorpay)
 	// ============================================
 	@Value("${pms.mock.payments.url}")

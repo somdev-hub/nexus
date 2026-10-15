@@ -506,6 +506,36 @@ public class CoreLogisticsServiceImpl implements CoreLogisticsService {
         return callGet(webConstants.getCoreFreightInvoiceBaseUrl() + "/shipment/" + shipmentId, auth, org);
     }
 
+    // Finance analytics + settlement statements (suite finances pages)
+    private String financeBaseUrl() {
+        return webConstants.getCoreServiceUrl() + "/core/finance";
+    }
+
+    @Override
+    public ResponseEntity<?> getLogisticsFinanceSummary(String period, String auth, String org) {
+        String url = financeBaseUrl() + "/logistics/summary";
+        if (period != null)
+            url += "?period=" + period;
+        return callGet(url, auth, org);
+    }
+
+    @Override
+    public ResponseEntity<?> getLogisticsFinanceTransactions(String kind, String status, String search,
+            String from, String to, String auth, String org, Pageable p) {
+        return callGet(buildPaginatedUrlWithFilters(financeBaseUrl() + "/logistics/transactions", p,
+                "kind", kind, "status", status, "search", search, "from", from, "to", to), auth, org);
+    }
+
+    @Override
+    public ResponseEntity<?> getBillingStatements(Long partnershipId, String auth, String org) {
+        return callGet(financeBaseUrl() + "/billing/statements?partnershipId=" + partnershipId, auth, org);
+    }
+
+    @Override
+    public ResponseEntity<?> getBillingOpenTrips(Long partnershipId, String auth, String org) {
+        return callGet(financeBaseUrl() + "/billing/open-trips?partnershipId=" + partnershipId, auth, org);
+    }
+
     private ResponseEntity<?> callGet(String url, String authToken, String orgId) {
         Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
         headers.put("X-Organization-ID", orgId);

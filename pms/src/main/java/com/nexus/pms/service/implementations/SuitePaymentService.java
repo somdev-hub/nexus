@@ -85,6 +85,9 @@ public class SuitePaymentService {
         s.setPurchaseOrderId(req.getPurchaseOrderId());
         s.setOrgId(req.getOrgId());
         s.setPayerRole(req.getPayerRole());
+        s.setQuoteRef(req.getQuoteRef());
+        s.setPartnershipId(req.getPartnershipId());
+        s.setIntentKind(req.getQuoteRef() != null ? "LOGISTICS_SETTLEMENT" : "INVOICE");
         s.setStatus(SuitePaymentStatus.INITIATED);
         s.setExpiresAt(new Timestamp(System.currentTimeMillis() + ttlMinutes * 60 * 1000L));
         try {
@@ -338,6 +341,8 @@ public class SuitePaymentService {
     }
 
     private String defaultKey(SuiteIntentCreateRequest req) {
+        if (req.getQuoteRef() != null)
+            return "suite-quote-" + req.getQuoteRef();
         if (req.getInvoiceId() != null)
             return "suite-inv-" + req.getInvoiceId();
         return "suite-" + UUID.randomUUID();
@@ -373,6 +378,9 @@ public class SuitePaymentService {
                 .purchaseOrderId(s.getPurchaseOrderId())
                 .orgId(s.getOrgId())
                 .payerRole(s.getPayerRole())
+                .quoteRef(s.getQuoteRef())
+                .partnershipId(s.getPartnershipId())
+                .intentKind(s.getIntentKind())
                 .amount(s.getAmount())
                 .currency(s.getCurrency())
                 .description(s.getDescription())

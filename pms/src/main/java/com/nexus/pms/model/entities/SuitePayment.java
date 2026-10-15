@@ -33,6 +33,12 @@ public class SuitePayment {
     private String orgId;
     private String payerRole;
 
+    // Logistics settlement linkage (core LQ-* quote ref for
+    // LOGISTICS_SETTLEMENT intents; amount locked to frozen grandTotal).
+    private String quoteRef;
+    private Long partnershipId;
+    private String intentKind;
+
     @Column(nullable = false)
     private Double amount;
     private String currency = "INR";

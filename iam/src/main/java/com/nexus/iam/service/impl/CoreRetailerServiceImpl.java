@@ -2437,6 +2437,31 @@ public class CoreRetailerServiceImpl implements CoreRetailerService {
 	}
 
 	// ============================================
+	// Finance analytics (suite finances pages)
+	// ============================================
+	@Override
+	public ResponseEntity<?> getRetailerFinanceSummary(String period, String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCoreFinanceRetailerSummaryUrl();
+		if (period != null) {
+			url = UriComponentsBuilder.fromUriString(url)
+					.queryParam("period", period).toUriString();
+		}
+		return restService.iamRestCall(url, null, headers, HttpMethod.GET, null);
+	}
+
+	@Override
+	public ResponseEntity<?> getRetailerFinanceTransactions(String kind, String status, String search,
+			String from, String to, String authToken, String orgIdHeader, Pageable pageable) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = buildPaginatedUrlWithFilters(webConstants.getCoreFinanceRetailerTransactionsUrl(), pageable,
+				"kind", kind, "status", status, "search", search, "from", from, "to", to);
+		return restService.iamRestCall(url, null, headers, HttpMethod.GET, null);
+	}
+
+	// ============================================
 	// ASN / POD / Buyer Quotation passthroughs (Core P1)
 	// ============================================
 	@Override

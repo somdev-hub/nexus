@@ -126,4 +126,11 @@ public interface CoreLogisticsService {
     // Freight invoice passthroughs (Core P1)
     ResponseEntity<?> getFreightInvoicesByLogisticsOrg(String auth, String org, Pageable p);
     ResponseEntity<?> getFreightInvoicesByShipment(Long shipmentId, String auth, String org);
+
+    // Finance analytics + settlement statements (suite finances pages)
+    ResponseEntity<?> getLogisticsFinanceSummary(String period, String auth, String org);
+    ResponseEntity<?> getLogisticsFinanceTransactions(String kind, String status, String search,
+            String from, String to, String auth, String org, Pageable p);
+    ResponseEntity<?> getBillingStatements(Long partnershipId, String auth, String org);
+    ResponseEntity<?> getBillingOpenTrips(Long partnershipId, String auth, String org);
 }

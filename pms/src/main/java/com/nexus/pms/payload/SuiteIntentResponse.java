@@ -25,6 +25,10 @@ public class SuiteIntentResponse {
     private String orgId;
     private String payerRole;
 
+    private String quoteRef;
+    private Long partnershipId;
+    private String intentKind;
+
     private Double amount;
     private String currency;
     private String description;

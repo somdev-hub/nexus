@@ -28,6 +28,9 @@ public class PartnershipDto {
 	// SHORT_TERM | LONG_TERM for supplier-logistics partnerships.
 	private String partnershipTermType;
 
+	// LONG_TERM settlement frequency: WEEKLY or MONTHLY.
+	private String paymentFrequency;
+
 	private Timestamp validityStart;
 
 	private Timestamp validityEnd;

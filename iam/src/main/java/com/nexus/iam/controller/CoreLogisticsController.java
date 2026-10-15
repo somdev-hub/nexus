@@ -715,4 +715,39 @@ public class CoreLogisticsController {
 			@RequestHeader("Authorization") String auth, @RequestHeader("X-Organization-ID") String org) {
 		return logisticsService.getFreightInvoicesByShipment(shipmentId, auth, org);
 	}
+
+	// Finance analytics + settlement statements (suite finances pages)
+	@LogActivity("Logistics Finance Summary via IAM")
+	@GetMapping("/finance/summary")
+	public ResponseEntity<?> getFinanceSummary(@RequestParam(required = false) String period,
+			@RequestHeader("Authorization") String auth, @RequestHeader("X-Organization-ID") String org) {
+		return logisticsService.getLogisticsFinanceSummary(period, auth, org);
+	}
+
+	@LogActivity("Logistics Finance Transactions via IAM")
+	@GetMapping("/finance/transactions")
+	public ResponseEntity<?> getFinanceTransactions(
+			@RequestParam(required = false) String kind,
+			@RequestParam(required = false) String status,
+			@RequestParam(required = false) String search,
+			@RequestParam(required = false) String from,
+			@RequestParam(required = false) String to,
+			@RequestHeader("Authorization") String auth, @RequestHeader("X-Organization-ID") String org,
+			@PageableDefault(size = 20) Pageable p) {
+		return logisticsService.getLogisticsFinanceTransactions(kind, status, search, from, to, auth, org, p);
+	}
+
+	@LogActivity("Billing Statements via IAM")
+	@GetMapping("/billing/statements")
+	public ResponseEntity<?> getBillingStatements(@RequestParam Long partnershipId,
+			@RequestHeader("Authorization") String auth, @RequestHeader("X-Organization-ID") String org) {
+		return logisticsService.getBillingStatements(partnershipId, auth, org);
+	}
+
+	@LogActivity("Billing Open Trips via IAM")
+	@GetMapping("/billing/open-trips")
+	public ResponseEntity<?> getBillingOpenTrips(@RequestParam Long partnershipId,
+			@RequestHeader("Authorization") String auth, @RequestHeader("X-Organization-ID") String org) {
+		return logisticsService.getBillingOpenTrips(partnershipId, auth, org);
+	}
 }

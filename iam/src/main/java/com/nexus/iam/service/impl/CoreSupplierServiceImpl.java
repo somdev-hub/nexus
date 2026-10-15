@@ -763,6 +763,53 @@ public class CoreSupplierServiceImpl implements CoreSupplierService {
 				orgId);
 	}
 
+	// Finance analytics + logistics settlement (suite finances pages)
+	private String financeBaseUrl() {
+		return webConstants.getCoreServiceUrl() + "/core/finance";
+	}
+
+	@Override
+	public ResponseEntity<?> getSupplierFinanceSummary(String period, String authToken, String orgId) {
+		String url = financeBaseUrl() + "/supplier/summary";
+		if (period != null)
+			url += "?period=" + period;
+		return callGet(url, authToken, orgId);
+	}
+
+	@Override
+	public ResponseEntity<?> getSupplierFinanceTransactions(String kind, String status, String search,
+			String from, String to, String authToken, String orgId, Pageable pageable) {
+		return callGet(buildPaginatedUrlWithFilters(financeBaseUrl() + "/supplier/transactions", pageable,
+				"kind", kind, "status", status, "search", search, "from", from, "to", to), authToken, orgId);
+	}
+
+	@Override
+	public ResponseEntity<?> getBillingOpenTrips(Long partnershipId, String authToken, String orgId) {
+		return callGet(financeBaseUrl() + "/billing/open-trips?partnershipId=" + partnershipId, authToken,
+				orgId);
+	}
+
+	@Override
+	public ResponseEntity<?> getBillingStatements(Long partnershipId, String authToken, String orgId) {
+		return callGet(financeBaseUrl() + "/billing/statements?partnershipId=" + partnershipId, authToken,
+				orgId);
+	}
+
+	@Override
+	public ResponseEntity<?> createBillingQuote(Map<String, Object> dto, String authToken, String orgId) {
+		return callPost(financeBaseUrl() + "/billing/quotes", dto, authToken, orgId);
+	}
+
+	@Override
+	public ResponseEntity<?> getBillingQuote(String quoteRef, String authToken, String orgId) {
+		return callGet(financeBaseUrl() + "/billing/quotes/" + quoteRef, authToken, orgId);
+	}
+
+	@Override
+	public ResponseEntity<?> markBillingQuotePaid(Map<String, Object> dto, String authToken, String orgId) {
+		return callPost(financeBaseUrl() + "/billing/mark-paid", dto, authToken, orgId);
+	}
+
 	private ResponseEntity<?> callGet(String url, String authToken, String orgId) {
 		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
 		headers.put("X-Organization-ID", orgId);

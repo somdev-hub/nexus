@@ -869,4 +869,60 @@ public class CoreSupplierController {
 			@RequestHeader("Authorization") String auth, @RequestHeader("X-Organization-ID") String org) {
 		return supplierService.terminateLogisticsPartnership(id, dto, auth, org);
 	}
+
+	// Finance analytics + logistics settlement (suite finances pages)
+	@LogActivity("Supplier Finance Summary via IAM")
+	@GetMapping("/finance/summary")
+	public ResponseEntity<?> getFinanceSummary(@RequestParam(required = false) String period,
+			@RequestHeader("Authorization") String auth, @RequestHeader("X-Organization-ID") String org) {
+		return supplierService.getSupplierFinanceSummary(period, auth, org);
+	}
+
+	@LogActivity("Supplier Finance Transactions via IAM")
+	@GetMapping("/finance/transactions")
+	public ResponseEntity<?> getFinanceTransactions(
+			@RequestParam(required = false) String kind,
+			@RequestParam(required = false) String status,
+			@RequestParam(required = false) String search,
+			@RequestParam(required = false) String from,
+			@RequestParam(required = false) String to,
+			@RequestHeader("Authorization") String auth, @RequestHeader("X-Organization-ID") String org,
+			@PageableDefault(size = 20) Pageable p) {
+		return supplierService.getSupplierFinanceTransactions(kind, status, search, from, to, auth, org, p);
+	}
+
+	@LogActivity("Billing Open Trips via IAM")
+	@GetMapping("/billing/open-trips")
+	public ResponseEntity<?> getBillingOpenTrips(@RequestParam Long partnershipId,
+			@RequestHeader("Authorization") String auth, @RequestHeader("X-Organization-ID") String org) {
+		return supplierService.getBillingOpenTrips(partnershipId, auth, org);
+	}
+
+	@LogActivity("Billing Statements via IAM")
+	@GetMapping("/billing/statements")
+	public ResponseEntity<?> getBillingStatements(@RequestParam Long partnershipId,
+			@RequestHeader("Authorization") String auth, @RequestHeader("X-Organization-ID") String org) {
+		return supplierService.getBillingStatements(partnershipId, auth, org);
+	}
+
+	@LogActivity("Create Billing Quote via IAM")
+	@PostMapping("/billing/quotes")
+	public ResponseEntity<?> createBillingQuote(@RequestBody Map<String, Object> dto,
+			@RequestHeader("Authorization") String auth, @RequestHeader("X-Organization-ID") String org) {
+		return supplierService.createBillingQuote(dto, auth, org);
+	}
+
+	@LogActivity("Get Billing Quote via IAM")
+	@GetMapping("/billing/quotes/{quoteRef}")
+	public ResponseEntity<?> getBillingQuote(@PathVariable String quoteRef,
+			@RequestHeader("Authorization") String auth, @RequestHeader("X-Organization-ID") String org) {
+		return supplierService.getBillingQuote(quoteRef, auth, org);
+	}
+
+	@LogActivity("Mark Billing Quote Paid via IAM")
+	@PostMapping("/billing/mark-paid")
+	public ResponseEntity<?> markBillingQuotePaid(@RequestBody Map<String, Object> dto,
+			@RequestHeader("Authorization") String auth, @RequestHeader("X-Organization-ID") String org) {
+		return supplierService.markBillingQuotePaid(dto, auth, org);
+	}
 }

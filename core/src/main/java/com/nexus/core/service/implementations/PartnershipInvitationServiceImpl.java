@@ -66,6 +66,23 @@ public class PartnershipInvitationServiceImpl implements PartnershipInvitationSe
 					"An invitation to this organization is already pending");
 		}
 
+		// LONG_TERM supplier-logistics settlement frequency: supplier-chosen
+		// WEEKLY or MONTHLY. Default MONTHLY for multi-month validity,
+		// WEEKLY otherwise. SHORT_TERM settles trip-wise (frequency unused).
+		if ("SUPPLIER_LOGISTICS".equals(invitation.getPartnershipContext())
+				&& "LONG_TERM".equals(invitation.getPartnershipTermType())) {
+			String freq = invitation.getPaymentFrequency();
+			if (freq == null || freq.isBlank()) {
+				invitation.setPaymentFrequency(defaultFrequency(
+						invitation.getValidityStart(), invitation.getValidityEnd()));
+			} else if (!"WEEKLY".equalsIgnoreCase(freq) && !"MONTHLY".equalsIgnoreCase(freq)) {
+				throw new ValidationException(
+						"paymentFrequency must be WEEKLY or MONTHLY");
+			} else {
+				invitation.setPaymentFrequency(freq.toUpperCase());
+			}
+		}
+
 		// Set default status and timestamps
 		invitation.setStatus(PartnershipInvitationStatus.PENDING);
 		invitation.setInvitedAt(Timestamp.valueOf(LocalDateTime.now()));
@@ -73,6 +90,20 @@ public class PartnershipInvitationServiceImpl implements PartnershipInvitationSe
 
 		PartnershipInvitation savedInvitation = invitationRepo.save(invitation);
 		return new ResponseEntity<>(toDto(savedInvitation), HttpStatus.CREATED);
+	}
+
+	/**
+	 * Default settlement frequency from validity span: partnerships running
+	 * several months bill MONTHLY, shorter ones WEEKLY.
+	 */
+	private String defaultFrequency(Timestamp start, Timestamp end) {
+		if (start != null && end != null) {
+			long days = java.time.Duration.between(start.toInstant(), end.toInstant()).toDays();
+			if (days >= 60) {
+				return "MONTHLY";
+			}
+		}
+		return "WEEKLY";
 	}
 
 	/**
@@ -146,6 +177,7 @@ public class PartnershipInvitationServiceImpl implements PartnershipInvitationSe
 			partnershipDto.setDesiredCapacity(invitation.getDesiredCapacity());
 			partnershipDto.setDesiredCapacityUnit(invitation.getDesiredCapacityUnit());
 			partnershipDto.setDiscountRate(invitation.getProposedDiscountRate());
+			partnershipDto.setPaymentFrequency(invitation.getPaymentFrequency());
 			String context = invitation.getPartnershipContext();
 			if (context != null) {
 				if (context.endsWith("LOGISTICS")) {

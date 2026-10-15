@@ -55,6 +55,11 @@ public class Partnership extends BaseEntity {
 	// so the partner supplier keeps flexibility).
 	private String partnershipTermType;
 
+	// LONG_TERM settlement frequency chosen at proposal time: WEEKLY or
+	// MONTHLY (default MONTHLY for multi-month partnerships). Drives the
+	// billing cycle windows; SHORT_TERM partnerships settle trip-wise.
+	private String paymentFrequency;
+
 	private Timestamp validityStart;
 
 	private Timestamp validityEnd;

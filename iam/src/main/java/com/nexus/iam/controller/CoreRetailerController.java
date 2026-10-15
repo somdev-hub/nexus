@@ -757,6 +757,30 @@ public class CoreRetailerController {
 		return coreRetailerService.transitionInvoiceStatus(id, newStatus, params, authToken, orgIdHeader);
 	}
 
+	@LogActivity("Retailer Finance Summary")
+	@GetMapping("/finance/summary")
+	public ResponseEntity<?> getFinanceSummary(
+			@RequestParam(required = false) String period,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.getRetailerFinanceSummary(period, authToken, orgIdHeader);
+	}
+
+	@LogActivity("Retailer Finance Transactions")
+	@GetMapping("/finance/transactions")
+	public ResponseEntity<?> getFinanceTransactions(
+			@RequestParam(required = false) String kind,
+			@RequestParam(required = false) String status,
+			@RequestParam(required = false) String search,
+			@RequestParam(required = false) String from,
+			@RequestParam(required = false) String to,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader,
+			@PageableDefault(size = 20) Pageable pageable) {
+		return coreRetailerService.getRetailerFinanceTransactions(kind, status, search, from, to, authToken,
+				orgIdHeader, pageable);
+	}
+
 	// Three-Way Matching Endpoints
 	@LogActivity("Perform Three-Way Match for Retailer")
 	@GetMapping("/three-way-match/match/{purchaseOrderId}")

@@ -458,4 +458,10 @@ public interface CoreRetailerService {
 	ResponseEntity<?> acceptQuotation(Long id, String authToken, String orgIdHeader);
 
 	ResponseEntity<?> rejectQuotation(Long id, String authToken, String orgIdHeader);
+
+	// Finance analytics (suite finances pages)
+	ResponseEntity<?> getRetailerFinanceSummary(String period, String authToken, String orgIdHeader);
+
+	ResponseEntity<?> getRetailerFinanceTransactions(String kind, String status, String search,
+			String from, String to, String authToken, String orgIdHeader, Pageable pageable);
 }
