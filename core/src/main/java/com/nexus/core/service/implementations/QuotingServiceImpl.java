@@ -185,6 +185,17 @@ public class QuotingServiceImpl implements QuotingService {
         if (s.getPurchaseOrder() != null) {
             row.put("purchaseOrderId", s.getPurchaseOrder().getPurchaseOrderId());
             row.put("poNumber", s.getPurchaseOrder().getPoNumber());
+            // Retailer's expected delivery date from the PO — the fallback
+            // ETA before the carrier computes one on pickup.
+            row.put("poExpectedDeliveryDate",
+                    s.getPurchaseOrder().getExpectedDeliveryDate() != null
+                            ? s.getPurchaseOrder().getExpectedDeliveryDate().toString()
+                            : null);
+        }
+        // The supplier↔logistics agreement this shipment was handed over
+        // under — shown on the load board as the delivery contract.
+        if (s.getPartnership() != null) {
+            row.put("deliveryContractId", s.getPartnership().getPartnershipId());
         }
         row.put("actualDeparture", s.getActualDeparture() != null ? s.getActualDeparture().toString() : null);
         row.put("actualArrival", s.getActualArrival() != null ? s.getActualArrival().toString() : null);

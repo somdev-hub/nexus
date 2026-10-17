@@ -40,6 +40,7 @@ import com.nexus.core.repository.PurchaseOrderRepo;
 import com.nexus.core.repository.ShipmentRepo;
 import com.nexus.core.security.OrganizationContextHolder;
 import com.nexus.core.service.interfaces.FinanceService;
+import com.nexus.core.service.interfaces.LogisticsBillingService;
 
 import lombok.RequiredArgsConstructor;
 
@@ -58,6 +59,7 @@ public class FinanceServiceImpl implements FinanceService {
 	private final CarrierPayableRepo payableRepo;
 	private final PartnershipRepo partnershipRepo;
 	private final LogisticsPayableLineRepo lineRepo;
+	private final LogisticsBillingService billingService;
 
 	// ── retailer ──────────────────────────────────────────────
 	@Override
@@ -197,6 +199,9 @@ public class FinanceServiceImpl implements FinanceService {
 		res.put("overdue", overdue);
 		res.put("logisticsOpen", logiOpen);
 		res.put("logisticsOverdue", logiOverdue);
+		// Currency the settlement KPIs are denominated in (lane currency),
+		// separate from the invoice-side USD aggregates above.
+		res.put("logisticsCurrency", settlementCurrency(supplierDelivered));
 		res.put("openOrderCount", orders.stream().filter(o -> o.getStatus() != PurchaseOrderStatus.PAID
 				&& o.getStatus() != PurchaseOrderStatus.CLOSED).count());
 		res.put("aging", aging(invoices, InvoiceStatus.APPROVED));
@@ -306,8 +311,7 @@ public class FinanceServiceImpl implements FinanceService {
 		for (Shipment s : ships) {
 			if (s.getStatus() == ShipmentStatus.CANCELLED)
 				continue;
-			BigDecimal fare = s.getActualFreightCost() != null ? BigDecimal.valueOf(s.getActualFreightCost())
-					: (s.getFreightCost() != null ? BigDecimal.valueOf(s.getFreightCost()) : BigDecimal.ZERO);
+			BigDecimal fare = billingService.tripFare(s);
 			if (s.getStatus() == ShipmentStatus.DELIVERED
 					|| s.getStatus() == ShipmentStatus.PARTIALLY_DELIVERED) {
 				delivered++;
@@ -346,6 +350,9 @@ public class FinanceServiceImpl implements FinanceService {
 		res.put("receivableOverdue", recvOverdue);
 		res.put("penaltiesLevied", penalties);
 		res.put("trend", shipmentTrend(ships, since));
+		// Trip revenue/receivables carry each shipment's fare currency (the
+		// route capacity's when capacity-priced); expose the dominant one.
+		res.put("currency", settlementCurrency(deliveredShips));
 		return ResponseEntity.ok(res);
 	}
 
@@ -441,9 +448,7 @@ public class FinanceServiceImpl implements FinanceService {
 		Timestamp now = new Timestamp(System.currentTimeMillis());
 		for (Shipment s : delivered) {
 			List<LogisticsPayableLine> lines = lineRepo.findByShipmentId(s.getShipmentId());
-			BigDecimal fare = s.getActualFreightCost() != null
-					? BigDecimal.valueOf(s.getActualFreightCost())
-					: (s.getFreightCost() != null ? BigDecimal.valueOf(s.getFreightCost()) : BigDecimal.ZERO);
+			BigDecimal fare = billingService.tripFare(s);
 			BigDecimal shipOpen = BigDecimal.ZERO, shipOverdue = BigDecimal.ZERO;
 			if (!lines.isEmpty()) {
 				for (LogisticsPayableLine l : lines) {
@@ -457,6 +462,19 @@ public class FinanceServiceImpl implements FinanceService {
 						penalties = penalties.add(rem);
 					if (l.getDueDate() != null && l.getDueDate().before(now))
 						shipOverdue = shipOverdue.add(rem);
+				}
+				// Legacy zero-priced base lines (created before capacity
+				// pricing) fall back to the resolved fare until re-priced.
+				boolean unpricedBase = lines.stream().anyMatch(l ->
+						l.getKind() == LogisticsPayableLineKind.BASE_TRIP
+								&& orZero(l.getAmount()).signum() <= 0
+								&& orZero(l.getPaidAmount()).signum() == 0
+								&& l.getStatus() != LogisticsPayableLineStatus.PAID);
+				if (unpricedBase && fare.signum() > 0) {
+					shipOpen = shipOpen.add(fare);
+					long deliveredAt = deliveredAtOf(s);
+					if (System.currentTimeMillis() - deliveredAt > 7L * 86_400_000L)
+						shipOverdue = shipOverdue.add(fare);
 				}
 				// Live late fee on unpaid base not yet frozen into a row.
 				for (LogisticsPayableLine l : lines) {
@@ -495,6 +513,16 @@ public class FinanceServiceImpl implements FinanceService {
 		m.put("overdue", overdue);
 		m.put("penalties", penalties);
 		return m;
+	}
+
+	/** First delivered trip's resolved settlement currency; USD fallback. */
+	private String settlementCurrency(List<Shipment> delivered) {
+		for (Shipment s : delivered) {
+			String c = billingService.tripCurrency(s);
+			if (c != null)
+				return c;
+		}
+		return "USD";
 	}
 
 	private BigDecimal liveLateFee(LogisticsPayableLine line, Timestamp now) {
@@ -607,8 +635,7 @@ public class FinanceServiceImpl implements FinanceService {
 			if (d == null || (since != null && d.getTime() < since.getTime()))
 				continue;
 			String key = String.format("%tY-%tm", d, d);
-			BigDecimal fare = s.getActualFreightCost() != null ? BigDecimal.valueOf(s.getActualFreightCost())
-					: (s.getFreightCost() != null ? BigDecimal.valueOf(s.getFreightCost()) : BigDecimal.ZERO);
+			BigDecimal fare = billingService.tripFare(s);
 			byMonth.merge(key, fare, BigDecimal::add);
 		}
 		List<Map<String, Object>> out = new ArrayList<>();

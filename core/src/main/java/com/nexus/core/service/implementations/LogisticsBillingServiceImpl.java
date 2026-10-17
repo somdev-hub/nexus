@@ -23,14 +23,17 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nexus.core.annotation.LogActivity;
 import com.nexus.core.exception.ResourceNotFoundException;
 import com.nexus.core.exception.ValidationException;
+import com.nexus.core.model.entities.CapacityForecast;
 import com.nexus.core.model.entities.LogisticsBillingCycle;
 import com.nexus.core.model.entities.LogisticsPayQuote;
 import com.nexus.core.model.entities.LogisticsPayableLine;
 import com.nexus.core.model.entities.Partnership;
 import com.nexus.core.model.entities.Shipment;
+import com.nexus.core.model.enums.CapacityUnit;
 import com.nexus.core.model.enums.LogisticsPayableLineKind;
 import com.nexus.core.model.enums.LogisticsPayableLineStatus;
 import com.nexus.core.model.enums.ShipmentStatus;
+import com.nexus.core.repository.CapacityForecastRepo;
 import com.nexus.core.repository.LogisticsBillingCycleRepo;
 import com.nexus.core.repository.LogisticsPayQuoteRepo;
 import com.nexus.core.repository.LogisticsPayableLineRepo;
@@ -38,6 +41,7 @@ import com.nexus.core.repository.PartnershipRepo;
 import com.nexus.core.repository.ShipmentRepo;
 import com.nexus.core.security.OrganizationContextHolder;
 import com.nexus.core.service.interfaces.LogisticsBillingService;
+import com.nexus.core.utils.RouteCapacityMatcher;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -64,6 +68,7 @@ public class LogisticsBillingServiceImpl implements LogisticsBillingService {
 	private final LogisticsPayableLineRepo lineRepo;
 	private final LogisticsBillingCycleRepo cycleRepo;
 	private final LogisticsPayQuoteRepo quoteRepo;
+	private final CapacityForecastRepo capacityRepo;
 	private final ObjectMapper objectMapper;
 
 	// ── open trips ──────────────────────────────────────────────
@@ -90,6 +95,8 @@ public class LogisticsBillingServiceImpl implements LogisticsBillingService {
 			row.put("outstandingBase", line.getAmount().subtract(orZero(line.getPaidAmount())));
 			row.put("lateFeeAccrued", liveFee(line, now));
 			row.put("status", line.getStatus().name());
+			row.put("currency", line.getCurrency());
+			row.put("pricing", s != null ? fareBreakdown(s, p) : Map.of());
 			trips.add(row);
 		}
 		Map<String, Object> res = new LinkedHashMap<>();
@@ -117,12 +124,17 @@ public class LogisticsBillingServiceImpl implements LogisticsBillingService {
 			BigDecimal penalty = sumByKind(lines, LogisticsPayableLineKind.CYCLE_PENALTY);
 			BigDecimal penaltyPaid = sumPaidByKind(lines, LogisticsPayableLineKind.CYCLE_PENALTY);
 			BigDecimal fees = BigDecimal.ZERO;
+			String rowCurrency = null;
 			for (LogisticsPayableLine l : lines) {
+				if (rowCurrency == null && l.getCurrency() != null)
+					rowCurrency = l.getCurrency();
 				if (l.getKind() == LogisticsPayableLineKind.BASE_TRIP
 						&& l.getStatus() != LogisticsPayableLineStatus.PAID) {
 					fees = fees.add(liveFee(l, now));
 				}
 			}
+			if (rowCurrency == null)
+				rowCurrency = "USD";
 			c.setBaseTotal(base);
 			cycleRepo.save(c);
 			Map<String, Object> row = new LinkedHashMap<>();
@@ -137,6 +149,7 @@ public class LogisticsBillingServiceImpl implements LogisticsBillingService {
 			row.put("penaltyPaid", penaltyPaid);
 			row.put("lateFeesAccrued", fees);
 			row.put("lineCount", lines.size());
+			row.put("currency", rowCurrency);
 			out.add(row);
 		}
 		Map<String, Object> res = new LinkedHashMap<>();
@@ -393,27 +406,244 @@ public class LogisticsBillingServiceImpl implements LogisticsBillingService {
 				.findByPartnershipPartnershipId(p.getPartnershipId(), Pageable.unpaged()).getContent()
 				.stream().filter(s -> s.getStatus() == ShipmentStatus.DELIVERED).toList();
 		for (Shipment s : delivered) {
-			if (lineRepo.findByPartnershipIdAndShipmentIdAndKind(p.getPartnershipId(), s.getShipmentId(),
-					LogisticsPayableLineKind.BASE_TRIP).isPresent())
+			var existing = lineRepo.findByPartnershipIdAndShipmentIdAndKind(p.getPartnershipId(),
+					s.getShipmentId(), LogisticsPayableLineKind.BASE_TRIP).orElse(null);
+			Fare fare = fareFor(s, p);
+			if (existing != null) {
+				// Self-heal unpaid lines: re-price from the currently
+				// resolved fare so the row, its dropdown breakdown and any
+				// quote always agree — covers legacy zero rows (billed from
+				// shipment.freightCost only), stale amounts from lane
+				// pricing/cargo data updated after line creation, and
+				// currency stamped from the shipment before capacity
+				// currency existed. Never touches lines with payments applied.
+				boolean amountDiffers = orZero(existing.getAmount())
+						.compareTo(fare.amount()) != 0;
+				boolean currencyDiffers = fare.currency() != null
+						&& !fare.currency().equals(existing.getCurrency());
+				if (orZero(existing.getPaidAmount()).signum() == 0
+						&& existing.getStatus() != LogisticsPayableLineStatus.PAID
+						&& fare.amount().signum() > 0
+						&& (amountDiffers || currencyDiffers)) {
+					existing.setAmount(fare.amount());
+					existing.setCurrency(fare.currency());
+					lineRepo.save(existing);
+				}
 				continue;
-			BigDecimal fare = s.getActualFreightCost() != null ? BigDecimal.valueOf(s.getActualFreightCost())
-					: (s.getFreightCost() != null ? BigDecimal.valueOf(s.getFreightCost()) : BigDecimal.ZERO);
+			}
 			LogisticsPayableLine l = new LogisticsPayableLine();
 			l.setPartnershipId(p.getPartnershipId());
 			l.setShipmentId(s.getShipmentId());
 			l.setCycleId("LONG_TERM".equals(p.getPartnershipTermType()) ? windowOf(p, deliveredAt(s)) : null);
 			l.setKind(LogisticsPayableLineKind.BASE_TRIP);
-			l.setAmount(fare);
+			l.setAmount(fare.amount());
 			l.setPaidAmount(BigDecimal.ZERO);
 			l.setStatus(LogisticsPayableLineStatus.OPEN);
 			l.setDueDate(new Timestamp(deliveredAt(s)));
-			l.setCurrency(s.getCurrency() != null ? s.getCurrency() : "USD");
+			l.setCurrency(fare.currency());
 			try {
 				lineRepo.save(l);
 			} catch (org.springframework.dao.DataIntegrityViolationException dup) {
 				log.debug("trip line race for shipment {}", s.getShipmentId());
 			}
 		}
+	}
+
+	// ── trip pricing ──────────────────────────────────────────
+	/**
+	 * Billable fare priority: the shipment's recorded (actual, else
+	 * estimated) freight cost when it carries a real price; otherwise the
+	 * price of the logistics route capacity matched to the trip lane —
+	 * unitPrice scaled by shipped cargo, plus the lane's flat surcharges,
+	 * reduced by the partnership contract discountRate. Zero when neither
+	 * source yields a price.
+	 */
+	@Override
+	public BigDecimal tripFare(Shipment s) {
+		if (s == null)
+			return BigDecimal.ZERO;
+		return fareFor(s, s.getPartnership()).amount();
+	}
+
+	/** Currency the fare is denominated in: shipment's own, else the matched capacity's. */
+	@Override
+	public String tripCurrency(Shipment s) {
+		if (s == null)
+			return null;
+		return fareFor(s, s.getPartnership()).currency();
+	}
+
+	private BigDecimal tripFareFor(Shipment s, Partnership p) {
+		return fareFor(s, p).amount();
+	}
+
+	/** Fare plus the currency it is denominated in. */
+	private record Fare(BigDecimal amount, String currency) {
+	}
+
+	private Fare fareFor(Shipment s, Partnership p) {
+		BigDecimal own = ownFare(s);
+		if (own.signum() > 0)
+			return new Fare(own, billCurrency(s));
+		return capacityFare(s, p);
+	}
+
+	private BigDecimal ownFare(Shipment s) {
+		if (s.getActualFreightCost() != null && s.getActualFreightCost() > 0)
+			return BigDecimal.valueOf(s.getActualFreightCost());
+		if (s.getFreightCost() != null && s.getFreightCost() > 0)
+			return BigDecimal.valueOf(s.getFreightCost());
+		return BigDecimal.ZERO;
+	}
+
+	private Fare capacityFare(Shipment s, Partnership p) {
+		CapacityForecast lane = matchLane(s, p);
+		if (lane == null || lane.getUnitPrice() == null)
+			return new Fare(BigDecimal.ZERO, billCurrency(s));
+		BigDecimal price = BigDecimal.valueOf(lane.getUnitPrice())
+				.multiply(cargoQuantity(lane, s));
+		for (Double flat : List.of(lane.getFuelSurcharge(), lane.getDriverFees(), lane.getMiscPrice()))
+			if (flat != null)
+				price = price.add(BigDecimal.valueOf(flat));
+		price = price.multiply(discountFactor(p)).setScale(2, RoundingMode.HALF_UP);
+		return new Fare(price, lane.getCurrency() != null ? lane.getCurrency() : billCurrency(s));
+	}
+
+	/**
+	 * Lane resolution, widest last: capacity linked by the partnership
+	 * contract, then partnership-private capacities, then the logistics
+	 * org's own lanes, then the public marketplace. Mirrors the marketplace
+	 * shipment view so both agree on what a lane costs.
+	 */
+	private CapacityForecast matchLane(Shipment s, Partnership p) {
+		Partnership part = p != null ? p : s.getPartnership();
+		String pickup = s.getPickupLocation() != null ? s.getPickupLocation() : s.getPickupAddress();
+		String delivery = s.getDeliveryLocation() != null ? s.getDeliveryLocation() : s.getDeliveryAddress();
+		if (part != null) {
+			if (part.getLinkedCapacityForecastId() != null) {
+				CapacityForecast linked = capacityRepo.findById(part.getLinkedCapacityForecastId()).orElse(null);
+				if (linked != null && RouteCapacityMatcher.routeCovers(linked, pickup, delivery))
+					return linked;
+			}
+			CapacityForecast hit = RouteCapacityMatcher.matchWithMode(
+					capacityRepo.findByPartnershipPartnershipId(part.getPartnershipId(),
+							Pageable.unpaged()).getContent(),
+					pickup, delivery);
+			if (hit != null)
+				return hit;
+		}
+		if (s.getLogisticsOrg() != null && s.getLogisticsOrg().getAccountId() != null) {
+			CapacityForecast hit = RouteCapacityMatcher.matchWithMode(
+					capacityRepo.findByOrgWithFilters(s.getLogisticsOrg().getAccountId(), null, null,
+							Pageable.unpaged()).getContent(),
+					pickup, delivery);
+			if (hit != null)
+				return hit;
+		}
+		return RouteCapacityMatcher.matchWithMode(
+				capacityRepo.findMarketplaceAvailabilities(null, Pageable.unpaged()).getContent(),
+				pickup, delivery);
+	}
+
+	/**
+	 * Cargo quantity billed in the lane's capacity unit: weight/volume ops
+	 * consume the shipment totals (converted KG↔LBS↔TONNES, m³↔ft³↔L↔gal),
+	 * unitized lanes (pallets/containers) are billed per package. With no
+	 * cargo facts the lane's unitPrice is treated as a flat per-trip fare.
+	 */
+	private BigDecimal cargoQuantity(CapacityForecast c, Shipment s) {
+		CapacityUnit unit = c.getCapacityUnit() != null ? c.getCapacityUnit() : CapacityUnit.KG;
+		double qty = d(s.getTotalWeight());
+		qty = switch (unit) {
+			case KG -> d(s.getTotalWeight());
+			case LBS -> d(s.getTotalWeight()) * 2.20462;
+			case TONNES -> d(s.getTotalWeight()) / 1000.0;
+			case CUBIC_METERS -> d(s.getTotalVolume());
+			case CUBIC_FEET -> d(s.getTotalVolume()) * 35.3147;
+			case LITRES -> d(s.getTotalVolume()) * 1000.0;
+			case GALLONS -> d(s.getTotalVolume()) * 264.172;
+			case PALLETS, SHIPPING_CONTAINER, FREIGHT_CONTAINER ->
+				s.getTotalPackages() != null ? s.getTotalPackages() : 0.0;
+		};
+		if (qty <= 0)
+			qty = 1;
+		return BigDecimal.valueOf(qty);
+	}
+
+	/**
+	 * Itemized price breakdown for one trip — mirrors exactly what
+	 * {@link #fareFor} charges. CAPACITY trips show each lane component the
+	 * logistics org priced (unit price × billed cargo, fuel surcharge, driver
+	 * fees, misc) plus the partnership contract discount; own-priced shows the
+	 * shipment's recorded cost; UNPRICED means no lane matched.
+	 */
+	private Map<String, Object> fareBreakdown(Shipment s, Partnership p) {
+		Map<String, Object> b = new LinkedHashMap<>();
+		BigDecimal own = ownFare(s);
+		if (own.signum() > 0) {
+			b.put("source", "SHIPMENT");
+			b.put("currency", billCurrency(s));
+			b.put("total", own);
+			return b;
+		}
+		CapacityForecast lane = matchLane(s, p);
+		if (lane == null || lane.getUnitPrice() == null) {
+			b.put("source", "UNPRICED");
+			b.put("currency", billCurrency(s));
+			b.put("total", BigDecimal.ZERO);
+			return b;
+		}
+		Fare fare = capacityFare(s, p);
+		BigDecimal base = BigDecimal.valueOf(lane.getUnitPrice())
+				.multiply(cargoQuantity(lane, s));
+		b.put("source", "CAPACITY");
+		b.put("currency", fare.currency());
+		b.put("lane", lane.getOriginLane() + " → " + lane.getDestinationLane());
+		if (lane.getTransportMode() != null)
+			b.put("transportMode", lane.getTransportMode().name());
+		if (lane.getEquipmentType() != null)
+			b.put("equipmentType", lane.getEquipmentType().name());
+		b.put("capacityUnit", lane.getCapacityUnit() != null
+				? lane.getCapacityUnit().name() : "KG");
+		b.put("unitPrice", lane.getUnitPrice());
+		b.put("billedQuantity", cargoQuantity(lane, s));
+		b.put("basePrice", base.setScale(2, RoundingMode.HALF_UP));
+		if (lane.getFuelSurcharge() != null)
+			b.put("fuelSurcharge", BigDecimal.valueOf(lane.getFuelSurcharge()));
+		if (lane.getDriverFees() != null)
+			b.put("driverFees", BigDecimal.valueOf(lane.getDriverFees()));
+		if (lane.getMiscPrice() != null)
+			b.put("miscPrice", BigDecimal.valueOf(lane.getMiscPrice()));
+		BigDecimal subtotal = base;
+		for (Double flat : List.of(lane.getFuelSurcharge(), lane.getDriverFees(), lane.getMiscPrice()))
+			if (flat != null)
+				subtotal = subtotal.add(BigDecimal.valueOf(flat));
+		b.put("subtotal", subtotal.setScale(2, RoundingMode.HALF_UP));
+		if (p != null && p.getDiscountRate() != null && p.getDiscountRate() > 0) {
+			b.put("discountRate", Math.min(p.getDiscountRate(), 100.0));
+			b.put("discount", subtotal.subtract(fare.amount())
+					.setScale(2, RoundingMode.HALF_UP));
+		}
+		b.put("total", fare.amount());
+		return b;
+	}
+
+	/** Partnership contract discount: discountRate is a percent (5 = 5% off). */
+	private static BigDecimal discountFactor(Partnership p) {
+		if (p == null || p.getDiscountRate() == null || p.getDiscountRate() <= 0)
+			return BigDecimal.ONE;
+		double rate = Math.min(p.getDiscountRate(), 100.0);
+		return BigDecimal.ONE.subtract(BigDecimal.valueOf(rate).divide(
+				BigDecimal.valueOf(100.0), 6, RoundingMode.HALF_UP));
+	}
+
+	private static double d(Double v) {
+		return v != null ? v : 0.0;
+	}
+
+	/** Currency the line should carry: shipment's own, else USD default. */
+	private static String billCurrency(Shipment s) {
+		return s.getCurrency() != null ? s.getCurrency() : "USD";
 	}
 
 	private void ensureCycles(Partnership p) {
