@@ -281,43 +281,6 @@ public class CoreLogisticsController {
 		return logisticsService.deleteQuote(id, auth, org);
 	}
 
-	@LogActivity("Create Freight Rate via IAM")
-	@PostMapping("/quoting/rates/create")
-	public ResponseEntity<?> createRate(@RequestBody Map<String, Object> dto,
-			@RequestHeader("Authorization") String auth, @RequestHeader("X-Organization-ID") String org) {
-		return logisticsService.createRate(dto, auth, org);
-	}
-
-	@LogActivity("Get Freight Rate via IAM")
-	@GetMapping("/quoting/rates/{id}")
-	public ResponseEntity<?> getRate(@PathVariable Long id, @RequestHeader("Authorization") String auth,
-			@RequestHeader("X-Organization-ID") String org) {
-		return logisticsService.getRate(id, auth, org);
-	}
-
-	@LogActivity("Get All Freight Rates via IAM")
-	@GetMapping("/quoting/rates/all")
-	public ResponseEntity<?> getAllRates(@RequestHeader("Authorization") String auth,
-			@RequestHeader("X-Organization-ID") String org, @PageableDefault(size = 20) Pageable p,
-			@RequestParam(required = false) String rateType, @RequestParam(required = false) String equipmentType,
-			@RequestParam(required = false) String search) {
-		return logisticsService.getAllRates(auth, org, p, rateType, equipmentType, search);
-	}
-
-	@LogActivity("Update Freight Rate via IAM")
-	@PutMapping("/quoting/rates/{id}/update")
-	public ResponseEntity<?> updateRate(@PathVariable Long id, @RequestBody Map<String, Object> dto,
-			@RequestHeader("Authorization") String auth, @RequestHeader("X-Organization-ID") String org) {
-		return logisticsService.updateRate(id, dto, auth, org);
-	}
-
-	@LogActivity("Delete Freight Rate via IAM")
-	@DeleteMapping("/quoting/rates/{id}")
-	public ResponseEntity<?> deleteRate(@PathVariable Long id, @RequestHeader("Authorization") String auth,
-			@RequestHeader("X-Organization-ID") String org) {
-		return logisticsService.deleteRate(id, auth, org);
-	}
-
 	// Execution
 	@LogActivity("Assign Logistics Booking via IAM")
 	@PutMapping("/execution/shipments/{shipmentId}/assign")
@@ -566,51 +529,6 @@ public class CoreLogisticsController {
 		return logisticsService.terminatePartnership(id, dto, auth, org);
 	}
 
-	@LogActivity("Create Carrier Payable via IAM")
-	@PostMapping("/operations/payables/create")
-	public ResponseEntity<?> createPayable(@RequestBody Map<String, Object> dto,
-			@RequestHeader("Authorization") String auth, @RequestHeader("X-Organization-ID") String org) {
-		return logisticsService.createPayable(dto, auth, org);
-	}
-
-    @LogActivity("Update Carrier Payable via IAM")
-    @PutMapping("/operations/payables/{id}/update")
-    public ResponseEntity<?> updatePayable(@PathVariable Long id, @RequestBody Map<String, Object> dto,
-            @RequestHeader("Authorization") String auth, @RequestHeader("X-Organization-ID") String org) {
-        return logisticsService.updatePayable(id, dto, auth, org);
-    }
-
-    @LogActivity("Get Carrier Payable via IAM")
-	@GetMapping("/operations/payables/{id}")
-	public ResponseEntity<?> getPayable(@PathVariable Long id, @RequestHeader("Authorization") String auth,
-			@RequestHeader("X-Organization-ID") String org) {
-		return logisticsService.getPayable(id, auth, org);
-	}
-
-	@LogActivity("Get All Carrier Payables via IAM")
-	@GetMapping("/operations/payables/all")
-	public ResponseEntity<?> getAllPayables(@RequestHeader("Authorization") String auth,
-			@RequestHeader("X-Organization-ID") String org, @PageableDefault(size = 20) Pageable p,
-			@RequestParam(required = false) Long shipmentId, @RequestParam(required = false) String status,
-			@RequestParam(required = false) String search) {
-		return logisticsService.getAllPayables(auth, org, p, shipmentId, status, search);
-	}
-
-	@LogActivity("Transition Carrier Payable Status via IAM")
-	@PutMapping("/operations/payables/{id}/status")
-	public ResponseEntity<?> transitionPayableStatus(@PathVariable Long id, @RequestParam String newStatus,
-			@RequestBody(required = false) Map<String, Object> params, @RequestHeader("Authorization") String auth,
-			@RequestHeader("X-Organization-ID") String org) {
-		return logisticsService.transitionPayableStatus(id, newStatus, params, auth, org);
-	}
-
-	@LogActivity("Delete Carrier Payable via IAM")
-	@DeleteMapping("/operations/payables/{id}")
-	public ResponseEntity<?> deletePayable(@PathVariable Long id, @RequestHeader("Authorization") String auth,
-			@RequestHeader("X-Organization-ID") String org) {
-		return logisticsService.deletePayable(id, auth, org);
-	}
-
 	@LogActivity("Get Logistics Dashboard via IAM")
 	@GetMapping("/operations/analytics/dashboard")
 	public ResponseEntity<?> getLogisticsDashboard(@RequestHeader("Authorization") String auth,
@@ -699,21 +617,6 @@ public class CoreLogisticsController {
 			@RequestHeader("Authorization") String auth, @RequestHeader("X-Organization-ID") String org) {
 		String status = statusDto != null ? (String) statusDto.get("status") : null;
 		return logisticsService.updatePartnershipStatus(id, status, auth, org);
-	}
-
-	// Freight invoice passthroughs (Core P1)
-	@LogActivity("Get Freight Invoices by Logistics Org via IAM")
-	@GetMapping("/freight-invoices/all")
-	public ResponseEntity<?> getFreightInvoicesByLogisticsOrg(@RequestHeader("Authorization") String auth,
-			@RequestHeader("X-Organization-ID") String org, @PageableDefault(size = 20) Pageable p) {
-		return logisticsService.getFreightInvoicesByLogisticsOrg(auth, org, p);
-	}
-
-	@LogActivity("Get Freight Invoices by Shipment via IAM")
-	@GetMapping("/freight-invoices/shipment/{shipmentId}")
-	public ResponseEntity<?> getFreightInvoicesByShipment(@PathVariable Long shipmentId,
-			@RequestHeader("Authorization") String auth, @RequestHeader("X-Organization-ID") String org) {
-		return logisticsService.getFreightInvoicesByShipment(shipmentId, auth, org);
 	}
 
 	// Finance analytics + settlement statements (suite finances pages)

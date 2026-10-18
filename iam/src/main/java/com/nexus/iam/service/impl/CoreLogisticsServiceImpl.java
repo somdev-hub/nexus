@@ -202,32 +202,6 @@ public class CoreLogisticsServiceImpl implements CoreLogisticsService {
         return callDelete(webConstants.getCoreLogisticsQuoteGetUrl() + "/" + id, auth, org);
     }
 
-    @Override
-    public ResponseEntity<?> createRate(Map<String, Object> dto, String auth, String org) {
-        return callPost(webConstants.getCoreLogisticsRateCreateUrl(), dto, auth, org);
-    }
-
-    @Override
-    public ResponseEntity<?> getRate(Long id, String auth, String org) {
-        return callGet(webConstants.getCoreLogisticsRateGetUrl() + "/" + id, auth, org);
-    }
-
-    @Override
-    public ResponseEntity<?> getAllRates(String auth, String org, Pageable p, String rateType, String equipmentType, String search) {
-        return callGet(buildPaginatedUrlWithFilters(webConstants.getCoreLogisticsRateAllUrl(), p,
-                "rateType", rateType, "equipmentType", equipmentType, "search", search), auth, org);
-    }
-
-    @Override
-    public ResponseEntity<?> updateRate(Long id, Map<String, Object> dto, String auth, String org) {
-        return callPut(webConstants.getCoreLogisticsRateGetUrl() + "/" + id + "/update", dto, auth, org);
-    }
-
-    @Override
-    public ResponseEntity<?> deleteRate(Long id, String auth, String org) {
-        return callDelete(webConstants.getCoreLogisticsRateGetUrl() + "/" + id, auth, org);
-    }
-
     // Execution
     @Override
     public ResponseEntity<?> assignBooking(Long shipmentId, Map<String, Object> body, String auth, String org) {
@@ -403,37 +377,6 @@ public class CoreLogisticsServiceImpl implements CoreLogisticsService {
     }
 
     @Override
-    public ResponseEntity<?> createPayable(Map<String, Object> dto, String auth, String org) {
-        return callPost(webConstants.getCoreLogisticsOperationsBaseUrl() + "/payables/create", dto, auth, org);
-    }
-
-    @Override
-    public ResponseEntity<?> updatePayable(Long id, Map<String, Object> dto, String auth, String org) {
-        return callPut(webConstants.getCoreLogisticsOperationsBaseUrl() + "/payables/" + id + "/update", dto, auth, org);
-    }
-
-    @Override
-    public ResponseEntity<?> getPayable(Long id, String auth, String org) {
-        return callGet(webConstants.getCoreLogisticsOperationsBaseUrl() + "/payables/" + id, auth, org);
-    }
-
-    @Override
-    public ResponseEntity<?> getAllPayables(String auth, String org, Pageable p, Long shipmentId, String status, String search) {
-        return callGet(buildPaginatedUrlWithFilters(webConstants.getCoreLogisticsOperationsBaseUrl() + "/payables/all", p,
-                "shipmentId", shipmentId, "status", status, "search", search), auth, org);
-    }
-
-    @Override
-    public ResponseEntity<?> transitionPayableStatus(Long id, String newStatus, Map<String, Object> params, String auth, String org) {
-        return callPut(webConstants.getCoreLogisticsOperationsBaseUrl() + "/payables/" + id + "/status?newStatus=" + newStatus, params, auth, org);
-    }
-
-    @Override
-    public ResponseEntity<?> deletePayable(Long id, String auth, String org) {
-        return callDelete(webConstants.getCoreLogisticsOperationsBaseUrl() + "/payables/" + id, auth, org);
-    }
-
-    @Override
     public ResponseEntity<?> getLogisticsDashboard(String auth, String org) {
         return callGet(webConstants.getCoreLogisticsOperationsBaseUrl() + "/analytics/dashboard", auth, org);
     }
@@ -493,17 +436,6 @@ public class CoreLogisticsServiceImpl implements CoreLogisticsService {
     @Override
     public ResponseEntity<?> updatePartnershipStatus(Long id, String status, String auth, String org) {
         return callPost(webConstants.getCorePartnershipUpdateStatusUrl() + "/" + id + "/status", Map.of("status", status), auth, org);
-    }
-
-    // Freight invoice passthroughs (Core P1)
-    @Override
-    public ResponseEntity<?> getFreightInvoicesByLogisticsOrg(String auth, String org, Pageable p) {
-        return callGet(buildPaginatedUrl(webConstants.getCoreFreightInvoiceBaseUrl() + "/by-logistics-org", p), auth, org);
-    }
-
-    @Override
-    public ResponseEntity<?> getFreightInvoicesByShipment(Long shipmentId, String auth, String org) {
-        return callGet(webConstants.getCoreFreightInvoiceBaseUrl() + "/shipment/" + shipmentId, auth, org);
     }
 
     // Finance analytics + settlement statements (suite finances pages)

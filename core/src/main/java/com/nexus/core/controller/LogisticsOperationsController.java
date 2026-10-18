@@ -2,7 +2,6 @@ package com.nexus.core.controller;
 
 import com.nexus.core.annotation.LogActivity;
 import com.nexus.core.payload.CapacityForecastDto;
-import com.nexus.core.payload.CarrierPayableDto;
 import com.nexus.core.payload.ConsolidationGroupDto;
 import com.nexus.core.service.interfaces.LogisticsOperationsService;
 import jakarta.validation.Valid;
@@ -114,48 +113,6 @@ public class LogisticsOperationsController {
     public ResponseEntity<?> extendCapacityForPartnership(@PathVariable Long id,
             @RequestBody Map<String, Object> body) {
         return operationsService.extendCapacityForPartnership(id, body);
-    }
-
-    @PostMapping("/payables/create")
-    @LogActivity("Create Carrier Payable")
-    public ResponseEntity<?> createPayable(@Valid @RequestBody CarrierPayableDto dto) {
-        return operationsService.createPayable(dto);
-    }
-
-    @PutMapping("/payables/{id}/update")
-    @LogActivity("Update Carrier Payable")
-    public ResponseEntity<?> updatePayable(@PathVariable Long id, @RequestBody CarrierPayableDto dto) {
-        return operationsService.updatePayable(id, dto);
-    }
-
-    @GetMapping("/payables/{id}")
-    @LogActivity("Get Carrier Payable")
-    public ResponseEntity<?> getPayable(@PathVariable Long id) {
-        return operationsService.getPayable(id);
-    }
-
-    @GetMapping("/payables/all")
-    @LogActivity("Get All Carrier Payables")
-    public ResponseEntity<?> getAllPayables(
-            @RequestParam(required = false) Long shipmentId,
-            @RequestParam(required = false) String status,
-            @RequestParam(required = false) String search,
-            @PageableDefault(size = 20) Pageable pageable) {
-        return operationsService.getAllPayables(shipmentId, status, search, pageable);
-    }
-
-    @PutMapping("/payables/{id}/status")
-    @LogActivity("Transition Carrier Payable Status")
-    public ResponseEntity<?> transitionPayableStatus(@PathVariable Long id,
-            @RequestParam String newStatus,
-            @RequestBody(required = false) Map<String, Object> params) {
-        return operationsService.transitionPayableStatus(id, newStatus, params);
-    }
-
-    @DeleteMapping("/payables/{id}")
-    @LogActivity("Delete Carrier Payable")
-    public ResponseEntity<?> deletePayable(@PathVariable Long id) {
-        return operationsService.deletePayable(id);
     }
 
     @GetMapping("/analytics/dashboard")

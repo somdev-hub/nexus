@@ -1,7 +1,6 @@
 package com.nexus.core.controller;
 
 import com.nexus.core.annotation.LogActivity;
-import com.nexus.core.payload.FreightRateDto;
 import com.nexus.core.payload.ShipmentQuoteDto;
 import com.nexus.core.service.interfaces.QuotingService;
 import jakarta.validation.Valid;
@@ -99,39 +98,5 @@ public class QuotingController {
     @LogActivity("Delete Shipment Quote")
     public ResponseEntity<?> deleteQuote(@PathVariable Long id) {
         return quotingService.deleteQuote(id);
-    }
-
-    @PostMapping("/rates/create")
-    @LogActivity("Create Freight Rate")
-    public ResponseEntity<?> createRate(@Valid @RequestBody FreightRateDto dto) {
-        return quotingService.createRate(dto);
-    }
-
-    @GetMapping("/rates/{id}")
-    @LogActivity("Get Freight Rate")
-    public ResponseEntity<?> getRate(@PathVariable Long id) {
-        return quotingService.getRate(id);
-    }
-
-    @GetMapping("/rates/all")
-    @LogActivity("Get All Freight Rates")
-    public ResponseEntity<?> getAllRates(
-            @RequestParam(required = false) String rateType,
-            @RequestParam(required = false) String equipmentType,
-            @RequestParam(required = false) String search,
-            @PageableDefault(size = 20) Pageable pageable) {
-        return quotingService.getAllRates(rateType, equipmentType, search, pageable);
-    }
-
-    @PutMapping("/rates/{id}/update")
-    @LogActivity("Update Freight Rate")
-    public ResponseEntity<?> updateRate(@PathVariable Long id, @RequestBody FreightRateDto dto) {
-        return quotingService.updateRate(id, dto);
-    }
-
-    @DeleteMapping("/rates/{id}")
-    @LogActivity("Delete Freight Rate")
-    public ResponseEntity<?> deleteRate(@PathVariable Long id) {
-        return quotingService.deleteRate(id);
     }
 }

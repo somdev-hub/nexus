@@ -2,20 +2,15 @@ package com.nexus.core.service.implementations;
 
 import com.nexus.core.dto.ShipmentDto;
 import com.nexus.core.model.entities.Account;
-import com.nexus.core.model.enums.FleetAssetType;
 import com.nexus.core.model.entities.CapacityForecast;
-import com.nexus.core.model.entities.FreightRate;
 import com.nexus.core.model.enums.QuoteStatus;
-import com.nexus.core.model.enums.RateType;
 import com.nexus.core.model.entities.Shipment;
 import com.nexus.core.model.enums.ShipmentMode;
 import com.nexus.core.model.entities.ShipmentQuote;
 import com.nexus.core.model.enums.ShipmentStatus;
 import com.nexus.core.exception.ResourceNotFoundException;
-import com.nexus.core.payload.FreightRateDto;
 import com.nexus.core.payload.ShipmentQuoteDto;
 import com.nexus.core.repository.CapacityForecastRepo;
-import com.nexus.core.repository.FreightRateRepo;
 import com.nexus.core.repository.ShipmentQuoteRepo;
 import com.nexus.core.repository.ShipmentRepo;
 import com.nexus.core.security.OrganizationContextHolder;
@@ -42,7 +37,6 @@ import java.util.Set;
 public class QuotingServiceImpl implements QuotingService {
 
     private final ShipmentQuoteRepo quoteRepo;
-    private final FreightRateRepo rateRepo;
     private final ShipmentRepo shipmentRepo;
     private final CapacityForecastRepo capacityForecastRepo;
     private final AccountDirectory accountDirectory;
@@ -409,70 +403,6 @@ public class QuotingServiceImpl implements QuotingService {
                 .orElseThrow(() -> new ResourceNotFoundException("ShipmentQuote", "quoteId", id));
         quote.setIsActive(false);
         quoteRepo.save(quote);
-        return ResponseEntity.noContent().build();
-    }
-
-    @Override
-    @Transactional
-    public ResponseEntity<?> createRate(FreightRateDto dto) {
-        var orgId = OrganizationContextHolder.requireOrganizationId();
-        Account org = accountDirectory.getOrCreateAccount(orgId);
-        rateRepo.findByRateCodeAndLogisticsOrgAccountId(dto.getRateCode(), orgId)
-                .ifPresent(r -> { throw new IllegalArgumentException("Rate code already exists: " + dto.getRateCode()); });
-        var rate = modelMapper.map(dto, FreightRate.class);
-        rate.setRateId(null);
-        rate.setLogisticsOrg(org);
-        if (rate.getIsActiveRate() == null) rate.setIsActiveRate(true);
-        return ResponseEntity.status(HttpStatus.CREATED).body(modelMapper.map(rateRepo.save(rate), FreightRateDto.class));
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public ResponseEntity<?> getRate(Long id) {
-        var orgId = OrganizationContextHolder.requireOrganizationId();
-        var rate = rateRepo.findByIdAndOrg(id, orgId)
-                .orElseThrow(() -> new ResourceNotFoundException("FreightRate", "rateId", id));
-        return ResponseEntity.ok(modelMapper.map(rate, FreightRateDto.class));
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public ResponseEntity<?> getAllRates(String rateType, String equipmentType, String search, Pageable pageable) {
-        var orgId = OrganizationContextHolder.requireOrganizationId();
-        RateType rt = null;
-        FleetAssetType et = null;
-        try {
-            if (rateType != null && !rateType.isBlank()) rt = RateType.valueOf(rateType.toUpperCase());
-            if (equipmentType != null && !equipmentType.isBlank()) et = FleetAssetType.valueOf(equipmentType.toUpperCase());
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Invalid filter value"));
-        }
-        Page<FreightRate> page = rateRepo.findByOrgWithFilters(orgId, rt, et, blankToNull(search), pageable);
-        return ResponseEntity.ok(page.map(r -> modelMapper.map(r, FreightRateDto.class)));
-    }
-
-    @Override
-    @Transactional
-    public ResponseEntity<?> updateRate(Long id, FreightRateDto dto) {
-        var orgId = OrganizationContextHolder.requireOrganizationId();
-        var existing = rateRepo.findByIdAndOrg(id, orgId)
-                .orElseThrow(() -> new ResourceNotFoundException("FreightRate", "rateId", id));
-        var org = existing.getLogisticsOrg();
-        modelMapper.map(dto, existing);
-        existing.setRateId(id);
-        existing.setLogisticsOrg(org);
-        return ResponseEntity.ok(modelMapper.map(rateRepo.save(existing), FreightRateDto.class));
-    }
-
-    @Override
-    @Transactional
-    public ResponseEntity<?> deleteRate(Long id) {
-        var orgId = OrganizationContextHolder.requireOrganizationId();
-        var rate = rateRepo.findByIdAndOrg(id, orgId)
-                .orElseThrow(() -> new ResourceNotFoundException("FreightRate", "rateId", id));
-        rate.setIsActive(false);
-        rate.setIsActiveRate(false);
-        rateRepo.save(rate);
         return ResponseEntity.noContent().build();
     }
 

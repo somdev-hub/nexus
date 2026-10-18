@@ -121,29 +121,6 @@ public class FreightInvoiceServiceImpl implements FreightInvoiceService {
         return ResponseEntity.ok(dtoPage);
     }
 
-    @Override
-    @Transactional(readOnly = true)
-    public ResponseEntity<?> getByLogisticsOrg(Pageable pageable) {
-        Long orgId = OrganizationContextHolder.requireOrganizationId();
-        Page<FreightInvoice> page = freightInvoiceRepo.findByLogisticsOrgAccountId(orgId, pageable);
-        return ResponseEntity.ok(page.map(this::mapToDto));
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public ResponseEntity<?> getByShipment(Long shipmentId) {
-        Long orgId = OrganizationContextHolder.requireOrganizationId();
-        Shipment shipment = shipmentRepo.findById(shipmentId)
-                .orElseThrow(() -> new ResourceNotFoundException("Shipment", "shipmentId", shipmentId));
-        if (!isShipmentCounterparty(shipment, orgId)) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                    .body(Map.of("error", "Not authorized for shipment " + shipmentId));
-        }
-        List<FreightInvoiceDto> dtos = freightInvoiceRepo.findByShipmentShipmentId(shipmentId)
-                .stream().map(this::mapToDto).toList();
-        return ResponseEntity.ok(dtos);
-    }
-
     private boolean isShipmentCounterparty(Shipment shipment, Long orgId) {
         return (shipment.getRetailerOrg() != null && shipment.getRetailerOrg().getAccountId().equals(orgId))
                 || (shipment.getSupplierOrg() != null && shipment.getSupplierOrg().getAccountId().equals(orgId))

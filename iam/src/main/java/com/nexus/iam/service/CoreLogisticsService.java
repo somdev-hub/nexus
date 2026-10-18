@@ -52,11 +52,6 @@ public interface CoreLogisticsService {
     ResponseEntity<?> updateQuote(Long id, Map<String, Object> dto, String auth, String org);
     ResponseEntity<?> transitionQuoteStatus(Long id, String newStatus, Map<String, Object> params, String auth, String org);
     ResponseEntity<?> deleteQuote(Long id, String auth, String org);
-    ResponseEntity<?> createRate(Map<String, Object> dto, String auth, String org);
-    ResponseEntity<?> getRate(Long id, String auth, String org);
-    ResponseEntity<?> getAllRates(String auth, String org, Pageable p, String rateType, String equipmentType, String search);
-    ResponseEntity<?> updateRate(Long id, Map<String, Object> dto, String auth, String org);
-    ResponseEntity<?> deleteRate(Long id, String auth, String org);
 
     // Execution: booking assignment, ETA, POD, incidents
     ResponseEntity<?> assignBooking(Long shipmentId, Map<String, Object> body, String auth, String org);
@@ -96,12 +91,6 @@ public interface CoreLogisticsService {
     ResponseEntity<?> getPartnershipRoutes(Long id, String auth, String org, Pageable p);
     ResponseEntity<?> activatePartnership(Long id, String auth, String org);
     ResponseEntity<?> terminatePartnership(Long id, Map<String, Object> dto, String auth, String org);
-    ResponseEntity<?> createPayable(Map<String, Object> dto, String auth, String org);
-    ResponseEntity<?> updatePayable(Long id, Map<String, Object> dto, String auth, String org);
-    ResponseEntity<?> getPayable(Long id, String auth, String org);
-    ResponseEntity<?> getAllPayables(String auth, String org, Pageable p, Long shipmentId, String status, String search);
-    ResponseEntity<?> transitionPayableStatus(Long id, String newStatus, Map<String, Object> params, String auth, String org);
-    ResponseEntity<?> deletePayable(Long id, String auth, String org);
     ResponseEntity<?> getLogisticsDashboard(String auth, String org);
 
     // Partnership Invitations (mirrors retailer invitation routes, same core URLs)
@@ -122,10 +111,6 @@ public interface CoreLogisticsService {
     ResponseEntity<?> updatePartnership(Long id, Map<String, Object> partnershipDto, String auth, String org);
 
     ResponseEntity<?> updatePartnershipStatus(Long id, String status, String auth, String org);
-
-    // Freight invoice passthroughs (Core P1)
-    ResponseEntity<?> getFreightInvoicesByLogisticsOrg(String auth, String org, Pageable p);
-    ResponseEntity<?> getFreightInvoicesByShipment(Long shipmentId, String auth, String org);
 
     // Finance analytics + settlement statements (suite finances pages)
     ResponseEntity<?> getLogisticsFinanceSummary(String period, String auth, String org);

@@ -90,7 +90,7 @@ public class FinanceServiceImpl implements FinanceService {
 		res.put("openPoCount", pos.stream().filter(p -> p.getStatus() != PurchaseOrderStatus.PAID
 				&& p.getStatus() != PurchaseOrderStatus.CLOSED).count());
 		res.put("aging", aging(invoices, InvoiceStatus.APPROVED));
-		res.put("trend", monthlyTrend(invoices, since));
+		res.put("trend", monthlyTrend(invoices, since, dailyBucket(period)));
 		res.put("topSuppliers", topSuppliers(invoices));
 		res.put("funnel", funnel(pos, invoices));
 		return ResponseEntity.ok(res);
@@ -205,7 +205,7 @@ public class FinanceServiceImpl implements FinanceService {
 		res.put("openOrderCount", orders.stream().filter(o -> o.getStatus() != PurchaseOrderStatus.PAID
 				&& o.getStatus() != PurchaseOrderStatus.CLOSED).count());
 		res.put("aging", aging(invoices, InvoiceStatus.APPROVED));
-		res.put("trend", monthlyTrend(invoices, since));
+		res.put("trend", monthlyTrend(invoices, since, dailyBucket(period)));
 		res.put("topBuyers", topBuyers(orders));
 		return ResponseEntity.ok(res);
 	}
@@ -219,17 +219,18 @@ public class FinanceServiceImpl implements FinanceService {
 		List<Map<String, Object>> rows = new ArrayList<>();
 		if (kind == null || "ORDER".equalsIgnoreCase(kind) || "INVOICE".equalsIgnoreCase(kind)) {
 			for (PurchaseOrder o : poRepo.findSupplierVisibleOrdersList(orgId)) {
-				String buyer = o.getBuyerOrg() != null ? String.valueOf(o.getBuyerOrg().getAccountId()) : null;
+				String buyerId = o.getBuyerOrg() != null ? String.valueOf(o.getBuyerOrg().getAccountId()) : null;
+				String buyerName = buyerDisplayName(o);
 				if (kind == null || "ORDER".equalsIgnoreCase(kind)) {
 					if (!matchStatus(status, o.getStatus().name()))
 						continue;
-					if (!matchSearch(search, o.getPoNumber(), buyer))
+					if (!matchSearch(search, o.getPoNumber(), buyerId, buyerName))
 						continue;
 					Map<String, Object> r = new LinkedHashMap<>();
 					r.put("kind", "ORDER");
 					r.put("id", o.getPurchaseOrderId());
 					r.put("number", o.getPoNumber());
-					r.put("party", buyer);
+					r.put("party", buyerName);
 					r.put("amount", o.getTotalAmount());
 					r.put("currency", o.getCurrency());
 					r.put("status", o.getStatus().name());
@@ -247,13 +248,13 @@ public class FinanceServiceImpl implements FinanceService {
 							continue;
 						String num = i.getSupplierInvoiceNumber() != null ? i.getSupplierInvoiceNumber()
 								: i.getInvoiceNumber();
-						if (!matchSearch(search, num, buyer))
+						if (!matchSearch(search, num, buyerId, buyerName))
 							continue;
 						Map<String, Object> r = new LinkedHashMap<>();
 						r.put("kind", "INVOICE_RECEIVABLE");
 						r.put("id", i.getInvoiceId());
 						r.put("number", num);
-						r.put("party", buyer);
+						r.put("party", buyerName);
 						r.put("amount", i.getTotalAmount());
 						r.put("currency", i.getCurrency());
 						r.put("status", i.getStatus().name());
@@ -280,7 +281,7 @@ public class FinanceServiceImpl implements FinanceService {
 					r.put("kind", "LOGISTICS_" + l.getKind().name());
 					r.put("id", l.getLineId());
 					r.put("number", l.getCycleId() != null ? l.getCycleId() : ("TRIP-" + l.getShipmentId()));
-					r.put("party", "partnership-" + p.getPartnershipId());
+					r.put("party", partnerDisplayName(p, orgId));
 					r.put("amount", l.getAmount());
 					r.put("currency", l.getCurrency());
 					r.put("status", l.getStatus().name());
@@ -316,10 +317,15 @@ public class FinanceServiceImpl implements FinanceService {
 					|| s.getStatus() == ShipmentStatus.PARTIALLY_DELIVERED) {
 				delivered++;
 				revenue = revenue.add(fare);
-				String lane = s.getPickupLocation() + " → " + s.getDeliveryLocation();
+				String lane = billingService.laneLabel(s);
 				perLane.merge(lane, fare, BigDecimal::add);
-				String cust = s.getRetailerOrg() != null ? String.valueOf(s.getRetailerOrg().getAccountId())
-						: "unknown";
+				String cust = "unknown";
+				if (s.getRetailerOrg() != null) {
+					String n = s.getRetailerOrg().getName();
+					cust = n != null && !n.isBlank()
+							? n
+							: "org-" + s.getRetailerOrg().getAccountId();
+				}
 				perCustomer.merge(cust, fare, BigDecimal::add);
 			}
 		}
@@ -349,7 +355,7 @@ public class FinanceServiceImpl implements FinanceService {
 		res.put("receivableOpen", recvOpen);
 		res.put("receivableOverdue", recvOverdue);
 		res.put("penaltiesLevied", penalties);
-		res.put("trend", shipmentTrend(ships, since));
+		res.put("trend", shipmentTrend(ships, since, dailyBucket(period)));
 		// Trip revenue/receivables carry each shipment's fare currency (the
 		// route capacity's when capacity-priced); expose the dominant one.
 		res.put("currency", settlementCurrency(deliveredShips));
@@ -373,6 +379,7 @@ public class FinanceServiceImpl implements FinanceService {
 					continue;
 				if (!matchSearch(search, f.getInvoiceNumber(), null))
 					continue;
+				Shipment fs = f.getShipment();
 				Map<String, Object> r = new LinkedHashMap<>();
 				r.put("kind", "FREIGHT");
 				r.put("id", f.getFreightInvoiceId());
@@ -384,6 +391,16 @@ public class FinanceServiceImpl implements FinanceService {
 				r.put("date", f.getIssuedDate());
 				r.put("dueDate", f.getDueDate());
 				r.put("paidAt", f.getPaidDate());
+				// detail-dialog extras: billed trip + fare breakdown
+				r.put("shipmentId", fs != null ? fs.getShipmentId() : null);
+				r.put("shipmentNumber", fs != null ? fs.getShipmentNumber() : null);
+				r.put("lane", fs != null ? billingService.laneLabel(fs) : null);
+				r.put("freightCost", f.getFreightCost());
+				r.put("fuelSurcharge", f.getFuelSurcharge());
+				r.put("accessorialCharges", f.getAccessorialCharges());
+				r.put("taxAmount", f.getTaxAmount());
+				r.put("pmsStatus", f.getPmsStatus());
+				r.put("notes", f.getNotes());
 				rows.add(r);
 			}
 		}
@@ -403,6 +420,8 @@ public class FinanceServiceImpl implements FinanceService {
 				r.put("date", p.getCreatedAt());
 				r.put("dueDate", p.getDueDate());
 				r.put("paidAt", null);
+				// detail-dialog extras
+				payableDetails(p, r);
 				rows.add(r);
 			}
 		}
@@ -420,7 +439,7 @@ public class FinanceServiceImpl implements FinanceService {
 					r.put("kind", "SETTLEMENT_" + l.getKind().name());
 					r.put("id", l.getLineId());
 					r.put("number", l.getCycleId() != null ? l.getCycleId() : ("TRIP-" + l.getShipmentId()));
-					r.put("party", "partnership-" + p.getPartnershipId());
+					r.put("party", partnerDisplayName(p, orgId));
 					r.put("amount", l.getAmount());
 					r.put("currency", l.getCurrency());
 					r.put("status", l.getStatus().name());
@@ -428,6 +447,14 @@ public class FinanceServiceImpl implements FinanceService {
 					r.put("dueDate", l.getDueDate());
 					r.put("paidAt", null);
 					r.put("partnershipId", p.getPartnershipId());
+					// detail-dialog extras: billed trip facts
+					Shipment ls = l.getShipmentId() != null
+							? shipmentRepo.findById(l.getShipmentId()).orElse(null)
+							: null;
+					r.put("shipmentId", l.getShipmentId());
+					r.put("shipmentNumber", ls != null ? ls.getShipmentNumber() : null);
+					r.put("lane", ls != null ? billingService.laneLabel(ls) : null);
+					r.put("paidAmount", l.getPaidAmount());
 					rows.add(r);
 				}
 			}
@@ -604,7 +631,17 @@ public class FinanceServiceImpl implements FinanceService {
 		return out;
 	}
 
-	private List<Map<String, Object>> monthlyTrend(List<Invoice> invoices, Timestamp since) {
+	/** Short windows (7d/30d) bucket the trend by day; longer ones by month. */
+	private static boolean dailyBucket(String period) {
+		return period != null
+				&& ("7d".equalsIgnoreCase(period) || "30d".equalsIgnoreCase(period));
+	}
+
+	private String trendKey(java.util.Date d, boolean daily) {
+		return daily ? String.format("%tm-%td", d, d) : String.format("%tY-%tm", d, d);
+	}
+
+	private List<Map<String, Object>> monthlyTrend(List<Invoice> invoices, Timestamp since, boolean daily) {
 		Map<String, BigDecimal> byMonth = new TreeMap<>();
 		for (Invoice i : invoices) {
 			java.util.Date d = i.getInvoiceDate() != null ? i.getInvoiceDate() : toDate(i.getCreatedAt());
@@ -612,7 +649,7 @@ public class FinanceServiceImpl implements FinanceService {
 				continue;
 			if (since != null && d.getTime() < since.getTime())
 				continue;
-			String key = String.format("%tY-%tm", d, d);
+			String key = trendKey(d, daily);
 			byMonth.merge(key, orZero(i.getTotalAmount()), BigDecimal::add);
 		}
 		List<Map<String, Object>> out = new ArrayList<>();
@@ -625,7 +662,7 @@ public class FinanceServiceImpl implements FinanceService {
 		return out;
 	}
 
-	private List<Map<String, Object>> shipmentTrend(List<Shipment> ships, Timestamp since) {
+	private List<Map<String, Object>> shipmentTrend(List<Shipment> ships, Timestamp since, boolean daily) {
 		Map<String, BigDecimal> byMonth = new TreeMap<>();
 		for (Shipment s : ships) {
 			if (s.getStatus() != ShipmentStatus.DELIVERED
@@ -634,7 +671,7 @@ public class FinanceServiceImpl implements FinanceService {
 			java.util.Date d = toDate(s.getUpdatedAt());
 			if (d == null || (since != null && d.getTime() < since.getTime()))
 				continue;
-			String key = String.format("%tY-%tm", d, d);
+			String key = trendKey(d, daily);
 			BigDecimal fare = billingService.tripFare(s);
 			byMonth.merge(key, fare, BigDecimal::add);
 		}
@@ -664,12 +701,38 @@ public class FinanceServiceImpl implements FinanceService {
 	private List<Map<String, Object>> topBuyers(List<PurchaseOrder> orders) {
 		Map<String, BigDecimal> by = new LinkedHashMap<>();
 		for (PurchaseOrder o : orders) {
-			String name = o.getBuyerOrg() != null ? "org-" + o.getBuyerOrg().getAccountId() : "Unknown";
+			String name = buyerDisplayName(o);
 			by.merge(name,
 					o.getTotalAmount() != null ? BigDecimal.valueOf(o.getTotalAmount()) : BigDecimal.ZERO,
 					BigDecimal::add);
 		}
 		return top(by, 5);
+	}
+
+	private String buyerDisplayName(PurchaseOrder o) {
+		if (o.getBuyerOrg() == null)
+			return "Unknown";
+		String n = o.getBuyerOrg().getName();
+		return n != null && !n.isBlank() ? n : "org-" + o.getBuyerOrg().getAccountId();
+	}
+
+	/** Detail-dialog extras for a carrier payable row. */
+	private void payableDetails(CarrierPayable p, Map<String, Object> r) {
+		Shipment s = p.getShipment();
+		r.put("shipmentId", s != null ? s.getShipmentId() : null);
+		r.put("shipmentNumber", s != null ? s.getShipmentNumber() : null);
+		r.put("lane", s != null ? billingService.laneLabel(s) : null);
+		r.put("paidAmount", p.getPaidAmount());
+		r.put("pmsReferenceId", p.getPmsReferenceId());
+		r.put("notes", p.getNotes());
+	}
+
+	/** Counterparty org name of a partnership relative to the calling org. */
+	private String partnerDisplayName(Partnership p, Long callerOrgId) {
+		boolean primaryIsCaller = p.getPrimaryOrg() != null
+				&& callerOrgId != null && callerOrgId.equals(p.getPrimaryOrg().getAccountId());
+		String name = primaryIsCaller ? p.getSecondaryOrgName() : p.getPrimaryOrgName();
+		return name != null && !name.isBlank() ? name : "Partnership " + p.getPartnershipId();
 	}
 
 	private List<Map<String, Object>> top(Map<String, BigDecimal> by, int n) {

@@ -20,10 +20,6 @@ public interface FreightInvoiceService {
             java.sql.Date dueStart, java.sql.Date dueEnd,
             String pmsStatus, Pageable pageable);
 
-    ResponseEntity<?> getByLogisticsOrg(Pageable pageable);
-
-    ResponseEntity<?> getByShipment(Long shipmentId);
-
     ResponseEntity<?> updateFreightInvoice(Long id, FreightInvoiceDto dto);
 
     ResponseEntity<?> transitionStatus(Long id, String newStatus, Map<String, Object> params);

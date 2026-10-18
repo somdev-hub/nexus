@@ -8,8 +8,10 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 import org.springframework.data.domain.Pageable;
@@ -88,7 +90,7 @@ public class LogisticsBillingServiceImpl implements LogisticsBillingService {
 			row.put("lineId", line.getLineId());
 			row.put("shipmentId", line.getShipmentId());
 			row.put("shipmentNumber", s != null ? s.getShipmentNumber() : null);
-			row.put("lane", s != null ? s.getPickupLocation() + " → " + s.getDeliveryLocation() : null);
+			row.put("lane", s != null ? laneLabel(s) : null);
 			row.put("deliveredAt", line.getDueDate());
 			row.put("baseAmount", line.getAmount());
 			row.put("paidAmount", line.getPaidAmount());
@@ -477,6 +479,29 @@ public class LogisticsBillingServiceImpl implements LogisticsBillingService {
 		return fareFor(s, p).amount();
 	}
 
+	@Override
+	public String laneLabel(Shipment s) {
+		if (s == null)
+			return null;
+		CapacityForecast lane = matchLane(s, s.getPartnership());
+		String from = lane != null ? lane.getOriginLane() : null;
+		String to = lane != null ? lane.getDestinationLane() : null;
+		if (from != null && !from.isBlank() && to != null && !to.isBlank())
+			return from + " → " + to;
+		return shortCity(s.getPickupLocation() != null ? s.getPickupLocation() : s.getPickupAddress())
+				+ " → "
+				+ shortCity(s.getDeliveryLocation() != null ? s.getDeliveryLocation() : s.getDeliveryAddress());
+	}
+
+	/** City part of an address (first comma segment). */
+	private String shortCity(String addr) {
+		if (addr == null)
+			return null;
+		String t = addr.trim();
+		int comma = t.indexOf(',');
+		return comma > 0 ? t.substring(0, comma).trim() : t;
+	}
+
 	/** Fare plus the currency it is denominated in. */
 	private record Fare(BigDecimal amount, String currency) {
 	}
@@ -820,7 +845,43 @@ public class LogisticsBillingServiceImpl implements LogisticsBillingService {
 		m.put("status", q.getStatus());
 		m.put("expiresAt", q.getExpiresAt());
 		try {
-			m.put("lines", objectMapper.readValue(q.getPayloadJson(), List.class));
+			List<?> payload = objectMapper.readValue(q.getPayloadJson(), List.class);
+			m.put("lines", payload);
+			// Enrich with the billed trips' facts (addresses, dates, logistics
+			// company) so detail dialogs / invoices need no extra round-trip.
+			Set<Long> ids = new LinkedHashSet<>();
+			for (Object o : payload) {
+				if (o instanceof Map<?, ?> e) {
+					Long sid = num(e.get("shipmentId"));
+					if (sid != null)
+						ids.add(sid);
+				}
+			}
+			Map<String, Object> shipments = new LinkedHashMap<>();
+			for (Long sid : ids) {
+				Shipment s = shipmentRepo.findById(sid).orElse(null);
+				if (s == null)
+					continue;
+				Map<String, Object> f = new LinkedHashMap<>();
+				f.put("shipmentId", sid);
+				f.put("shipmentNumber", s.getShipmentNumber());
+				f.put("lane", laneLabel(s));
+				f.put("pickupLocation", s.getPickupLocation());
+				f.put("pickupAddress", s.getPickupAddress());
+				f.put("pickupDate", s.getPickupDate() != null
+						? s.getPickupDate()
+						: (s.getActualDeparture() != null ? s.getActualDeparture() : s.getEstimatedDeparture()));
+				f.put("deliveryLocation", s.getDeliveryLocation());
+				f.put("deliveryAddress", s.getDeliveryAddress());
+				f.put("deliveryDate", s.getDeliveryDate() != null ? s.getDeliveryDate()
+						: (s.getActualArrival() != null ? s.getActualArrival() : s.getEstimatedArrival()));
+				f.put("deliveredAt", s.getActualArrival());
+				f.put("status", s.getStatus() != null ? s.getStatus().name() : null);
+				if (s.getLogisticsOrg() != null)
+					f.put("logisticsOrg", s.getLogisticsOrg().getName());
+				shipments.put(String.valueOf(sid), f);
+			}
+			m.put("shipments", shipments);
 		} catch (Exception e) {
 			m.put("lines", List.of());
 		}

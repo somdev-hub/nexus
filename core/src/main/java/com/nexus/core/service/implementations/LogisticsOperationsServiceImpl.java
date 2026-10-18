@@ -19,21 +19,17 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.nexus.core.model.entities.Account;
 import com.nexus.core.model.entities.CapacityForecast;
-import com.nexus.core.model.entities.CarrierPayable;
 import com.nexus.core.model.entities.ConsolidationGroup;
 import com.nexus.core.model.entities.Partnership;
 import com.nexus.core.model.enums.ConsolidationStatus;
 import com.nexus.core.model.enums.FleetAssetStatus;
 import com.nexus.core.model.enums.FleetAssetType;
-import com.nexus.core.model.enums.PayableStatus;
 import com.nexus.core.model.entities.Shipment;
 import com.nexus.core.model.enums.ShipmentStatus;
 import com.nexus.core.exception.ResourceNotFoundException;
 import com.nexus.core.payload.CapacityForecastDto;
-import com.nexus.core.payload.CarrierPayableDto;
 import com.nexus.core.payload.ConsolidationGroupDto;
 import com.nexus.core.repository.CapacityForecastRepo;
-import com.nexus.core.repository.CarrierPayableRepo;
 import com.nexus.core.repository.ConsolidationGroupRepo;
 import com.nexus.core.repository.FleetAssetRepo;
 import com.nexus.core.repository.PartnershipRepo;
@@ -52,7 +48,6 @@ public class LogisticsOperationsServiceImpl implements LogisticsOperationsServic
 
     private final ConsolidationGroupRepo groupRepo;
     private final CapacityForecastRepo capacityRepo;
-    private final CarrierPayableRepo payableRepo;
     private final ShipmentRepo shipmentRepo;
     private final FleetAssetRepo assetRepo;
     private final PartnershipRepo partnershipRepo;
@@ -65,13 +60,6 @@ public class LogisticsOperationsServiceImpl implements LogisticsOperationsServic
             ConsolidationStatus.IN_TRANSIT, Set.of(ConsolidationStatus.DELIVERED, ConsolidationStatus.CANCELLED),
             ConsolidationStatus.DELIVERED, Set.of(),
             ConsolidationStatus.CANCELLED, Set.of());
-
-    private static final Map<PayableStatus, Set<PayableStatus>> PAYABLE_ALLOWED = Map.of(
-            PayableStatus.PENDING, Set.of(PayableStatus.APPROVED, PayableStatus.DISPUTED, PayableStatus.CANCELLED),
-            PayableStatus.APPROVED, Set.of(PayableStatus.PAID, PayableStatus.DISPUTED, PayableStatus.CANCELLED),
-            PayableStatus.DISPUTED, Set.of(PayableStatus.APPROVED, PayableStatus.CANCELLED),
-            PayableStatus.PAID, Set.of(),
-            PayableStatus.CANCELLED, Set.of());
 
     @Override
     @Transactional
@@ -444,112 +432,6 @@ public class LogisticsOperationsServiceImpl implements LogisticsOperationsServic
     }
 
     @Override
-    @Transactional
-    public ResponseEntity<?> createPayable(CarrierPayableDto dto) {
-        var orgId = OrganizationContextHolder.requireOrganizationId();
-        Account org = accountDirectory.getOrCreateAccount(orgId);
-        Shipment shipment = null;
-        if (dto.getShipmentId() != null) {
-            shipment = shipmentRepo.findById(dto.getShipmentId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Shipment", "shipmentId", dto.getShipmentId()));
-        }
-        var payable = modelMapper.map(dto, CarrierPayable.class);
-        payable.setPayableId(null);
-        payable.setLogisticsOrg(org);
-        payable.setShipment(shipment);
-        payable.setPayableNumber("CPB-" + System.currentTimeMillis());
-        payable.setStatus(PayableStatus.PENDING);
-        return ResponseEntity.status(HttpStatus.CREATED).body(toPayableDto(payableRepo.save(payable)));
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public ResponseEntity<?> getPayable(Long id) {
-        var orgId = OrganizationContextHolder.requireOrganizationId();
-        var payable = payableRepo.findByIdAndOrg(id, orgId)
-                .orElseThrow(() -> new ResourceNotFoundException("CarrierPayable", "payableId", id));
-        return ResponseEntity.ok(toPayableDto(payable));
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public ResponseEntity<?> getAllPayables(Long shipmentId, String status, String search, Pageable pageable) {
-        var orgId = OrganizationContextHolder.requireOrganizationId();
-        PayableStatus st = null;
-        if (status != null && !status.isBlank()) {
-            try {
-                st = PayableStatus.valueOf(status.toUpperCase());
-            } catch (IllegalArgumentException e) {
-                return ResponseEntity.badRequest().body(Map.of("error", "Invalid status: " + status));
-            }
-        }
-        Page<CarrierPayable> page = payableRepo.findByOrgWithFilters(orgId, shipmentId, st, blankToNull(search), pageable);
-        return ResponseEntity.ok(page.map(this::toPayableDto));
-    }
-
-    @Override
-    @Transactional
-    public ResponseEntity<?> updatePayable(Long id, CarrierPayableDto dto) {
-        var orgId = OrganizationContextHolder.requireOrganizationId();
-        var existing = payableRepo.findByIdAndOrg(id, orgId)
-                .orElseThrow(() -> new ResourceNotFoundException("CarrierPayable", "payableId", id));
-        if (existing.getStatus() == PayableStatus.PAID || existing.getStatus() == PayableStatus.CANCELLED) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Paid or cancelled payables cannot be edited"));
-        }
-        if (dto.getCarrierName() != null) existing.setCarrierName(dto.getCarrierName());
-        if (dto.getPayableAmount() != null) existing.setPayableAmount(dto.getPayableAmount());
-        if (dto.getPaidAmount() != null) existing.setPaidAmount(dto.getPaidAmount());
-        if (dto.getCurrency() != null) existing.setCurrency(dto.getCurrency());
-        if (dto.getDueDate() != null) existing.setDueDate(dto.getDueDate());
-        if (dto.getPmsReferenceId() != null) existing.setPmsReferenceId(dto.getPmsReferenceId());
-        if (dto.getNotes() != null) existing.setNotes(dto.getNotes());
-        if (dto.getShipmentId() != null && (existing.getShipment() == null
-                || !dto.getShipmentId().equals(existing.getShipment().getShipmentId()))) {
-            var shipment = shipmentRepo.findById(dto.getShipmentId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Shipment", "shipmentId", dto.getShipmentId()));
-            existing.setShipment(shipment);
-        }
-        return ResponseEntity.ok(toPayableDto(payableRepo.save(existing)));
-    }
-
-    @Override
-    @Transactional
-    public ResponseEntity<?> transitionPayableStatus(Long id, String newStatus, Map<String, Object> params) {
-        var orgId = OrganizationContextHolder.requireOrganizationId();
-        var payable = payableRepo.findByIdAndOrg(id, orgId)
-                .orElseThrow(() -> new ResourceNotFoundException("CarrierPayable", "payableId", id));
-        PayableStatus target;
-        try {
-            target = PayableStatus.valueOf(newStatus.toUpperCase());
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Invalid status: " + newStatus));
-        }
-        if (!PAYABLE_ALLOWED.getOrDefault(payable.getStatus(), Set.of()).contains(target)) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Invalid transition: " + payable.getStatus() + " -> " + target));
-        }
-        payable.setStatus(target);
-        if (params != null && params.get("paidAmount") != null) {
-            payable.setPaidAmount(new BigDecimal(String.valueOf(params.get("paidAmount"))));
-        }
-        if (params != null && params.get("pmsReferenceId") != null) {
-            payable.setPmsReferenceId(String.valueOf(params.get("pmsReferenceId")));
-        }
-        if (params != null && params.get("notes") != null) payable.setNotes(String.valueOf(params.get("notes")));
-        return ResponseEntity.ok(toPayableDto(payableRepo.save(payable)));
-    }
-
-    @Override
-    @Transactional
-    public ResponseEntity<?> deletePayable(Long id) {
-        var orgId = OrganizationContextHolder.requireOrganizationId();
-        var payable = payableRepo.findByIdAndOrg(id, orgId)
-                .orElseThrow(() -> new ResourceNotFoundException("CarrierPayable", "payableId", id));
-        payable.setIsActive(false);
-        payableRepo.save(payable);
-        return ResponseEntity.noContent().build();
-    }
-
-    @Override
     @Transactional(readOnly = true)
     public ResponseEntity<?> getLogisticsDashboard() {
         var orgId = OrganizationContextHolder.requireOrganizationId();
@@ -587,7 +469,6 @@ public class LogisticsOperationsServiceImpl implements LogisticsOperationsServic
         dashboard.put("totalAssets", totalAssets);
         dashboard.put("availableAssets", availableAssets);
         dashboard.put("equipmentUtilization", utilization);
-        dashboard.put("openPayables", payableRepo.findByOrgWithFilters(orgId, null, PayableStatus.PENDING, null, Pageable.unpaged()).getTotalElements());
         return ResponseEntity.ok(dashboard);
     }
 
@@ -603,12 +484,6 @@ public class LogisticsOperationsServiceImpl implements LogisticsOperationsServic
         }
         group.setTotalWeight(weight);
         group.setTotalVolume(volume);
-    }
-
-    private CarrierPayableDto toPayableDto(CarrierPayable payable) {
-        var dto = modelMapper.map(payable, CarrierPayableDto.class);
-        if (payable.getShipment() != null) dto.setShipmentId(payable.getShipment().getShipmentId());
-        return dto;
     }
 
     private static String blankToNull(String value) {

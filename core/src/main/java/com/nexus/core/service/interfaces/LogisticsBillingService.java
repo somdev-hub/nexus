@@ -20,6 +20,14 @@ public interface LogisticsBillingService {
 	/** Currency the resolved fare is denominated in (shipment's own or the matched lane's). */
 	String tripCurrency(Shipment shipment);
 
+	/**
+	 * Human lane label for a shipment: the matched route-capacity's
+	 * originLane → destinationLane (city names) when the shipment rides a
+	 * known lane; the shipment's locations shortened to their city part
+	 * otherwise.
+	 */
+	String laneLabel(Shipment shipment);
+
 	ResponseEntity<?> getOpenTrips(Long partnershipId);
 
 	ResponseEntity<?> getStatements(Long partnershipId);

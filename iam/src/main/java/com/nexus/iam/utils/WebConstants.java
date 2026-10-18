@@ -862,12 +862,6 @@ public class WebConstants {
 	private String coreLogisticsQuoteGetUrl;
 	@Value("${core.logistics.quote.all.url}")
 	private String coreLogisticsQuoteAllUrl;
-	@Value("${core.logistics.rate.create.url}")
-	private String coreLogisticsRateCreateUrl;
-	@Value("${core.logistics.rate.get.url}")
-	private String coreLogisticsRateGetUrl;
-	@Value("${core.logistics.rate.all.url}")
-	private String coreLogisticsRateAllUrl;
 	@Value("${core.logistics.execution.base.url}")
 	private String coreLogisticsExecutionBaseUrl;
 	@Value("${core.logistics.operations.base.url}")
