@@ -33,6 +33,29 @@ public interface CoreLogisticsService {
     ResponseEntity<?> transitionDriverStatus(Long id, String newStatus, Map<String, Object> params, String auth, String org);
     ResponseEntity<?> deleteDriver(Long id, String auth, String org);
 
+    /**
+     * Onboards a driver as an employee, mirroring the HR app's add-employee
+     * flow: creates the IAM user (DRIVER role, generated one-time password),
+     * then the HR employee record (compensation + bank records), then the core
+     * driver record linked to both.
+     */
+    ResponseEntity<?> onboardDriver(Map<String, Object> body, String auth, String org);
+
+    /**
+     * Edits an already-created driver. When the driver has no IAM link yet
+     * and the request carries the employee details, the missing IAM user and
+     * HR record are created first; otherwise profile changes are synced into
+     * the linked IAM user. Always updates the core driver record.
+     */
+    ResponseEntity<?> syncDriverOnboard(Long id, Map<String, Object> body, String auth, String org);
+
+    /**
+     * Full employee view of a driver for the edit dialog: the core driver
+     * record, its linked IAM user profile, and — when present — the HR
+     * department and bank records. Fetched on demand, not eagerly.
+     */
+    ResponseEntity<?> getDriverOnboardDetails(Long id, String auth, String org);
+
     // Maintenance
     ResponseEntity<?> createMaintenance(Map<String, Object> dto, String auth, String org);
     ResponseEntity<?> getMaintenance(Long id, String auth, String org);

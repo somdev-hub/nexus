@@ -61,6 +61,10 @@ public class Driver extends BaseEntity {
     @Column(name = "hr_employee_id")
     private String hrEmployeeId;
 
+    /** IAM user id of the driver's employee login (set by onboarding). */
+    @Column(name = "iam_user_id")
+    private Long iamUserId;
+
     @Column(name = "on_time_rate")
     private Double onTimeRate = 0.0;
 

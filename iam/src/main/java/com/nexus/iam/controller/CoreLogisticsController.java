@@ -159,6 +159,27 @@ public class CoreLogisticsController {
 		return logisticsService.deleteDriver(id, auth, org);
 	}
 
+	@LogActivity("Onboard Driver as Employee via IAM")
+	@PostMapping("/fleet/drivers/onboard")
+	public ResponseEntity<?> onboardDriver(@RequestBody Map<String, Object> body,
+			@RequestHeader("Authorization") String auth, @RequestHeader("X-Organization-ID") String org) {
+		return logisticsService.onboardDriver(body, auth, org);
+	}
+
+	@LogActivity("Sync Onboarded Driver Details via IAM")
+	@PutMapping("/fleet/drivers/{id}/onboard-sync")
+	public ResponseEntity<?> syncDriverOnboard(@PathVariable Long id, @RequestBody Map<String, Object> body,
+			@RequestHeader("Authorization") String auth, @RequestHeader("X-Organization-ID") String org) {
+		return logisticsService.syncDriverOnboard(id, body, auth, org);
+	}
+
+	@LogActivity("Get Driver Onboard Details via IAM")
+	@GetMapping("/fleet/drivers/{id}/onboard-details")
+	public ResponseEntity<?> getDriverOnboardDetails(@PathVariable Long id, @RequestHeader("Authorization") String auth,
+			@RequestHeader("X-Organization-ID") String org) {
+		return logisticsService.getDriverOnboardDetails(id, auth, org);
+	}
+
 	// Maintenance
 	@LogActivity("Create Maintenance via IAM")
 	@PostMapping("/fleet/maintenance/create")

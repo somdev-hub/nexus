@@ -204,10 +204,15 @@ public class FleetServiceImpl implements FleetService {
                 .orElseThrow(() -> new ResourceNotFoundException("Driver", "driverId", id));
         var status = existing.getStatus();
         var org = existing.getLogisticsOrg();
+        Long iamUserId = existing.getIamUserId();
+        String hrEmployeeId = existing.getHrEmployeeId();
         modelMapper.map(dto, existing);
         existing.setDriverId(id);
         existing.setStatus(dto.getStatus() != null ? dto.getStatus() : status);
         existing.setLogisticsOrg(org);
+        // employee links set by IAM onboarding must survive plain edits
+        if (dto.getIamUserId() == null) existing.setIamUserId(iamUserId);
+        if (dto.getHrEmployeeId() == null) existing.setHrEmployeeId(hrEmployeeId);
         return ResponseEntity.ok(modelMapper.map(driverRepo.save(existing), DriverDto.class));
     }
 

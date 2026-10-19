@@ -27,6 +27,7 @@ public class DriverDto {
     private Date licenseExpiry;
     private DriverStatus status;
     private String hrEmployeeId;
+    private Long iamUserId;
     private Double onTimeRate;
     private Double safetyScore;
     private Integer totalTrips;

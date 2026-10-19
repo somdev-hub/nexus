@@ -123,10 +123,36 @@ public class OrganizationServiceImpl implements OrganizationService {
 
 		userRepository.save(user);
 
+		// Seed logistics defaults for logistics orgs: DRIVER role + Operations department
+		if (organizationDto.getOrgType() == OrgType.LOGISTICS) {
+			seedDriverDefaults(savedOrganization);
+		}
+
 		return modelMapper.map(savedOrganization, OrganizationDto.class);
 	}
 
-	@Override
+	/**
+	 * Guarantees the logistics onboarding defaults exist for a fresh org: the
+	 * DRIVER role (global) and an "Operations" department with that role
+	 * attached, so driver onboarding has somewhere to land from day one.
+	 */
+	private void seedDriverDefaults(Organization organization) {
+		Role driverRole = roleRepository.findByName("DRIVER").orElseGet(() -> {
+			Role r = new Role();
+			r.setName("DRIVER");
+			return roleRepository.save(r);
+		});
+		boolean hasOperations = departmentRepository.findByOrgId(organization.getId()).stream()
+				.anyMatch(d -> "Operations".equalsIgnoreCase(d.getDepartmentName()));
+		if (!hasOperations) {
+			Department dept = new Department();
+			dept.setDepartmentName("Operations");
+			dept.setOrganization(organization);
+			dept.setCreatedAt(new Timestamp(System.currentTimeMillis()));
+			dept.getRoles().add(driverRole);
+			departmentRepository.save(dept);
+		}
+	}	@Override
 	@Cacheable(value = CacheConfig.ORGANIZATION_CACHE, key = "#id")
 	public OrganizationFetchDto getOrganizationById(Long id) {
 		if (ObjectUtils.isEmpty(id)) {
