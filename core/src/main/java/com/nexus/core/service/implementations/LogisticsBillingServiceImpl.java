@@ -475,6 +475,21 @@ public class LogisticsBillingServiceImpl implements LogisticsBillingService {
 		return fareFor(s, s.getPartnership()).currency();
 	}
 
+	/** Flat driver fees of the matched route capacity + the currency they are in. */
+	@Override
+	public TripDriverFees tripDriverFees(Shipment s) {
+		if (s == null)
+			return new TripDriverFees(BigDecimal.ZERO, billCurrency(s));
+		CapacityForecast lane = matchLane(s, s.getPartnership());
+		if (lane == null)
+			return new TripDriverFees(BigDecimal.ZERO, billCurrency(s));
+		BigDecimal fees = lane.getDriverFees() != null
+				? BigDecimal.valueOf(lane.getDriverFees()).setScale(2, RoundingMode.HALF_UP)
+				: BigDecimal.ZERO;
+		return new TripDriverFees(fees,
+				lane.getCurrency() != null ? lane.getCurrency() : billCurrency(s));
+	}
+
 	private BigDecimal tripFareFor(Shipment s, Partnership p) {
 		return fareFor(s, p).amount();
 	}

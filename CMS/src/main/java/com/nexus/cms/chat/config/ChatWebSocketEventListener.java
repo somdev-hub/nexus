@@ -1,6 +1,7 @@
 package com.nexus.cms.chat.config;
 
 import com.nexus.cms.chat.service.interfaces.PresenceService;
+import com.nexus.cms.util.StompPrincipalNames;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -10,7 +11,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.socket.messaging.SessionConnectedEvent;
 import org.springframework.web.socket.messaging.SessionDisconnectEvent;
 
-import java.util.Objects;
+import java.security.Principal;
 
 @Component
 @RequiredArgsConstructor
@@ -25,7 +26,9 @@ public class ChatWebSocketEventListener {
         try {
             Long userId = extractUserId(accessor);
             log.debug("WebSocket connected - principal={}, userId={}", accessor.getUser(), userId);
-            presenceService.setOnline(userId);
+            if (userId != null) {
+                presenceService.setOnline(userId);
+            }
         } catch (Exception e) {
             log.error("Failed to handle SessionConnectedEvent: {}", e.getMessage(), e);
         }
@@ -37,7 +40,9 @@ public class ChatWebSocketEventListener {
         try {
             Long userId = extractUserId(accessor);
             log.debug("WebSocket disconnected - principal={}, userId={}", accessor.getUser(), userId);
-            presenceService.setOffline(userId);
+            if (userId != null) {
+                presenceService.setOffline(userId);
+            }
         } catch (Exception e) {
             log.error("Failed to handle SessionDisconnectEvent: {}", e.getMessage(), e);
         }
@@ -45,8 +50,12 @@ public class ChatWebSocketEventListener {
 
     private Long extractUserId(StompHeaderAccessor accessor) {
         // Principal name format: "userId:orgId"
-        String principalName = Objects.requireNonNull(accessor.getUser()).getName();
-        String[] parts = principalName.contains(":") ? principalName.split(":") : new String[] { principalName };
-        return Long.parseLong(parts[0]);
+        // The session may have no principal — a connection that was rejected,
+        // for instance — so this must not blow up.
+        Principal user = accessor.getUser();
+        if (user == null) {
+            return null;
+        }
+        return StompPrincipalNames.userIdOf(user.getName());
     }
 }

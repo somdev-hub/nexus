@@ -87,6 +87,14 @@ public interface ShipmentRepo extends JpaRepository<Shipment, Long> {
 
 	java.util.List<Shipment> findByAssignedAssetIdAndLogisticsOrgAccountId(Long assetId, Long orgId);
 
+	/** Latest shipments for a driver (any status) — last assignment / last activity. */
+	java.util.List<Shipment> findTop10ByAssignedDriverIdAndLogisticsOrgAccountIdOrderByShipmentIdDesc(
+			Long driverId, Long orgId);
+
+	/** Delivered-completed trips of a driver — the commission basis. */
+	java.util.List<Shipment> findByAssignedDriverIdAndLogisticsOrgAccountIdAndStatusIn(
+			Long driverId, Long orgId, java.util.List<ShipmentStatus> statuses);
+
 	Page<Shipment> findByPurchaseOrderPurchaseOrderIdAndIsPartialShipmentTrue(Long purchaseOrderId, Pageable pageable);
 
 	@Query("""

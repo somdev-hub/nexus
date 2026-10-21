@@ -25,6 +25,10 @@ public class MaintenanceRecordDto {
     private String description;
     private MaintenanceStatus status;
     private Date scheduledDate;
+
+    /** End of the scheduled maintenance window (optional). */
+    private Date scheduledToDate;
+
     private Date completedDate;
     private Double odometerReading;
     private BigDecimal cost;

@@ -27,6 +27,12 @@ public interface FleetService {
     ResponseEntity<?> transitionDriverStatus(Long id, String newStatus, Map<String, Object> params);
     ResponseEntity<?> deleteDriver(Long id);
 
+    // Driver commissions (contract payouts per delivered trip)
+    ResponseEntity<?> listDriverCommissions(String status, String search, Pageable pageable);
+    ResponseEntity<?> listDriverCommissionItems(Long driverId, String status, Pageable pageable);
+    ResponseEntity<?> payDriverCommission(Long driverId, Long commissionId, Map<String, Object> body);
+    ResponseEntity<?> payDriverCommissions(Long driverId, Map<String, Object> body);
+
     // Maintenance
     ResponseEntity<?> createMaintenance(MaintenanceRecordDto dto);
     ResponseEntity<?> getMaintenance(Long id);

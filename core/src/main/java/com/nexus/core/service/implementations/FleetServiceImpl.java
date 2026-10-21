@@ -1,7 +1,13 @@
 package com.nexus.core.service.implementations;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.sql.Timestamp;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 import org.modelmapper.ModelMapper;
@@ -15,9 +21,11 @@ import org.springframework.transaction.annotation.Transactional;
 import com.nexus.core.exception.ResourceNotFoundException;
 import com.nexus.core.model.entities.Account;
 import com.nexus.core.model.entities.Driver;
+import com.nexus.core.model.entities.DriverCommission;
 import com.nexus.core.model.entities.FleetAsset;
 import com.nexus.core.model.entities.MaintenanceRecord;
 import com.nexus.core.model.entities.Shipment;
+import com.nexus.core.model.enums.DriverCommissionStatus;
 import com.nexus.core.model.enums.DriverStatus;
 import com.nexus.core.model.enums.FleetAssetStatus;
 import com.nexus.core.model.enums.FleetAssetType;
@@ -28,6 +36,7 @@ import com.nexus.core.payload.AssetShipmentDto;
 import com.nexus.core.payload.DriverDto;
 import com.nexus.core.payload.FleetAssetDto;
 import com.nexus.core.payload.MaintenanceRecordDto;
+import com.nexus.core.repository.DriverCommissionRepo;
 import com.nexus.core.repository.DriverRepo;
 import com.nexus.core.repository.FleetAssetRepo;
 import com.nexus.core.repository.MaintenanceRecordRepo;
@@ -35,6 +44,7 @@ import com.nexus.core.repository.ShipmentRepo;
 import com.nexus.core.security.OrganizationContextHolder;
 import com.nexus.core.service.interfaces.AccountDirectory;
 import com.nexus.core.service.interfaces.FleetService;
+import com.nexus.core.service.interfaces.LogisticsBillingService;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -48,8 +58,10 @@ public class FleetServiceImpl implements FleetService {
     private final DriverRepo driverRepo;
     private final MaintenanceRecordRepo maintenanceRepo;
     private final ShipmentRepo shipmentRepo;
+    private final DriverCommissionRepo commissionRepo;
     private final AccountDirectory accountDirectory;
     private final ModelMapper modelMapper;
+    private final LogisticsBillingService billingService;
 
     private static final Map<FleetAssetStatus, Set<FleetAssetStatus>> ASSET_ALLOWED = Map.of(
             FleetAssetStatus.AVAILABLE, Set.of(FleetAssetStatus.ASSIGNED, FleetAssetStatus.IN_MAINTENANCE, FleetAssetStatus.OUT_OF_SERVICE, FleetAssetStatus.RETIRED),
@@ -468,5 +480,203 @@ public class FleetServiceImpl implements FleetService {
         } catch (IllegalArgumentException e) {
             throw new IllegalArgumentException("Invalid " + field + ": " + value);
         }
+    }
+
+    // ── Driver commissions ──────────────────────────────────────────────
+
+    /** Trip completion states that earn a driver commission. */
+    private static final List<ShipmentStatus> COMMISSION_TRIP_STATUSES =
+            List.of(ShipmentStatus.DELIVERED, ShipmentStatus.PARTIALLY_DELIVERED, ShipmentStatus.CLOSED);
+
+    @Override
+    @Transactional
+    public ResponseEntity<?> listDriverCommissions(String status, String search, Pageable pageable) {
+        Long orgId = OrganizationContextHolder.requireOrganizationId();
+        DriverStatus st = parseEnum(status, DriverStatus.class, "status");
+        Page<Driver> page = driverRepo.findByOrgWithFilters(orgId, st, blankToNull(search), pageable);
+        List<Map<String, Object>> items = new ArrayList<>();
+        for (Driver d : page.getContent()) {
+            items.add(driverCommissionRow(d, orgId));
+        }
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("content", items);
+        body.put("totalElements", page.getTotalElements());
+        body.put("totalPages", page.getTotalPages());
+        body.put("number", page.getNumber());
+        body.put("size", page.getSize());
+        return ResponseEntity.ok(body);
+    }
+
+    @Override
+    @Transactional
+    public ResponseEntity<?> listDriverCommissionItems(Long driverId, String status, Pageable pageable) {
+        Long orgId = OrganizationContextHolder.requireOrganizationId();
+        Driver driver = driverRepo.findByDriverIdAndLogisticsOrgAccountId(driverId, orgId)
+                .orElseThrow(() -> new ResourceNotFoundException("Driver", "driverId", driverId));
+        DriverCommissionStatus st = parseEnum(status, DriverCommissionStatus.class, "status");
+        ensureDriverCommissions(driver, orgId);
+        Page<DriverCommission> page = st != null
+                ? commissionRepo.findByDriverIdAndLogisticsOrgIdAndStatus(driverId, orgId, st, pageable)
+                : commissionRepo.findByDriverIdAndLogisticsOrgId(driverId, orgId, pageable);
+        List<Map<String, Object>> items = new ArrayList<>();
+        for (DriverCommission c : page.getContent()) {
+            items.add(commissionDto(c));
+        }
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("content", items);
+        body.put("totalElements", page.getTotalElements());
+        body.put("totalPages", page.getTotalPages());
+        body.put("number", page.getNumber());
+        body.put("size", page.getSize());
+        return ResponseEntity.ok(body);
+    }
+
+    @Override
+    @Transactional
+    public ResponseEntity<?> payDriverCommission(Long driverId, Long commissionId, Map<String, Object> body) {
+        DriverCommission c = requireCommission(driverId, commissionId);
+        if (c.getStatus() == DriverCommissionStatus.PAID) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Commission already paid"));
+        }
+        applyPayment(c, body);
+        return ResponseEntity.ok(commissionDto(commissionRepo.save(c)));
+    }
+
+    @Override
+    @Transactional
+    public ResponseEntity<?> payDriverCommissions(Long driverId, Map<String, Object> body) {
+        Long orgId = OrganizationContextHolder.requireOrganizationId();
+        driverRepo.findByDriverIdAndLogisticsOrgAccountId(driverId, orgId)
+                .orElseThrow(() -> new ResourceNotFoundException("Driver", "driverId", driverId));
+        List<DriverCommission> pending = commissionRepo
+                .findByStatusAndDriverIdInAndLogisticsOrgId(DriverCommissionStatus.PENDING, List.of(driverId), orgId);
+        for (DriverCommission c : pending) {
+            applyPayment(c, body);
+            commissionRepo.save(c);
+        }
+        return ResponseEntity.ok(Map.of("paidCount", pending.size()));
+    }
+
+    private DriverCommission requireCommission(Long driverId, Long commissionId) {
+        Long orgId = OrganizationContextHolder.requireOrganizationId();
+        driverRepo.findByDriverIdAndLogisticsOrgAccountId(driverId, orgId)
+                .orElseThrow(() -> new ResourceNotFoundException("Driver", "driverId", driverId));
+        DriverCommission c = commissionRepo.findByCommissionIdAndDriverId(commissionId, driverId)
+                .orElseThrow(() -> new ResourceNotFoundException("Commission", "commissionId", commissionId));
+        return c;
+    }
+
+    private void applyPayment(DriverCommission c, Map<String, Object> body) {
+        c.setStatus(DriverCommissionStatus.PAID);
+        c.setPaidAt(new Timestamp(System.currentTimeMillis()));
+        String reference = body != null && body.get("reference") != null
+                && !String.valueOf(body.get("reference")).isBlank()
+                        ? String.valueOf(body.get("reference"))
+                        : "MANUAL";
+        c.setPaymentRef(reference);
+        if (body != null && body.get("notes") != null && !String.valueOf(body.get("notes")).isBlank()) {
+            c.setNotes(String.valueOf(body.get("notes")));
+        }
+    }
+
+    private Map<String, Object> driverCommissionRow(Driver d, Long orgId) {
+        Map<String, Object> row = new LinkedHashMap<>();
+        row.put("driverId", d.getDriverId());
+        row.put("driverCode", d.getDriverCode());
+        row.put("fullName", d.getFullName());
+        row.put("status", d.getStatus() != null ? d.getStatus().name() : null);
+        row.put("iamUserId", d.getIamUserId());
+
+        List<Shipment> recent = shipmentRepo
+                .findTop10ByAssignedDriverIdAndLogisticsOrgAccountIdOrderByShipmentIdDesc(d.getDriverId(), orgId);
+        Shipment last = recent != null && !recent.isEmpty() ? recent.get(0) : null;
+        if (last != null) {
+            row.put("lastActiveAt", last.getUpdatedAt() != null ? last.getUpdatedAt() : last.getCreatedAt());
+            Map<String, Object> la = new LinkedHashMap<>();
+            la.put("shipmentId", last.getShipmentId());
+            la.put("shipmentNumber", last.getShipmentNumber());
+            la.put("status", last.getStatus() != null ? last.getStatus().name() : null);
+            la.put("lane", billingService.laneLabel(last));
+            row.put("lastAssignment", la);
+        } else {
+            row.put("lastActiveAt", d.getUpdatedAt() != null ? d.getUpdatedAt() : d.getCreatedAt());
+            row.put("lastAssignment", null);
+        }
+
+        ensureDriverCommissions(d, orgId);
+
+        List<DriverCommission> pending = commissionRepo.findByStatusAndDriverIdInAndLogisticsOrgId(
+                DriverCommissionStatus.PENDING, List.of(d.getDriverId()), orgId);
+        Map<String, BigDecimal> totals = new LinkedHashMap<>();
+        for (DriverCommission c : pending) {
+            if (c.getCurrency() == null) continue;
+            BigDecimal current = totals.getOrDefault(c.getCurrency(), BigDecimal.ZERO);
+            totals.put(c.getCurrency(), current.add(c.getAmount() != null ? c.getAmount() : BigDecimal.ZERO));
+        }
+        List<Map<String, Object>> payable = new ArrayList<>();
+        for (Map.Entry<String, BigDecimal> e : totals.entrySet()) {
+            Map<String, Object> t = new LinkedHashMap<>();
+            t.put("currency", e.getKey());
+            t.put("amount", e.getValue());
+            payable.add(t);
+        }
+        row.put("payable", payable);
+        row.put("pendingCount", pending.size());
+        return row;
+    }
+
+    /** Self-heal: one commission line per delivered trip, equal to the matched route capacity's flat driver fees. */
+    private void ensureDriverCommissions(Driver d, Long orgId) {
+        List<Shipment> delivered = shipmentRepo.findByAssignedDriverIdAndLogisticsOrgAccountIdAndStatusIn(
+                d.getDriverId(), orgId, COMMISSION_TRIP_STATUSES);
+        if (delivered == null || delivered.isEmpty()) return;
+        for (Shipment s : delivered) {
+            DriverCommission c = commissionRepo
+                    .findByDriverIdAndShipmentId(d.getDriverId(), s.getShipmentId())
+                    .orElse(null);
+            LogisticsBillingService.TripDriverFees fees = billingService.tripDriverFees(s);
+            if (c == null) {
+                c = new DriverCommission();
+                c.setDriverId(d.getDriverId());
+                c.setLogisticsOrgId(orgId);
+                c.setShipmentId(s.getShipmentId());
+                c.setShipmentNumber(s.getShipmentNumber());
+                c.setLane(billingService.laneLabel(s));
+                c.setShipmentStatus(s.getStatus() != null ? s.getStatus().name() : null);
+                c.setDeliveredAt(s.getDeliveryDate() != null ? s.getDeliveryDate()
+                        : s.getActualArrival() != null
+                                ? new java.sql.Date(s.getActualArrival().getTime())
+                                : null);
+                c.setStatus(DriverCommissionStatus.PENDING);
+            }
+            if (c.getStatus() == DriverCommissionStatus.PENDING) {
+                BigDecimal amount = fees.amount() != null ? fees.amount() : BigDecimal.ZERO;
+                String currency = fees.currency();
+                if (c.getAmount() == null || c.getAmount().compareTo(amount) != 0
+                        || !Objects.equals(c.getCurrency(), currency)) {
+                    c.setAmount(amount);
+                    c.setCurrency(currency);
+                }
+            }
+            commissionRepo.save(c);
+        }
+    }
+
+    private Map<String, Object> commissionDto(DriverCommission c) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("commissionId", c.getCommissionId());
+        m.put("driverId", c.getDriverId());
+        m.put("shipmentId", c.getShipmentId());
+        m.put("shipmentNumber", c.getShipmentNumber());
+        m.put("lane", c.getLane());
+        m.put("deliveredAt", c.getDeliveredAt());
+        m.put("amount", c.getAmount());
+        m.put("currency", c.getCurrency());
+        m.put("shipmentStatus", c.getShipmentStatus());
+        m.put("status", c.getStatus() != null ? c.getStatus().name() : null);
+        m.put("paidAt", c.getPaidAt());
+        m.put("paymentRef", c.getPaymentRef());
+        m.put("notes", c.getNotes());
+        return m;
     }
 }

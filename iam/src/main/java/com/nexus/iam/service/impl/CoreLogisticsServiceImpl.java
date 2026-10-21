@@ -141,6 +141,33 @@ public class CoreLogisticsServiceImpl implements CoreLogisticsService {
         return callDelete(webConstants.getCoreLogisticsDriverGetUrl() + "/" + id, auth, org);
     }
 
+    // Driver commissions
+    @Override
+    public ResponseEntity<?> listDriverCommissions(String auth, String org, Pageable p, String status, String search) {
+        return callGet(buildPaginatedUrlWithFilters(
+                webConstants.getCoreLogisticsDriverGetUrl() + "/commissions", p,
+                "status", status, "search", search), auth, org);
+    }
+
+    @Override
+    public ResponseEntity<?> listDriverCommissionItems(Long driverId, String auth, String org, Pageable p, String status) {
+        return callGet(buildPaginatedUrlWithFilters(
+                webConstants.getCoreLogisticsDriverGetUrl() + "/" + driverId + "/commissions", p,
+                "status", status), auth, org);
+    }
+
+    @Override
+    public ResponseEntity<?> payDriverCommission(Long driverId, Long commissionId, Map<String, Object> body, String auth, String org) {
+        return callPost(webConstants.getCoreLogisticsDriverGetUrl() + "/" + driverId
+                + "/commissions/" + commissionId + "/pay", body, auth, org);
+    }
+
+    @Override
+    public ResponseEntity<?> payDriverCommissions(Long driverId, Map<String, Object> body, String auth, String org) {
+        return callPost(webConstants.getCoreLogisticsDriverGetUrl() + "/" + driverId
+                + "/commissions/pay-all", body, auth, org);
+    }
+
     // Driver employee-onboarding: IAM user (DRIVER role) → HR record → linked core driver
 
     /** Result of creating an employee's IAM user + HR record during onboarding. */

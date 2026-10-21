@@ -14,7 +14,10 @@ import org.springframework.util.ObjectUtils;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.util.UriComponentsBuilder;
 
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 //import com.nexus.hr.model.entities.WOWOConfig;
@@ -110,6 +113,10 @@ public class CommonUtils {
                 if (payload.getUserId() == 0) {
                     return null;
                 }
+                // Flatten the organizations claim into the organisation id list so
+                // that callers can check the acting organisation without another
+                // round trip to IAM.
+                payload.setOrganizationIds(extractOrganizationIds(payload));
                 return payload;
             } else {
                 return null;
@@ -119,6 +126,41 @@ public class CommonUtils {
             e.printStackTrace();
             return null;
         }
+    }
+
+    /**
+     * Read the organisation ids the user belongs to from the token's
+     * {@code organizations} claim.
+     * <p>
+     * The claim is a map of the form {@code {"org_id": [1, 2, 3]}}. An empty
+     * list is returned when the claim is absent — callers must treat that as
+     * "unknown" and verify through IAM rather than assuming access.
+     *
+     * @param payload the decrypted token payload
+     * @return the organisation ids, never null
+     */
+    private List<Long> extractOrganizationIds(TokenPayloadDto payload) {
+        Map<String, Object> organizations = payload.getOrganizations();
+        if (organizations == null) {
+            return List.of();
+        }
+        Object orgIds = organizations.get("org_id");
+        if (!(orgIds instanceof Collection<?> collection)) {
+            return List.of();
+        }
+        List<Long> ids = new ArrayList<>();
+        for (Object value : collection) {
+            if (value instanceof Number number) {
+                ids.add(number.longValue());
+            } else if (value != null) {
+                try {
+                    ids.add(Long.valueOf(value.toString().trim()));
+                } catch (NumberFormatException ignored) {
+                    // A non-numeric entry cannot be an organisation id — skip it.
+                }
+            }
+        }
+        return ids;
     }
 
     public String jsonValidator(String jsonString) {

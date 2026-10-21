@@ -52,6 +52,10 @@ public class MaintenanceRecord extends BaseEntity {
     @Column(name = "scheduled_date")
     private Date scheduledDate;
 
+    /** End of the scheduled maintenance window (optional). */
+    @Column(name = "scheduled_to_date")
+    private Date scheduledToDate;
+
     @Column(name = "completed_date")
     private Date completedDate;
 

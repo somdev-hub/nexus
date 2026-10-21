@@ -1,6 +1,7 @@
 package com.nexus.cms.service;
 
 import com.nexus.cms.model.entities.Message;
+import com.nexus.cms.util.StompPrincipalNames;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -86,7 +87,7 @@ public class MessageBroadcaster {
             payload.setConfirmed(true);
 
             messagingTemplate.convertAndSendToUser(
-                    senderId.toString(),
+                    principalName(senderId, message.getOrgId()),
                     "/queue/message-confirmation",
                     payload);
             log.debug("Message confirmation sent to sender {} - MessageID: {}", senderId, message.getId());
@@ -115,7 +116,7 @@ public class MessageBroadcaster {
         try {
             String destination = "/user/" + userId + "/queue/messages";
             messagingTemplate.convertAndSendToUser(
-                    userId.toString(),
+                    principalName(userId, message.getOrgId()),
                     "/queue/messages",
                     toWebSocketMessage(message, conversationId));
             log.debug("Message sent to user {} - MessageID: {}", userId, message.getId());
@@ -128,13 +129,19 @@ public class MessageBroadcaster {
     /**
      * Send notification to specific user
      * Lightweight operation for generic notifications
+     * <p>
+     * The STOMP user destination is resolved against the session principal, whose
+     * name is "{@code userId:orgId}" (see
+     * {@code com.nexus.cms.util.StompPrincipal}). Passing a bare user id
+     * therefore never matches a session and the notification is silently
+     * dropped — always resolve the principal name first.
      *
-     * @param userId  Target user ID
-     * @param title   Notification title
-     * @param message Notification message
+     * @param principalName STOMP principal name, i.e. "{@code userId:orgId}"
+     * @param title        Notification title
+     * @param message      Notification body
      */
-    public void sendNotification(Long userId, String title, String message) {
-        if (userId == null || title == null || message == null) {
+    public void sendNotification(String principalName, String title, String message) {
+        if (principalName == null || title == null || message == null) {
             log.warn("Cannot send notification with null parameters");
             return;
         }
@@ -147,14 +154,47 @@ public class MessageBroadcaster {
                     .build();
 
             messagingTemplate.convertAndSendToUser(
-                    userId.toString(),
+                    principalName,
                     "/queue/notifications",
                     notification);
-            log.debug("Notification sent to user {} - Title: {}", userId, title);
+            log.debug("Notification sent to principal {} - Title: {}", principalName, title);
 
         } catch (Exception e) {
-            log.error("Error sending notification to user {}", userId, e);
+            log.error("Error sending notification to principal {}", principalName, e);
         }
+    }
+
+    /**
+     * Send notification to a user of a given organisation.
+     *
+     * @param userId Target user id
+     * @param orgId  Target organisation id
+     * @param title  Notification title
+     * @param message Notification body
+     */
+    public void sendNotification(Long userId, Long orgId, String title, String message) {
+        if (userId == null) {
+            log.warn("Cannot send notification to a null user");
+            return;
+        }
+        sendNotification(principalName(userId, orgId), title, message);
+    }
+
+    /**
+     * Build the STOMP principal name for a user in an organisation.
+     * <p>
+     * Must stay in step with
+     * {@code com.nexus.cms.util.StompPrincipal#getName()}, which returns
+     * {@code userId + ":" + orgId}. The user destination prefix
+     * is {@code /user}, so {@code convertAndSendToUser(name, ...)} resolves to
+     * {@code /user/<name>/...} and is matched against the session principal.
+     *
+     * @param userId User id
+     * @param orgId  Organisation id, may be null
+     * @return the principal name
+     */
+    public static String principalName(Long userId, Long orgId) {
+        return StompPrincipalNames.of(userId, orgId);
     }
 
     /**

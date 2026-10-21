@@ -21,6 +21,16 @@ public interface LogisticsBillingService {
 	String tripCurrency(Shipment shipment);
 
 	/**
+	 * Flat driver fees of the matched route capacity — the driver's per-trip
+	 * commission. Zero when no lane matches or the lane charges no driver fees.
+	 */
+	TripDriverFees tripDriverFees(Shipment shipment);
+
+	/** Flat driver fee amount plus the currency the matched capacity denominates it in. */
+	record TripDriverFees(BigDecimal amount, String currency) {
+	}
+
+	/**
 	 * Human lane label for a shipment: the matched route-capacity's
 	 * originLane → destinationLane (city names) when the shipment rides a
 	 * known lane; the shipment's locations shortened to their city part

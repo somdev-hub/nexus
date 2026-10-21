@@ -33,6 +33,12 @@ public interface CoreLogisticsService {
     ResponseEntity<?> transitionDriverStatus(Long id, String newStatus, Map<String, Object> params, String auth, String org);
     ResponseEntity<?> deleteDriver(Long id, String auth, String org);
 
+    // Driver commissions (contract payouts per delivered trip)
+    ResponseEntity<?> listDriverCommissions(String auth, String org, Pageable p, String status, String search);
+    ResponseEntity<?> listDriverCommissionItems(Long driverId, String auth, String org, Pageable p, String status);
+    ResponseEntity<?> payDriverCommission(Long driverId, Long commissionId, Map<String, Object> body, String auth, String org);
+    ResponseEntity<?> payDriverCommissions(Long driverId, Map<String, Object> body, String auth, String org);
+
     /**
      * Onboards a driver as an employee, mirroring the HR app's add-employee
      * flow: creates the IAM user (DRIVER role, generated one-time password),

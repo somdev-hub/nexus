@@ -159,6 +159,35 @@ public class CoreLogisticsController {
 		return logisticsService.deleteDriver(id, auth, org);
 	}
 
+	// Driver commissions
+	@GetMapping("/fleet/drivers/commissions")
+	public ResponseEntity<?> listDriverCommissions(@RequestHeader("Authorization") String auth,
+			@RequestHeader("X-Organization-ID") String org, @PageableDefault(size = 20) Pageable p,
+			@RequestParam(required = false) String status, @RequestParam(required = false) String search) {
+		return logisticsService.listDriverCommissions(auth, org, p, status, search);
+	}
+
+	@GetMapping("/fleet/drivers/{id}/commissions")
+	public ResponseEntity<?> listDriverCommissionItems(@PathVariable Long id,
+			@RequestHeader("Authorization") String auth, @RequestHeader("X-Organization-ID") String org,
+			@PageableDefault(size = 10) Pageable p, @RequestParam(required = false) String status) {
+		return logisticsService.listDriverCommissionItems(id, auth, org, p, status);
+	}
+
+	@PostMapping("/fleet/drivers/{id}/commissions/{commissionId}/pay")
+	public ResponseEntity<?> payDriverCommission(@PathVariable Long id, @PathVariable Long commissionId,
+			@RequestBody(required = false) Map<String, Object> body, @RequestHeader("Authorization") String auth,
+			@RequestHeader("X-Organization-ID") String org) {
+		return logisticsService.payDriverCommission(id, commissionId, body, auth, org);
+	}
+
+	@PostMapping("/fleet/drivers/{id}/commissions/pay-all")
+	public ResponseEntity<?> payDriverCommissions(@PathVariable Long id,
+			@RequestBody(required = false) Map<String, Object> body, @RequestHeader("Authorization") String auth,
+			@RequestHeader("X-Organization-ID") String org) {
+		return logisticsService.payDriverCommissions(id, body, auth, org);
+	}
+
 	@LogActivity("Onboard Driver as Employee via IAM")
 	@PostMapping("/fleet/drivers/onboard")
 	public ResponseEntity<?> onboardDriver(@RequestBody Map<String, Object> body,

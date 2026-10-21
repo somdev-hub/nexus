@@ -5,6 +5,7 @@ import com.nexus.cms.payload.ChatPayload;
 import com.nexus.cms.service.ChatService;
 import com.nexus.cms.service.MessageBroadcaster;
 import com.nexus.cms.service.SessionTracker;
+import com.nexus.cms.util.StompPrincipalNames;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
@@ -60,9 +61,14 @@ public class WebSocketController {
             if (request.getUserId() != null) {
                 senderId = request.getUserId();
             } else if (principal != null) {
-                senderId = Long.valueOf(principal.getName());
+                // The principal name is "userId:orgId" — parse the user id out of it.
+                senderId = StompPrincipalNames.userIdOf(principal.getName());
             } else {
                 log.error("❌ Cannot determine sender: no userId in request and no Principal available");
+                return;
+            }
+            if (senderId == null) {
+                log.error("❌ Cannot determine sender from principal name");
                 return;
             }
 
@@ -92,18 +98,18 @@ public class WebSocketController {
 
         } catch (Exception e) {
             log.error("❌ Error handling WebSocket message", e);
-            // Send error notification to sender if we have a userId
+            // Send error notification to sender if we have a principal
             try {
-                Long senderId = null;
-                if (request != null && request.getUserId() != null) {
-                    senderId = request.getUserId();
-                } else if (principal != null) {
-                    senderId = Long.valueOf(principal.getName());
+                String principalName = null;
+                if (principal != null) {
+                    principalName = principal.getName();
+                } else if (request != null && request.getUserId() != null) {
+                    principalName = StompPrincipalNames.of(request.getUserId(), request.getOrgId());
                 }
 
-                if (senderId != null) {
+                if (principalName != null) {
                     messageBroadcaster.sendNotification(
-                            senderId,
+                            principalName,
                             "Error",
                             "Failed to send message: " + e.getMessage());
                 }

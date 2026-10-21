@@ -10,6 +10,7 @@ import com.nexus.cms.chat.service.interfaces.ChatMessageProducerService;
 import com.nexus.cms.chat.service.interfaces.MessageService;
 import com.nexus.cms.chat.service.interfaces.NewChatService;
 import com.nexus.cms.chat.service.interfaces.PresenceService;
+import com.nexus.cms.util.StompPrincipalNames;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -40,8 +41,11 @@ public class MessageWebSocketController {
             Principal principal) {
         try {
             // Extract userId from principal name (format: "userId:orgId")
-            String principalName = principal.getName();
-            Long senderUserId = Long.parseLong(principalName.split(":")[0]);
+            Long senderUserId = StompPrincipalNames.userIdOf(principal.getName());
+            if (senderUserId == null) {
+                log.warn("[CHAT WS] Cannot determine sender from principal name");
+                return;
+            }
 
             // Never trust client-sent sender/conversation values for WebSocket SEND.
             if (!ObjectUtils.isEmpty(message)) {
@@ -85,8 +89,10 @@ public class MessageWebSocketController {
             @DestinationVariable Long conversationId,
             Principal principal) {
         // Extract userId from principal name (format: "userId:orgId")
-        String principalName = principal.getName();
-        long userId = Long.parseLong(principalName.contains(":") ? principalName.split(":")[0] : principalName);
+        Long userId = StompPrincipalNames.userIdOf(principal.getName());
+        if (userId == null) {
+            return;
+        }
         // broadcast typing indicator to all subscribers of the conversation topic
         // except the sender
         messagingTemplate.convertAndSend("/topic/conversations/" + conversationId + "/typing",
@@ -97,8 +103,10 @@ public class MessageWebSocketController {
     @MessageMapping("/cms/chat/ws/ack/{messageId}")
     public void acknowledge(@DestinationVariable Long messageId, Principal principal) {
         // Extract userId from principal name (format: "userId:orgId")
-        String principalName = principal.getName();
-        long userId = Long.parseLong(principalName.contains(":") ? principalName.split(":")[0] : principalName);
+        Long userId = StompPrincipalNames.userIdOf(principal.getName());
+        if (userId == null) {
+            return;
+        }
         ResponseEntity<ChatMessageIndividualStatus> response = newChatService.markReceived(messageId, userId);
         if (!response.getStatusCode().is2xxSuccessful() || ObjectUtils.isEmpty(response.getBody())) {
             messagingTemplate.convertAndSendToUser(principal.getName(), "/queue/errors",
@@ -114,8 +122,10 @@ public class MessageWebSocketController {
     @MessageMapping("/heartbeat")
     public void heartbeat(Principal principal) {
         // Extract userId from principal name (format: "userId:orgId")
-        String principalName = principal.getName();
-        Long userId = Long.parseLong(principalName.contains(":") ? principalName.split(":")[0] : principalName);
+        Long userId = StompPrincipalNames.userIdOf(principal.getName());
+        if (userId == null) {
+            return;
+        }
         presenceService.heartbeat(userId); // ← refresh TTL
     }
 

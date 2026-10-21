@@ -3,6 +3,8 @@ package com.nexus.cms.chat.config;
 import com.nexus.cms.chat.service.interfaces.PresenceService;
 import com.nexus.cms.payload.TokenPayloadDto;
 import com.nexus.cms.util.CommonUtils;
+import com.nexus.cms.util.StompPrincipal;
+import com.nexus.cms.util.StompPrincipalNames;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -17,8 +19,6 @@ import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.messaging.support.ChannelInterceptor;
 import org.springframework.messaging.support.MessageHeaderAccessor;
 import org.springframework.stereotype.Component;
-
-import java.security.Principal;
 
 @Component
 @RequiredArgsConstructor
@@ -49,8 +49,10 @@ public class ChatWebSocketAuthInceptor implements ChannelInterceptor {
                         if (tokenPayloadDto != null) {
                             log.debug("WebSocket token decrypted: userId={}, orgId={}", tokenPayloadDto.getUserId(),
                                     tokenPayloadDto.getOrgId());
-                            StompPrincipal principal = new StompPrincipal(String.valueOf(tokenPayloadDto.getUserId()),
-                                    String.valueOf(tokenPayloadDto.getOrgId()));
+                            StompPrincipal principal = new StompPrincipal(
+                                    String.valueOf(tokenPayloadDto.getUserId()),
+                                    String.valueOf(tokenPayloadDto.getOrgId()),
+                                    tokenPayloadDto.getOrganizationIds());
                             accessor.setUser(principal);
 
                             PresenceService presenceService = presenceServiceProvider.getIfAvailable();
@@ -67,41 +69,24 @@ public class ChatWebSocketAuthInceptor implements ChannelInterceptor {
                 }
             } else if (StompCommand.DISCONNECT.equals(accessor.getCommand())) {
                 if (accessor.getUser() != null) {
-                    String principalName = accessor.getUser().getName();
-                    String[] parts = principalName.contains(":") ? principalName.split(":")
-                            : new String[] { principalName };
-                    long userId = Long.parseLong(parts[0]);
+                    Long userId = StompPrincipalNames.userIdOf(accessor.getUser().getName());
                     PresenceService presenceService = presenceServiceProvider.getIfAvailable();
-                    if (presenceService != null) {
+                    if (presenceService != null && userId != null) {
                         log.debug("WebSocket DISCONNECT marking user {} offline", userId);
                         presenceService.setOffline(userId);
                     }
                 }
             } else if (StompCommand.SEND.equals(accessor.getCommand())) {
                 if (accessor.getUser() != null) {
-                    String principalName = accessor.getUser().getName();
-                    // Parse userId from principal (format: "userId:orgId")
-                    String[] parts = principalName.contains(":") ? principalName.split(":")
-                            : new String[] { principalName };
-                    long userId = Long.parseLong(parts[0]);
+                    Long userId = StompPrincipalNames.userIdOf(accessor.getUser().getName());
                     PresenceService presenceService = presenceServiceProvider.getIfAvailable();
-                    if (presenceService != null) {
+                    if (presenceService != null && userId != null) {
+                        log.debug("WebSocket SEND marking user {} active", userId);
                         presenceService.heartbeat(userId);
                     }
                 }
             }
         }
         return message;
-    }
-
-    // simple principal wrapper with userId and orgId
-    public record StompPrincipal(String userId, String orgId) implements Principal {
-
-        @Override
-        public String getName() {
-            // Return format: "userId:orgId" for use in message handlers
-            return userId + ":" + orgId;
-        }
-
     }
 }

@@ -140,6 +140,40 @@ public class FleetController {
         return fleetService.deleteDriver(id);
     }
 
+    // ── Driver commissions ──────────────────────────────────────────────
+
+    @GetMapping("/drivers/commissions")
+    @LogActivity("List Driver Commission Rows")
+    public ResponseEntity<?> listDriverCommissions(
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String search,
+            @PageableDefault(size = 20) Pageable pageable) {
+        return fleetService.listDriverCommissions(status, search, pageable);
+    }
+
+    @GetMapping("/drivers/{id}/commissions")
+    @LogActivity("List Driver Commission Items")
+    public ResponseEntity<?> listDriverCommissionItems(@PathVariable Long id,
+            @RequestParam(required = false) String status,
+            @PageableDefault(size = 10) Pageable pageable) {
+        return fleetService.listDriverCommissionItems(id, status, pageable);
+    }
+
+    @PostMapping("/drivers/{id}/commissions/{commissionId}/pay")
+    @LogActivity("Pay Driver Commission")
+    public ResponseEntity<?> payDriverCommission(@PathVariable Long id,
+            @PathVariable Long commissionId,
+            @RequestBody(required = false) Map<String, Object> body) {
+        return fleetService.payDriverCommission(id, commissionId, body);
+    }
+
+    @PostMapping("/drivers/{id}/commissions/pay-all")
+    @LogActivity("Pay All Driver Commissions")
+    public ResponseEntity<?> payDriverCommissions(@PathVariable Long id,
+            @RequestBody(required = false) Map<String, Object> body) {
+        return fleetService.payDriverCommissions(id, body);
+    }
+
     @PostMapping("/maintenance/create")
     @LogActivity("Create Maintenance Record")
     public ResponseEntity<?> createMaintenance(@Valid @RequestBody MaintenanceRecordDto dto) {

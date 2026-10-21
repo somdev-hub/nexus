@@ -18,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.nexus.core.annotation.LogActivity;
 import com.nexus.core.model.entities.CarrierPayable;
+import com.nexus.core.model.entities.DriverCommission;
 import com.nexus.core.model.entities.FreightInvoice;
 import com.nexus.core.model.entities.Invoice;
 import com.nexus.core.model.entities.LogisticsPayableLine;
@@ -25,6 +26,7 @@ import com.nexus.core.model.entities.Partnership;
 import com.nexus.core.model.entities.PurchaseOrder;
 import com.nexus.core.model.entities.Shipment;
 import com.nexus.core.model.enums.FreightInvoiceStatus;
+import com.nexus.core.model.enums.DriverCommissionStatus;
 import com.nexus.core.model.enums.InvoiceStatus;
 import com.nexus.core.model.enums.LogisticsPayableLineKind;
 import com.nexus.core.model.enums.LogisticsPayableLineStatus;
@@ -32,6 +34,7 @@ import com.nexus.core.model.enums.PayableStatus;
 import com.nexus.core.model.enums.PurchaseOrderStatus;
 import com.nexus.core.model.enums.ShipmentStatus;
 import com.nexus.core.repository.CarrierPayableRepo;
+import com.nexus.core.repository.DriverCommissionRepo;
 import com.nexus.core.repository.FreightInvoiceRepo;
 import com.nexus.core.repository.InvoiceRepo;
 import com.nexus.core.repository.LogisticsPayableLineRepo;
@@ -59,6 +62,7 @@ public class FinanceServiceImpl implements FinanceService {
 	private final CarrierPayableRepo payableRepo;
 	private final PartnershipRepo partnershipRepo;
 	private final LogisticsPayableLineRepo lineRepo;
+	private final DriverCommissionRepo commissionRepo;
 	private final LogisticsBillingService billingService;
 
 	// ── retailer ──────────────────────────────────────────────
@@ -329,8 +333,6 @@ public class FinanceServiceImpl implements FinanceService {
 				perCustomer.merge(cust, fare, BigDecimal::add);
 			}
 		}
-		long openPayables = payableRepo.findByOrgWithFilters(orgId, null, PayableStatus.PENDING, null,
-				Pageable.unpaged()).getTotalElements();
 		long disputes = payableRepo.findByOrgWithFilters(orgId, null, PayableStatus.DISPUTED, null,
 				Pageable.unpaged()).getTotalElements();
 
@@ -339,6 +341,22 @@ public class FinanceServiceImpl implements FinanceService {
 				.filter(s -> s.getStatus() == ShipmentStatus.DELIVERED
 						|| s.getStatus() == ShipmentStatus.PARTIALLY_DELIVERED)
 				.toList();
+		// Open payables = the org's real outstanding payout obligations:
+		// pending driver commissions (the legacy CarrierPayable table is
+		// never populated). Amount is summed like receivables; the currency
+		// label comes from the pending lines themselves.
+		List<DriverCommission> pendingPayouts = commissionRepo
+				.findByLogisticsOrgIdAndStatus(orgId, DriverCommissionStatus.PENDING);
+		BigDecimal openPayables = BigDecimal.ZERO;
+		String payablesCurrency = null;
+		for (DriverCommission c : pendingPayouts) {
+			if (c.getAmount() != null)
+				openPayables = openPayables.add(c.getAmount());
+			if (payablesCurrency == null && c.getCurrency() != null)
+				payablesCurrency = c.getCurrency();
+		}
+		if (payablesCurrency == null)
+			payablesCurrency = settlementCurrency(deliveredShips);
 		Map<String, BigDecimal> recv = settlementReceivable(deliveredShips);
 		recvOpen = recv.get("open");
 		recvOverdue = recv.get("overdue");
@@ -351,6 +369,8 @@ public class FinanceServiceImpl implements FinanceService {
 		res.put("revenuePerLane", perLane);
 		res.put("revenuePerCustomer", perCustomer);
 		res.put("openPayables", openPayables);
+		res.put("openPayablesCount", pendingPayouts.size());
+		res.put("openPayablesCurrency", payablesCurrency);
 		res.put("disputes", disputes);
 		res.put("receivableOpen", recvOpen);
 		res.put("receivableOverdue", recvOverdue);
