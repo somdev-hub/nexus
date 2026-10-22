@@ -101,9 +101,4 @@ public class Product extends BaseEntity {
 	@Column(name = "tag")
 	private List<String> tags;
 
-	@OneToMany(mappedBy = "product")
-	@ToString.Exclude
-	@EqualsAndHashCode.Exclude
-	private List<Order> orders;
-
 }

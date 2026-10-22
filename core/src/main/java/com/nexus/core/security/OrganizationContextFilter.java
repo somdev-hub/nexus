@@ -145,29 +145,42 @@ public class OrganizationContextFilter extends OncePerRequestFilter {
 
 	/**
 	 * Extract user ID from authentication.
+	 * JWT claims are untyped, so read defensively: a naive
+	 * {@code Long userId = jwt.getClaim(...)} throws ClassCastException when
+	 * the claim is a String (e.g. Keycloak UUID) or Integer.
 	 */
 	private Long extractUserId(Authentication authentication) {
 		// Try to get user ID from JWT claims or principal
 		if (authentication.getPrincipal() instanceof org.springframework.security.oauth2.jwt.Jwt jwt) {
-			// Try to get user ID from various claims
-			Long userId = jwt.getClaim("user_id");
-			if (userId != null)
+			Long userId = parseUserIdClaim(jwt.getClaim("user_id"));
+			if (userId != null) {
 				return userId;
+			}
 
-			userId = jwt.getClaim("sub");
-			if (userId != null)
+			userId = parseUserIdClaim(jwt.getClaim("sub"));
+			if (userId != null) {
 				return userId;
-
-			// Try to parse from subject
-			String sub = jwt.getSubject();
-			if (sub != null) {
-				try {
-					return Long.parseLong(sub);
-				} catch (NumberFormatException ignored) {
-				}
 			}
 		}
 		return null;
+	}
+
+	private Long parseUserIdClaim(Object claim) {
+		if (claim == null) {
+			return null;
+		}
+		if (claim instanceof Long longValue) {
+			return longValue;
+		}
+		if (claim instanceof Number number) {
+			return number.longValue();
+		}
+		try {
+			return Long.parseLong(String.valueOf(claim));
+		} catch (NumberFormatException ignored) {
+			// Non-numeric claims (e.g. UUID subject) are not user ids.
+			return null;
+		}
 	}
 
 	/**

@@ -235,6 +235,11 @@ public class NotificationProjectionServiceImpl implements NotificationProjection
             case NotificationMasterCodes.ADDRESS_TO_SUPPLIER -> event.getSupplierOrgId();
             // COUNTERPARTY, and the default for anything unknown.
             default -> {
+                // Prefer the target the producer resolved — it is the same
+                // counterparty rule, computed where the facts are.
+                if (event.getTargetOrgId() != null) {
+                    yield event.getTargetOrgId();
+                }
                 // The counterparty of whoever acted. When the actor is unknown
                 // — a system job, for instance — the event is treated as
                 // having been performed by the buyer, which is the correct

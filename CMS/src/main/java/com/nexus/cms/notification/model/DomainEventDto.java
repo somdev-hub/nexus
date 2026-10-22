@@ -86,6 +86,16 @@ public class DomainEventDto {
     private Long supplierOrgId;
 
     /**
+     * The organisation the event is addressed to — the counterparty of the
+     * actor, resolved by the producer. The consumer's policy can override it
+     * (for example, to address by authority rather than by organisation).
+     * <p>
+     * Null when the producer could not resolve it; the consumer then falls
+     * back to the counterparty rule itself.
+     */
+    private Long targetOrgId;
+
+    /**
      * The kind of entity the event is about, e.g. {@code PURCHASE_ORDER}.
      */
     private String entityType;

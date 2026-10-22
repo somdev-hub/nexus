@@ -10,6 +10,7 @@ import java.util.List;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EntityListeners;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
@@ -29,6 +30,7 @@ import lombok.ToString;
 @Data
 @EqualsAndHashCode(callSuper = true)
 @ToString(callSuper = true)
+@EntityListeners(com.nexus.core.event.listener.PurchaseOrderStatusEventListener.class)
 @Table(name = "t_purchase_orders", schema = "core")
 public class PurchaseOrder extends BaseEntity {
 
@@ -89,6 +91,16 @@ public class PurchaseOrder extends BaseEntity {
 
 	@Enumerated(EnumType.STRING)
 	private PurchaseOrderStatus status = PurchaseOrderStatus.DRAFT;
+
+	/**
+	 * Snapshot of the status when the entity was loaded. Used by the
+	 * {@code PurchaseOrderStatusEventListener} to detect a status change
+	 * during an update. Not persisted.
+	 */
+	@jakarta.persistence.Transient
+	@EqualsAndHashCode.Exclude
+	@ToString.Exclude
+	private PurchaseOrderStatus statusBeforeChange;
 
 	@Column(name = "total_amount")
 	private Double totalAmount = 0.0;

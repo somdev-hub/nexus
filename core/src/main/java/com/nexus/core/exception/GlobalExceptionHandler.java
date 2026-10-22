@@ -32,4 +32,21 @@ public class GlobalExceptionHandler {
                 ex.getMessage());
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
     }
+
+    /**
+     * Validation errors are business-rule violations, not server errors. They
+     * are thrown all over the purchase order flow (e.g. "only SENT_TO_SUPPLIER
+     * orders can be acknowledged"), so they must come back as 400 rather than
+     * 500. Returning 500 here would make every invalid state transition look
+     * like a server crash to the caller.
+     */
+    @ExceptionHandler(ValidationException.class)
+    public ResponseEntity<ErrorResponse> handleValidationException(ValidationException ex) {
+        ErrorResponse errorResponse = new ErrorResponse(
+                ex.getMessage(),
+                HttpStatus.BAD_REQUEST.value(),
+                Timestamp.valueOf(LocalDateTime.now()),
+                ex.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+    }
 }

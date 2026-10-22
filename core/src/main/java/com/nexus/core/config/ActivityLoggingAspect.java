@@ -11,6 +11,9 @@ import org.aspectj.lang.annotation.Aspect;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Component;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
@@ -73,7 +76,7 @@ public class ActivityLoggingAspect {
 		Exception caughtException = null;
 		int responseStatus = HttpStatus.OK.value();
 		String responseBody = null;
-		Long userId = null;
+		Long userId = extractUserId(SecurityContextHolder.getContext().getAuthentication());
 
 		try {
 			// Execute the actual method
@@ -144,6 +147,47 @@ public class ActivityLoggingAspect {
 		ErrorDetails(String exceptionType, String message) {
 			this.exceptionType = exceptionType;
 			this.message = message;
+		}
+	}
+
+	/**
+	 * Extract the authenticated user's ID from the security context (JWT
+	 * claims). JWT claims are untyped, so read them as Object and parse
+	 * defensively — a naive `Long userId = jwt.getClaim("sub")` throws
+	 * ClassCastException when the claim is a String (e.g. Keycloak UUIDs),
+	 * which would fail the whole request. Falls back to null (Logger then
+	 * persists 0) when no numeric user id is present.
+	 */
+	private Long extractUserId(Authentication authentication) {
+		if (authentication == null || !(authentication.getPrincipal() instanceof Jwt jwt)) {
+			return null;
+		}
+		Long userId = parseUserIdClaim(jwt.getClaim("user_id"));
+		if (userId != null) {
+			return userId;
+		}
+		userId = parseUserIdClaim(jwt.getClaim("sub"));
+		if (userId != null) {
+			return userId;
+		}
+		return parseUserIdClaim(jwt.getSubject());
+	}
+
+	private Long parseUserIdClaim(Object claim) {
+		if (claim == null) {
+			return null;
+		}
+		if (claim instanceof Long longValue) {
+			return longValue;
+		}
+		if (claim instanceof Number number) {
+			return number.longValue();
+		}
+		try {
+			return Long.parseLong(String.valueOf(claim));
+		} catch (NumberFormatException ignored) {
+			// Claims like a UUID string can't be a user id — log 0 instead of failing the request.
+			return null;
 		}
 	}
 

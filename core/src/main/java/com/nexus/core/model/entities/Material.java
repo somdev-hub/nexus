@@ -68,11 +68,6 @@ public class Material extends BaseEntity {
 	@EqualsAndHashCode.Exclude
 	private List<BuyerOrgMaterialAvailability> buyerAvailabilities;
 
-	@OneToMany(mappedBy = "material")
-	@ToString.Exclude
-	@EqualsAndHashCode.Exclude
-	private List<Order> orders;
-
 	// FR-RET-011: Reorder Point Automation
 	@Column(name = "reorder_point")
 	private Double reorderPoint;
