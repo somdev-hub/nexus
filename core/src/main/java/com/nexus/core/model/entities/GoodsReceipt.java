@@ -8,6 +8,7 @@ import java.util.List;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EntityListeners;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
@@ -27,6 +28,7 @@ import lombok.ToString;
 @Data
 @EqualsAndHashCode(callSuper = true)
 @ToString(callSuper = true)
+@EntityListeners(com.nexus.core.event.listener.GoodsReceiptStatusEventListener.class)
 @Table(name = "t_goods_receipts", schema = "core")
 public class GoodsReceipt extends BaseEntity {
 
@@ -52,6 +54,14 @@ public class GoodsReceipt extends BaseEntity {
 
 	@Enumerated(EnumType.STRING)
 	private GoodsReceiptStatus status = GoodsReceiptStatus.DRAFT;
+
+	/**
+	 * Snapshot of the status when the entity was loaded. Not persisted.
+	 */
+	@jakarta.persistence.Transient
+	@EqualsAndHashCode.Exclude
+	@ToString.Exclude
+	private GoodsReceiptStatus statusBeforeChange;
 
 	@Column(name = "received_date")
 	private Date receivedDate;

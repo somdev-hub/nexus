@@ -13,6 +13,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.List;
 
@@ -52,7 +53,8 @@ public class NotificationRetentionJob {
             return;
         }
 
-        Instant cutoff = Instant.now().minusSeconds(retentionDays * 86400L);
+        Instant cutoffInstant = Instant.now().minusSeconds(retentionDays * 86400L);
+        Timestamp cutoff = Timestamp.from(cutoffInstant);
         try {
             List<Notification> expired = notificationRepo.findCreatedBefore(cutoff);
             if (!expired.isEmpty()) {

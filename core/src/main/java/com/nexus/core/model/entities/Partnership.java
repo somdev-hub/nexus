@@ -5,6 +5,7 @@ import java.sql.Timestamp;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EntityListeners;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
@@ -22,6 +23,7 @@ import lombok.ToString;
 @Data
 @EqualsAndHashCode(callSuper = true)
 @ToString(callSuper = true)
+@EntityListeners(com.nexus.core.event.listener.PartnershipStatusEventListener.class)
 @Table(name = "t_partnerships", schema = "core")
 public class Partnership extends BaseEntity {
 
@@ -79,6 +81,14 @@ public class Partnership extends BaseEntity {
 
 	@Enumerated(EnumType.STRING)
 	private PartnershipStatus status;
+
+	/**
+	 * Snapshot of the status when the entity was loaded. Not persisted.
+	 */
+	@jakarta.persistence.Transient
+	@EqualsAndHashCode.Exclude
+	@ToString.Exclude
+	private PartnershipStatus statusBeforeChange;
 
 	private Timestamp startDate;
 

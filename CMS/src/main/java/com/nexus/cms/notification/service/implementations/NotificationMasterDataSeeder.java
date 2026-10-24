@@ -70,6 +70,36 @@ public class NotificationMasterDataSeeder implements ApplicationRunner {
                 "notificationEventType", NotificationMasterCodes.EVENT_PURCHASE_ORDER_STATUS_CHANGED,
                 "A purchase order changed status", NotificationEventTypeMaster::new,
                 NotificationEventTypeMaster::setNotificationEventType);
+
+        seed(eventTypeRepo::findByNotificationEventType, eventTypeRepo::save,
+                "notificationEventType", NotificationMasterCodes.EVENT_QUOTATION_STATUS_CHANGED,
+                "A quotation changed status", NotificationEventTypeMaster::new,
+                NotificationEventTypeMaster::setNotificationEventType);
+
+        seed(eventTypeRepo::findByNotificationEventType, eventTypeRepo::save,
+                "notificationEventType", NotificationMasterCodes.EVENT_PARTNERSHIP_STATUS_CHANGED,
+                "A partnership changed status", NotificationEventTypeMaster::new,
+                NotificationEventTypeMaster::setNotificationEventType);
+
+        seed(eventTypeRepo::findByNotificationEventType, eventTypeRepo::save,
+                "notificationEventType", NotificationMasterCodes.EVENT_INVOICE_STATUS_CHANGED,
+                "An invoice changed status", NotificationEventTypeMaster::new,
+                NotificationEventTypeMaster::setNotificationEventType);
+
+        seed(eventTypeRepo::findByNotificationEventType, eventTypeRepo::save,
+                "notificationEventType", NotificationMasterCodes.EVENT_PAYMENT_STATUS_CHANGED,
+                "A payment changed status", NotificationEventTypeMaster::new,
+                NotificationEventTypeMaster::setNotificationEventType);
+
+        seed(eventTypeRepo::findByNotificationEventType, eventTypeRepo::save,
+                "notificationEventType", NotificationMasterCodes.EVENT_SHIPMENT_STATUS_CHANGED,
+                "A shipment changed status (logistics)", NotificationEventTypeMaster::new,
+                NotificationEventTypeMaster::setNotificationEventType);
+
+        seed(eventTypeRepo::findByNotificationEventType, eventTypeRepo::save,
+                "notificationEventType", NotificationMasterCodes.EVENT_GOODS_RECEIPT_STATUS_CHANGED,
+                "A goods receipt changed status", NotificationEventTypeMaster::new,
+                NotificationEventTypeMaster::setNotificationEventType);
     }
 
     private void seedSeverities() {

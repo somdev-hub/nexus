@@ -12,13 +12,13 @@ import java.util.Optional;
 public interface NotificationPolicyRegistry {
 
     /**
-     * Find the policy for a purchase order status transition.
+     * Find the policy for a status transition of a given event type.
      *
-     * @param previousStatus the status the order left, may be null for a
-     *                       newly created order
-     * @param newStatus      the status the order moved to
+     * @param eventType      the kind of domain event (e.g. PURCHASE_ORDER_STATUS_CHANGED)
+     * @param previousStatus the status the entity left, may be null
+     * @param newStatus      the status the entity moved to
      * @return the policy, or empty when the transition is not worth notifying
      *         anybody about
      */
-    Optional<NotificationPolicy> findForTransition(String previousStatus, String newStatus);
+    Optional<NotificationPolicy> findForTransition(String eventType, String previousStatus, String newStatus);
 }

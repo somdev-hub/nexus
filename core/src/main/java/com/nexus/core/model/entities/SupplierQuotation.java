@@ -8,6 +8,7 @@ import java.util.List;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EntityListeners;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
@@ -27,6 +28,7 @@ import lombok.ToString;
 @Data
 @EqualsAndHashCode(callSuper = true)
 @ToString(callSuper = true)
+@EntityListeners(com.nexus.core.event.listener.QuotationStatusEventListener.class)
 @Table(name = "t_supplier_quotations", schema = "core")
 public class SupplierQuotation extends BaseEntity {
 
@@ -53,6 +55,14 @@ public class SupplierQuotation extends BaseEntity {
     @Enumerated(EnumType.STRING)
     @Column(name = "status")
     private QuotationStatus status = QuotationStatus.DRAFT;
+
+    /**
+     * Snapshot of the status when the entity was loaded. Not persisted.
+     */
+    @jakarta.persistence.Transient
+    @EqualsAndHashCode.Exclude
+    @ToString.Exclude
+    private QuotationStatus statusBeforeChange;
 
     @Column(name = "valid_from")
     private Date validFrom;

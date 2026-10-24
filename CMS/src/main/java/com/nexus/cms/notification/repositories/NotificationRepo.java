@@ -7,7 +7,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-import java.time.Instant;
+import java.sql.Timestamp;
 import java.util.List;
 import java.util.Optional;
 
@@ -83,5 +83,39 @@ public interface NotificationRepo extends JpaRepository<Notification, Long> {
      * job.
      */
     @Query("SELECT n FROM Notification n WHERE n.createdAt < :cutoff")
-    List<Notification> findCreatedBefore(@Param("cutoff") Instant cutoff);
+    List<Notification> findCreatedBefore(@Param("cutoff") Timestamp cutoff);
+
+    // ------------------------------------------------------------------
+    // Analytics queries
+    // ------------------------------------------------------------------
+
+    @Query("SELECT COUNT(n) FROM Notification n")
+    long countAll();
+
+    @Query("SELECT COUNT(n) FROM Notification n WHERE n.createdAt >= :from AND n.createdAt < :to")
+    long countByDateRange(@Param("from") Timestamp from, @Param("to") Timestamp to);
+
+    @Query("SELECT n.eventType, COUNT(n) FROM Notification n GROUP BY n.eventType ORDER BY COUNT(n) DESC")
+    List<Object[]> countByEventType();
+
+    @Query("SELECT n.severity, COUNT(n) FROM Notification n GROUP BY n.severity ORDER BY COUNT(n) DESC")
+    List<Object[]> countBySeverity();
+
+    @Query("SELECT n.addressing, COUNT(n) FROM Notification n GROUP BY n.addressing ORDER BY COUNT(n) DESC")
+    List<Object[]> countByAddressing();
+
+    @Query("SELECT n.targetOrgId, COUNT(n) FROM Notification n GROUP BY n.targetOrgId ORDER BY COUNT(n) DESC")
+    List<Object[]> countByOrg();
+
+    @Query("SELECT n.targetOrgId, MAX(n.createdAt) FROM Notification n GROUP BY n.targetOrgId")
+    List<Object[]> lastNotificationByOrg();
+
+    @Query("SELECT COUNT(n) FROM Notification n WHERE n.createdAt >= :from")
+    long countSince(@Param("from") Timestamp from);
+
+    @Query("SELECT n FROM Notification n WHERE n.createdAt >= :from ORDER BY n.createdAt DESC")
+    List<Notification> findRecentSince(@Param("from") Timestamp from);
+
+    @Query("SELECT n FROM Notification n ORDER BY n.createdAt DESC")
+    List<Notification> findAllOrderByCreatedAtDesc(org.springframework.data.domain.Pageable pageable);
 }

@@ -20,6 +20,36 @@ public final class NotificationMasterCodes {
      */
     public static final String EVENT_PURCHASE_ORDER_STATUS_CHANGED = "PURCHASE_ORDER_STATUS_CHANGED";
 
+    /**
+     * A quotation changed status.
+     */
+    public static final String EVENT_QUOTATION_STATUS_CHANGED = "QUOTATION_STATUS_CHANGED";
+
+    /**
+     * A partnership changed status.
+     */
+    public static final String EVENT_PARTNERSHIP_STATUS_CHANGED = "PARTNERSHIP_STATUS_CHANGED";
+
+    /**
+     * An invoice changed status.
+     */
+    public static final String EVENT_INVOICE_STATUS_CHANGED = "INVOICE_STATUS_CHANGED";
+
+    /**
+     * A payment changed status.
+     */
+    public static final String EVENT_PAYMENT_STATUS_CHANGED = "PAYMENT_STATUS_CHANGED";
+
+    /**
+     * A shipment (logistics) changed status.
+     */
+    public static final String EVENT_SHIPMENT_STATUS_CHANGED = "SHIPMENT_STATUS_CHANGED";
+
+    /**
+     * A goods receipt changed status.
+     */
+    public static final String EVENT_GOODS_RECEIPT_STATUS_CHANGED = "GOODS_RECEIPT_STATUS_CHANGED";
+
     // ── Severities ──────────────────────────────────────────────────────────
 
     /**

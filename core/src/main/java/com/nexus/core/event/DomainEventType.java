@@ -15,10 +15,41 @@ public enum DomainEventType {
 
     /**
      * A purchase order changed status.
-     * <p>
-     * The transition itself is carried in the event facts
-     * ({@code previousStatus}, {@code newStatus}) and is turned into a
-     * notification by the notification policy registry.
      */
-    PURCHASE_ORDER_STATUS_CHANGED
+    PURCHASE_ORDER_STATUS_CHANGED,
+
+    /**
+     * A quotation changed status.
+     */
+    QUOTATION_STATUS_CHANGED,
+
+    /**
+     * A partnership changed status.
+     */
+    PARTNERSHIP_STATUS_CHANGED,
+
+    /**
+     * An invoice changed status.
+     */
+    INVOICE_STATUS_CHANGED,
+
+    /**
+     * A payment changed status.
+     */
+    PAYMENT_STATUS_CHANGED,
+
+    /**
+     * A shipment (logistics) changed status.
+     * <p>
+     * Covers pickup, in-transit, delivery, and exception transitions.
+     * Both supplier and retailer are notified.
+     */
+    SHIPMENT_STATUS_CHANGED,
+
+    /**
+     * A goods receipt changed status.
+     * <p>
+     * When sent to supplier, the supplier is notified.
+     */
+    GOODS_RECEIPT_STATUS_CHANGED
 }

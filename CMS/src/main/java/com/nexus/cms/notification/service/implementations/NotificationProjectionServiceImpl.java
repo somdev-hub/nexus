@@ -65,15 +65,15 @@ public class NotificationProjectionServiceImpl implements NotificationProjection
         String previousStatus = stringFact(facts, "previousStatus");
         String newStatus = stringFact(facts, "newStatus");
 
-        NotificationPolicy policy = policyRegistry.findForTransition(previousStatus, newStatus).orElse(null);
+        NotificationPolicy policy = policyRegistry.findForTransition(event.getEventType(), previousStatus, newStatus).orElse(null);
         if (policy == null) {
-            log.debug("No notification policy for transition {} -> {} — event {} is not notifiable",
-                    previousStatus, newStatus, event.getEventId());
+            log.debug("No notification policy for event {} transition {} -> {} — event {} is not notifiable",
+                    event.getEventType(), previousStatus, newStatus, event.getEventId());
             return null;
         }
         if (!policy.persist()) {
-            log.debug("Policy for transition {} -> {} is not persistent — event {} is not stored",
-                    previousStatus, newStatus, event.getEventId());
+            log.debug("Policy for event {} transition {} -> {} is not persistent — event {} is not stored",
+                    event.getEventType(), previousStatus, newStatus, event.getEventId());
             return null;
         }
 

@@ -7,7 +7,9 @@ import java.util.List;
 import java.util.Map;
 
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -130,27 +132,33 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
 	public ResponseEntity<?> getAllGoodsReceipts(String status, Long purchaseOrderId, Long supplierId,
 			Pageable pageable) {
 		Long orgId = OrganizationContextHolder.requireOrganizationId();
+		// Default to newest first when the caller passes no explicit sort
+		// (an explicit ?sort= is respected).
+		Pageable sorted = pageable.getSort().isUnsorted()
+				? PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(),
+						Sort.by(Sort.Direction.DESC, "createdAt"))
+				: pageable;
 		Page<GoodsReceipt> grs;
 
 		if (status != null && !status.isBlank()) {
 			try {
 				GoodsReceiptStatus grStatus = GoodsReceiptStatus.valueOf(status.toUpperCase());
 				if (purchaseOrderId != null) {
-					grs = goodsReceiptRepo.findByPurchaseOrderAndStatus(purchaseOrderId, grStatus, pageable);
+					grs = goodsReceiptRepo.findByPurchaseOrderAndStatus(purchaseOrderId, grStatus, sorted);
 				} else if (supplierId != null) {
-					grs = goodsReceiptRepo.findBySupplierSupplierId(supplierId, pageable);
+					grs = goodsReceiptRepo.findBySupplierSupplierId(supplierId, sorted);
 				} else {
-					grs = goodsReceiptRepo.findByStatus(grStatus, pageable);
+					grs = goodsReceiptRepo.findByStatus(grStatus, sorted);
 				}
 			} catch (IllegalArgumentException e) {
 				return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid status: " + status);
 			}
 		} else if (purchaseOrderId != null) {
-			grs = goodsReceiptRepo.findByPurchaseOrderPurchaseOrderId(purchaseOrderId, pageable);
+			grs = goodsReceiptRepo.findByPurchaseOrderPurchaseOrderId(purchaseOrderId, sorted);
 		} else if (supplierId != null) {
-			grs = goodsReceiptRepo.findBySupplierSupplierId(supplierId, pageable);
+			grs = goodsReceiptRepo.findBySupplierSupplierId(supplierId, sorted);
 		} else {
-			grs = goodsReceiptRepo.findByPurchaseOrderBuyerOrgId(orgId, pageable);
+			grs = goodsReceiptRepo.findByPurchaseOrderBuyerOrgId(orgId, sorted);
 		}
 
 		Page<GoodsReceiptDto> grDtos = grs.map(GoodsReceiptServiceImpl::toDto);

@@ -10,6 +10,7 @@ import java.util.List;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EntityListeners;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
@@ -29,6 +30,7 @@ import lombok.ToString;
 @Data
 @EqualsAndHashCode(callSuper = true)
 @ToString(callSuper = true)
+@EntityListeners(com.nexus.core.event.listener.ShipmentStatusEventListener.class)
 @Table(name = "t_shipments", schema = "core")
 public class Shipment extends BaseEntity {
 
@@ -84,6 +86,16 @@ public class Shipment extends BaseEntity {
 
 	@Enumerated(EnumType.STRING)
 	private ShipmentStatus status = ShipmentStatus.DRAFT;
+
+	/**
+	 * Snapshot of the status when the entity was loaded. Used by the
+	 * {@code ShipmentStatusEventListener} to detect a status change
+	 * during an update. Not persisted.
+	 */
+	@jakarta.persistence.Transient
+	@EqualsAndHashCode.Exclude
+	@ToString.Exclude
+	private ShipmentStatus statusBeforeChange;
 
 	@Enumerated(EnumType.STRING)
 	@Column(name = "shipment_mode")

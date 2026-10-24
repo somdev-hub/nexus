@@ -9,6 +9,7 @@ import java.util.List;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EntityListeners;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
@@ -28,6 +29,7 @@ import lombok.ToString;
 @Data
 @EqualsAndHashCode(callSuper = true)
 @ToString(callSuper = true)
+@EntityListeners(com.nexus.core.event.listener.InvoiceStatusEventListener.class)
 @Table(name = "t_invoices", schema = "core")
 public class Invoice extends BaseEntity {
 
@@ -53,6 +55,14 @@ public class Invoice extends BaseEntity {
 
 	@Enumerated(EnumType.STRING)
 	private InvoiceStatus status = InvoiceStatus.DRAFT;
+
+	/**
+	 * Snapshot of the status when the entity was loaded. Not persisted.
+	 */
+	@jakarta.persistence.Transient
+	@EqualsAndHashCode.Exclude
+	@ToString.Exclude
+	private InvoiceStatus statusBeforeChange;
 
 	@Column(name = "invoice_date")
 	private Date invoiceDate;

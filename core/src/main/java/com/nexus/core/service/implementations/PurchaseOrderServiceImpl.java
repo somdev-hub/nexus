@@ -11,7 +11,9 @@ import java.util.stream.Collectors;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -282,16 +284,22 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 	@Override
 	public ResponseEntity<?> getAllPurchaseOrders(String status, Pageable pageable) {
 		Long orgId = OrganizationContextHolder.requireOrganizationId();
+		// Default to newest first: the list page has no explicit sort, so POs are
+		// ordered by creation date descending (an explicit ?sort= is respected).
+		Pageable sorted = pageable.getSort().isUnsorted()
+				? PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(),
+						Sort.by(Sort.Direction.DESC, "createdAt"))
+				: pageable;
 		Page<PurchaseOrder> pos;
 		if (status != null && !status.isBlank()) {
 			try {
 				PurchaseOrderStatus poStatus = PurchaseOrderStatus.valueOf(status.toUpperCase());
-				pos = purchaseOrderRepo.findByOrgIdAndStatusIn(orgId, List.of(poStatus), pageable);
+				pos = purchaseOrderRepo.findByOrgIdAndStatusIn(orgId, List.of(poStatus), sorted);
 			} catch (IllegalArgumentException e) {
 				return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid status: " + status);
 			}
 		} else {
-			pos = purchaseOrderRepo.findByBuyerOrgAccountId(orgId, pageable);
+			pos = purchaseOrderRepo.findByBuyerOrgAccountId(orgId, sorted);
 		}
 		Page<PurchaseOrderDto> poDtos = pos.map(po -> toDto(po));
 		return new ResponseEntity<>(poDtos, HttpStatus.OK);
