@@ -61,4 +61,19 @@ public class ProductionCapacityController {
     public ResponseEntity<?> getSummary() {
         return capacityService.getCapacitySummary();
     }
+
+    /**
+     * Read-only check used by the quotation dialog: remaining capacity for a
+     * catalog item (+ optional variant) over the requested window, compared
+     * against the requested quantity.
+     */
+    @GetMapping("/availability")
+    @LogActivity("Check Capacity Availability")
+    public ResponseEntity<?> checkAvailability(@RequestParam Long catalogId,
+            @RequestParam(required = false) Long variantId,
+            @RequestParam(required = false) Double quantity,
+            @RequestParam(required = false) Date periodStart,
+            @RequestParam(required = false) Date periodEnd) {
+        return capacityService.checkAvailability(catalogId, variantId, quantity, periodStart, periodEnd);
+    }
 }

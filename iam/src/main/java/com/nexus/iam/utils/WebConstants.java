@@ -766,6 +766,8 @@ public class WebConstants {
 	private String coreSupplierCapacityAllUrl;
 	@Value("${core.supplier.capacity.summary.url}")
 	private String coreSupplierCapacitySummaryUrl;
+	@Value("${core.supplier.capacity.availability.url}")
+	private String coreSupplierCapacityAvailabilityUrl;
 	@Value("${core.supplier.atp.catalog.url}")
 	private String coreSupplierAtpCatalogUrl;
 	@Value("${core.supplier.atp.product-line.url}")

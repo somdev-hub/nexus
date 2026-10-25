@@ -21,6 +21,7 @@ import com.nexus.core.model.entities.AdvanceShipmentNotice;
 import com.nexus.core.model.entities.CapacityForecast;
 import com.nexus.core.model.entities.Partnership;
 import com.nexus.core.model.entities.PurchaseOrder;
+import com.nexus.core.model.entities.PurchaseOrderLineItem;
 import com.nexus.core.model.entities.Shipment;
 import com.nexus.core.model.enums.PartnershipStatus;
 import com.nexus.core.model.enums.PurchaseOrderStatus;
@@ -51,6 +52,7 @@ public class SupplierOrderServiceImpl implements SupplierOrderService {
     private final AccountRepository accountRepo;
     private final PartnershipRepo partnershipRepo;
     private final CapacityForecastRepo capacityForecastRepo;
+    private final com.nexus.core.service.interfaces.CapacityAvailabilityService capacityAvailability;
     private final ModelMapper modelMapper;
 
     @Override
@@ -90,13 +92,56 @@ public class SupplierOrderServiceImpl implements SupplierOrderService {
         if (po.getStatus() != PurchaseOrderStatus.SENT_TO_SUPPLIER) {
             throw new ValidationException("Only SENT_TO_SUPPLIER orders can be acknowledged. Current: " + po.getStatus());
         }
+        // Gate: the order can only go forward when every catalog-backed line
+        // is covered by the supplier's capacity calendar for the delivery
+        // period. Capacity is reserved on success (released on cancel).
+        java.sql.Date deliveryDate = confirmedDeliveryDate != null ? confirmedDeliveryDate
+                : po.getExpectedDeliveryDate() != null ? po.getExpectedDeliveryDate()
+                        : po.getRequestedDeliveryDate();
+        reserveOrderCapacity(po, deliveryDate);
         po.setStatus(PurchaseOrderStatus.ACKNOWLEDGED);
         po.setAcknowledgedAt(Timestamp.valueOf(LocalDateTime.now()));
-        po.setConfirmedDeliveryDate(confirmedDeliveryDate != null ? confirmedDeliveryDate : po.getExpectedDeliveryDate());
+        po.setConfirmedDeliveryDate(deliveryDate);
         po.setSupplierNotes(notes);
         po.setAcknowledgedBy(String.valueOf(orgId));
         PurchaseOrder saved = poRepo.save(po);
         return ResponseEntity.ok(withShipmentProgress(PurchaseOrderServiceImpl.toDto(saved), saved));
+    }
+
+    /**
+     * Reserve the order's catalog-backed lines against the supplier's
+     * capacity calendar for the delivery date, aggregated per catalog item.
+     * Capacity is committed the moment the order is acknowledged (and
+     * released again if the order is later cancelled).
+     */
+    private void reserveOrderCapacity(PurchaseOrder po, java.sql.Date deliveryDate) {
+        if (po.getLineItems() == null) {
+            return;
+        }
+        // Group lines by catalog item to check the summed demand per item.
+        Map<Long, Double> demandedByCatalog = new java.util.LinkedHashMap<>();
+        for (PurchaseOrderLineItem line : po.getLineItems()) {
+            if (line.getCatalogId() == null || line.getQuantityOrdered() == null || line.getQuantityOrdered() <= 0) {
+                continue; // free-text lines are not capacity-gated
+            }
+            demandedByCatalog.merge(line.getCatalogId(), line.getQuantityOrdered(), Double::sum);
+        }
+        Long supplierOrgId = po.getSupplierOrg() != null ? po.getSupplierOrg().getAccountId() : null;
+        if (supplierOrgId == null) {
+            return; // legacy POs without a supplier org reference cannot be matched
+        }
+        for (Map.Entry<Long, Double> demand : demandedByCatalog.entrySet()) {
+            capacityAvailability.reserveCapacity(
+                    supplierOrgId,
+                    "ORDER",
+                    po.getPurchaseOrderId(),
+                    demand.getKey(),
+                    null, // PO lines carry no variant; unrestricted capacity rows apply
+                    demand.getValue(),
+                    deliveryDate,
+                    deliveryDate,
+                    "catalog item " + demand.getKey());
+        }
     }
 
     @Override

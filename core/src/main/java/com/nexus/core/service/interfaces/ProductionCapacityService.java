@@ -18,4 +18,12 @@ public interface ProductionCapacityService {
     ResponseEntity<?> deleteCapacity(Long id);
 
     ResponseEntity<?> getCapacitySummary();
+
+    /**
+     * Read-only capacity check for the quotation dialog: remaining capacity
+     * of the caller's org for a catalog item (+ optional variant) over the
+     * requested window, compared against the requested quantity.
+     */
+    ResponseEntity<?> checkAvailability(Long catalogId, Long variantId, Double quantity,
+            java.sql.Date periodStart, java.sql.Date periodEnd);
 }

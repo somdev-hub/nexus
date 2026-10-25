@@ -66,6 +66,7 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 	private final MaterialRepo materialRepo;
 	private final ProductRepo productRepo;
 	private final InvoiceRepo invoiceRepo;
+	private final com.nexus.core.service.interfaces.CapacityAvailabilityService capacityAvailability;
 	private final ModelMapper modelMapper;
 	private final ThreeWayMatchingService threeWayMatchingService;
 	private final RestService restService;
@@ -213,6 +214,10 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 			sourceQuotation.setStatus(SupplierQuotation.QuotationStatus.CONVERTED);
 			sourceQuotation.setConvertedToPoId(savedPo.getPurchaseOrderId());
 			quotationRepo.save(sourceQuotation);
+			// The quoted demand moves to the order: free the quotation's
+			// capacity reservations here; the supplier's acknowledge of the
+			// resulting PO re-reserves against the order.
+			capacityAvailability.releaseReservations("QUOTATION", sourceQuotation.getQuotationId());
 		}
 		return new ResponseEntity<>(toDto(savedPo), HttpStatus.CREATED);
 	}
@@ -627,6 +632,12 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 
 		// Execute transition
 		executeTransition(po, currentStatus, newStatus, params);
+		// Cancellation / closure frees any capacity the supplier reserved
+		// for this order when acknowledging it (idempotent if none).
+		if (newStatus == PurchaseOrderStatus.CANCELLED || newStatus == PurchaseOrderStatus.REJECTED
+				|| newStatus == PurchaseOrderStatus.CLOSED) {
+			capacityAvailability.releaseReservations("ORDER", po.getPurchaseOrderId());
+		}
 		if (po.getBuyerOrg() != null) {
 			po.setUpdatedBy(po.getBuyerOrg().getName());
 		}

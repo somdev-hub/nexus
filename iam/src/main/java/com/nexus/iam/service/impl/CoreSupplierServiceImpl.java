@@ -218,6 +218,18 @@ public class CoreSupplierServiceImpl implements CoreSupplierService {
 		return callGet(webConstants.getCoreSupplierCapacitySummaryUrl(), authToken, orgId);
 	}
 
+	@Override
+	public ResponseEntity<?> checkCapacityAvailability(Long catalogId, Long variantId, Double quantity,
+			String periodStart, String periodEnd, String authToken, String orgId) {
+		StringBuilder url = new StringBuilder(webConstants.getCoreSupplierCapacityAvailabilityUrl());
+		url.append("?catalogId=").append(catalogId);
+		if (variantId != null) url.append("&variantId=").append(variantId);
+		if (quantity != null) url.append("&quantity=").append(quantity);
+		if (periodStart != null) url.append("&periodStart=").append(periodStart);
+		if (periodEnd != null) url.append("&periodEnd=").append(periodEnd);
+		return callGet(url.toString(), authToken, orgId);
+	}
+
 	// ATP
 	@Override
 	public ResponseEntity<?> getAtpForCatalog(Long catalogId, Double quantity, String authToken, String orgId) {

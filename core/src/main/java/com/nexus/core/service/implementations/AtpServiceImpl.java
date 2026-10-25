@@ -15,6 +15,7 @@ import com.nexus.core.repository.StockRepo;
 import com.nexus.core.repository.SupplierCatalogRepo;
 import com.nexus.core.security.OrganizationContextHolder;
 import com.nexus.core.service.interfaces.AtpService;
+import com.nexus.core.service.interfaces.CapacityAvailabilityService;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -27,6 +28,7 @@ public class AtpServiceImpl implements AtpService {
     private final SupplierCatalogRepo catalogRepo;
     private final ProductionCapacityRepo capacityRepo;
     private final StockRepo stockRepo;
+    private final CapacityAvailabilityService capacityAvailabilityService;
 
     @Override
     @Transactional(readOnly = true)
@@ -41,19 +43,20 @@ public class AtpServiceImpl implements AtpService {
                 .mapToDouble(s -> s.getQuantityAvailable() != null ? s.getQuantityAvailable() : 0)
                 .sum();
 
-        // capacity available for product line matching catalog category/family
-        double capacityAvailable = capacityRepo.findByOrgWithFilters(orgId, catalog.getCategory(), null, null, null, Pageable.unpaged()).getContent().stream()
-                .mapToDouble(c -> {
-                    double avail = c.getAvailableCapacity() != null ? c.getAvailableCapacity() : 0;
-                    double alloc = c.getAllocatedCapacity() != null ? c.getAllocatedCapacity() : 0;
-                    return Math.max(0, avail - alloc);
-                }).sum();
+        // capacity available for the catalog item itself: rows referencing
+        // this catalog (+ unrestrained variant rows) that still have slack,
+        // regardless of any period window.
+        double capacityAvailable = capacityAvailabilityService
+                .remainingCapacity(orgId, catalogId, null, null, null);
 
-        // fallback if no productLine capacity, sum all
+        // fallback: legacy rows match the catalog's category as product line
         if (capacityAvailable == 0) {
-            capacityAvailable = capacityRepo.findByOrgWithFilters(orgId, null, null, null, null, Pageable.unpaged()).getContent().stream()
-                    .mapToDouble(c -> Math.max(0, (c.getAvailableCapacity() != null ? c.getAvailableCapacity() : 0) - (c.getAllocatedCapacity() != null ? c.getAllocatedCapacity() : 0)))
-                    .sum();
+            capacityAvailable = capacityRepo.findByOrgWithFilters(orgId, catalog.getCategory(), null, null, null, Pageable.unpaged()).getContent().stream()
+                    .mapToDouble(c -> {
+                        double avail = c.getAvailableCapacity() != null ? c.getAvailableCapacity() : 0;
+                        double alloc = c.getAllocatedCapacity() != null ? c.getAllocatedCapacity() : 0;
+                        return Math.max(0, avail - alloc);
+                    }).sum();
         }
 
         double atp = inventoryAvailable + capacityAvailable;

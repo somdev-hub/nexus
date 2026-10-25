@@ -30,6 +30,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.sql.Date;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -44,6 +46,7 @@ public class SupplierQuotationServiceImpl implements SupplierQuotationService {
     private final SupplierPriceTierRepo priceTierRepo;
     private final ProductVariantRepo productVariantRepo;
     private final AccountRepository accountRepo;
+    private final com.nexus.core.service.interfaces.CapacityAvailabilityService capacityAvailability;
     private final ModelMapper modelMapper;
 
     private static final Map<SupplierQuotation.QuotationStatus, Set<SupplierQuotation.QuotationStatus>> ALLOWED = Map.of(
@@ -72,6 +75,13 @@ public class SupplierQuotationServiceImpl implements SupplierQuotationService {
         q.setSupplierOrg(supplierOrg);
         q.setBuyerOrg(buyerOrg);
         q.setStatus(SupplierQuotation.QuotationStatus.DRAFT);
+        java.time.LocalDate today = LocalDate.now();
+        if (dto.getValidFrom() != null && dto.getValidFrom().toLocalDate().isBefore(today)) {
+            throw new ValidationException("Valid-from date cannot be before today");
+        }
+        if (dto.getValidTo() != null && dto.getValidTo().toLocalDate().isBefore(today)) {
+            throw new ValidationException("Valid-to date cannot be before today");
+        }
         q.setValidFrom(dto.getValidFrom() != null ? dto.getValidFrom() : Date.valueOf(LocalDate.now()));
         q.setValidTo(dto.getValidTo() != null ? dto.getValidTo() : Date.valueOf(LocalDate.now().plusDays(30)));
         q.setTerms(dto.getTerms());
@@ -97,6 +107,9 @@ public class SupplierQuotationServiceImpl implements SupplierQuotationService {
                 q.addLineItem(li);
             }
         }
+        // Every catalog-backed line must be covered by the supplier's capacity
+        // calendar for the quotation's validity period (aggregated per item).
+        validateLineCapacity(orgId, q);
         SupplierQuotation saved = quotationRepo.save(q);
         return ResponseEntity.status(HttpStatus.CREATED).body(mapToDto(saved));
     }
@@ -172,6 +185,8 @@ public class SupplierQuotationServiceImpl implements SupplierQuotationService {
                 q.addLineItem(li);
             }
         }
+        // Re-validate capacity against the (possibly updated) lines.
+        validateLineCapacity(orgId, q);
         SupplierQuotation saved = quotationRepo.save(q);
         return ResponseEntity.ok(mapToDto(saved));
     }
@@ -244,6 +259,8 @@ public class SupplierQuotationServiceImpl implements SupplierQuotationService {
             li.setTotalPrice(total);
             newVersion.addLineItem(li);
         }
+        // Amended versions must still be covered by the capacity calendar.
+        validateLineCapacity(orgId, newVersion);
         SupplierQuotation saved = quotationRepo.save(newVersion);
         return ResponseEntity.status(HttpStatus.CREATED).body(mapToDto(saved));
     }
@@ -335,6 +352,9 @@ public class SupplierQuotationServiceImpl implements SupplierQuotationService {
                     .body(Map.of("error", "Only SENT quotations can be accepted. Current: " + q.getStatus()));
         }
         q.setStatus(SupplierQuotation.QuotationStatus.ACCEPTED);
+        // Committing the quote books its demand against the supplier's
+        // capacity calendar (released again on conversion to a PO).
+        reserveLineCapacity(q);
         return ResponseEntity.ok(mapToDto(quotationRepo.save(q)));
     }
 
@@ -361,6 +381,62 @@ public class SupplierQuotationServiceImpl implements SupplierQuotationService {
         }
         q.setStatus(SupplierQuotation.QuotationStatus.REJECTED);
         return ResponseEntity.ok(mapToDto(quotationRepo.save(q)));
+    }
+
+    /**
+     * Aggregate quotation lines per catalog item + variant and validate each
+     * group against the supplier's capacity calendar over the quotation's
+     * validity window. Lines without a catalog item are skipped (legacy
+     * free-text lines).
+     */
+    private void validateLineCapacity(Long orgId, SupplierQuotation q) {
+        for (LineGroup group : aggregateLines(q.getLineItems())) {
+            capacityAvailability.validateAvailability(orgId, group.catalogId, group.variantId, group.quantity,
+                    q.getValidFrom(), q.getValidTo(), group.label);
+        }
+    }
+
+    /**
+     * Booking counterpart of {@link #validateLineCapacity}: reserves the
+     * aggregated quantities against the supplier's capacity calendar.
+     */
+    private void reserveLineCapacity(SupplierQuotation q) {
+        Long supplierOrgId = q.getSupplierOrg() != null ? q.getSupplierOrg().getAccountId() : null;
+        if (supplierOrgId == null) {
+            return;
+        }
+        for (LineGroup group : aggregateLines(q.getLineItems())) {
+            capacityAvailability.reserveCapacity(supplierOrgId, "QUOTATION", q.getQuotationId(),
+                    group.catalogId, group.variantId, group.quantity, q.getValidFrom(), q.getValidTo(), group.label);
+        }
+    }
+
+    private List<LineGroup> aggregateLines(List<QuotationLineItem> lineItems) {
+        Map<String, LineGroup> groups = new java.util.LinkedHashMap<>();
+        for (QuotationLineItem li : lineItems) {
+            if (li.getCatalog() == null || li.getQuantity() == null || li.getQuantity() <= 0) {
+                continue;
+            }
+            String key = li.getCatalog().getCatalogId() + "|" + li.getVariantId();
+            groups.computeIfAbsent(key, k -> new LineGroup(
+                    li.getCatalog().getCatalogId(), li.getVariantId(), li.getCatalog().getName(), 0.0))
+                    .quantity += li.getQuantity();
+        }
+        return new ArrayList<>(groups.values());
+    }
+
+    private static class LineGroup {
+        final Long catalogId;
+        final Long variantId;
+        final String label;
+        Double quantity;
+
+        LineGroup(Long catalogId, Long variantId, String label, Double quantity) {
+            this.catalogId = catalogId;
+            this.variantId = variantId;
+            this.label = label;
+            this.quantity = quantity;
+        }
     }
 
     /**

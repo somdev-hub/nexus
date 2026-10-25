@@ -17,7 +17,20 @@ public class ProductionCapacityDto {
 
     private Long capacityId;
 
+    // Legacy free-text label (kept for rows created before catalog refs).
     private String productLine;
+
+    /** Catalog item the capacity covers (required on new entries). */
+    private Long catalogId;
+
+    /** Display name of the catalog item. */
+    private String catalogName;
+
+    /** Optional variant restriction; null = all variants of the item. */
+    private Long variantId;
+
+    /** Display label of the variant, when pinned. */
+    private String variantLabel;
 
     @NotNull(message = "Period start is required")
     private Date periodStart;

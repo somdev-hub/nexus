@@ -44,6 +44,8 @@ public interface CoreSupplierService {
     ResponseEntity<?> updateCapacity(Long id, Map<String, Object> dto, String authToken, String orgId);
     ResponseEntity<?> deleteCapacity(Long id, String authToken, String orgId);
     ResponseEntity<?> getCapacitySummary(String authToken, String orgId);
+    ResponseEntity<?> checkCapacityAvailability(Long catalogId, Long variantId, Double quantity,
+            String periodStart, String periodEnd, String authToken, String orgId);
 
     // ATP
     ResponseEntity<?> getAtpForCatalog(Long catalogId, Double quantity, String authToken, String orgId);

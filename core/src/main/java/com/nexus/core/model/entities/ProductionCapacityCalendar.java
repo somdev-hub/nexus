@@ -33,6 +33,20 @@ public class ProductionCapacityCalendar extends BaseEntity {
     @EqualsAndHashCode.Exclude
     private Account supplierOrg;
 
+    // Catalog item this capacity period covers. Supersedes the legacy
+    // free-text productLine: new rows always reference a catalog item,
+    // legacy rows keep only productLine.
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "catalog_id", referencedColumnName = "catalog_id")
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private SupplierCatalog catalog;
+
+    // Optional: restrict the period to one variant of the catalog item.
+    // Null = the capacity applies to all variants of the item.
+    @Column(name = "variant_id")
+    private Long variantId;
+
     @Column(name = "product_line")
     private String productLine;
 

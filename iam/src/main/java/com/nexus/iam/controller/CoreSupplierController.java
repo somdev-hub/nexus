@@ -225,6 +225,16 @@ public class CoreSupplierController {
 		return supplierService.getCapacitySummary(auth, org);
 	}
 
+	@LogActivity("Check Capacity Availability via IAM")
+	@GetMapping("/capacity/availability")
+	public ResponseEntity<?> capAvailability(@RequestParam Long catalogId,
+			@RequestParam(required = false) Long variantId, @RequestParam(required = false) Double quantity,
+			@RequestParam(required = false) String periodStart, @RequestParam(required = false) String periodEnd,
+			@RequestHeader("Authorization") String auth, @RequestHeader("X-Organization-ID") String org) {
+		return supplierService.checkCapacityAvailability(catalogId, variantId, quantity, periodStart, periodEnd, auth,
+				org);
+	}
+
 	@LogActivity("Update Capacity via IAM")
 	@PutMapping("/capacity/{id}/update")
 	public ResponseEntity<?> updateCap(@PathVariable Long id, @RequestBody Map<String, Object> dto,
