@@ -15,6 +15,8 @@ import java.math.BigDecimal;
 @Data
 public class StockDto {
 
+	private Long stockId;
+
 	@NotNull(message = "Material ID is required")
 	private Long materialId;
 

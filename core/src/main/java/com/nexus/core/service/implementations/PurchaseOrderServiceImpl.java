@@ -26,6 +26,9 @@ import com.nexus.core.model.entities.Invoice;
 import com.nexus.core.model.entities.Material;
 import com.nexus.core.model.entities.Partnership;
 import com.nexus.core.model.entities.Product;
+import com.nexus.core.model.entities.Stock;
+import com.nexus.core.model.entities.SupplierCatalog;
+import com.nexus.core.model.entities.Warehouse;
 import com.nexus.core.model.entities.PurchaseOrder;
 import com.nexus.core.model.entities.PurchaseOrderLineItem;
 import com.nexus.core.model.entities.Supplier;
@@ -39,6 +42,9 @@ import com.nexus.core.repository.AccountRepo;
 import com.nexus.core.repository.InvoiceRepo;
 import com.nexus.core.repository.MaterialRepo;
 import com.nexus.core.repository.PartnershipRepo;
+import com.nexus.core.repository.StockRepo;
+import com.nexus.core.repository.SupplierCatalogRepo;
+import com.nexus.core.repository.WarehouseRepo;
 import com.nexus.core.repository.ProductRepo;
 import com.nexus.core.repository.PurchaseOrderRepo;
 import com.nexus.core.repository.SupplierQuotationRepo;
@@ -65,6 +71,9 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 	private final PartnershipRepo partnershipRepo;
 	private final MaterialRepo materialRepo;
 	private final ProductRepo productRepo;
+	private final StockRepo stockRepo;
+	private final WarehouseRepo warehouseRepo;
+	private final SupplierCatalogRepo supplierCatalogRepo;
 	private final InvoiceRepo invoiceRepo;
 	private final com.nexus.core.service.interfaces.CapacityAvailabilityService capacityAvailability;
 	private final ModelMapper modelMapper;
@@ -657,6 +666,117 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 		return new ResponseEntity<>(toDto(savedPo), HttpStatus.OK);
 	}
 
+	/**
+	 * Derive a retailer Material (and, when missing, Stock) from a PO line.
+	 * Used when a PO is marked received without a separate goods receipt so
+	 * the materials page still reflects the ordered/received goods.
+	 */
+	private void receivePurchaseOrderLineIntoInventory(PurchaseOrder po, PurchaseOrderLineItem line) {
+		if (line == null) return;
+		Long buyerOrgId = po.getBuyerOrg() != null ? po.getBuyerOrg().getAccountId() : null;
+		if (buyerOrgId == null) {
+			buyerOrgId = OrganizationContextHolder.getCurrentOrganizationId();
+		}
+		if (buyerOrgId == null) return;
+
+		SupplierCatalog catalog = null;
+		if (line.getCatalogId() != null) {
+			Long supplierOrgId = po.getSupplierOrg() != null ? po.getSupplierOrg().getAccountId()
+					: (po.getSupplier() != null ? po.getSupplier().getSupplierOrgAccountId() : null);
+			if (supplierOrgId != null) {
+				catalog = supplierCatalogRepo.findByCatalogIdAndSupplierOrgAccountId(line.getCatalogId(), supplierOrgId)
+						.orElse(null);
+			}
+			if (catalog == null) {
+				catalog = supplierCatalogRepo.findById(line.getCatalogId()).orElse(null);
+			}
+		}
+
+		Long catalogId = line.getCatalogId() != null ? line.getCatalogId()
+				: (catalog != null ? catalog.getCatalogId() : null);
+
+		Material material = null;
+		if (catalogId != null) {
+			material = materialRepo.findFirstByOrgAndCatalogId(buyerOrgId, catalogId).orElse(null);
+		}
+		if (material == null) {
+			material = new Material();
+			material.setOrg(buyerOrgId);
+			material.setCatalogId(catalogId);
+		}
+		if (catalog != null) {
+			material.setName(catalog.getName());
+			material.setCode(catalog.getCode());
+			material.setCategory(catalog.getCategory() != null ? catalog.getCategory() : catalog.getFamily());
+			material.setVariant(catalog.getFamily());
+			material.setUnit(catalog.getUnitOfMeasure());
+			material.setCurrency(catalog.getCurrency() != null ? catalog.getCurrency() : "USD");
+			material.setPricePerUnit(catalog.getBasePrice());
+			material.setSupplierOrgId(catalog.getSupplierOrg() != null ? catalog.getSupplierOrg().getAccountId() : null);
+		} else if (line.getDescription() != null) {
+			material.setName(line.getDescription());
+			material.setCode(line.getDescription());
+		}
+		if (line.getUnitOfMeasure() != null) {
+			material.setUnit(line.getUnitOfMeasure());
+		}
+		if (line.getUnitPrice() != null) {
+			material.setPricePerUnit(line.getUnitPrice());
+		}
+		if (material.getName() == null) {
+			material.setName("Ordered item");
+		}
+		if (material.getCode() == null) {
+			material.setCode("MAT-" + System.currentTimeMillis());
+		}
+
+		Warehouse warehouse = null;
+		try {
+			warehouse = warehouseRepo.findByOrg(buyerOrgId, PageRequest.of(0, 1)).getContent().stream()
+					.findFirst().orElse(null);
+		} catch (Exception ignored) {
+		}
+		if (warehouse == null) {
+			warehouse = new Warehouse();
+			warehouse.setOrg(buyerOrgId);
+			warehouse.setCode("MAIN");
+			warehouse.setLocation("Default");
+			warehouse = warehouseRepo.save(warehouse);
+		}
+		if (material.getWarehouse() == null) {
+			material.setWarehouse(warehouse);
+		}
+		Material savedMaterial = materialRepo.save(material);
+		line.setMaterial(savedMaterial);
+
+		// Only create stock if it does not already exist (goods receipt may
+		// have created it with received quantities).
+		if (warehouse != null) {
+			Stock stock = stockRepo.findByMaterialAndWarehouse(savedMaterial, warehouse).orElse(null);
+			if (stock == null) {
+				double qty = line.getQuantityReceived() != null && line.getQuantityReceived() > 0
+						? line.getQuantityReceived()
+						: (line.getQuantityOrdered() != null ? line.getQuantityOrdered() : 0.0);
+				if (qty > 0) {
+					stock = new Stock();
+					stock.setMaterial(savedMaterial);
+					stock.setWarehouse(warehouse);
+					stock.setQuantityOnHand(qty);
+					stock.setQuantityReserved(0.0);
+					stock.setQuantityAvailable(qty);
+					if (savedMaterial.getPricePerUnit() != null) {
+						stock.setAverageCost(savedMaterial.getPricePerUnit());
+						stock.setLastCost(savedMaterial.getPricePerUnit());
+						stock.setStandardCost(savedMaterial.getPricePerUnit());
+					}
+					stockRepo.save(stock);
+				}
+			}
+		}
+		log.info("Derived material {} (catalog {}) for org {} from PO line {}", savedMaterial.getMaterialId(),
+				savedMaterial.getCatalogId(), buyerOrgId, line.getLineItemId());
+	}
+
 	private void validateTransition(PurchaseOrder po, PurchaseOrderStatus currentStatus, PurchaseOrderStatus newStatus,
 			Map<String, Object> params) {
 		// Define valid transitions
@@ -796,7 +916,18 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 				break;
 			case PARTIALLY_RECEIVED:
 			case RECEIVED:
-				// These would be handled by receiving logic
+				// Derive retailer Materials (and Stock) from the PO lines so
+				// the materials page reflects received goods. Materials are not
+				// created manually by the retailer.
+				if (po.getLineItems() != null) {
+					for (PurchaseOrderLineItem line : po.getLineItems()) {
+						try {
+							receivePurchaseOrderLineIntoInventory(po, line);
+						} catch (Exception e) {
+							log.error("Failed to derive material/stock from PO line {}", line.getLineItemId(), e);
+						}
+					}
+				}
 				break;
 			case INVOICED:
 				// Three-way matching validation before allowing INVOICED status

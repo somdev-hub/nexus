@@ -42,10 +42,10 @@ public class Product extends BaseEntity {
 
 	private List<String> productImages;
 
-	@OneToMany(mappedBy = "product")
+	@OneToMany(mappedBy = "product", cascade = jakarta.persistence.CascadeType.ALL, orphanRemoval = true)
 	@ToString.Exclude
 	@EqualsAndHashCode.Exclude
-	private List<MaterialRequirement> materialRequirements;
+	private List<MaterialRequirement> materialRequirements = new java.util.ArrayList<>();
 
 	private Long org;
 

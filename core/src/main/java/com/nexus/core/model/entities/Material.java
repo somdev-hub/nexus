@@ -34,6 +34,8 @@ public class Material extends BaseEntity {
 
 	private String code;
 
+	private String category;
+
 	private Long org;
 
 	@ManyToOne(fetch = FetchType.LAZY)
@@ -43,6 +45,8 @@ public class Material extends BaseEntity {
 	private Warehouse warehouse;
 
 	private Double pricePerUnit;
+
+	private String currency = "USD";
 
 	private String unit;
 
@@ -57,6 +61,18 @@ public class Material extends BaseEntity {
 	@ToString.Exclude
 	@EqualsAndHashCode.Exclude
 	private Product product;
+
+	// Link to the supplier catalog item this material was received from.
+	// Materials are no longer created manually by the retailer; they are
+	// derived from received purchase-order lines (supplier catalog items).
+	@Column(name = "catalog_id")
+	private Long catalogId;
+
+	@Column(name = "supplier_org_id")
+	private Long supplierOrgId;
+
+	@Column(name = "variant")
+	private String variant;
 
 	@OneToMany(mappedBy = "material")
 	@ToString.Exclude

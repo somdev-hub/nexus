@@ -7,6 +7,7 @@ import java.util.stream.Collectors;
 
 import org.modelmapper.ModelMapper;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -15,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.nexus.core.exception.ResourceNotFoundException;
 import com.nexus.core.model.entities.Material;
+import com.nexus.core.model.entities.PurchaseOrderLineItem;
 import com.nexus.core.model.entities.Stock;
 import com.nexus.core.model.entities.StockMovement;
 import com.nexus.core.model.entities.StockMovement.MovementType;
@@ -22,6 +24,7 @@ import com.nexus.core.model.entities.Warehouse;
 import com.nexus.core.payload.AbcAnalysisDto;
 import com.nexus.core.payload.StockDto;
 import com.nexus.core.repository.MaterialRepo;
+import com.nexus.core.repository.PurchaseOrderLineItemRepo;
 import com.nexus.core.repository.StockMovementRepo;
 import com.nexus.core.repository.StockRepo;
 import com.nexus.core.repository.WarehouseRepo;
@@ -44,6 +47,7 @@ public class StockServiceImpl implements StockService {
 	private final StockRepo stockRepo;
 	private final StockMovementRepo stockMovementRepo;
 	private final MaterialRepo materialRepo;
+	private final PurchaseOrderLineItemRepo poLineItemRepo;
 	private final WarehouseRepo warehouseRepo;
 	private final ModelMapper modelMapper;
 	private final StockMovementService stockMovementService;
@@ -72,9 +76,23 @@ public class StockServiceImpl implements StockService {
 					.body("Stock already exists for this material and warehouse combination");
 		}
 
-		Stock stock = modelMapper.map(stockDto, Stock.class);
+		Stock stock = new Stock();
 		stock.setMaterial(material);
 		stock.setWarehouse(warehouse);
+		stock.setQuantityOnHand(stockDto.getQuantityOnHand() != null ? stockDto.getQuantityOnHand() : 0.0);
+		stock.setQuantityReserved(stockDto.getQuantityReserved() != null ? stockDto.getQuantityReserved() : 0.0);
+		stock.setQuantityAvailable(stockDto.getQuantityAvailable() != null ? stockDto.getQuantityAvailable() : 0.0);
+		stock.setReorderPoint(stockDto.getReorderPoint());
+		stock.setReorderQuantity(stockDto.getReorderQuantity());
+		stock.setMaxStockLevel(stockDto.getMaxStockLevel());
+		stock.setMinStockLevel(stockDto.getMinStockLevel());
+		stock.setValuationMethod(stockDto.getValuationMethod());
+		stock.setAverageCost(stockDto.getAverageCost());
+		stock.setLastCost(stockDto.getLastCost());
+		stock.setStandardCost(stockDto.getStandardCost());
+		stock.setLastCountedAt(stockDto.getLastCountedAt());
+		stock.setLastCountedBy(stockDto.getLastCountedBy());
+		stock.setIsActive(stockDto.getIsActive());
 		stock.recalculateAvailable();
 
 		Stock savedStock = stockRepo.save(stock);
@@ -188,10 +206,74 @@ public class StockServiceImpl implements StockService {
 			return new ResponseEntity<>(stockDtos, HttpStatus.OK);
 		}
 
+		// Backfill stock rows for materials that do not have one yet (e.g.
+		// materials created before stock tracking was enabled).
+		ensureStockForOrg(orgId);
+
 		// No filters - return all stocks for the organization with pagination
 		Page<Stock> stocks = stockRepo.findActiveByOrgId(orgId, pageable);
 		Page<StockDto> stockDtos = stocks.map(this::mapToStockDto);
 		return new ResponseEntity<>(stockDtos, HttpStatus.OK);
+	}
+
+	/**
+	 * Ensure every material of the organization has at least one stock row.
+	 * Backfills rows (with quantities derived from PO lines when possible)
+	 * for materials created before stock tracking was enabled.
+	 */
+	private void ensureStockForOrg(Long orgId) {
+		Warehouse warehouse = null;
+		try {
+			warehouse = warehouseRepo.findByOrg(orgId, PageRequest.of(0, 1)).getContent().stream()
+					.findFirst().orElse(null);
+		} catch (Exception ignored) {
+		}
+		if (warehouse == null) {
+			try {
+				warehouse = new Warehouse();
+				warehouse.setOrg(orgId);
+				warehouse.setCode("MAIN");
+				warehouse.setLocation("Default");
+				warehouse = warehouseRepo.save(warehouse);
+			} catch (Exception ignored) {
+				return;
+			}
+		}
+
+		Page<Material> materials = materialRepo.findByOrg(orgId, Pageable.unpaged());
+		for (Material m : materials.getContent()) {
+			try {
+				if (stockRepo.findByMaterialAndWarehouse(m, warehouse).isPresent()) continue;
+				double qty = 0.0;
+				try {
+					for (PurchaseOrderLineItem line : poLineItemRepo.findByMaterialMaterialId(m.getMaterialId())) {
+						if (line.getQuantityReceived() != null && line.getQuantityReceived() > 0) {
+							qty += line.getQuantityReceived();
+						} else if (line.getQuantityOrdered() != null) {
+							qty += line.getQuantityOrdered();
+						}
+					}
+				} catch (Exception ignored) {
+				}
+				if (qty <= 0 && m.getAvailableQuantity() != null) {
+					qty = m.getAvailableQuantity();
+				}
+				Stock stock = new Stock();
+				stock.setMaterial(m);
+				stock.setWarehouse(warehouse);
+				stock.setQuantityOnHand(qty);
+				stock.setQuantityReserved(0.0);
+				stock.setQuantityAvailable(qty);
+				if (m.getPricePerUnit() != null) {
+					stock.setAverageCost(m.getPricePerUnit());
+					stock.setLastCost(m.getPricePerUnit());
+					stock.setStandardCost(m.getPricePerUnit());
+				}
+				stock.recalculateAvailable();
+				stockRepo.save(stock);
+			} catch (Exception ignored) {
+			}
+		}
 	}
 
 	@Override
@@ -642,11 +724,28 @@ public class StockServiceImpl implements StockService {
 	 * Map Stock entity to StockDto with enrichment
 	 */
 	private StockDto mapToStockDto(Stock stock) {
-		StockDto dto = modelMapper.map(stock, StockDto.class);
-		dto.setMaterialCode(stock.getMaterial().getCode());
-		dto.setMaterialName(stock.getMaterial().getName());
-		dto.setWarehouseCode(stock.getWarehouse().getCode());
-		dto.setWarehouseLocation(stock.getWarehouse().getLocation());
+		StockDto dto = new StockDto();
+		dto.setStockId(stock.getStockId());
+		dto.setMaterialId(stock.getMaterial() != null ? stock.getMaterial().getMaterialId() : null);
+		dto.setWarehouseId(stock.getWarehouse() != null ? stock.getWarehouse().getWarehouseId() : null);
+		dto.setQuantityOnHand(stock.getQuantityOnHand());
+		dto.setQuantityReserved(stock.getQuantityReserved());
+		dto.setQuantityAvailable(stock.getQuantityAvailable());
+		dto.setReorderPoint(stock.getReorderPoint());
+		dto.setReorderQuantity(stock.getReorderQuantity());
+		dto.setMaxStockLevel(stock.getMaxStockLevel());
+		dto.setMinStockLevel(stock.getMinStockLevel());
+		dto.setValuationMethod(stock.getValuationMethod());
+		dto.setAverageCost(stock.getAverageCost());
+		dto.setLastCost(stock.getLastCost());
+		dto.setStandardCost(stock.getStandardCost());
+		dto.setLastCountedAt(stock.getLastCountedAt());
+		dto.setLastCountedBy(stock.getLastCountedBy());
+		dto.setIsActive(stock.getIsActive());
+		dto.setMaterialCode(stock.getMaterial() != null ? stock.getMaterial().getCode() : null);
+		dto.setMaterialName(stock.getMaterial() != null ? stock.getMaterial().getName() : null);
+		dto.setWarehouseCode(stock.getWarehouse() != null ? stock.getWarehouse().getCode() : null);
+		dto.setWarehouseLocation(stock.getWarehouse() != null ? stock.getWarehouse().getLocation() : null);
 		dto.setBelowReorderPoint(stock.isBelowReorderPoint());
 		dto.setAtOrBelowMinLevel(stock.isAtOrBelowMinLevel());
 		dto.setAtOrAboveMaxLevel(stock.isAtOrAboveMaxLevel());

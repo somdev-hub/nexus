@@ -18,26 +18,36 @@ import org.springframework.transaction.annotation.Transactional;
 import com.nexus.core.model.entities.GoodsReceipt;
 import com.nexus.core.model.entities.GoodsReceiptLineItem;
 import com.nexus.core.model.enums.GoodsReceiptStatus;
+import com.nexus.core.model.entities.Material;
 import com.nexus.core.model.entities.PurchaseOrder;
 import com.nexus.core.model.entities.PurchaseOrderLineItem;
 import com.nexus.core.model.enums.PurchaseOrderStatus;
+import com.nexus.core.model.entities.Stock;
 import com.nexus.core.model.entities.Supplier;
+import com.nexus.core.model.entities.SupplierCatalog;
+import com.nexus.core.model.entities.Warehouse;
 import com.nexus.core.exception.ResourceNotFoundException;
 import com.nexus.core.exception.ValidationException;
 import com.nexus.core.payload.GoodsReceiptDto;
 import com.nexus.core.payload.GoodsReceiptLineItemDto;
 import com.nexus.core.repository.GoodsReceiptLineItemRepo;
 import com.nexus.core.repository.GoodsReceiptRepo;
+import com.nexus.core.repository.MaterialRepo;
 import com.nexus.core.repository.PurchaseOrderLineItemRepo;
 import com.nexus.core.repository.PurchaseOrderRepo;
+import com.nexus.core.repository.StockRepo;
+import com.nexus.core.repository.SupplierCatalogRepo;
 import com.nexus.core.repository.SupplierRepository;
+import com.nexus.core.repository.WarehouseRepo;
 import com.nexus.core.security.OrganizationContextHolder;
 import com.nexus.core.service.interfaces.GoodsReceiptService;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class GoodsReceiptServiceImpl implements GoodsReceiptService {
 
 	private final GoodsReceiptRepo goodsReceiptRepo;
@@ -45,6 +55,10 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
 	private final PurchaseOrderRepo purchaseOrderRepo;
 	private final PurchaseOrderLineItemRepo poLineItemRepo;
 	private final SupplierRepository supplierRepo;
+	private final MaterialRepo materialRepo;
+	private final StockRepo stockRepo;
+	private final WarehouseRepo warehouseRepo;
+	private final SupplierCatalogRepo supplierCatalogRepo;
 
 	@Override
 	@Transactional
@@ -337,6 +351,14 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
 					if (line.getQuantityAccepted() == null) {
 						line.setQuantityAccepted(line.getQuantityReceived());
 					}
+					// Derive a retailer Material (and Stock) from the
+					// received PO line's supplier catalog item. Materials are
+					// not created manually by the retailer.
+					try {
+						receiveLineIntoInventory(gr, line);
+					} catch (Exception e) {
+						log.error("Failed to derive material/stock from GR line {}", line.getGrLineItemId(), e);
+					}
 				}
 			}
 			// Update PO status if all items received
@@ -355,6 +377,128 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
 				break;
 			default:
 				break;
+		}
+	}
+
+	/**
+	 * Create or update a retailer Material from the received PO line's
+	 * supplier catalog item, and add the accepted quantity to Stock.
+	 * Materials are never created manually by the retailer; they are
+	 * derived from goods received against a purchase order.
+	 */
+	private void receiveLineIntoInventory(GoodsReceipt gr, GoodsReceiptLineItem line) {
+		PurchaseOrderLineItem poLine = line.getPoLineItem();
+		if (poLine == null) return;
+
+		Long buyerOrgId = gr.getPurchaseOrder() != null && gr.getPurchaseOrder().getBuyerOrg() != null
+				? gr.getPurchaseOrder().getBuyerOrg().getAccountId() : null;
+		if (buyerOrgId == null) {
+			buyerOrgId = OrganizationContextHolder.getCurrentOrganizationId();
+		}
+		if (buyerOrgId == null) return;
+
+		// Resolve the supplier catalog item (if the PO line references one).
+		SupplierCatalog catalog = null;
+		if (poLine.getCatalogId() != null) {
+			Long supplierOrgId = gr.getSupplier() != null ? gr.getSupplier().getSupplierOrgAccountId() : null;
+			if (supplierOrgId != null) {
+				catalog = supplierCatalogRepo.findByCatalogIdAndSupplierOrgAccountId(poLine.getCatalogId(), supplierOrgId)
+						.orElse(null);
+			}
+			if (catalog == null) {
+				catalog = supplierCatalogRepo.findById(poLine.getCatalogId()).orElse(null);
+			}
+		}
+
+		BigDecimal accepted = line.getQuantityAccepted() != null ? line.getQuantityAccepted()
+				: (line.getQuantityReceived() != null ? line.getQuantityReceived() : BigDecimal.ZERO);
+		if (accepted.compareTo(BigDecimal.ZERO) <= 0) return;
+
+		Long catalogId = poLine.getCatalogId() != null ? poLine.getCatalogId()
+				: (catalog != null ? catalog.getCatalogId() : null);
+
+		// Find or create the Material for this buyer org + catalog item.
+		Material material = null;
+		if (catalogId != null) {
+			material = materialRepo.findFirstByOrgAndCatalogId(buyerOrgId, catalogId).orElse(null);
+		}
+		if (material == null) {
+			material = new Material();
+			material.setOrg(buyerOrgId);
+			material.setCatalogId(catalogId);
+		}
+		if (catalog != null) {
+			material.setName(catalog.getName());
+			material.setCode(catalog.getCode());
+			material.setCategory(catalog.getCategory() != null ? catalog.getCategory() : catalog.getFamily());
+			material.setVariant(catalog.getFamily());
+			material.setUnit(catalog.getUnitOfMeasure());
+			material.setCurrency(catalog.getCurrency() != null ? catalog.getCurrency() : "USD");
+			material.setPricePerUnit(catalog.getBasePrice());
+			material.setSupplierOrgId(catalog.getSupplierOrg() != null ? catalog.getSupplierOrg().getAccountId() : null);
+		} else if (poLine.getDescription() != null) {
+			material.setName(poLine.getDescription());
+			material.setCode(poLine.getDescription());
+		}
+		if (poLine.getUnitOfMeasure() != null) {
+			material.setUnit(poLine.getUnitOfMeasure());
+		}
+		if (poLine.getUnitPrice() != null) {
+			material.setPricePerUnit(poLine.getUnitPrice());
+		}
+		if (material.getName() == null) {
+			material.setName("Received item");
+		}
+		if (material.getCode() == null) {
+			material.setCode("MAT-" + System.currentTimeMillis());
+		}
+
+		// Select a warehouse for this org (first available); create a default
+		// one if none exists so stock can be tracked.
+		Warehouse warehouse = null;
+		try {
+			warehouse = warehouseRepo.findByOrg(buyerOrgId, PageRequest.of(0, 1))
+					.getContent().stream().findFirst().orElse(null);
+		} catch (Exception ignored) {
+		}
+		if (warehouse == null) {
+			warehouse = new Warehouse();
+			warehouse.setOrg(buyerOrgId);
+			warehouse.setCode("MAIN");
+			warehouse.setLocation("Default");
+			warehouse = warehouseRepo.save(warehouse);
+		}
+		material.setWarehouse(warehouse);
+		Material savedMaterial = materialRepo.save(material);
+		log.info("Derived material {} (catalog {}) for org {} from GR line {}", savedMaterial.getMaterialId(),
+				savedMaterial.getCatalogId(), buyerOrgId, line.getGrLineItemId());
+
+		// Update PO line received quantity.
+		Double prevReceived = poLine.getQuantityReceived() != null ? poLine.getQuantityReceived() : 0.0;
+		poLine.setQuantityReceived(prevReceived + accepted.doubleValue());
+		poLine.setMaterial(savedMaterial);
+		poLineItemRepo.save(poLine);
+
+		// Update Stock quantity for this material/warehouse.
+		if (warehouse != null) {
+			Stock stock = stockRepo.findByMaterialAndWarehouse(savedMaterial, warehouse).orElse(null);
+			if (stock == null) {
+				stock = new Stock();
+				stock.setMaterial(savedMaterial);
+				stock.setWarehouse(warehouse);
+				stock.setQuantityOnHand(0.0);
+				stock.setQuantityReserved(0.0);
+				stock.setQuantityAvailable(0.0);
+				if (savedMaterial.getPricePerUnit() != null) {
+					stock.setAverageCost(savedMaterial.getPricePerUnit());
+					stock.setLastCost(savedMaterial.getPricePerUnit());
+					stock.setStandardCost(savedMaterial.getPricePerUnit());
+				}
+			}
+			double acceptedD = accepted.doubleValue();
+			stock.setQuantityOnHand((stock.getQuantityOnHand() != null ? stock.getQuantityOnHand() : 0.0) + acceptedD);
+			stock.recalculateAvailable();
+			stockRepo.save(stock);
 		}
 	}
 

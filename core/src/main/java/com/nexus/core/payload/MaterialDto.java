@@ -8,11 +8,15 @@ import com.nexus.core.model.entities.Stock.ValuationMethod;
 
 @Data
 public class MaterialDto {
+	private Long materialId;
+
 	@NotBlank(message = "Material name is required")
 	private String name;
 
 	@NotBlank(message = "Material code is required")
 	private String code;
+
+	private String category;
 
 	@NotNull(message = "Organization is required")
 	private Long org;
@@ -20,6 +24,8 @@ public class MaterialDto {
 	private Long warehouseId;
 
 	private Double pricePerUnit;
+
+	private String currency = "USD";
 
 	private String unit;
 
@@ -57,4 +63,6 @@ public class MaterialDto {
 	private Double lastPurchasePrice;
 
 	private Double averageCost;
+
+	private Boolean isActive = true;
 }

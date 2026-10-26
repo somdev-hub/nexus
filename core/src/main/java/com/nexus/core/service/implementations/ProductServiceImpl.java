@@ -10,8 +10,12 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 import com.nexus.core.exception.ResourceNotFoundException;
+import com.nexus.core.model.entities.Material;
+import com.nexus.core.model.entities.MaterialRequirement;
 import com.nexus.core.model.entities.Product;
+import com.nexus.core.payload.MaterialRequirementDto;
 import com.nexus.core.payload.ProductDto;
+import com.nexus.core.repository.MaterialRepo;
 import com.nexus.core.repository.ProductRepo;
 import com.nexus.core.service.interfaces.ProductService;
 
@@ -22,10 +26,27 @@ import lombok.RequiredArgsConstructor;
 public class ProductServiceImpl implements ProductService {
 
 	private final ProductRepo productRepo;
+	private final MaterialRepo materialRepo;
 	private final ModelMapper modelMapper;
 	@Override
 	public ResponseEntity<?> addProduct(ProductDto product) {
 		Product productMapped = modelMapper.map(product, Product.class);
+		// Materials are selected by the retailer from existing received
+		// Materials (derived from PO receipts). Persist the link via
+		// MaterialRequirement rows.
+		productMapped.setMaterialRequirements(new java.util.ArrayList<>());
+		if (product.getMaterialRequirements() != null) {
+			for (MaterialRequirementDto mrDto : product.getMaterialRequirements()) {
+				if (mrDto.getMaterialId() == null) continue;
+				Material material = materialRepo.findById(mrDto.getMaterialId()).orElse(null);
+				if (material == null) continue;
+				MaterialRequirement mr = new MaterialRequirement();
+				mr.setMaterial(material);
+				mr.setProduct(productMapped);
+				mr.setQuantity(mrDto.getQuantity() != null ? mrDto.getQuantity() : 1.0);
+				productMapped.getMaterialRequirements().add(mr);
+			}
+		}
 		Product savedProduct = productRepo.save(productMapped);
 		return new ResponseEntity<>(modelMapper.map(savedProduct, ProductDto.class), HttpStatus.CREATED);
 	}

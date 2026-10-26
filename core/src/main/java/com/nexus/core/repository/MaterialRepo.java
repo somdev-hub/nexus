@@ -12,4 +12,6 @@ public interface MaterialRepo extends JpaRepository<Material, Long> {
 
 	Optional<Material> findByMaterialIdAndOrg(Long materialId, Long orgId);
 
+	Optional<Material> findFirstByOrgAndCatalogId(Long orgId, Long catalogId);
+
 }
