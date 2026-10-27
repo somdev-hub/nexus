@@ -23,4 +23,12 @@ public class WarehouseDto {
 	private Double storageCapacity;
 
 	private Double currentUtilization;
+
+	private String warehouseType = "RESERVE";
+
+	private Double capacityMultiplier = 1.0;
+
+	private Double capacity;
+
+	private Integer fillOrder = 0;
 }

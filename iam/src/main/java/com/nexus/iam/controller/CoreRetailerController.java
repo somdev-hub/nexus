@@ -709,6 +709,75 @@ public class CoreRetailerController {
 		return coreRetailerService.transitionGoodsReceiptStatus(id, newStatus, params, authToken, orgIdHeader);
 	}
 
+	// Production Endpoints
+	@LogActivity("Create Production Order")
+	@PostMapping("/production-orders")
+	public ResponseEntity<?> createProductionOrder(@RequestParam Long productId,
+			@RequestParam Double quantity,
+			@RequestParam(required = false) Long warehouseId,
+			@RequestParam(required = false) String notes,
+			@RequestParam(required = false) String deadline,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.createProductionOrder(productId, quantity, warehouseId, notes, deadline, authToken, orgIdHeader);
+	}
+
+	@LogActivity("Get Production Orders")
+	@GetMapping("/production-orders")
+	public ResponseEntity<?> getProductionOrders(@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader,
+			@PageableDefault(size = 20) Pageable pageable) {
+		return coreRetailerService.getProductionOrders(authToken, orgIdHeader, pageable);
+	}
+
+	@LogActivity("Get Production Order")
+	@GetMapping("/production-orders/{id}")
+	public ResponseEntity<?> getProductionOrder(@PathVariable Long id,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.getProductionOrder(id, authToken, orgIdHeader);
+	}
+
+	@LogActivity("Allocate Production Order")
+	@PostMapping("/production-orders/{id}/allocate")
+	public ResponseEntity<?> allocateProductionOrder(@PathVariable Long id,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.allocateProductionOrder(id, authToken, orgIdHeader);
+	}
+
+	@LogActivity("Start Production")
+	@PostMapping("/production-orders/{id}/start")
+	public ResponseEntity<?> startProduction(@PathVariable Long id,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.startProduction(id, authToken, orgIdHeader);
+	}
+
+	@LogActivity("Complete Production")
+	@PostMapping("/production-orders/{id}/complete")
+	public ResponseEntity<?> completeProduction(@PathVariable Long id,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.completeProduction(id, authToken, orgIdHeader);
+	}
+
+	@LogActivity("Cancel Production")
+	@PostMapping("/production-orders/{id}/cancel")
+	public ResponseEntity<?> cancelProduction(@PathVariable Long id,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.cancelProduction(id, authToken, orgIdHeader);
+	}
+
+	@LogActivity("Release Batch")
+	@PostMapping("/production-orders/release-batch/{stockId}")
+	public ResponseEntity<?> releaseBatch(@PathVariable Long stockId,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.releaseBatch(stockId, authToken, orgIdHeader);
+	}
+
 	// Invoice Endpoints
 	@LogActivity("Create Invoice for Retailer")
 	@PostMapping("/invoices/add")

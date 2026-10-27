@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.RequestParam;
 
 import com.nexus.core.annotation.LogActivity;
 import com.nexus.core.exception.InvalidCredentialsException;
@@ -79,7 +80,22 @@ public class WarehouseController {
 			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Organization context not found");
 		}
 
+		warehouseService.ensureDefaultWarehouses(orgId);
 		return warehouseService.getAllWarehousesByOrgId(orgId, pageable);
+	}
+
+	@PostMapping("/capacity")
+	@LogActivity("Set Production Capacity")
+	public ResponseEntity<?> setProductionCapacity(@RequestParam Double capacity,
+			@RequestHeader("Authorization") String token) {
+		if (!commonUtils.validateToken(token)) {
+			throw new InvalidCredentialsException();
+		}
+		Long orgId = getOrganizationIdFromContext();
+		if (orgId == null) {
+			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Organization context not found");
+		}
+		return warehouseService.setProductionCapacity(orgId, capacity);
 	}
 
 	/**

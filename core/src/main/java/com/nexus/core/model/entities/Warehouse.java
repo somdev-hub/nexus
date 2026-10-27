@@ -37,6 +37,19 @@ public class Warehouse extends BaseEntity {
 
 	private Double currentUtilization;
 
+	// Production vs reserve warehouse (capacity planning)
+	@Column(name = "warehouse_type")
+	private String warehouseType = "RESERVE"; // PRODUCTION | RESERVE
+
+	@Column(name = "capacity_multiplier")
+	private Double capacityMultiplier = 1.0;
+
+	@Column(name = "capacity")
+	private Double capacity;
+
+	@Column(name = "fill_order")
+	private Integer fillOrder = 0;
+
 	@OneToMany(mappedBy = "warehouse")
 	@ToString.Exclude
 	@EqualsAndHashCode.Exclude

@@ -17,6 +17,8 @@ public class StockDto {
 
 	private Long stockId;
 
+	private String currency = "USD";
+
 	@NotNull(message = "Material ID is required")
 	private Long materialId;
 

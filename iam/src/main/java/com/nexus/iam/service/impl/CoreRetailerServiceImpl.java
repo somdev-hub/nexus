@@ -1092,6 +1092,74 @@ public class CoreRetailerServiceImpl implements CoreRetailerService {
 				null);
 	}
 
+	// Production Endpoints
+	@Override
+	public ResponseEntity<?> createProductionOrder(Long productId, Double quantity, Long warehouseId, String notes, String deadline, String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCoreServiceUrl() + "/core/production-orders?productId=" + productId + "&quantity=" + quantity
+				+ (warehouseId != null ? "&warehouseId=" + warehouseId : "")
+				+ (notes != null ? "&notes=" + java.net.URLEncoder.encode(notes, java.nio.charset.StandardCharsets.UTF_8) : "")
+				+ (deadline != null ? "&deadline=" + java.net.URLEncoder.encode(deadline, java.nio.charset.StandardCharsets.UTF_8) : "");
+		return restService.iamRestCall(url, null, headers, HttpMethod.POST, null);
+	}
+
+	@Override
+	public ResponseEntity<?> getProductionOrders(String authToken, String orgIdHeader, Pageable pageable) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = buildPaginatedUrl(webConstants.getCoreServiceUrl() + "/core/production-orders", pageable);
+		return restService.iamRestCall(url, null, headers, HttpMethod.GET, null);
+	}
+
+	@Override
+	public ResponseEntity<?> getProductionOrder(Long id, String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCoreServiceUrl() + "/core/production-orders/" + id;
+		return restService.iamRestCall(url, null, headers, HttpMethod.GET, null);
+	}
+
+	@Override
+	public ResponseEntity<?> allocateProductionOrder(Long id, String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCoreServiceUrl() + "/core/production-orders/" + id + "/allocate";
+		return restService.iamRestCall(url, null, headers, HttpMethod.POST, null);
+	}
+
+	@Override
+	public ResponseEntity<?> startProduction(Long id, String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCoreServiceUrl() + "/core/production-orders/" + id + "/start";
+		return restService.iamRestCall(url, null, headers, HttpMethod.POST, null);
+	}
+
+	@Override
+	public ResponseEntity<?> completeProduction(Long id, String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCoreServiceUrl() + "/core/production-orders/" + id + "/complete";
+		return restService.iamRestCall(url, null, headers, HttpMethod.POST, null);
+	}
+
+	@Override
+	public ResponseEntity<?> cancelProduction(Long id, String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCoreServiceUrl() + "/core/production-orders/" + id + "/cancel";
+		return restService.iamRestCall(url, null, headers, HttpMethod.POST, null);
+	}
+
+	@Override
+	public ResponseEntity<?> releaseBatch(Long stockId, String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCoreServiceUrl() + "/core/production-orders/release-batch/" + stockId;
+		return restService.iamRestCall(url, null, headers, HttpMethod.POST, null);
+	}
+
 	// Invoice Endpoints
 	@Override
 	public ResponseEntity<?> createInvoice(Map<String, Object> invoiceDto, String authToken, String orgIdHeader) {

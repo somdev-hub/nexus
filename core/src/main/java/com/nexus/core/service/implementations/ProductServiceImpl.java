@@ -1,5 +1,7 @@
 package com.nexus.core.service.implementations;
 
+import java.util.List;
+
 import org.modelmapper.ModelMapper;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -48,6 +50,7 @@ public class ProductServiceImpl implements ProductService {
 			}
 		}
 		Product savedProduct = productRepo.save(productMapped);
+		savedProduct.setMaterialRequirements(new java.util.ArrayList<>());
 		return new ResponseEntity<>(modelMapper.map(savedProduct, ProductDto.class), HttpStatus.CREATED);
 	}
 
@@ -62,13 +65,43 @@ public class ProductServiceImpl implements ProductService {
 	public ResponseEntity<?> getProductByIdAndOrg(Long id, Long orgId) {
 		Product product = productRepo.findByProductIdAndOrg(id, orgId)
 				.orElseThrow(() -> new ResourceNotFoundException("Product", "productId", id));
-		return new ResponseEntity<>(modelMapper.map(product, ProductDto.class), HttpStatus.OK);
+		List<MaterialRequirement> mrs = product.getMaterialRequirements() == null ? new java.util.ArrayList<>()
+				: new java.util.ArrayList<>(product.getMaterialRequirements());
+		product.setMaterialRequirements(new java.util.ArrayList<>());
+		ProductDto dto = modelMapper.map(product, ProductDto.class);
+		product.setMaterialRequirements(mrs);
+		List<MaterialRequirementDto> mrDtos = new java.util.ArrayList<>();
+		for (MaterialRequirement mr : mrs) {
+			MaterialRequirementDto d = new MaterialRequirementDto();
+			d.setMaterialId(mr.getMaterial() != null ? mr.getMaterial().getMaterialId() : null);
+			d.setMaterial(mr.getMaterial() != null ? mr.getMaterial().getName() : null);
+			d.setQuantity(mr.getQuantity());
+			mrDtos.add(d);
+		}
+		dto.setMaterialRequirements(mrDtos);
+		return new ResponseEntity<>(dto, HttpStatus.OK);
 	}
 	@Override
 	public ResponseEntity<?> getAllProductsByOrgId(Long orgId, Pageable pageable) {
 		Pageable safePageable = sanitizePageable(pageable);
 		Page<Product> products = productRepo.findByOrg(orgId, safePageable);
-		Page<ProductDto> productDtos = products.map(p -> modelMapper.map(p, ProductDto.class));
+		Page<ProductDto> productDtos = products.map(p -> {
+			List<MaterialRequirement> mrs = p.getMaterialRequirements() == null ? new java.util.ArrayList<>()
+					: new java.util.ArrayList<>(p.getMaterialRequirements());
+			p.setMaterialRequirements(new java.util.ArrayList<>());
+			ProductDto dto = modelMapper.map(p, ProductDto.class);
+			p.setMaterialRequirements(mrs);
+			List<MaterialRequirementDto> mrDtos = new java.util.ArrayList<>();
+			for (MaterialRequirement mr : mrs) {
+				MaterialRequirementDto d = new MaterialRequirementDto();
+				d.setMaterialId(mr.getMaterial() != null ? mr.getMaterial().getMaterialId() : null);
+				d.setMaterial(mr.getMaterial() != null ? mr.getMaterial().getName() : null);
+				d.setQuantity(mr.getQuantity());
+				mrDtos.add(d);
+			}
+			dto.setMaterialRequirements(mrDtos);
+			return dto;
+		});
 		return new ResponseEntity<>(productDtos, HttpStatus.OK);
 	}
 
@@ -122,7 +155,21 @@ public class ProductServiceImpl implements ProductService {
 			product.setSku(dto.getSku());
 		if (dto.getTags() != null)
 			product.setTags(dto.getTags());
+		if (dto.getMaterialRequirements() != null) {
+			product.getMaterialRequirements().clear();
+			for (MaterialRequirementDto mrDto : dto.getMaterialRequirements()) {
+				if (mrDto.getMaterialId() == null) continue;
+				Material material = materialRepo.findById(mrDto.getMaterialId()).orElse(null);
+				if (material == null) continue;
+				MaterialRequirement mr = new MaterialRequirement();
+				mr.setMaterial(material);
+				mr.setProduct(product);
+				mr.setQuantity(mrDto.getQuantity() != null ? mrDto.getQuantity() : 1.0);
+				product.getMaterialRequirements().add(mr);
+			}
+		}
 		Product saved = productRepo.save(product);
+		saved.setMaterialRequirements(new java.util.ArrayList<>());
 		return new ResponseEntity<>(modelMapper.map(saved, ProductDto.class), HttpStatus.OK);
 	}
 

@@ -198,6 +198,16 @@ public interface CoreRetailerService {
 	ResponseEntity<?> transitionGoodsReceiptStatus(Long id, String newStatus, Map<String, Object> params,
 			String authToken, String orgIdHeader);
 
+	// Production Endpoints
+	ResponseEntity<?> createProductionOrder(Long productId, Double quantity, Long warehouseId, String notes, String deadline, String authToken, String orgIdHeader);
+	ResponseEntity<?> getProductionOrders(String authToken, String orgIdHeader, Pageable pageable);
+	ResponseEntity<?> getProductionOrder(Long id, String authToken, String orgIdHeader);
+	ResponseEntity<?> allocateProductionOrder(Long id, String authToken, String orgIdHeader);
+	ResponseEntity<?> startProduction(Long id, String authToken, String orgIdHeader);
+	ResponseEntity<?> completeProduction(Long id, String authToken, String orgIdHeader);
+	ResponseEntity<?> cancelProduction(Long id, String authToken, String orgIdHeader);
+	ResponseEntity<?> releaseBatch(Long stockId, String authToken, String orgIdHeader);
+
 	// Invoice Endpoints
 	ResponseEntity<?> createInvoice(Map<String, Object> invoiceDto, String authToken, String orgIdHeader);
 

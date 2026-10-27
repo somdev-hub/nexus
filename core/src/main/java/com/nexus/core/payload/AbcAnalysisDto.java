@@ -33,6 +33,7 @@ public class AbcAnalysisDto {
         private Long warehouseId;
         private Double quantityOnHand;
         private Double unitCost;
+        private String currency;
         private Double annualValue;
         private Double cumulativePercentage;
         private String abcCategory; // A, B, C

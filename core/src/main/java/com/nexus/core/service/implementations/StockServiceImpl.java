@@ -209,6 +209,7 @@ public class StockServiceImpl implements StockService {
 		// Backfill stock rows for materials that do not have one yet (e.g.
 		// materials created before stock tracking was enabled).
 		ensureStockForOrg(orgId);
+		normalizeStockWarehouses(orgId);
 
 		// No filters - return all stocks for the organization with pagination
 		Page<Stock> stocks = stockRepo.findActiveByOrgId(orgId, pageable);
@@ -273,6 +274,35 @@ public class StockServiceImpl implements StockService {
 				stockRepo.save(stock);
 			} catch (Exception ignored) {
 			}
+		}
+	}
+
+	private void normalizeStockWarehouses(Long orgId) {
+		try {
+			Warehouse production = warehouseRepo.findByOrg(orgId, PageRequest.of(0, 10)).getContent().stream()
+					.filter(w -> "PRODUCTION".equalsIgnoreCase(w.getWarehouseType())).findFirst().orElse(null);
+			if (production == null) return;
+			Warehouse reserve = warehouseRepo.findByOrg(orgId, Pageable.unpaged()).getContent().stream()
+					.filter(w -> "RESERVE".equalsIgnoreCase(w.getWarehouseType()))
+					.min(java.util.Comparator.comparingInt(w -> w.getFillOrder() != null ? w.getFillOrder() : Integer.MAX_VALUE))
+					.orElse(null);
+			if (reserve == null) return;
+			for (Stock s : stockRepo.findActiveByWarehouse(production)) {
+				Stock existing = stockRepo.findByMaterialAndWarehouse(s.getMaterial(), reserve).orElse(null);
+				if (existing != null) {
+					existing.setQuantityOnHand((existing.getQuantityOnHand() != null ? existing.getQuantityOnHand() : 0.0)
+							+ (s.getQuantityOnHand() != null ? s.getQuantityOnHand() : 0.0));
+					existing.setQuantityReserved((existing.getQuantityReserved() != null ? existing.getQuantityReserved() : 0.0)
+							+ (s.getQuantityReserved() != null ? s.getQuantityReserved() : 0.0));
+					existing.recalculateAvailable();
+					stockRepo.save(existing);
+					stockRepo.delete(s);
+				} else {
+					s.setWarehouse(reserve);
+					stockRepo.save(s);
+				}
+			}
+		} catch (Exception ignored) {
 		}
 	}
 
@@ -553,7 +583,7 @@ public class StockServiceImpl implements StockService {
 	}
 
 	@Override
-	public ResponseEntity<?> getReorderSuggestions() {
+	public ResponseEntity<?> getReorderSuggestions(Pageable pageable) {
 		Long orgId = OrganizationContextHolder.requireOrganizationId();
 		List<Stock> stocks = stockRepo.findBelowReorderPoint(orgId);
 
@@ -572,7 +602,11 @@ public class StockServiceImpl implements StockService {
 						s.getReorderQuantity() - s.getQuantityAvailable()))
 				.collect(Collectors.toList());
 
-		return new ResponseEntity<>(suggestions, HttpStatus.OK);
+		int start = (int) pageable.getOffset();
+		int end = Math.min(start + pageable.getPageSize(), suggestions.size());
+		List<ReorderSuggestionDto> pageContent = start < suggestions.size() ? suggestions.subList(start, end) : List.of();
+		Page<ReorderSuggestionDto> page = new org.springframework.data.domain.PageImpl<>(pageContent, pageable, suggestions.size());
+		return new ResponseEntity<>(page, HttpStatus.OK);
 	}
 
 	@Override
@@ -671,6 +705,7 @@ public class StockServiceImpl implements StockService {
 						case FIFO, LIFO -> ss.stock().getLastCost() != null ? ss.stock().getLastCost() : 0.0;
 						default -> ss.stock().getAverageCost() != null ? ss.stock().getAverageCost() : 0.0;
 					})
+					.currency(ss.stock().getMaterial().getCurrency() != null ? ss.stock().getMaterial().getCurrency() : "USD")
 					.annualValue(ss.annualValue())
 					.cumulativePercentage(Math.round(cumPct * 100.0) / 100.0)
 					.abcCategory(abcCat)
@@ -742,6 +777,7 @@ public class StockServiceImpl implements StockService {
 		dto.setLastCountedAt(stock.getLastCountedAt());
 		dto.setLastCountedBy(stock.getLastCountedBy());
 		dto.setIsActive(stock.getIsActive());
+		dto.setCurrency(stock.getMaterial() != null && stock.getMaterial().getCurrency() != null ? stock.getMaterial().getCurrency() : "USD");
 		dto.setMaterialCode(stock.getMaterial() != null ? stock.getMaterial().getCode() : null);
 		dto.setMaterialName(stock.getMaterial() != null ? stock.getMaterial().getName() : null);
 		dto.setWarehouseCode(stock.getWarehouse() != null ? stock.getWarehouse().getCode() : null);

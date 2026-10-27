@@ -23,6 +23,7 @@ import com.nexus.core.model.entities.FreightInvoice;
 import com.nexus.core.model.entities.Invoice;
 import com.nexus.core.model.entities.LogisticsPayableLine;
 import com.nexus.core.model.entities.Partnership;
+import com.nexus.core.model.entities.ProductionOrder;
 import com.nexus.core.model.entities.PurchaseOrder;
 import com.nexus.core.model.entities.Shipment;
 import com.nexus.core.model.enums.FreightInvoiceStatus;
@@ -39,6 +40,7 @@ import com.nexus.core.repository.FreightInvoiceRepo;
 import com.nexus.core.repository.InvoiceRepo;
 import com.nexus.core.repository.LogisticsPayableLineRepo;
 import com.nexus.core.repository.PartnershipRepo;
+import com.nexus.core.repository.ProductionOrderRepo;
 import com.nexus.core.repository.PurchaseOrderRepo;
 import com.nexus.core.repository.ShipmentRepo;
 import com.nexus.core.security.OrganizationContextHolder;
@@ -56,6 +58,7 @@ import lombok.RequiredArgsConstructor;
 public class FinanceServiceImpl implements FinanceService {
 
 	private final PurchaseOrderRepo poRepo;
+	private final ProductionOrderRepo productionOrderRepo;
 	private final InvoiceRepo invoiceRepo;
 	private final ShipmentRepo shipmentRepo;
 	private final FreightInvoiceRepo freightRepo;
@@ -155,6 +158,23 @@ public class FinanceServiceImpl implements FinanceService {
 				r.put("date", f.getIssuedDate());
 				r.put("dueDate", f.getDueDate());
 				r.put("paidAt", f.getPaidDate());
+				rows.add(r);
+			}
+		}
+		// Production revenue transactions
+		if (kind == null || "PRODUCTION".equalsIgnoreCase(kind) || "PRODUCTION_REVENUE".equalsIgnoreCase(kind)) {
+			for (ProductionOrder po : productionOrderRepo.findByOrg(orgId, Pageable.unpaged()).getContent()) {
+				if (po.getStatus() != ProductionOrder.ProductionStatus.COMPLETED) continue;
+				if (po.getRevenueAmount() == null) continue;
+				if (!inRange(po.getCompletedAt(), from, to)) continue;
+				Map<String, Object> r = new LinkedHashMap<>();
+				r.put("kind", "PRODUCTION_REVENUE");
+				r.put("id", po.getProductionOrderId());
+				r.put("number", "PROD-" + po.getProductionOrderId());
+				r.put("party", po.getProduct() != null ? po.getProduct().getName() : null);
+				r.put("amount", po.getRevenueAmount());
+				r.put("status", "COMPLETED");
+				r.put("date", po.getCompletedAt());
 				rows.add(r);
 			}
 		}

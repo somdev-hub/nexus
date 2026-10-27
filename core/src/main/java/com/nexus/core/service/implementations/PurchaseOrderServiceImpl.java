@@ -98,6 +98,13 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 	public ResponseEntity<?> createPurchaseOrder(PurchaseOrderDto poDto) {
 		Long orgId = OrganizationContextHolder.requireOrganizationId();
 
+		// Block PO creation until production warehouse capacity is set
+		List<Warehouse> whs = warehouseRepo.findByOrg(orgId, Pageable.unpaged()).getContent();
+		Warehouse prod = whs.stream().filter(w -> "PRODUCTION".equalsIgnoreCase(w.getWarehouseType())).findFirst().orElse(null);
+		if (prod == null || prod.getCapacity() == null || prod.getCapacity() <= 0) {
+			throw new ValidationException("Production warehouse capacity must be set before creating a purchase order");
+		}
+
 		// Validate buyer organization
 		Account buyerOrg = accountRepo.findByAccountId(orgId)
 				.orElseThrow(() -> new ResourceNotFoundException("Account", "accountId", orgId));
@@ -732,15 +739,28 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 
 		Warehouse warehouse = null;
 		try {
-			warehouse = warehouseRepo.findByOrg(buyerOrgId, PageRequest.of(0, 1)).getContent().stream()
-					.findFirst().orElse(null);
+			warehouse = warehouseRepo.findByOrg(buyerOrgId, Pageable.unpaged()).getContent().stream()
+					.filter(w -> "RESERVE".equalsIgnoreCase(w.getWarehouseType()))
+					.min(java.util.Comparator.comparingInt(w -> w.getFillOrder() != null ? w.getFillOrder() : Integer.MAX_VALUE))
+					.orElse(null);
 		} catch (Exception ignored) {
+		}
+		if (warehouse == null) {
+			try {
+				warehouse = warehouseRepo.findByOrg(buyerOrgId, PageRequest.of(0, 1)).getContent().stream().findFirst().orElse(null);
+			} catch (Exception ignored) {
+			}
 		}
 		if (warehouse == null) {
 			warehouse = new Warehouse();
 			warehouse.setOrg(buyerOrgId);
-			warehouse.setCode("MAIN");
-			warehouse.setLocation("Default");
+			warehouse.setCode("RESERVE-1");
+			warehouse.setLocation("Reserve 1");
+			warehouse.setWarehouseType("RESERVE");
+			warehouse.setCapacityMultiplier(2.0);
+			warehouse.setCapacity(0.0);
+			warehouse.setStorageCapacity(0.0);
+			warehouse.setFillOrder(1);
 			warehouse = warehouseRepo.save(warehouse);
 		}
 		if (material.getWarehouse() == null) {

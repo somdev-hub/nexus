@@ -109,8 +109,8 @@ public class StockController {
 
 	@GetMapping("/reorder-suggestions")
 	@LogActivity("Get Reorder Suggestions")
-	public ResponseEntity<?> getReorderSuggestions() {
-		return stockService.getReorderSuggestions();
+	public ResponseEntity<?> getReorderSuggestions(@PageableDefault(size = 20) Pageable pageable) {
+		return stockService.getReorderSuggestions(pageable);
 	}
 
 	@PutMapping("/{stockId}/settings")

@@ -37,7 +37,7 @@ public interface StockService {
 
 	ResponseEntity<?> recordCycleCount(Long stockId, Double countedQuantity, String countedBy);
 
-	ResponseEntity<?> getReorderSuggestions();
+	ResponseEntity<?> getReorderSuggestions(Pageable pageable);
 
 	ResponseEntity<?> updateStockSettings(Long stockId, Double reorderPoint, Double reorderQuantity,
 			Double minStockLevel, Double maxStockLevel);

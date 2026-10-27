@@ -11,4 +11,8 @@ public interface WarehouseService {
 	public ResponseEntity<?> getWarehouseByIdAndOrg(Long id, Long orgId);
 
 	public ResponseEntity<?> getAllWarehousesByOrgId(Long orgId, Pageable pageable);
+
+	public ResponseEntity<?> ensureDefaultWarehouses(Long orgId);
+
+	public ResponseEntity<?> setProductionCapacity(Long orgId, Double capacity);
 }

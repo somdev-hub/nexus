@@ -453,19 +453,32 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
 			material.setCode("MAT-" + System.currentTimeMillis());
 		}
 
-		// Select a warehouse for this org (first available); create a default
-		// one if none exists so stock can be tracked.
+		// Select the first RESERVE warehouse for incoming stock (fill order A->B->C).
+		// Create a default reserve warehouse if none exists.
 		Warehouse warehouse = null;
 		try {
-			warehouse = warehouseRepo.findByOrg(buyerOrgId, PageRequest.of(0, 1))
-					.getContent().stream().findFirst().orElse(null);
+			warehouse = warehouseRepo.findByOrg(buyerOrgId, Pageable.unpaged()).getContent().stream()
+					.filter(w -> "RESERVE".equalsIgnoreCase(w.getWarehouseType()))
+					.min(java.util.Comparator.comparingInt(w -> w.getFillOrder() != null ? w.getFillOrder() : Integer.MAX_VALUE))
+					.orElse(null);
 		} catch (Exception ignored) {
+		}
+		if (warehouse == null) {
+			try {
+				warehouse = warehouseRepo.findByOrg(buyerOrgId, PageRequest.of(0, 1)).getContent().stream().findFirst().orElse(null);
+			} catch (Exception ignored) {
+			}
 		}
 		if (warehouse == null) {
 			warehouse = new Warehouse();
 			warehouse.setOrg(buyerOrgId);
-			warehouse.setCode("MAIN");
-			warehouse.setLocation("Default");
+			warehouse.setCode("RESERVE-1");
+			warehouse.setLocation("Reserve 1");
+			warehouse.setWarehouseType("RESERVE");
+			warehouse.setCapacityMultiplier(2.0);
+			warehouse.setCapacity(0.0);
+			warehouse.setStorageCapacity(0.0);
+			warehouse.setFillOrder(1);
 			warehouse = warehouseRepo.save(warehouse);
 		}
 		material.setWarehouse(warehouse);
