@@ -13,6 +13,8 @@ public interface VmiService {
 
     ResponseEntity<?> getAllVmis(Long retailerOrgId, Long warehouseId, Long materialId, Boolean autoReplenish, Pageable pageable);
 
+    ResponseEntity<?> getRetailerVmis(Long warehouseId, Long materialId, Pageable pageable);
+
     ResponseEntity<?> updateVmi(Long id, VmiConfigDto dto);
 
     ResponseEntity<?> deleteVmi(Long id);

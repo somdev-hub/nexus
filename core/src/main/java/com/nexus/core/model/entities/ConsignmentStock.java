@@ -49,6 +49,15 @@ public class ConsignmentStock extends BaseEntity {
     @EqualsAndHashCode.Exclude
     private Material material;
 
+    @Column(name = "catalog_id")
+    private Long catalogId;
+
+    @Column(name = "variant_id")
+    private Long variantId;
+
+    @Column(name = "price_tier_id")
+    private Long priceTierId;
+
     @Column(name = "quantity_on_hand")
     private Double quantityOnHand = 0.0;
 

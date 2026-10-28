@@ -25,10 +25,19 @@ public class ConsignmentStockDto {
 
     private String warehouseCode;
 
-    @NotNull(message = "Material ID is required")
     private Long materialId;
 
     private String materialName;
+
+    private Long catalogId;
+
+    private String catalogName;
+
+    private Long variantId;
+
+    private String variantValue;
+
+    private Long priceTierId;
 
     private Double quantityOnHand;
 

@@ -206,10 +206,12 @@ public class StockServiceImpl implements StockService {
 			return new ResponseEntity<>(stockDtos, HttpStatus.OK);
 		}
 
+		// Normalize misplaced production stock first.
+		normalizeStockWarehouses(orgId);
+
 		// Backfill stock rows for materials that do not have one yet (e.g.
 		// materials created before stock tracking was enabled).
 		ensureStockForOrg(orgId);
-		normalizeStockWarehouses(orgId);
 
 		// No filters - return all stocks for the organization with pagination
 		Page<Stock> stocks = stockRepo.findActiveByOrgId(orgId, pageable);
@@ -225,16 +227,29 @@ public class StockServiceImpl implements StockService {
 	private void ensureStockForOrg(Long orgId) {
 		Warehouse warehouse = null;
 		try {
-			warehouse = warehouseRepo.findByOrg(orgId, PageRequest.of(0, 1)).getContent().stream()
-					.findFirst().orElse(null);
+			warehouse = warehouseRepo.findByOrg(orgId, Pageable.unpaged()).getContent().stream()
+					.filter(w -> "RESERVE".equalsIgnoreCase(w.getWarehouseType()))
+					.min(java.util.Comparator.comparingInt(w -> w.getFillOrder() != null ? w.getFillOrder() : Integer.MAX_VALUE))
+					.orElse(null);
 		} catch (Exception ignored) {
+		}
+		if (warehouse == null) {
+			try {
+				warehouse = warehouseRepo.findByOrg(orgId, PageRequest.of(0, 1)).getContent().stream().findFirst().orElse(null);
+			} catch (Exception ignored) {
+			}
 		}
 		if (warehouse == null) {
 			try {
 				warehouse = new Warehouse();
 				warehouse.setOrg(orgId);
-				warehouse.setCode("MAIN");
-				warehouse.setLocation("Default");
+				warehouse.setCode("RESERVE-1");
+				warehouse.setLocation("Reserve 1");
+				warehouse.setWarehouseType("RESERVE");
+				warehouse.setCapacityMultiplier(2.0);
+				warehouse.setCapacity(0.0);
+				warehouse.setStorageCapacity(0.0);
+				warehouse.setFillOrder(1);
 				warehouse = warehouseRepo.save(warehouse);
 			} catch (Exception ignored) {
 				return;
@@ -246,19 +261,6 @@ public class StockServiceImpl implements StockService {
 			try {
 				if (stockRepo.findByMaterialAndWarehouse(m, warehouse).isPresent()) continue;
 				double qty = 0.0;
-				try {
-					for (PurchaseOrderLineItem line : poLineItemRepo.findByMaterialMaterialId(m.getMaterialId())) {
-						if (line.getQuantityReceived() != null && line.getQuantityReceived() > 0) {
-							qty += line.getQuantityReceived();
-						} else if (line.getQuantityOrdered() != null) {
-							qty += line.getQuantityOrdered();
-						}
-					}
-				} catch (Exception ignored) {
-				}
-				if (qty <= 0 && m.getAvailableQuantity() != null) {
-					qty = m.getAvailableQuantity();
-				}
 				Stock stock = new Stock();
 				stock.setMaterial(m);
 				stock.setWarehouse(warehouse);

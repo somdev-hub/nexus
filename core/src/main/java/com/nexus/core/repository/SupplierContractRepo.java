@@ -18,6 +18,8 @@ public interface SupplierContractRepo extends JpaRepository<SupplierContract, Lo
 	// supplier org's account.
 	Page<SupplierContract> findBySupplierSupplierOrgAccountId(Long supplierOrgAccountId, Pageable pageable);
 
+	Page<SupplierContract> findBySupplierSupplierOrgAccountIdAndStatusNot(Long supplierOrgAccountId, SupplierContract.ContractStatus status, Pageable pageable);
+
 	Optional<SupplierContract> findByContractIdAndSupplierSupplierOrgAccountId(Long contractId,
 			Long supplierOrgAccountId);
 

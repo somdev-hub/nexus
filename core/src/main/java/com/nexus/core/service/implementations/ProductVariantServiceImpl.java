@@ -103,7 +103,16 @@ public class ProductVariantServiceImpl implements ProductVariantService {
     }
 
     private ProductVariantDto mapToDto(ProductVariant v) {
-        ProductVariantDto dto = modelMapper.map(v, ProductVariantDto.class);
+        ProductVariantDto dto = new ProductVariantDto();
+        dto.setVariantId(v.getVariantId());
+        dto.setVariantType(v.getVariantType());
+        dto.setVariantValue(v.getVariantValue());
+        dto.setSkuSuffix(v.getSkuSuffix());
+        dto.setPriceAdjustment(v.getPriceAdjustment());
+        dto.setQuantityAvailable(v.getQuantityAvailable());
+        dto.setIsActive(v.getIsActive());
+        dto.setCreatedAt(v.getCreatedAt());
+        dto.setUpdatedAt(v.getUpdatedAt());
         if (v.getCatalog() != null) {
             dto.setCatalogId(v.getCatalog().getCatalogId());
             dto.setCatalogName(v.getCatalog().getName());

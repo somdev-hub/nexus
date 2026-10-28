@@ -142,6 +142,13 @@ public class CoreRetailerController {
 		return coreRetailerService.getAllWarehouses(authToken, orgIdHeader, pageable);
 	}
 
+	@PostMapping("/warehouses/capacity")
+	public ResponseEntity<?> setProductionCapacity(@RequestParam Double capacity,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.setProductionCapacity(capacity, authToken, orgIdHeader);
+	}
+
 	@LogActivity("Create Order for Retailer")
 	@PostMapping("/orders/add")
 	public ResponseEntity<?> addOrder(@RequestBody Map<String, Object> orderDto,
@@ -778,6 +785,27 @@ public class CoreRetailerController {
 		return coreRetailerService.releaseBatch(stockId, authToken, orgIdHeader);
 	}
 
+	// Retailer Consignment/VMI Endpoints
+	@LogActivity("Get Retailer Consignments")
+	@GetMapping("/consignment/all")
+	public ResponseEntity<?> getRetailerConsignments(@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader,
+			@RequestParam(required = false) Long warehouseId,
+			@RequestParam(required = false) Long materialId,
+			@PageableDefault(size = 20) Pageable pageable) {
+		return coreRetailerService.getRetailerConsignments(authToken, orgIdHeader, pageable, warehouseId, materialId);
+	}
+
+	@LogActivity("Get Retailer VMI Configs")
+	@GetMapping("/vmi/all")
+	public ResponseEntity<?> getRetailerVmis(@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader,
+			@RequestParam(required = false) Long warehouseId,
+			@RequestParam(required = false) Long materialId,
+			@PageableDefault(size = 20) Pageable pageable) {
+		return coreRetailerService.getRetailerVmis(authToken, orgIdHeader, pageable, warehouseId, materialId);
+	}
+
 	// Invoice Endpoints
 	@LogActivity("Create Invoice for Retailer")
 	@PostMapping("/invoices/add")
@@ -1100,6 +1128,15 @@ public class CoreRetailerController {
 		return coreRetailerService.createSupplierContract(contractDto, authToken, orgIdHeader);
 	}
 
+	@LogActivity("Check Active Contract")
+	@GetMapping("/supplier-contracts/check")
+	public ResponseEntity<?> checkActiveContract(@RequestParam Long retailerOrgId,
+			@RequestParam String contractType,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.checkActiveContract(retailerOrgId, contractType, authToken, orgIdHeader);
+	}
+
 	@LogActivity("Get Supplier Contract for Retailer")
 	@GetMapping("/supplier-contracts/{id}")
 	public ResponseEntity<?> getSupplierContract(@PathVariable Long id,
@@ -1173,6 +1210,8 @@ public class CoreRetailerController {
 			@RequestHeader("X-Organization-ID") String orgIdHeader) {
 		return coreRetailerService.getSupplierContractSummary(authToken, orgIdHeader);
 	}
+
+
 
 	@LogActivity("Update Supplier Contract for Retailer")
 	@PutMapping("/supplier-contracts/{id}/update")

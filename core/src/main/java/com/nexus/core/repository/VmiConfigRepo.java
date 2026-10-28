@@ -26,4 +26,16 @@ public interface VmiConfigRepo extends JpaRepository<VmiConfig, Long> {
             @Param("materialId") Long materialId,
             @Param("autoReplenish") Boolean autoReplenish,
             Pageable pageable);
+
+    @Query("""
+            SELECT v FROM VmiConfig v
+            WHERE v.retailerOrg.accountId = :retailerOrgId
+            AND (:warehouseId IS NULL OR v.warehouse.warehouseId = :warehouseId)
+            AND (:materialId IS NULL OR v.material.materialId = :materialId)
+            """)
+    Page<VmiConfig> findByRetailerOrgWithFilters(
+            @Param("retailerOrgId") Long retailerOrgId,
+            @Param("warehouseId") Long warehouseId,
+            @Param("materialId") Long materialId,
+            Pageable pageable);
 }

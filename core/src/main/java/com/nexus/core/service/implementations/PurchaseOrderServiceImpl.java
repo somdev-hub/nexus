@@ -936,6 +936,14 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 				break;
 			case PARTIALLY_RECEIVED:
 			case RECEIVED:
+				// Block receiving unless production warehouse capacity is set
+				Long orgIdCap = po.getBuyerOrg() != null ? po.getBuyerOrg().getAccountId() : null;
+				if (orgIdCap == null) orgIdCap = OrganizationContextHolder.getCurrentOrganizationId();
+				Warehouse prodWhPo = warehouseRepo.findByOrg(orgIdCap, PageRequest.of(0, 10)).getContent().stream()
+						.filter(w -> "PRODUCTION".equalsIgnoreCase(w.getWarehouseType())).findFirst().orElse(null);
+				if (prodWhPo == null || prodWhPo.getCapacity() == null || prodWhPo.getCapacity() <= 0) {
+					throw new ValidationException("Production warehouse capacity must be set before receiving materials");
+				}
 				// Derive retailer Materials (and Stock) from the PO lines so
 				// the materials page reflects received goods. Materials are not
 				// created manually by the retailer.

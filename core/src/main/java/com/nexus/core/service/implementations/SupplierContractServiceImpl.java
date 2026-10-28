@@ -537,7 +537,7 @@ public class SupplierContractServiceImpl implements SupplierContractService {
 								.body("Only DRAFT or PENDING_APPROVAL contracts can be approved");
 					}
 
-					existing.setStatus(SupplierContract.ContractStatus.ACTIVE);
+					existing.setStatus(SupplierContract.ContractStatus.PENDING_APPROVAL);
 					existing.setApprovedBy(approvedBy);
 					existing.setApprovedAt(LocalDateTime.now());
 
@@ -662,8 +662,18 @@ public class SupplierContractServiceImpl implements SupplierContractService {
 	@Override
 	public ResponseEntity<?> getSupplierContracts(Pageable pageable) {
 		Long orgId = OrganizationContextHolder.requireOrganizationId();
-		Page<SupplierContract> contracts = contractRepo.findBySupplierSupplierOrgAccountId(orgId, pageable);
+		Page<SupplierContract> contracts = contractRepo.findBySupplierSupplierOrgAccountIdAndStatusNot(orgId, SupplierContract.ContractStatus.DRAFT, pageable);
 		return ResponseEntity.ok(contracts.map(SupplierContractServiceImpl::toDto));
+	}
+
+	@Override
+	public ResponseEntity<?> checkActiveContract(Long retailerOrgId, SupplierContract.ContractType contractType) {
+		Long orgId = OrganizationContextHolder.requireOrganizationId();
+		boolean has = contractRepo.findByAccountAccountIdAndContractType(retailerOrgId, contractType, org.springframework.data.domain.Pageable.unpaged())
+				.getContent().stream().anyMatch(c -> c.getStatus() == SupplierContract.ContractStatus.ACTIVE
+						&& c.getSupplier() != null
+						&& orgId.equals(c.getSupplier().getSupplierOrgAccountId()));
+		return ResponseEntity.ok(java.util.Map.of("hasActiveContract", has));
 	}
 
 	@Override
@@ -688,6 +698,7 @@ public class SupplierContractServiceImpl implements SupplierContractService {
 					contract.setSupplierStatus(SupplierContract.SupplierStatus.APPROVED);
 					contract.setSupplierDecidedBy(decidedBy);
 					contract.setSupplierDecidedAt(java.time.LocalDateTime.now());
+					contract.setStatus(SupplierContract.ContractStatus.ACTIVE);
 					return ResponseEntity.ok(toDto(contractRepo.save(contract)));
 				})
 				.orElse(ResponseEntity.notFound().build());

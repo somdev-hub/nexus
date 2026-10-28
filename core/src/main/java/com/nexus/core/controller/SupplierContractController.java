@@ -41,6 +41,13 @@ public class SupplierContractController {
 		return contractService.createContract(dto);
 	}
 
+	@GetMapping("/check")
+	@LogActivity("CHECK_ACTIVE_CONTRACT")
+	public ResponseEntity<?> checkActiveContract(@RequestParam Long retailerOrgId,
+			@RequestParam com.nexus.core.model.entities.SupplierContract.ContractType contractType) {
+		return contractService.checkActiveContract(retailerOrgId, contractType);
+	}
+
 	@GetMapping("/{contractId}")
 	@LogActivity("GET_SUPPLIER_CONTRACT")
 	public ResponseEntity<?> getContractById(@PathVariable Long contractId) {

@@ -1160,6 +1160,37 @@ public class CoreRetailerServiceImpl implements CoreRetailerService {
 		return restService.iamRestCall(url, null, headers, HttpMethod.POST, null);
 	}
 
+	// Retailer Consignment/VMI Endpoints
+	@Override
+	public ResponseEntity<?> getRetailerConsignments(String authToken, String orgIdHeader, Pageable pageable, Long warehouseId, Long materialId) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCoreServiceUrl() + "/core/retailer/consignment/all";
+		if (warehouseId != null) url += "?warehouseId=" + warehouseId;
+		if (materialId != null) url += (url.contains("?") ? "&" : "?") + "materialId=" + materialId;
+		url = buildPaginatedUrl(url, pageable);
+		return restService.iamRestCall(url, null, headers, HttpMethod.GET, null);
+	}
+
+	@Override
+	public ResponseEntity<?> getRetailerVmis(String authToken, String orgIdHeader, Pageable pageable, Long warehouseId, Long materialId) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCoreServiceUrl() + "/core/retailer/vmi/all";
+		if (warehouseId != null) url += "?warehouseId=" + warehouseId;
+		if (materialId != null) url += (url.contains("?") ? "&" : "?") + "materialId=" + materialId;
+		url = buildPaginatedUrl(url, pageable);
+		return restService.iamRestCall(url, null, headers, HttpMethod.GET, null);
+	}
+
+	@Override
+	public ResponseEntity<?> setProductionCapacity(Double capacity, String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCoreServiceUrl() + "/core/warehouses/capacity?capacity=" + capacity;
+		return restService.iamRestCall(url, null, headers, HttpMethod.POST, null);
+	}
+
 	// Invoice Endpoints
 	@Override
 	public ResponseEntity<?> createInvoice(Map<String, Object> invoiceDto, String authToken, String orgIdHeader) {
@@ -1645,6 +1676,14 @@ public class CoreRetailerServiceImpl implements CoreRetailerService {
 				headers,
 				HttpMethod.GET,
 				null);
+	}
+
+	@Override
+	public ResponseEntity<?> checkActiveContract(Long retailerOrgId, String contractType, String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCoreServiceUrl() + "/api/core/supplier-contracts/check?retailerOrgId=" + retailerOrgId + "&contractType=" + contractType;
+		return restService.iamRestCall(url, null, headers, HttpMethod.GET, null);
 	}
 
 	@Override

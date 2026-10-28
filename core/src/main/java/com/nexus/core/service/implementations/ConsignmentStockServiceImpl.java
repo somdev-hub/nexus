@@ -3,12 +3,20 @@ package com.nexus.core.service.implementations;
 import com.nexus.core.model.entities.Account;
 import com.nexus.core.model.entities.ConsignmentStock;
 import com.nexus.core.model.entities.Material;
+import com.nexus.core.model.entities.ProductVariant;
+import com.nexus.core.model.entities.SupplierCatalog;
+import com.nexus.core.model.entities.SupplierContract;
 import com.nexus.core.model.entities.Warehouse;
 import com.nexus.core.exception.ResourceNotFoundException;
+import com.nexus.core.exception.ValidationException;
 import com.nexus.core.payload.ConsignmentStockDto;
 import com.nexus.core.repository.AccountRepository;
 import com.nexus.core.repository.ConsignmentStockRepo;
 import com.nexus.core.repository.MaterialRepo;
+import com.nexus.core.repository.ProductVariantRepo;
+import com.nexus.core.repository.SupplierCatalogRepo;
+import com.nexus.core.repository.SupplierContractRepo;
+import com.nexus.core.repository.SupplierPriceTierRepo;
 import com.nexus.core.repository.WarehouseRepo;
 import com.nexus.core.security.OrganizationContextHolder;
 import com.nexus.core.service.interfaces.ConsignmentStockService;
@@ -33,6 +41,10 @@ public class ConsignmentStockServiceImpl implements ConsignmentStockService {
     private final AccountRepository accountRepo;
     private final WarehouseRepo warehouseRepo;
     private final MaterialRepo materialRepo;
+    private final SupplierCatalogRepo supplierCatalogRepo;
+    private final ProductVariantRepo productVariantRepo;
+    private final SupplierPriceTierRepo supplierPriceTierRepo;
+    private final SupplierContractRepo supplierContractRepo;
     private final ModelMapper modelMapper;
 
     @Override
@@ -43,8 +55,42 @@ public class ConsignmentStockServiceImpl implements ConsignmentStockService {
                 .orElseThrow(() -> new ResourceNotFoundException("Account", "accountId", orgId));
         Account retailerOrg = accountRepo.findById(dto.getRetailerOrgId())
                 .orElseThrow(() -> new ResourceNotFoundException("Account", "accountId", dto.getRetailerOrgId()));
-        Material material = materialRepo.findByMaterialIdAndOrg(dto.getMaterialId(), orgId)
-                .orElseThrow(() -> new ResourceNotFoundException("Material", "materialId", dto.getMaterialId()));
+
+        boolean hasConsignmentContract = supplierContractRepo
+                .findByAccountAccountIdAndContractType(retailerOrg.getAccountId(), SupplierContract.ContractType.CONSIGNMENT, Pageable.unpaged())
+                .getContent().stream().anyMatch(c -> c.getStatus() == SupplierContract.ContractStatus.ACTIVE
+                        && c.getSupplier() != null
+                        && orgId.equals(c.getSupplier().getSupplierOrgAccountId()));
+        if (!hasConsignmentContract) {
+            throw new ValidationException("Active CONSIGNMENT contract required between supplier and retailer");
+        }
+        Material material = null;
+        if (dto.getCatalogId() != null) {
+            SupplierCatalog catalog = supplierCatalogRepo.findById(dto.getCatalogId()).orElse(null);
+            if (catalog != null) {
+                material = materialRepo.findFirstByOrgAndCatalogId(orgId, catalog.getCatalogId()).orElse(null);
+                if (material == null) {
+                    material = new Material();
+                    material.setOrg(orgId);
+                    material.setCatalogId(catalog.getCatalogId());
+                    material.setName(catalog.getName());
+                    material.setCode(catalog.getCode());
+                    material.setCategory(catalog.getCategory() != null ? catalog.getCategory() : catalog.getFamily());
+                    material.setUnit(catalog.getUnitOfMeasure());
+                    material.setCurrency(catalog.getCurrency() != null ? catalog.getCurrency() : "USD");
+                    material.setPricePerUnit(catalog.getBasePrice());
+                    material.setSupplierOrgId(catalog.getSupplierOrg() != null ? catalog.getSupplierOrg().getAccountId() : null);
+                    material = materialRepo.save(material);
+                }
+            }
+        }
+        if (material == null && dto.getMaterialId() != null) {
+            material = materialRepo.findByMaterialIdAndOrg(dto.getMaterialId(), orgId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Material", "materialId", dto.getMaterialId()));
+        }
+        if (material == null) {
+            throw new ValidationException("Catalog item is required");
+        }
         Warehouse warehouse = null;
         if (dto.getWarehouseId() != null) {
             warehouse = warehouseRepo.findById(dto.getWarehouseId())
@@ -55,6 +101,9 @@ public class ConsignmentStockServiceImpl implements ConsignmentStockService {
         cs.setRetailerOrg(retailerOrg);
         cs.setWarehouse(warehouse);
         cs.setMaterial(material);
+        cs.setCatalogId(dto.getCatalogId());
+        cs.setVariantId(dto.getVariantId());
+        cs.setPriceTierId(dto.getPriceTierId());
         cs.setQuantityOnHand(dto.getQuantityOnHand() != null ? dto.getQuantityOnHand() : 0.0);
         cs.setQuantityReserved(dto.getQuantityReserved() != null ? dto.getQuantityReserved() : 0.0);
         cs.recalculateAvailable();
@@ -78,6 +127,15 @@ public class ConsignmentStockServiceImpl implements ConsignmentStockService {
     public ResponseEntity<?> getAllConsignments(Long retailerOrgId, Long warehouseId, Long materialId, Pageable pageable) {
         Long orgId = OrganizationContextHolder.requireOrganizationId();
         Page<ConsignmentStock> page = stockRepo.findByOrgWithFilters(orgId, retailerOrgId, warehouseId, materialId, pageable);
+        Page<ConsignmentStockDto> dtoPage = page.map(this::mapToDto);
+        return ResponseEntity.ok(dtoPage);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ResponseEntity<?> getRetailerConsignments(Long warehouseId, Long materialId, Pageable pageable) {
+        Long orgId = OrganizationContextHolder.requireOrganizationId();
+        Page<ConsignmentStock> page = stockRepo.findByRetailerOrgWithFilters(orgId, warehouseId, materialId, pageable);
         Page<ConsignmentStockDto> dtoPage = page.map(this::mapToDto);
         return ResponseEntity.ok(dtoPage);
     }
@@ -143,6 +201,17 @@ public class ConsignmentStockServiceImpl implements ConsignmentStockService {
         if (cs.getMaterial() != null) {
             dto.setMaterialId(cs.getMaterial().getMaterialId());
             dto.setMaterialName(cs.getMaterial().getName());
+        }
+        dto.setCatalogId(cs.getCatalogId());
+        dto.setVariantId(cs.getVariantId());
+        dto.setPriceTierId(cs.getPriceTierId());
+        if (cs.getCatalogId() != null) {
+            SupplierCatalog cat = supplierCatalogRepo.findById(cs.getCatalogId()).orElse(null);
+            if (cat != null) dto.setCatalogName(cat.getName());
+        }
+        if (cs.getVariantId() != null) {
+            ProductVariant v = productVariantRepo.findById(cs.getVariantId()).orElse(null);
+            if (v != null) dto.setVariantValue(v.getVariantValue());
         }
         return dto;
     }

@@ -6,6 +6,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.nexus.core.model.entities.SupplierContract;
 import com.nexus.core.payload.SupplierContractDto;
 
 public interface SupplierContractService {
@@ -70,6 +71,8 @@ public interface SupplierContractService {
 	ResponseEntity<?> getSupplierContracts(org.springframework.data.domain.Pageable pageable);
 
 	ResponseEntity<?> getSupplierContractById(Long contractId);
+
+	ResponseEntity<?> checkActiveContract(Long retailerOrgId, SupplierContract.ContractType contractType);
 
 	ResponseEntity<?> approveSupplierContract(Long contractId, String decidedBy);
 

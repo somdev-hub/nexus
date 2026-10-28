@@ -29,10 +29,6 @@ public class MaterialDto {
 
 	private String unit;
 
-	private Double productionCostPerUnit;
-
-	private Double productionCapacityPerMonth;
-
 	private Double availableQuantity;
 
 	// FR-RET-011: Reorder Point Automation
@@ -46,21 +42,10 @@ public class MaterialDto {
 
 	private Integer leadTimeDays;
 
-	private Double safetyStock;
-
-	// FR-RET-013: Expiry and Batch Tracking
-	private Boolean trackBatches = false;
-
-	private Boolean trackExpiry = false;
-
-	private Integer shelfLifeDays;
-
 	// FR-RET-014: Inventory Valuation
 	private ValuationMethod valuationMethod = ValuationMethod.WEIGHTED_AVERAGE;
 
 	private Double standardCost;
-
-	private Double lastPurchasePrice;
 
 	private Double averageCost;
 

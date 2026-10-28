@@ -24,4 +24,16 @@ public interface ConsignmentStockRepo extends JpaRepository<ConsignmentStock, Lo
             @Param("warehouseId") Long warehouseId,
             @Param("materialId") Long materialId,
             Pageable pageable);
+
+    @Query("""
+            SELECT cs FROM ConsignmentStock cs
+            WHERE cs.retailerOrg.accountId = :retailerOrgId
+            AND (:warehouseId IS NULL OR cs.warehouse.warehouseId = :warehouseId)
+            AND (:materialId IS NULL OR cs.material.materialId = :materialId)
+            """)
+    Page<ConsignmentStock> findByRetailerOrgWithFilters(
+            @Param("retailerOrgId") Long retailerOrgId,
+            @Param("warehouseId") Long warehouseId,
+            @Param("materialId") Long materialId,
+            Pageable pageable);
 }

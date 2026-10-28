@@ -39,6 +39,8 @@ public interface CoreRetailerService {
 
 	ResponseEntity<?> getAllWarehouses(String authToken, String orgIdHeader, Pageable pageable);
 
+	ResponseEntity<?> setProductionCapacity(Double capacity, String authToken, String orgIdHeader);
+
 	ResponseEntity<?> addOrder(Map<String, Object> orderDto, String authToken, String orgIdHeader);
 
 	ResponseEntity<?> getOrder(Long id, String authToken, String orgIdHeader);
@@ -208,6 +210,10 @@ public interface CoreRetailerService {
 	ResponseEntity<?> cancelProduction(Long id, String authToken, String orgIdHeader);
 	ResponseEntity<?> releaseBatch(Long stockId, String authToken, String orgIdHeader);
 
+	// Retailer Consignment/VMI Endpoints
+	ResponseEntity<?> getRetailerConsignments(String authToken, String orgIdHeader, Pageable pageable, Long warehouseId, Long materialId);
+	ResponseEntity<?> getRetailerVmis(String authToken, String orgIdHeader, Pageable pageable, Long warehouseId, Long materialId);
+
 	// Invoice Endpoints
 	ResponseEntity<?> createInvoice(Map<String, Object> invoiceDto, String authToken, String orgIdHeader);
 
@@ -294,6 +300,8 @@ public interface CoreRetailerService {
 	ResponseEntity<?> createSupplierContract(Map<String, Object> contractDto, String authToken, String orgIdHeader);
 
 	ResponseEntity<?> getSupplierContract(Long id, String authToken, String orgIdHeader);
+
+	ResponseEntity<?> checkActiveContract(Long retailerOrgId, String contractType, String authToken, String orgIdHeader);
 
 	ResponseEntity<?> getSupplierContractByNumber(String contractNumber, String authToken, String orgIdHeader);
 

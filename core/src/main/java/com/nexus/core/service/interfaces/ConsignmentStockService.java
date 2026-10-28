@@ -13,6 +13,8 @@ public interface ConsignmentStockService {
 
     ResponseEntity<?> getAllConsignments(Long retailerOrgId, Long warehouseId, Long materialId, Pageable pageable);
 
+    ResponseEntity<?> getRetailerConsignments(Long warehouseId, Long materialId, Pageable pageable);
+
     ResponseEntity<?> updateConsignment(Long id, ConsignmentStockDto dto);
 
     ResponseEntity<?> adjustQuantity(Long id, Double quantity, String reason);

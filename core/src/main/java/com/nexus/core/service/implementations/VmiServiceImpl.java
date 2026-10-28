@@ -2,13 +2,16 @@ package com.nexus.core.service.implementations;
 
 import com.nexus.core.model.entities.Account;
 import com.nexus.core.model.entities.Material;
+import com.nexus.core.model.entities.SupplierContract;
 import com.nexus.core.model.entities.VmiConfig;
 import com.nexus.core.model.entities.Warehouse;
 import com.nexus.core.exception.ResourceNotFoundException;
+import com.nexus.core.exception.ValidationException;
 import com.nexus.core.payload.VmiConfigDto;
 import com.nexus.core.repository.AccountRepository;
 import com.nexus.core.repository.MaterialRepo;
 import com.nexus.core.repository.StockRepo;
+import com.nexus.core.repository.SupplierContractRepo;
 import com.nexus.core.repository.VmiConfigRepo;
 import com.nexus.core.repository.WarehouseRepo;
 import com.nexus.core.security.OrganizationContextHolder;
@@ -39,6 +42,7 @@ public class VmiServiceImpl implements VmiService {
     private final WarehouseRepo warehouseRepo;
     private final MaterialRepo materialRepo;
     private final StockRepo stockRepo;
+    private final SupplierContractRepo supplierContractRepo;
     private final ModelMapper modelMapper;
 
     @Override
@@ -49,6 +53,15 @@ public class VmiServiceImpl implements VmiService {
                 .orElseThrow(() -> new ResourceNotFoundException("Account", "accountId", orgId));
         Account retailerOrg = accountRepo.findById(dto.getRetailerOrgId())
                 .orElseThrow(() -> new ResourceNotFoundException("Account", "accountId", dto.getRetailerOrgId()));
+
+        boolean hasVmiContract = supplierContractRepo
+                .findByAccountAccountIdAndContractType(retailerOrg.getAccountId(), SupplierContract.ContractType.VMI, Pageable.unpaged())
+                .getContent().stream().anyMatch(c -> c.getStatus() == SupplierContract.ContractStatus.ACTIVE
+                        && c.getSupplier() != null
+                        && orgId.equals(c.getSupplier().getSupplierOrgAccountId()));
+        if (!hasVmiContract) {
+            throw new ValidationException("Active VMI contract required between supplier and retailer");
+        }
         Material material = materialRepo.findByMaterialIdAndOrg(dto.getMaterialId(), orgId)
                 .orElseThrow(() -> new ResourceNotFoundException("Material", "materialId", dto.getMaterialId()));
         Warehouse warehouse = null;
@@ -84,6 +97,15 @@ public class VmiServiceImpl implements VmiService {
     public ResponseEntity<?> getAllVmis(Long retailerOrgId, Long warehouseId, Long materialId, Boolean autoReplenish, Pageable pageable) {
         Long orgId = OrganizationContextHolder.requireOrganizationId();
         Page<VmiConfig> page = vmiRepo.findByOrgWithFilters(orgId, retailerOrgId, warehouseId, materialId, autoReplenish, pageable);
+        Page<VmiConfigDto> dtoPage = page.map(this::mapToDto);
+        return ResponseEntity.ok(dtoPage);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ResponseEntity<?> getRetailerVmis(Long warehouseId, Long materialId, Pageable pageable) {
+        Long orgId = OrganizationContextHolder.requireOrganizationId();
+        Page<VmiConfig> page = vmiRepo.findByRetailerOrgWithFilters(orgId, warehouseId, materialId, pageable);
         Page<VmiConfigDto> dtoPage = page.map(this::mapToDto);
         return ResponseEntity.ok(dtoPage);
     }

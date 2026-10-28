@@ -50,12 +50,6 @@ public class Material extends BaseEntity {
 
 	private String unit;
 
-	private Double productionCostPerUnit;
-
-	private Double productionCapacityPerMonth;
-
-	private Double availableQuantity;
-
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "product_id", referencedColumnName = "product_id")
 	@ToString.Exclude
@@ -100,19 +94,6 @@ public class Material extends BaseEntity {
 	@Column(name = "lead_time_days")
 	private Integer leadTimeDays;
 
-	@Column(name = "safety_stock")
-	private Double safetyStock;
-
-	// FR-RET-013: Expiry and Batch Tracking
-	@Column(name = "track_batches")
-	private Boolean trackBatches = false;
-
-	@Column(name = "track_expiry")
-	private Boolean trackExpiry = false;
-
-	@Column(name = "shelf_life_days")
-	private Integer shelfLifeDays;
-
 	// FR-RET-014: Inventory Valuation
 	@Enumerated(EnumType.STRING)
 	@Column(name = "valuation_method")
@@ -120,9 +101,6 @@ public class Material extends BaseEntity {
 
 	@Column(name = "standard_cost")
 	private Double standardCost;
-
-	@Column(name = "last_purchase_price")
-	private Double lastPurchasePrice;
 
 	@Column(name = "average_cost")
 	private Double averageCost;

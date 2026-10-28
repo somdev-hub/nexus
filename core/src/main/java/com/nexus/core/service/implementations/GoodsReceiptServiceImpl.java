@@ -342,6 +342,15 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
 		switch (newStatus) {
 		case RECEIVED:
 			gr.setReceivedAt(Timestamp.valueOf(LocalDateTime.now()));
+			// Block receiving unless production warehouse capacity is set
+			Long buyerOrgId = gr.getPurchaseOrder() != null && gr.getPurchaseOrder().getBuyerOrg() != null
+					? gr.getPurchaseOrder().getBuyerOrg().getAccountId() : null;
+			if (buyerOrgId == null) buyerOrgId = OrganizationContextHolder.getCurrentOrganizationId();
+			Warehouse prodWh = warehouseRepo.findByOrg(buyerOrgId, PageRequest.of(0, 10)).getContent().stream()
+					.filter(w -> "PRODUCTION".equalsIgnoreCase(w.getWarehouseType())).findFirst().orElse(null);
+			if (prodWh == null || prodWh.getCapacity() == null || prodWh.getCapacity() <= 0) {
+				throw new ValidationException("Production warehouse capacity must be set before receiving materials");
+			}
 			// Receiving accepts whatever was counted unless the line was
 			// explicitly part-accepted/rejected: without this default the
 			// accepted totals stay null and the PO can never flip to
