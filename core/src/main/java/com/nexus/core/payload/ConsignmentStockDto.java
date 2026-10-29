@@ -39,6 +39,8 @@ public class ConsignmentStockDto {
 
     private Long priceTierId;
 
+    private String priceTierName;
+
     private Double quantityOnHand;
 
     private Double quantityReserved;
@@ -50,6 +52,8 @@ public class ConsignmentStockDto {
     private String notes;
 
     private Long supplierOrgId;
+
+    private String supplierOrgName;
 
     private Timestamp createdAt;
     private Timestamp updatedAt;

@@ -188,8 +188,19 @@ public class ConsignmentStockServiceImpl implements ConsignmentStockService {
     }
 
     private ConsignmentStockDto mapToDto(ConsignmentStock cs) {
-        ConsignmentStockDto dto = modelMapper.map(cs, ConsignmentStockDto.class);
-        if (cs.getSupplierOrg() != null) dto.setSupplierOrgId(cs.getSupplierOrg().getAccountId());
+        ConsignmentStockDto dto = new ConsignmentStockDto();
+        dto.setConsignmentId(cs.getConsignmentId());
+        dto.setConsignmentNumber(cs.getConsignmentNumber());
+        dto.setNotes(cs.getNotes());
+        dto.setQuantityOnHand(cs.getQuantityOnHand());
+        dto.setQuantityReserved(cs.getQuantityReserved());
+        dto.setQuantityAvailable(cs.getQuantityAvailable());
+        dto.setCreatedAt(cs.getCreatedAt());
+        dto.setUpdatedAt(cs.getUpdatedAt());
+        if (cs.getSupplierOrg() != null) {
+            dto.setSupplierOrgId(cs.getSupplierOrg().getAccountId());
+            dto.setSupplierOrgName(cs.getSupplierOrg().getName());
+        }
         if (cs.getRetailerOrg() != null) {
             dto.setRetailerOrgId(cs.getRetailerOrg().getAccountId());
             dto.setRetailerOrgName(cs.getRetailerOrg().getName());
@@ -207,11 +218,22 @@ public class ConsignmentStockServiceImpl implements ConsignmentStockService {
         dto.setPriceTierId(cs.getPriceTierId());
         if (cs.getCatalogId() != null) {
             SupplierCatalog cat = supplierCatalogRepo.findById(cs.getCatalogId()).orElse(null);
-            if (cat != null) dto.setCatalogName(cat.getName());
+            if (cat != null) {
+                if (dto.getMaterialName() == null) dto.setMaterialName(cat.getName());
+                dto.setCatalogName(cat.getName());
+            }
         }
         if (cs.getVariantId() != null) {
             ProductVariant v = productVariantRepo.findById(cs.getVariantId()).orElse(null);
             if (v != null) dto.setVariantValue(v.getVariantValue());
+        }
+        if (cs.getVariantId() != null) {
+            ProductVariant v = productVariantRepo.findById(cs.getVariantId()).orElse(null);
+            if (v != null) dto.setVariantValue(v.getVariantValue());
+        }
+        if (cs.getPriceTierId() != null) {
+            com.nexus.core.model.entities.SupplierPriceTier t = supplierPriceTierRepo.findById(cs.getPriceTierId()).orElse(null);
+            if (t != null) dto.setPriceTierName(t.getTierName());
         }
         return dto;
     }
