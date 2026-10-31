@@ -51,6 +51,15 @@ public class VmiConfig extends BaseEntity {
     @EqualsAndHashCode.Exclude
     private Material material;
 
+    @Column(name = "catalog_id")
+    private Long catalogId;
+
+    @Column(name = "variant_id")
+    private Long variantId;
+
+    @Column(name = "price_tier_id")
+    private Long priceTierId;
+
     @Column(name = "min_level")
     private Double minLevel;
 

@@ -146,6 +146,29 @@ public class ConsignmentStockServiceImpl implements ConsignmentStockService {
         Long orgId = OrganizationContextHolder.requireOrganizationId();
         ConsignmentStock cs = stockRepo.findByConsignmentIdAndSupplierOrgAccountId(id, orgId)
                 .orElseThrow(() -> new ResourceNotFoundException("ConsignmentStock", "consignmentId", id));
+        if (dto.getCatalogId() != null) {
+            cs.setCatalogId(dto.getCatalogId());
+            SupplierCatalog catalog = supplierCatalogRepo.findById(dto.getCatalogId()).orElse(null);
+            if (catalog != null) {
+                Material material = materialRepo.findFirstByOrgAndCatalogId(orgId, catalog.getCatalogId()).orElse(null);
+                if (material == null) {
+                    material = new Material();
+                    material.setOrg(orgId);
+                    material.setCatalogId(catalog.getCatalogId());
+                    material.setName(catalog.getName());
+                    material.setCode(catalog.getCode());
+                    material.setCategory(catalog.getCategory() != null ? catalog.getCategory() : catalog.getFamily());
+                    material.setUnit(catalog.getUnitOfMeasure());
+                    material.setCurrency(catalog.getCurrency() != null ? catalog.getCurrency() : "USD");
+                    material.setPricePerUnit(catalog.getBasePrice());
+                    material.setSupplierOrgId(catalog.getSupplierOrg() != null ? catalog.getSupplierOrg().getAccountId() : null);
+                    material = materialRepo.save(material);
+                }
+                cs.setMaterial(material);
+            }
+        }
+        if (dto.getVariantId() != null) cs.setVariantId(dto.getVariantId());
+        if (dto.getPriceTierId() != null) cs.setPriceTierId(dto.getPriceTierId());
         if (dto.getQuantityOnHand() != null) cs.setQuantityOnHand(dto.getQuantityOnHand());
         if (dto.getQuantityReserved() != null) cs.setQuantityReserved(dto.getQuantityReserved());
         if (dto.getNotes() != null) cs.setNotes(dto.getNotes());

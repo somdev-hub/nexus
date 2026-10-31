@@ -513,6 +513,15 @@ public class CoreSupplierController {
 		return supplierService.getConsignmentSummary(auth, org);
 	}
 
+	@LogActivity("Update Consignment via IAM")
+	@PutMapping("/consignment/{id}/update")
+	public ResponseEntity<?> updateConsignment(@PathVariable Long id,
+			@RequestBody Map<String, Object> dto,
+			@RequestHeader("Authorization") String auth,
+			@RequestHeader("X-Organization-ID") String org) {
+		return supplierService.updateConsignment(id, dto, auth, org);
+	}
+
 	@LogActivity("Adjust Consignment via IAM")
 	@PostMapping("/consignment/{id}/adjust")
 	public ResponseEntity<?> adjustCons(@PathVariable Long id, @RequestParam Double quantity,

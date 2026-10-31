@@ -176,6 +176,9 @@ public class SupplierContract extends BaseEntity {
 	public enum ContractStatus {
 		DRAFT,
 		PENDING_APPROVAL,
+		PENDING_RETAILER_APPROVAL,
+		PENDING_SUPPLIER_APPROVAL,
+		PENDING_LOGISTICS_APPROVAL,
 		ACTIVE,
 		EXPIRED,
 		TERMINATED,

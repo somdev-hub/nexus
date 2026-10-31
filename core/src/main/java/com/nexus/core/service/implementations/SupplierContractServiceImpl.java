@@ -537,7 +537,7 @@ public class SupplierContractServiceImpl implements SupplierContractService {
 								.body("Only DRAFT or PENDING_APPROVAL contracts can be approved");
 					}
 
-					existing.setStatus(SupplierContract.ContractStatus.PENDING_APPROVAL);
+					existing.setStatus(SupplierContract.ContractStatus.PENDING_SUPPLIER_APPROVAL);
 					existing.setApprovedBy(approvedBy);
 					existing.setApprovedAt(LocalDateTime.now());
 
@@ -691,7 +691,9 @@ public class SupplierContractServiceImpl implements SupplierContractService {
 		return findSupplierContract(contractId, orgId)
 				.map(contract -> {
 					if (contract.getStatus() != SupplierContract.ContractStatus.ACTIVE
-							&& contract.getStatus() != SupplierContract.ContractStatus.PENDING_APPROVAL) {
+							&& contract.getStatus() != SupplierContract.ContractStatus.PENDING_APPROVAL
+							&& contract.getStatus() != SupplierContract.ContractStatus.PENDING_SUPPLIER_APPROVAL
+							&& contract.getStatus() != SupplierContract.ContractStatus.PENDING_LOGISTICS_APPROVAL) {
 						return ResponseEntity.badRequest()
 								.body("Only ACTIVE or PENDING_APPROVAL contracts can be approved by the supplier");
 					}
@@ -836,8 +838,10 @@ public class SupplierContractServiceImpl implements SupplierContractService {
 	private boolean isValidStatusTransition(SupplierContract.ContractStatus from, SupplierContract.ContractStatus to) {
 		return switch (from) {
 			case DRAFT -> to == SupplierContract.ContractStatus.PENDING_APPROVAL
+					|| to == SupplierContract.ContractStatus.PENDING_SUPPLIER_APPROVAL
 					|| to == SupplierContract.ContractStatus.TERMINATED;
-			case PENDING_APPROVAL -> to == SupplierContract.ContractStatus.ACTIVE
+			case PENDING_APPROVAL, PENDING_RETAILER_APPROVAL, PENDING_SUPPLIER_APPROVAL, PENDING_LOGISTICS_APPROVAL ->
+				to == SupplierContract.ContractStatus.ACTIVE
 					|| to == SupplierContract.ContractStatus.TERMINATED || to == SupplierContract.ContractStatus.DRAFT;
 			case ACTIVE ->
 				to == SupplierContract.ContractStatus.SUSPENDED || to == SupplierContract.ContractStatus.TERMINATED

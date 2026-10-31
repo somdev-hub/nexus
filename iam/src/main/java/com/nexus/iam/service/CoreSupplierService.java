@@ -97,6 +97,7 @@ public interface CoreSupplierService {
     ResponseEntity<?> getConsignment(Long id, String authToken, String orgId);
     ResponseEntity<?> getAllConsignments(String authToken, String orgId, Pageable pageable);
     ResponseEntity<?> adjustConsignment(Long id, Double quantity, String reason, String authToken, String orgId);
+    ResponseEntity<?> updateConsignment(Long id, Map<String, Object> dto, String authToken, String orgId);
     ResponseEntity<?> deleteConsignment(Long id, String authToken, String orgId);
     ResponseEntity<?> getConsignmentSummary(String authToken, String orgId);
 

@@ -25,8 +25,19 @@ public class VmiConfigDto {
 
     private String warehouseCode;
 
-    @NotNull(message = "Material ID is required")
     private Long materialId;
+
+    private Long catalogId;
+
+    private String catalogName;
+
+    private Long variantId;
+
+    private String variantValue;
+
+    private Long priceTierId;
+
+    private String priceTierName;
 
     private String materialName;
 
@@ -45,6 +56,8 @@ public class VmiConfigDto {
     private Boolean isActive;
 
     private Long supplierOrgId;
+
+    private String supplierOrgName;
 
     private Timestamp createdAt;
     private Timestamp updatedAt;

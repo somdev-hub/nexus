@@ -462,6 +462,12 @@ public class CoreSupplierServiceImpl implements CoreSupplierService {
 	}
 
 	@Override
+	public ResponseEntity<?> updateConsignment(Long id, Map<String, Object> dto, String authToken, String orgId) {
+		String url = webConstants.getCoreSupplierConsignmentGetUrl() + "/" + id + "/update";
+		return callPut(url, dto, authToken, orgId);
+	}
+
+	@Override
 	public ResponseEntity<?> deleteConsignment(Long id, String authToken, String orgId) {
 		return callDelete(webConstants.getCoreSupplierConsignmentGetUrl() + "/" + id, authToken, orgId);
 	}
