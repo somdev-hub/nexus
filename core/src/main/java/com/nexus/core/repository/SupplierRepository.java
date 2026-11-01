@@ -38,6 +38,8 @@ public interface SupplierRepository extends JpaRepository<Supplier, Long> {
 	// New methods for organization-scoped queries
 	Page<Supplier> findByAccountAccountId(Long accountId, Pageable pageable);
 
+	Optional<Supplier> findFirstBySupplierOrgAccountId(Long supplierOrgAccountId);
+
 	Page<Supplier> findByCategoryAndAccountAccountId(String category, Long accountId, Pageable pageable);
 
 	Page<Supplier> findByLocationAndAccountAccountId(String location, Long accountId, Pageable pageable);

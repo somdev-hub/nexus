@@ -72,6 +72,9 @@ public class ShipmentDto {
 	private String carrierTrackingNumber;
 	private String carrierReference;
 
+	private String referenceType;
+	private Long referenceId;
+
 	private String specialInstructions;
 	private String hazardousMaterialsInfo;
 	private String customsInformation;

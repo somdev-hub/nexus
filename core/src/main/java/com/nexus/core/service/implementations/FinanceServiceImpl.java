@@ -18,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.nexus.core.annotation.LogActivity;
 import com.nexus.core.model.entities.CarrierPayable;
+import com.nexus.core.model.entities.ConsignmentConsumption;
 import com.nexus.core.model.entities.DriverCommission;
 import com.nexus.core.model.entities.FreightInvoice;
 import com.nexus.core.model.entities.Invoice;
@@ -25,6 +26,7 @@ import com.nexus.core.model.entities.LogisticsPayableLine;
 import com.nexus.core.model.entities.Partnership;
 import com.nexus.core.model.entities.ProductionOrder;
 import com.nexus.core.model.entities.PurchaseOrder;
+import com.nexus.core.model.entities.VmiReplenishment;
 import com.nexus.core.model.entities.Shipment;
 import com.nexus.core.model.enums.FreightInvoiceStatus;
 import com.nexus.core.model.enums.DriverCommissionStatus;
@@ -35,6 +37,7 @@ import com.nexus.core.model.enums.PayableStatus;
 import com.nexus.core.model.enums.PurchaseOrderStatus;
 import com.nexus.core.model.enums.ShipmentStatus;
 import com.nexus.core.repository.CarrierPayableRepo;
+import com.nexus.core.repository.ConsignmentConsumptionRepo;
 import com.nexus.core.repository.DriverCommissionRepo;
 import com.nexus.core.repository.FreightInvoiceRepo;
 import com.nexus.core.repository.InvoiceRepo;
@@ -42,6 +45,7 @@ import com.nexus.core.repository.LogisticsPayableLineRepo;
 import com.nexus.core.repository.PartnershipRepo;
 import com.nexus.core.repository.ProductionOrderRepo;
 import com.nexus.core.repository.PurchaseOrderRepo;
+import com.nexus.core.repository.VmiReplenishmentRepo;
 import com.nexus.core.repository.ShipmentRepo;
 import com.nexus.core.security.OrganizationContextHolder;
 import com.nexus.core.service.interfaces.FinanceService;
@@ -58,7 +62,9 @@ import lombok.RequiredArgsConstructor;
 public class FinanceServiceImpl implements FinanceService {
 
 	private final PurchaseOrderRepo poRepo;
+	private final ConsignmentConsumptionRepo consignmentConsumptionRepo;
 	private final ProductionOrderRepo productionOrderRepo;
+	private final VmiReplenishmentRepo vmiReplenishmentRepo;
 	private final InvoiceRepo invoiceRepo;
 	private final ShipmentRepo shipmentRepo;
 	private final FreightInvoiceRepo freightRepo;
@@ -175,6 +181,36 @@ public class FinanceServiceImpl implements FinanceService {
 				r.put("amount", po.getRevenueAmount());
 				r.put("status", "COMPLETED");
 				r.put("date", po.getCompletedAt());
+				rows.add(r);
+			}
+		}
+		// Consignment consumption (retailer payable)
+		if (kind == null || "CONSIGNMENT".equalsIgnoreCase(kind) || "CONSIGNMENT_CONSUMPTION".equalsIgnoreCase(kind)) {
+			for (ConsignmentConsumption cc : consignmentConsumptionRepo.findByRetailerOrgAccountId(orgId, Pageable.unpaged()).getContent()) {
+				if (!inRange(cc.getConsumedAt(), from, to)) continue;
+				Map<String, Object> r = new LinkedHashMap<>();
+				r.put("kind", "CONSIGNMENT_CONSUMPTION");
+				r.put("id", cc.getConsumptionId());
+				r.put("number", "CONS-CONS-" + cc.getConsumptionId());
+				r.put("party", cc.getSupplierOrg() != null ? cc.getSupplierOrg().getName() : null);
+				r.put("amount", cc.getTotalAmount());
+				r.put("status", "CONSUMED");
+				r.put("date", cc.getConsumedAt());
+				rows.add(r);
+			}
+		}
+		// VMI replenishment (retailer payable)
+		if (kind == null || "VMI".equalsIgnoreCase(kind) || "VMI_REPLENISHMENT".equalsIgnoreCase(kind)) {
+			for (VmiReplenishment vr : vmiReplenishmentRepo.findByRetailerOrgAccountId(orgId, Pageable.unpaged()).getContent()) {
+				if (!inRange(vr.getReceivedAt(), from, to)) continue;
+				Map<String, Object> r = new LinkedHashMap<>();
+				r.put("kind", "VMI_REPLENISHMENT");
+				r.put("id", vr.getReplenishmentId());
+				r.put("number", "VMI-REPL-" + vr.getReplenishmentId());
+				r.put("party", vr.getSupplierOrg() != null ? vr.getSupplierOrg().getName() : null);
+				r.put("amount", vr.getTotalAmount());
+				r.put("status", "RECEIVED");
+				r.put("date", vr.getReceivedAt());
 				rows.add(r);
 			}
 		}

@@ -11,6 +11,8 @@ public interface ConsignmentStockRepo extends JpaRepository<ConsignmentStock, Lo
 
     Optional<ConsignmentStock> findByConsignmentIdAndSupplierOrgAccountId(Long consignmentId, Long orgId);
 
+    Optional<ConsignmentStock> findByConsignmentIdAndRetailerOrgAccountId(Long consignmentId, Long orgId);
+
     @Query("""
             SELECT cs FROM ConsignmentStock cs
             WHERE cs.supplierOrg.accountId = :orgId

@@ -1,11 +1,17 @@
 package com.nexus.core.service.implementations;
 
 import com.nexus.core.model.entities.Account;
+import com.nexus.core.dto.ShipmentDto;
 import com.nexus.core.model.entities.Material;
 import com.nexus.core.model.entities.ProductVariant;
+import com.nexus.core.model.entities.Stock;
+import com.nexus.core.model.enums.ShipmentMode;
+import com.nexus.core.model.enums.ShipmentStatus;
+import com.nexus.core.model.entities.Supplier;
 import com.nexus.core.model.entities.SupplierCatalog;
 import com.nexus.core.model.entities.SupplierContract;
 import com.nexus.core.model.entities.VmiConfig;
+import com.nexus.core.model.entities.VmiReplenishment;
 import com.nexus.core.model.entities.Warehouse;
 import com.nexus.core.exception.ResourceNotFoundException;
 import com.nexus.core.exception.ValidationException;
@@ -13,21 +19,26 @@ import com.nexus.core.payload.VmiConfigDto;
 import com.nexus.core.repository.AccountRepository;
 import com.nexus.core.repository.MaterialRepo;
 import com.nexus.core.repository.ProductVariantRepo;
+import com.nexus.core.repository.SupplierRepository;
 import com.nexus.core.repository.StockRepo;
 import com.nexus.core.repository.SupplierCatalogRepo;
 import com.nexus.core.repository.SupplierContractRepo;
 import com.nexus.core.repository.SupplierPriceTierRepo;
+import com.nexus.core.repository.VmiReplenishmentRepo;
 import com.nexus.core.repository.VmiConfigRepo;
 import com.nexus.core.repository.WarehouseRepo;
 import com.nexus.core.security.OrganizationContextHolder;
+import com.nexus.core.service.interfaces.ShipmentService;
 import com.nexus.core.service.interfaces.VmiService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -48,9 +59,12 @@ public class VmiServiceImpl implements VmiService {
     private final MaterialRepo materialRepo;
     private final StockRepo stockRepo;
     private final SupplierCatalogRepo supplierCatalogRepo;
+    private final ShipmentService shipmentService;
+    private final SupplierRepository supplierRepo;
     private final ProductVariantRepo productVariantRepo;
     private final SupplierPriceTierRepo supplierPriceTierRepo;
     private final SupplierContractRepo supplierContractRepo;
+    private final VmiReplenishmentRepo vmiReplenishmentRepo;
     private final ModelMapper modelMapper;
 
     @Override
@@ -191,12 +205,13 @@ public class VmiServiceImpl implements VmiService {
         List<Map<String, Object>> suggestions = vmis.stream().map(vmi -> {
             // Aggregate available stock across warehouses for this material
             // (VMI warehouse filter is applied when set).
+            // VMI is not tied to a single warehouse: aggregate available stock
+            // across all warehouses for this material.
             double available = stockRepo.findAll().stream()
                     .filter(s -> s.getMaterial() != null && (
                             s.getMaterial().getMaterialId().equals(vmi.getMaterial().getMaterialId())
                                     || (vmi.getCatalogId() != null && vmi.getCatalogId().equals(s.getMaterial().getCatalogId()))
                     ))
-                    .filter(s -> vmi.getWarehouse() == null || (s.getWarehouse() != null && s.getWarehouse().getWarehouseId().equals(vmi.getWarehouse().getWarehouseId())))
                     .mapToDouble(s -> s.getQuantityAvailable() != null ? s.getQuantityAvailable() : 0.0)
                     .sum();
             boolean needsReplenish = vmi.getReorderPoint() != null && available <= vmi.getReorderPoint();
@@ -213,6 +228,125 @@ public class VmiServiceImpl implements VmiService {
             );
         }).filter(m -> (Boolean) m.get("needsReplenish")).collect(Collectors.toList());
         return ResponseEntity.ok(suggestions);
+    }
+
+    @Scheduled(cron = "0 0 * * * *")
+    @Transactional
+    public void autoReplenishVmi() {
+        Long orgId = null;
+        try {
+            // process all VMI configs with autoReplenish enabled
+            for (VmiConfig vmi : vmiRepo.findAll()) {
+                if (!Boolean.TRUE.equals(vmi.getAutoReplenish())) continue;
+                if (vmi.getIsActive() == null || !vmi.getIsActive()) continue;
+                // compute available
+                double available = stockRepo.findAll().stream()
+                        .filter(s -> s.getMaterial() != null && (
+                                s.getMaterial().getMaterialId().equals(vmi.getMaterial().getMaterialId())
+                                        || (vmi.getCatalogId() != null && vmi.getCatalogId().equals(s.getMaterial().getCatalogId()))
+                        ))
+                        .mapToDouble(s -> s.getQuantityAvailable() != null ? s.getQuantityAvailable() : 0.0)
+                        .sum();
+                if (vmi.getReorderPoint() != null && available <= vmi.getReorderPoint()) {
+                    log.info("VMI auto-replenish triggered for VMI {} (material {}), available={}, reorderPoint={}",
+                            vmi.getVmiId(), vmi.getMaterial().getMaterialId(), available, vmi.getReorderPoint());
+                    try {
+                        Long supplierOrgId = vmi.getSupplierOrg() != null ? vmi.getSupplierOrg().getAccountId() : null;
+                        Supplier supplier = null;
+                        if (supplierOrgId != null) {
+                            supplier = supplierRepo.findFirstBySupplierOrgAccountId(supplierOrgId).orElse(null);
+                            if (supplier == null) {
+                                supplier = supplierRepo.findByAccountAccountId(supplierOrgId, Pageable.unpaged()).getContent().stream().findFirst().orElse(null);
+                            }
+                        }
+                        if (supplier == null) {
+                            supplier = supplierRepo.findAll(Pageable.unpaged()).getContent().stream().findFirst().orElse(null);
+                        }
+                        Warehouse wh = vmi.getWarehouse();
+                        if (wh == null && vmi.getRetailerOrg() != null) {
+                            wh = warehouseRepo.findByOrg(vmi.getRetailerOrg().getAccountId(), PageRequest.of(0, 1)).getContent().stream().findFirst().orElse(null);
+                        }
+                        if (supplier != null && wh != null) {
+                            ShipmentDto shipment = new ShipmentDto();
+                            shipment.setShipmentNumber("VMI-REPL-" + vmi.getVmiId() + "-" + System.currentTimeMillis());
+                            shipment.setReferenceType("VMI_REPLENISHMENT");
+                            shipment.setReferenceId(vmi.getVmiId());
+                            shipment.setScheduledPickupDate(java.time.LocalDateTime.now());
+                            shipment.setScheduledDeliveryDate(java.time.LocalDateTime.now().plusDays(3));
+                            shipment.setCarrierTrackingNumber(shipment.getShipmentNumber());
+                            shipment.setSupplierId(supplier.getSupplierId());
+                            shipment.setSupplierName(supplier.getBusinessName());
+                            shipment.setWarehouseId(wh.getWarehouseId());
+                            shipment.setWarehouseName(wh.getCode());
+                            shipment.setMode(ShipmentMode.ROAD);
+                            shipment.setStatus(ShipmentStatus.DRAFT);
+                            shipment.setPickupAddress(supplier.getLocation() != null ? supplier.getLocation() : "Supplier warehouse");
+                            shipment.setDeliveryAddress(wh.getLocation() != null ? wh.getLocation() : "Retailer warehouse");
+                            ShipmentDto created = shipmentService.createShipment(shipment);
+                            vmi.setLastShipmentId(created.getShipmentId());
+                            vmi.setLastReplenishedAt(Timestamp.valueOf(LocalDateTime.now()));
+                            vmiRepo.save(vmi);
+                            log.info("Created replenishment shipment {} for VMI {}", created.getShipmentId(), vmi.getVmiId());
+                        }
+                    } catch (Exception e) {
+                        log.error("Failed to create replenishment shipment for VMI {}", vmi.getVmiId(), e);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.error("VMI auto-replenish failed", e);
+        }
+    }
+
+    @Override
+    @Transactional
+    public ResponseEntity<?> receiveVmiByRetailer(Long id, Double quantity) {
+        Long orgId = OrganizationContextHolder.requireOrganizationId();
+        VmiConfig vmi = vmiRepo.findById(id).orElseThrow(() -> new ResourceNotFoundException("VmiConfig", "id", id));
+        if (vmi.getRetailerOrg() == null || !vmi.getRetailerOrg().getAccountId().equals(orgId))
+            throw new ValidationException("Not allowed");
+        if (quantity == null || quantity <= 0) throw new ValidationException("Quantity must be positive");
+
+        // Increase owned stock in first reserve warehouse
+        Material material = vmi.getMaterial();
+        if (material != null) {
+            Warehouse wh = warehouseRepo.findByOrg(orgId, PageRequest.of(0, 10)).getContent().stream()
+                    .filter(w -> "RESERVE".equalsIgnoreCase(w.getWarehouseType()))
+                    .min(java.util.Comparator.comparingInt(w -> w.getFillOrder() != null ? w.getFillOrder() : Integer.MAX_VALUE))
+                    .orElse(null);
+            if (wh != null) {
+                Stock st = stockRepo.findByMaterialAndWarehouse(material, wh).orElse(null);
+                if (st == null) {
+                    st = new Stock();
+                    st.setMaterial(material);
+                    st.setWarehouse(wh);
+                    st.setQuantityOnHand(0.0);
+                    st.setQuantityReserved(0.0);
+                    st.setQuantityAvailable(0.0);
+                }
+                st.setQuantityOnHand((st.getQuantityOnHand() != null ? st.getQuantityOnHand() : 0.0) + quantity);
+                st.recalculateAvailable();
+                stockRepo.save(st);
+            }
+        }
+
+        vmi.setLastReplenishedAt(Timestamp.valueOf(LocalDateTime.now()));
+        vmiRepo.save(vmi);
+
+        // Record replenishment for finance
+        VmiReplenishment vr = new VmiReplenishment();
+        vr.setVmi(vmi);
+        vr.setRetailerOrg(vmi.getRetailerOrg());
+        vr.setSupplierOrg(vmi.getSupplierOrg());
+        vr.setMaterial(material);
+        vr.setQuantity(quantity);
+        double unitPrice = material != null && material.getPricePerUnit() != null ? material.getPricePerUnit() : 0.0;
+        vr.setUnitPrice(unitPrice);
+        vr.setTotalAmount(unitPrice * quantity);
+        vr.setReceivedAt(Timestamp.valueOf(LocalDateTime.now()));
+        vmiReplenishmentRepo.save(vr);
+
+        return ResponseEntity.ok(mapToDto(vmi));
     }
 
     private VmiConfigDto mapToDto(VmiConfig vmi) {

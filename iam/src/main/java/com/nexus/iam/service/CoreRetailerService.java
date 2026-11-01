@@ -212,7 +212,15 @@ public interface CoreRetailerService {
 
 	// Retailer Consignment/VMI Endpoints
 	ResponseEntity<?> getRetailerConsignments(String authToken, String orgIdHeader, Pageable pageable, Long warehouseId, Long materialId);
+
+	ResponseEntity<?> consumeConsignment(Long id, Double quantity, String authToken, String orgIdHeader);
+
+	ResponseEntity<?> returnConsignment(Long id, Double quantity, String authToken, String orgIdHeader);
+
+	ResponseEntity<?> receiveConsignment(Long id, Double quantity, String authToken, String orgIdHeader);
 	ResponseEntity<?> getRetailerVmis(String authToken, String orgIdHeader, Pageable pageable, Long warehouseId, Long materialId);
+
+	ResponseEntity<?> receiveVmi(Long id, Double quantity, String authToken, String orgIdHeader);
 
 	// Invoice Endpoints
 	ResponseEntity<?> createInvoice(Map<String, Object> invoiceDto, String authToken, String orgIdHeader);

@@ -24,4 +24,10 @@ public class RetailerVmiController {
             @PageableDefault(size = 20) Pageable pageable) {
         return vmiService.getRetailerVmis(warehouseId, materialId, pageable);
     }
+
+    @PostMapping("/{id}/receive")
+    @LogActivity("Receive VMI Replenishment")
+    public ResponseEntity<?> receive(@PathVariable Long id, @RequestParam Double quantity) {
+        return vmiService.receiveVmiByRetailer(id, quantity);
+    }
 }

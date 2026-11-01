@@ -53,6 +53,8 @@ public class VmiConfigDto {
 
     private Timestamp lastReplenishedAt;
 
+    private Long lastShipmentId;
+
     private Boolean isActive;
 
     private Long supplierOrgId;

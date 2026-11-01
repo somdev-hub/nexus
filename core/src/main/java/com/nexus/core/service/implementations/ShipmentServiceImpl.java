@@ -65,6 +65,17 @@ public class ShipmentServiceImpl implements ShipmentService {
     public ShipmentDto createShipment(ShipmentDto shipmentDto) {
         log.info("Creating new shipment: {}", shipmentDto.getShipmentNumber());
         Shipment shipment = modelMapper.map(shipmentDto, Shipment.class);
+        shipment.setReferenceType(shipmentDto.getReferenceType());
+        shipment.setReferenceId(shipmentDto.getReferenceId());
+        if (shipmentDto.getCarrierTrackingNumber() != null) {
+            shipment.setTrackingNumber(shipmentDto.getCarrierTrackingNumber());
+        }
+        if (shipmentDto.getScheduledPickupDate() != null) {
+            shipment.setPickupDate(java.sql.Date.valueOf(shipmentDto.getScheduledPickupDate().toLocalDate()));
+        }
+        if (shipmentDto.getScheduledDeliveryDate() != null) {
+            shipment.setDeliveryDate(java.sql.Date.valueOf(shipmentDto.getScheduledDeliveryDate().toLocalDate()));
+        }
         shipment.setStatus(ShipmentStatus.DRAFT);
         shipment.setCreatedAt(new Timestamp(System.currentTimeMillis()));
         shipment.setUpdatedAt(new Timestamp(System.currentTimeMillis()));
@@ -84,26 +95,26 @@ public class ShipmentServiceImpl implements ShipmentService {
             shipment.setStatus(ShipmentStatus.BOOKED);
         }
         Shipment saved = shipmentRepo.save(shipment);
-        return modelMapper.map(saved, ShipmentDto.class);
+        return mapShipmentToDto(saved);
     }
 
     @Override
     @Transactional(readOnly = true)
     public Optional<ShipmentDto> getShipmentById(Long shipmentId) {
-        return shipmentRepo.findById(shipmentId).map(s -> modelMapper.map(s, ShipmentDto.class));
+        return shipmentRepo.findById(shipmentId).map(s -> mapShipmentToDto(s));
     }
 
     @Override
     @Transactional(readOnly = true)
     public Page<ShipmentDto> getAllShipments(Pageable pageable) {
-        return shipmentRepo.findAll(pageable).map(s -> modelMapper.map(s, ShipmentDto.class));
+        return shipmentRepo.findAll(pageable).map(s -> mapShipmentToDto(s));
     }
 
     @Override
     @Transactional(readOnly = true)
     public Page<ShipmentDto> getShipmentsByStatus(ShipmentStatus status, Pageable pageable) {
         var all = shipmentRepo.findAll().stream().filter(s -> s.getStatus() == status).toList();
-        var mapped = all.stream().map(s -> modelMapper.map(s, ShipmentDto.class)).toList();
+        var mapped = all.stream().map(s -> mapShipmentToDto(s)).toList();
         return new PageImpl<>(mapped, pageable, mapped.size());
     }
 
@@ -111,7 +122,7 @@ public class ShipmentServiceImpl implements ShipmentService {
     @Transactional(readOnly = true)
     public Page<ShipmentDto> getShipmentsByMode(ShipmentMode mode, Pageable pageable) {
         var all = shipmentRepo.findAll().stream().filter(s -> s.getShipmentMode() == mode).toList();
-        var mapped = all.stream().map(s -> modelMapper.map(s, ShipmentDto.class)).toList();
+        var mapped = all.stream().map(s -> mapShipmentToDto(s)).toList();
         return new PageImpl<>(mapped, pageable, mapped.size());
     }
 
@@ -123,7 +134,7 @@ public class ShipmentServiceImpl implements ShipmentService {
         var all = shipmentRepo.findAll().stream()
                 .filter(s -> s.getPickupTimeWindowStart() != null && !s.getPickupTimeWindowStart().before(start) && !s.getPickupTimeWindowStart().after(end))
                 .toList();
-        var mapped = all.stream().map(s -> modelMapper.map(s, ShipmentDto.class)).toList();
+        var mapped = all.stream().map(s -> mapShipmentToDto(s)).toList();
         return new PageImpl<>(mapped, pageable, mapped.size());
     }
 
@@ -131,7 +142,7 @@ public class ShipmentServiceImpl implements ShipmentService {
     @Transactional(readOnly = true)
     public Page<ShipmentDto> getShipmentsBySupplier(Long supplierId, Pageable pageable) {
         var all = shipmentRepo.findByPurchaseOrderId(supplierId);
-        var mapped = all.stream().map(s -> modelMapper.map(s, ShipmentDto.class)).toList();
+        var mapped = all.stream().map(s -> mapShipmentToDto(s)).toList();
         return new PageImpl<>(mapped, pageable, mapped.size());
     }
 
@@ -141,7 +152,7 @@ public class ShipmentServiceImpl implements ShipmentService {
         var all = shipmentRepo.findAll().stream()
                 .filter(s -> s.getDeliveryLocation() != null)
                 .toList();
-        var mapped = all.stream().map(s -> modelMapper.map(s, ShipmentDto.class)).toList();
+        var mapped = all.stream().map(s -> mapShipmentToDto(s)).toList();
         return new PageImpl<>(mapped, pageable, mapped.size());
     }
 
@@ -154,7 +165,7 @@ public class ShipmentServiceImpl implements ShipmentService {
         existing.setShipmentId(shipmentId);
         existing.setUpdatedAt(new Timestamp(System.currentTimeMillis()));
         Shipment saved = shipmentRepo.save(existing);
-        return modelMapper.map(saved, ShipmentDto.class);
+        return mapShipmentToDto(saved);
     }
 
     @Override
@@ -309,7 +320,7 @@ public class ShipmentServiceImpl implements ShipmentService {
         if (actualCost != null) shipment.setActualFreightCost(actualCost.doubleValue());
         if (currency != null) shipment.setCurrency(currency.getCurrencyCode());
         shipment.setUpdatedAt(new Timestamp(System.currentTimeMillis()));
-        return modelMapper.map(shipmentRepo.save(shipment), ShipmentDto.class);
+        return mapShipmentToDto(shipment);
     }
 
     @Override
@@ -317,7 +328,7 @@ public class ShipmentServiceImpl implements ShipmentService {
     public Page<ShipmentDto> getShipmentsByLogisticsOrg(Pageable pageable) {
         Long orgId = OrganizationContextHolder.requireOrganizationId();
         return shipmentRepo.findByLogisticsOrgAccountId(orgId, pageable)
-                .map(s -> modelMapper.map(s, ShipmentDto.class));
+                .map(s -> mapShipmentToDto(s));
     }
 
     @Override
@@ -326,7 +337,7 @@ public class ShipmentServiceImpl implements ShipmentService {
         var all = shipmentRepo.findAll().stream()
                 .filter(s -> s.getShipmentNumber() != null && s.getShipmentNumber().contains(query))
                 .toList();
-        var mapped = all.stream().map(s -> modelMapper.map(s, ShipmentDto.class)).toList();
+        var mapped = all.stream().map(s -> mapShipmentToDto(s)).toList();
         return new PageImpl<>(mapped, pageable, mapped.size());
     }
 
@@ -334,7 +345,7 @@ public class ShipmentServiceImpl implements ShipmentService {
     @Transactional(readOnly = true)
     public List<ShipmentDto> getShipmentsRequiringAttention() {
         var all = shipmentRepo.findAll().stream().filter(s -> s.getStatus() == ShipmentStatus.EXCEPTION).toList();
-        return all.stream().map(s -> modelMapper.map(s, ShipmentDto.class)).collect(Collectors.toList());
+        return all.stream().map(s -> mapShipmentToDto(s)).collect(Collectors.toList());
     }
 
     @Override
@@ -344,7 +355,7 @@ public class ShipmentServiceImpl implements ShipmentService {
         var all = shipmentRepo.findAll().stream()
                 .filter(s -> s.getEstimatedArrival() != null && s.getEstimatedArrival().before(now) && s.getStatus() != ShipmentStatus.DELIVERED)
                 .toList();
-        return all.stream().map(s -> modelMapper.map(s, ShipmentDto.class)).collect(Collectors.toList());
+        return all.stream().map(s -> mapShipmentToDto(s)).collect(Collectors.toList());
     }
 
     private static final Map<ShipmentStatus, java.util.Set<ShipmentStatus>> ALLOWED_TRANSITIONS = Map.ofEntries(
@@ -387,7 +398,7 @@ public class ShipmentServiceImpl implements ShipmentService {
         // are delivered, the PO is received. RECEIVED via goods receipt
         // still works — these moves are forward-only and idempotent.
         syncPurchaseOrder(saved, newStatus);
-        return modelMapper.map(saved, ShipmentDto.class);
+        return mapShipmentToDto(saved);
     }
 
     private void releaseDriver(Shipment shipment) {
@@ -489,5 +500,48 @@ public class ShipmentServiceImpl implements ShipmentService {
                 .max(Integer::compareTo)
                 .map(max -> max + 1)
                 .orElse(1);
+    }
+    private ShipmentDto mapShipmentToDto(Shipment s) {
+        ShipmentDto dto = new ShipmentDto();
+        dto.setShipmentId(s.getShipmentId());
+        dto.setShipmentNumber(s.getShipmentNumber());
+        dto.setMode(s.getShipmentMode());
+        dto.setStatus(s.getStatus());
+        dto.setPickupAddress(s.getPickupAddress());
+        dto.setDeliveryAddress(s.getDeliveryAddress());
+        dto.setPickupContactName(s.getPickupContactName());
+        dto.setPickupContactPhone(s.getPickupContactPhone());
+        dto.setPickupContactEmail(s.getPickupContactEmail());
+        dto.setDeliveryContactName(s.getDeliveryContactName());
+        dto.setDeliveryContactPhone(s.getDeliveryContactPhone());
+        dto.setDeliveryContactEmail(s.getDeliveryContactEmail());
+        dto.setCarrierName(s.getCarrierName());
+        dto.setCarrierTrackingNumber(s.getTrackingNumber());
+        if (s.getDeliveryDate() != null) {
+            dto.setScheduledDeliveryDate(java.time.LocalDateTime.of(s.getDeliveryDate().toLocalDate(), java.time.LocalTime.MIN));
+        }
+        if (s.getPickupDate() != null) {
+            dto.setScheduledPickupDate(java.time.LocalDateTime.of(s.getPickupDate().toLocalDate(), java.time.LocalTime.MIN));
+        }
+        if (s.getDeliveryDate() != null) {
+            dto.setScheduledDeliveryDate(s.getDeliveryDate().toLocalDate().atStartOfDay());
+        }
+        if (s.getPickupDate() != null) {
+            dto.setScheduledPickupDate(s.getPickupDate().toLocalDate().atStartOfDay());
+        }
+        dto.setCarrierReference(s.getCarrierReference());
+        dto.setSpecialInstructions(s.getSpecialInstructions());
+        dto.setTotalWeight(s.getTotalWeight());
+        dto.setTotalVolume(s.getTotalVolume());
+        dto.setReferenceType(s.getReferenceType());
+        dto.setReferenceId(s.getReferenceId());
+        if (s.getSupplierOrg() != null) {
+            dto.setSupplierId(s.getSupplierOrg().getAccountId());
+            dto.setSupplierName(s.getSupplierOrg().getName());
+        }
+        if (s.getRetailerOrg() != null) {
+            dto.setWarehouseName(s.getRetailerOrg().getName());
+        }
+        return dto;
     }
 }

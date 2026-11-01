@@ -99,6 +99,7 @@ public interface CoreSupplierService {
     ResponseEntity<?> adjustConsignment(Long id, Double quantity, String reason, String authToken, String orgId);
     ResponseEntity<?> updateConsignment(Long id, Map<String, Object> dto, String authToken, String orgId);
     ResponseEntity<?> deleteConsignment(Long id, String authToken, String orgId);
+    ResponseEntity<?> fillConsignment(Long id, String pickupAddress, String deliveryAddress, String authToken, String orgId);
     ResponseEntity<?> getConsignmentSummary(String authToken, String orgId);
 
     // VMI
@@ -159,6 +160,8 @@ public interface CoreSupplierService {
     ResponseEntity<?> getSupplierLogisticsPartnerships(String authToken, String orgId, Pageable pageable);
     ResponseEntity<?> createLogisticsProposal(Map<String, Object> dto, String authToken, String orgId);
     ResponseEntity<?> getSupplierShipments(String status, String authToken, String orgId, Pageable pageable);
+
+    ResponseEntity<?> getSupplierCoreShipments(String authToken, String orgId, Pageable pageable);
     ResponseEntity<?> handoverShipment(Long shipmentId, Map<String, Object> dto, String authToken, String orgId);
 
     // Long-term quotation review + private routes + termination

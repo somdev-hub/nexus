@@ -24,4 +24,22 @@ public class RetailerConsignmentController {
             @PageableDefault(size = 20) Pageable pageable) {
         return consignmentService.getRetailerConsignments(warehouseId, materialId, pageable);
     }
+
+    @PostMapping("/{id}/consume")
+    @LogActivity("Consume Consignment")
+    public ResponseEntity<?> consume(@PathVariable Long id, @RequestParam Double quantity) {
+        return consignmentService.consumeConsignmentByRetailer(id, quantity);
+    }
+
+    @PostMapping("/{id}/return")
+    @LogActivity("Return Consignment")
+    public ResponseEntity<?> returnConsignment(@PathVariable Long id, @RequestParam Double quantity) {
+        return consignmentService.returnConsignmentByRetailer(id, quantity);
+    }
+
+    @PostMapping("/{id}/receive")
+    @LogActivity("Receive Consignment")
+    public ResponseEntity<?> receiveConsignment(@PathVariable Long id, @RequestParam Double quantity) {
+        return consignmentService.receiveConsignmentByRetailer(id, quantity);
+    }
 }

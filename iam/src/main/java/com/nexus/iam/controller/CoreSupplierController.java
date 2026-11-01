@@ -537,6 +537,16 @@ public class CoreSupplierController {
 		return supplierService.deleteConsignment(id, auth, org);
 	}
 
+	@LogActivity("Fill Consignment via IAM")
+	@PostMapping("/consignment/{id}/fill")
+	public ResponseEntity<?> fillConsignment(@PathVariable Long id,
+			@RequestParam(required = false) String pickupAddress,
+			@RequestParam(required = false) String deliveryAddress,
+			@RequestHeader("Authorization") String auth,
+			@RequestHeader("X-Organization-ID") String org) {
+		return supplierService.fillConsignment(id, pickupAddress, deliveryAddress, auth, org);
+	}
+
 	// VMI
 	@LogActivity("Create VMI via IAM")
 	@PostMapping("/vmi/create")
@@ -819,6 +829,14 @@ public class CoreSupplierController {
 	public ResponseEntity<?> createLogisticsProposal(@RequestBody Map<String, Object> dto,
 			@RequestHeader("Authorization") String auth, @RequestHeader("X-Organization-ID") String org) {
 		return supplierService.createLogisticsProposal(dto, auth, org);
+	}
+
+	@LogActivity("Get Supplier Core Shipments")
+	@GetMapping("/core-shipments")
+	public ResponseEntity<?> getSupplierCoreShipments(@RequestHeader("Authorization") String auth,
+			@RequestHeader("X-Organization-ID") String org,
+			@PageableDefault(size = 20) Pageable pageable) {
+		return supplierService.getSupplierCoreShipments(auth, org, pageable);
 	}
 
 	@LogActivity("Get Supplier Shipments")

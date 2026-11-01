@@ -796,6 +796,30 @@ public class CoreRetailerController {
 		return coreRetailerService.getRetailerConsignments(authToken, orgIdHeader, pageable, warehouseId, materialId);
 	}
 
+	@PostMapping("/consignment/{id}/consume")
+	public ResponseEntity<?> consumeConsignment(@PathVariable Long id,
+			@RequestParam Double quantity,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.consumeConsignment(id, quantity, authToken, orgIdHeader);
+	}
+
+	@PostMapping("/consignment/{id}/return")
+	public ResponseEntity<?> returnConsignment(@PathVariable Long id,
+			@RequestParam Double quantity,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.returnConsignment(id, quantity, authToken, orgIdHeader);
+	}
+
+	@PostMapping("/consignment/{id}/receive")
+	public ResponseEntity<?> receiveConsignment(@PathVariable Long id,
+			@RequestParam Double quantity,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.receiveConsignment(id, quantity, authToken, orgIdHeader);
+	}
+
 	@LogActivity("Get Retailer VMI Configs")
 	@GetMapping("/vmi/all")
 	public ResponseEntity<?> getRetailerVmis(@RequestHeader("Authorization") String authToken,
@@ -804,6 +828,14 @@ public class CoreRetailerController {
 			@RequestParam(required = false) Long materialId,
 			@PageableDefault(size = 20) Pageable pageable) {
 		return coreRetailerService.getRetailerVmis(authToken, orgIdHeader, pageable, warehouseId, materialId);
+	}
+
+	@PostMapping("/vmi/{id}/receive")
+	public ResponseEntity<?> receiveVmi(@PathVariable Long id,
+			@RequestParam Double quantity,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.receiveVmi(id, quantity, authToken, orgIdHeader);
 	}
 
 	// Invoice Endpoints

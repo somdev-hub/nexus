@@ -472,6 +472,15 @@ public class CoreSupplierServiceImpl implements CoreSupplierService {
 		return callDelete(webConstants.getCoreSupplierConsignmentGetUrl() + "/" + id, authToken, orgId);
 	}
 
+	@Override
+	public ResponseEntity<?> fillConsignment(Long id, String pickupAddress, String deliveryAddress, String authToken, String orgId) {
+		UriComponentsBuilder b = UriComponentsBuilder
+				.fromUriString(webConstants.getCoreSupplierConsignmentGetUrl() + "/" + id + "/fill");
+		if (pickupAddress != null) b.queryParam("pickupAddress", pickupAddress);
+		if (deliveryAddress != null) b.queryParam("deliveryAddress", deliveryAddress);
+		return callPost(b.toUriString(), null, authToken, orgId);
+	}
+
 	// VMI
 	@Override
 	public ResponseEntity<?> createVmi(Map<String, Object> dto, String authToken, String orgId) {
@@ -727,6 +736,13 @@ public class CoreSupplierServiceImpl implements CoreSupplierService {
 	public ResponseEntity<?> getSupplierShipments(String status, String authToken, String orgId, Pageable pageable) {
 		String url = buildPaginatedUrlWithFilters(supplierLogisticsMarketplaceBaseUrl() + "/shipments", pageable,
 				"status", status);
+		return callGet(url, authToken, orgId);
+	}
+
+	@Override
+	public ResponseEntity<?> getSupplierCoreShipments(String authToken, String orgId, Pageable pageable) {
+		String url = webConstants.getCoreServiceUrl() + "/core/shipments/all";
+		url = buildPaginatedUrl(url, pageable);
 		return callGet(url, authToken, orgId);
 	}
 

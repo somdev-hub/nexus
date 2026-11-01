@@ -260,7 +260,9 @@ public class StockServiceImpl implements StockService {
 		for (Material m : materials.getContent()) {
 			try {
 				if (stockRepo.findByMaterialAndWarehouse(m, warehouse).isPresent()) continue;
+				// Do not create stock rows for materials with zero quantity.
 				double qty = 0.0;
+				if (qty <= 0) continue;
 				Stock stock = new Stock();
 				stock.setMaterial(m);
 				stock.setWarehouse(warehouse);

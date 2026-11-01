@@ -15,11 +15,19 @@ public interface ConsignmentStockService {
 
     ResponseEntity<?> getRetailerConsignments(Long warehouseId, Long materialId, Pageable pageable);
 
+    ResponseEntity<?> consumeConsignmentByRetailer(Long id, Double quantity);
+
+    ResponseEntity<?> returnConsignmentByRetailer(Long id, Double quantity);
+
+    ResponseEntity<?> receiveConsignmentByRetailer(Long id, Double quantity);
+
     ResponseEntity<?> updateConsignment(Long id, ConsignmentStockDto dto);
 
     ResponseEntity<?> adjustQuantity(Long id, Double quantity, String reason);
 
     ResponseEntity<?> deleteConsignment(Long id);
+
+    ResponseEntity<?> fillConsignment(Long id, String pickupAddress, String deliveryAddress);
 
     ResponseEntity<?> getSummary();
 }

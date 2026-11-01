@@ -1,5 +1,6 @@
 package com.nexus.core.service.implementations;
 
+import java.util.ArrayList;
 import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
@@ -462,66 +463,90 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
 			material.setCode("MAT-" + System.currentTimeMillis());
 		}
 
-		// Select the first RESERVE warehouse for incoming stock (fill order A->B->C).
-		// Create a default reserve warehouse if none exists.
-		Warehouse warehouse = null;
+		// Persist material first so stock rows can reference it.
+		material = materialRepo.save(material);
+
+		// Distribute incoming stock across reserve warehouses in fill order
+		// (A->B->C), respecting each warehouse's capacity.
+		List<Warehouse> reserves = new ArrayList<>();
 		try {
-			warehouse = warehouseRepo.findByOrg(buyerOrgId, Pageable.unpaged()).getContent().stream()
+			reserves = warehouseRepo.findByOrg(buyerOrgId, Pageable.unpaged()).getContent().stream()
 					.filter(w -> "RESERVE".equalsIgnoreCase(w.getWarehouseType()))
-					.min(java.util.Comparator.comparingInt(w -> w.getFillOrder() != null ? w.getFillOrder() : Integer.MAX_VALUE))
-					.orElse(null);
+					.sorted(java.util.Comparator.comparingInt(w -> w.getFillOrder() != null ? w.getFillOrder() : Integer.MAX_VALUE))
+					.collect(java.util.stream.Collectors.toList());
 		} catch (Exception ignored) {
 		}
-		if (warehouse == null) {
-			try {
-				warehouse = warehouseRepo.findByOrg(buyerOrgId, PageRequest.of(0, 1)).getContent().stream().findFirst().orElse(null);
-			} catch (Exception ignored) {
+		if (reserves.isEmpty()) {
+			// create default reserve warehouse
+			Warehouse wh = new Warehouse();
+			wh.setOrg(buyerOrgId);
+			wh.setCode("RESERVE-1");
+			wh.setLocation("Reserve 1");
+			wh.setWarehouseType("RESERVE");
+			wh.setCapacityMultiplier(2.0);
+			wh.setCapacity(0.0);
+			wh.setStorageCapacity(0.0);
+			wh.setFillOrder(1);
+			wh = warehouseRepo.save(wh);
+			reserves.add(wh);
+		}
+		Warehouse firstReserve = reserves.get(0);
+		material.setWarehouse(firstReserve);
+
+		double remaining = accepted.doubleValue();
+		for (Warehouse w : reserves) {
+			if (remaining <= 0) break;
+			double cap = w.getCapacity() != null ? w.getCapacity() : (w.getStorageCapacity() != null ? w.getStorageCapacity() : 0.0);
+			double used = 0.0;
+			Stock existing = stockRepo.findByMaterialAndWarehouse(material, w).orElse(null);
+			if (existing != null && existing.getQuantityOnHand() != null) used = existing.getQuantityOnHand();
+			double availCap = cap > 0 ? Math.max(0, cap - used) : Double.MAX_VALUE;
+			double take = (cap > 0) ? Math.min(availCap, remaining) : remaining;
+			if (take <= 0) continue;
+			Stock st = existing;
+			if (st == null) {
+				st = new Stock();
+				st.setMaterial(material);
+				st.setWarehouse(w);
+				st.setQuantityOnHand(0.0);
+				st.setQuantityReserved(0.0);
+				st.setQuantityAvailable(0.0);
+				if (material.getPricePerUnit() != null) {
+					st.setAverageCost(material.getPricePerUnit());
+					st.setLastCost(material.getPricePerUnit());
+					st.setStandardCost(material.getPricePerUnit());
+				}
 			}
+			st.setQuantityOnHand((st.getQuantityOnHand() != null ? st.getQuantityOnHand() : 0.0) + take);
+			st.recalculateAvailable();
+			stockRepo.save(st);
+			remaining -= take;
 		}
-		if (warehouse == null) {
-			warehouse = new Warehouse();
-			warehouse.setOrg(buyerOrgId);
-			warehouse.setCode("RESERVE-1");
-			warehouse.setLocation("Reserve 1");
-			warehouse.setWarehouseType("RESERVE");
-			warehouse.setCapacityMultiplier(2.0);
-			warehouse.setCapacity(0.0);
-			warehouse.setStorageCapacity(0.0);
-			warehouse.setFillOrder(1);
-			warehouse = warehouseRepo.save(warehouse);
+		// overflow to last reserve
+		if (remaining > 0 && !reserves.isEmpty()) {
+			Warehouse last = reserves.get(reserves.size() - 1);
+			Stock st = stockRepo.findByMaterialAndWarehouse(material, last).orElse(null);
+			if (st == null) {
+				st = new Stock();
+				st.setMaterial(material);
+				st.setWarehouse(last);
+				st.setQuantityOnHand(0.0);
+				st.setQuantityReserved(0.0);
+				st.setQuantityAvailable(0.0);
+			}
+			st.setQuantityOnHand((st.getQuantityOnHand() != null ? st.getQuantityOnHand() : 0.0) + remaining);
+			st.recalculateAvailable();
+			stockRepo.save(st);
 		}
-		material.setWarehouse(warehouse);
-		Material savedMaterial = materialRepo.save(material);
-		log.info("Derived material {} (catalog {}) for org {} from GR line {}", savedMaterial.getMaterialId(),
-				savedMaterial.getCatalogId(), buyerOrgId, line.getGrLineItemId());
+		log.info("Derived material {} (catalog {}) for org {} from GR line {}", material.getMaterialId(),
+				material.getCatalogId(), buyerOrgId, line.getGrLineItemId());
 
 		// Update PO line received quantity.
 		Double prevReceived = poLine.getQuantityReceived() != null ? poLine.getQuantityReceived() : 0.0;
 		poLine.setQuantityReceived(prevReceived + accepted.doubleValue());
-		poLine.setMaterial(savedMaterial);
+		poLine.setMaterial(material);
 		poLineItemRepo.save(poLine);
 
-		// Update Stock quantity for this material/warehouse.
-		if (warehouse != null) {
-			Stock stock = stockRepo.findByMaterialAndWarehouse(savedMaterial, warehouse).orElse(null);
-			if (stock == null) {
-				stock = new Stock();
-				stock.setMaterial(savedMaterial);
-				stock.setWarehouse(warehouse);
-				stock.setQuantityOnHand(0.0);
-				stock.setQuantityReserved(0.0);
-				stock.setQuantityAvailable(0.0);
-				if (savedMaterial.getPricePerUnit() != null) {
-					stock.setAverageCost(savedMaterial.getPricePerUnit());
-					stock.setLastCost(savedMaterial.getPricePerUnit());
-					stock.setStandardCost(savedMaterial.getPricePerUnit());
-				}
-			}
-			double acceptedD = accepted.doubleValue();
-			stock.setQuantityOnHand((stock.getQuantityOnHand() != null ? stock.getQuantityOnHand() : 0.0) + acceptedD);
-			stock.recalculateAvailable();
-			stockRepo.save(stock);
-		}
 	}
 
 	private void updatePurchaseOrderStatus(PurchaseOrder po) {

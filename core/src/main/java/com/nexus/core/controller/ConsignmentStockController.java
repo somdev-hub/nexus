@@ -61,6 +61,14 @@ public class ConsignmentStockController {
         return consignmentService.deleteConsignment(id);
     }
 
+    @PostMapping("/{id}/fill")
+    @LogActivity("Fill Consignment")
+    public ResponseEntity<?> fillConsignment(@PathVariable Long id,
+            @RequestParam(required = false) String pickupAddress,
+            @RequestParam(required = false) String deliveryAddress) {
+        return consignmentService.fillConsignment(id, pickupAddress, deliveryAddress);
+    }
+
     @GetMapping("/summary")
     @LogActivity("Get Consignment Summary")
     public ResponseEntity<?> getSummary() {

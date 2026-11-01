@@ -22,4 +22,6 @@ public interface VmiService {
     ResponseEntity<?> triggerReplenishment(Long id);
 
     ResponseEntity<?> getReplenishmentSuggestions();
+
+    ResponseEntity<?> receiveVmiByRetailer(Long id, Double quantity);
 }

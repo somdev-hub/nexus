@@ -222,6 +222,12 @@ public class Shipment extends BaseEntity {
 	@Column(name = "carrier_reference")
 	private String carrierReference;
 
+	@Column(name = "reference_type")
+	private String referenceType; // PURCHASE_ORDER, CONSIGNMENT_FILL, VMI_REPLENISHMENT
+
+	@Column(name = "reference_id")
+	private Long referenceId;
+
 	@Column(name = "estimated_departure")
 	private Timestamp estimatedDeparture;
 

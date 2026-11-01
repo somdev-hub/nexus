@@ -45,8 +45,15 @@ public class WarehouseServiceImpl implements WarehouseService {
 	@Override
 	public ResponseEntity<?> getAllWarehousesByOrgId(Long orgId, Pageable pageable) {
 		ensureDefaultWarehouses(orgId);
+		cleanupDuplicateProductionWarehouses(orgId);
 		Page<Warehouse> warehouses = warehouseRepo.findByOrg(orgId, pageable);
-		Page<WarehouseDto> warehouseDtos = warehouses.map(WarehouseServiceImpl::toDto);
+		Page<WarehouseDto> warehouseDtos = warehouses.map(w -> {
+			WarehouseDto dto = toDto(w);
+			double util = stockRepo.findActiveByWarehouse(w).stream()
+					.mapToDouble(s -> s.getQuantityOnHand() != null ? s.getQuantityOnHand() : 0.0).sum();
+			dto.setCurrentUtilization(util);
+			return dto;
+		});
 		return new ResponseEntity<>(warehouseDtos, HttpStatus.OK);
 	}
 

@@ -1173,6 +1173,30 @@ public class CoreRetailerServiceImpl implements CoreRetailerService {
 	}
 
 	@Override
+	public ResponseEntity<?> consumeConsignment(Long id, Double quantity, String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCoreServiceUrl() + "/core/retailer/consignment/" + id + "/consume?quantity=" + quantity;
+		return restService.iamRestCall(url, null, headers, HttpMethod.POST, null);
+	}
+
+	@Override
+	public ResponseEntity<?> returnConsignment(Long id, Double quantity, String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCoreServiceUrl() + "/core/retailer/consignment/" + id + "/return?quantity=" + quantity;
+		return restService.iamRestCall(url, null, headers, HttpMethod.POST, null);
+	}
+
+	@Override
+	public ResponseEntity<?> receiveConsignment(Long id, Double quantity, String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCoreServiceUrl() + "/core/retailer/consignment/" + id + "/receive?quantity=" + quantity;
+		return restService.iamRestCall(url, null, headers, HttpMethod.POST, null);
+	}
+
+	@Override
 	public ResponseEntity<?> getRetailerVmis(String authToken, String orgIdHeader, Pageable pageable, Long warehouseId, Long materialId) {
 		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
 		headers.put("X-Organization-ID", orgIdHeader);
@@ -1181,6 +1205,14 @@ public class CoreRetailerServiceImpl implements CoreRetailerService {
 		if (materialId != null) url += (url.contains("?") ? "&" : "?") + "materialId=" + materialId;
 		url = buildPaginatedUrl(url, pageable);
 		return restService.iamRestCall(url, null, headers, HttpMethod.GET, null);
+	}
+
+	@Override
+	public ResponseEntity<?> receiveVmi(Long id, Double quantity, String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCoreServiceUrl() + "/core/retailer/vmi/" + id + "/receive?quantity=" + quantity;
+		return restService.iamRestCall(url, null, headers, HttpMethod.POST, null);
 	}
 
 	@Override

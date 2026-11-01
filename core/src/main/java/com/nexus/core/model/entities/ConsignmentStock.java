@@ -73,6 +73,9 @@ public class ConsignmentStock extends BaseEntity {
     @Column(name = "notes", columnDefinition = "TEXT")
     private String notes;
 
+    @Column(name = "shipment_id")
+    private Long shipmentId;
+
     public void recalculateAvailable() {
         this.quantityAvailable = this.quantityOnHand - this.quantityReserved;
         if (this.quantityAvailable < 0) this.quantityAvailable = 0.0;

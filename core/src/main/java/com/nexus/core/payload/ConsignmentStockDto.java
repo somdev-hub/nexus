@@ -51,6 +51,8 @@ public class ConsignmentStockDto {
 
     private String notes;
 
+    private Long shipmentId;
+
     private Long supplierOrgId;
 
     private String supplierOrgName;

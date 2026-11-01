@@ -78,6 +78,9 @@ public class VmiConfig extends BaseEntity {
     @Column(name = "last_replenished_at")
     private Timestamp lastReplenishedAt;
 
+    @Column(name = "last_shipment_id")
+    private Long lastShipmentId;
+
     @Column(name = "is_active")
     private Boolean isActive = true;
 }
