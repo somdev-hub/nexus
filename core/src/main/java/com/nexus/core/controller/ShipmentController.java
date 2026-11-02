@@ -97,6 +97,13 @@ public class ShipmentController {
 		return ResponseEntity.ok(shipmentService.getAllShipments(pageable));
 	}
 
+	@GetMapping("/supplier")
+	@LogActivity("Get Supplier Org Shipments")
+	public ResponseEntity<?> getSupplierOrgShipments(@PageableDefault(size = 20) Pageable pageable) {
+		Long orgId = OrganizationContextHolder.requireOrganizationId();
+		return ResponseEntity.ok(shipmentService.getShipmentsBySupplierOrg(orgId, pageable));
+	}
+
 	@GetMapping("/by-logistics-org")
 	@LogActivity("Get Shipments by Logistics Org")
 	public ResponseEntity<?> getShipmentsByLogisticsOrg(@PageableDefault(size = 20) Pageable pageable) {

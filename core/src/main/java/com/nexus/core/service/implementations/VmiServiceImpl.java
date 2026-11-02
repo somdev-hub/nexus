@@ -280,6 +280,14 @@ public class VmiServiceImpl implements VmiService {
                             shipment.setWarehouseName(wh.getCode());
                             shipment.setMode(ShipmentMode.ROAD);
                             shipment.setStatus(ShipmentStatus.DRAFT);
+                            if (vmi.getSupplierOrg() != null) {
+                                shipment.setSupplierOrgId(vmi.getSupplierOrg().getAccountId());
+                            } else {
+                                shipment.setSupplierOrgId(supplierOrgId);
+                            }
+                            if (vmi.getRetailerOrg() != null) {
+                                shipment.setRetailerOrgId(vmi.getRetailerOrg().getAccountId());
+                            }
                             shipment.setPickupAddress(supplier.getLocation() != null ? supplier.getLocation() : "Supplier warehouse");
                             shipment.setDeliveryAddress(wh.getLocation() != null ? wh.getLocation() : "Retailer warehouse");
                             ShipmentDto created = shipmentService.createShipment(shipment);

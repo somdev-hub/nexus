@@ -88,6 +88,16 @@ public class ShipmentServiceImpl implements ShipmentService {
             shipment.setLogisticsOrg(
                     accountRepo.findByAccountId(shipmentDto.getLogisticsOrgId()).orElse(null));
         }
+        // Supplier / retailer ownership (used by consignment-fill and VMI
+        // shipments so they can be scoped and handed over later).
+        if (shipmentDto.getSupplierOrgId() != null) {
+            shipment.setSupplierOrg(
+                    accountRepo.findByAccountId(shipmentDto.getSupplierOrgId()).orElse(null));
+        }
+        if (shipmentDto.getRetailerOrgId() != null) {
+            shipment.setRetailerOrg(
+                    accountRepo.findByAccountId(shipmentDto.getRetailerOrgId()).orElse(null));
+        }
         // Booking: a shipment carrying a logistics org leaves DRAFT as BOOKED.
         // DRAFT -> BOOKED is a permitted edge in ALLOWED_TRANSITIONS below.
         // Partner-less shipments keep the default DRAFT behavior.
@@ -144,6 +154,13 @@ public class ShipmentServiceImpl implements ShipmentService {
         var all = shipmentRepo.findByPurchaseOrderId(supplierId);
         var mapped = all.stream().map(s -> mapShipmentToDto(s)).toList();
         return new PageImpl<>(mapped, pageable, mapped.size());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<ShipmentDto> getShipmentsBySupplierOrg(Long orgId, Pageable pageable) {
+        return shipmentRepo.findBySupplierOrgAccountId(orgId, pageable)
+                .map(s -> mapShipmentToDto(s));
     }
 
     @Override
@@ -538,10 +555,16 @@ public class ShipmentServiceImpl implements ShipmentService {
         if (s.getSupplierOrg() != null) {
             dto.setSupplierId(s.getSupplierOrg().getAccountId());
             dto.setSupplierName(s.getSupplierOrg().getName());
+            dto.setSupplierOrgId(s.getSupplierOrg().getAccountId());
         }
         if (s.getRetailerOrg() != null) {
             dto.setWarehouseName(s.getRetailerOrg().getName());
+            dto.setRetailerOrgId(s.getRetailerOrg().getAccountId());
         }
+        if (s.getLogisticsOrg() != null) {
+            dto.setLogisticsOrgId(s.getLogisticsOrg().getAccountId());
+        }
+        dto.setTotalPackages(s.getTotalPackages());
         return dto;
     }
 }

@@ -162,6 +162,10 @@ public interface CoreSupplierService {
     ResponseEntity<?> getSupplierShipments(String status, String authToken, String orgId, Pageable pageable);
 
     ResponseEntity<?> getSupplierCoreShipments(String authToken, String orgId, Pageable pageable);
+
+    ResponseEntity<?> updateCoreShipment(Long id, Map<String, Object> dto, String authToken, String orgId);
+
+    ResponseEntity<?> transitionCoreShipmentStatus(Long id, String newStatus, Map<String, Object> params, String authToken, String orgId);
     ResponseEntity<?> handoverShipment(Long shipmentId, Map<String, Object> dto, String authToken, String orgId);
 
     // Long-term quotation review + private routes + termination

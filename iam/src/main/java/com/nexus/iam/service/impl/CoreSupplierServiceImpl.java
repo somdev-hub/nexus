@@ -741,9 +741,26 @@ public class CoreSupplierServiceImpl implements CoreSupplierService {
 
 	@Override
 	public ResponseEntity<?> getSupplierCoreShipments(String authToken, String orgId, Pageable pageable) {
-		String url = webConstants.getCoreServiceUrl() + "/core/shipments/all";
+		String url = webConstants.getCoreServiceUrl() + "/core/shipments/supplier";
 		url = buildPaginatedUrl(url, pageable);
 		return callGet(url, authToken, orgId);
+	}
+
+	@Override
+	public ResponseEntity<?> updateCoreShipment(Long id, Map<String, Object> dto, String authToken, String orgId) {
+		String url = webConstants.getCoreServiceUrl() + "/core/shipments/" + id;
+		return callPut(url, dto, authToken, orgId);
+	}
+
+	@Override
+	public ResponseEntity<?> transitionCoreShipmentStatus(Long id, String newStatus, Map<String, Object> params, String authToken, String orgId) {
+		UriComponentsBuilder b = UriComponentsBuilder
+				.fromUriString(webConstants.getCoreServiceUrl() + "/core/shipments/" + id + "/status")
+				.queryParam("newStatus", newStatus);
+		if (params != null) {
+			params.forEach((k, v) -> b.queryParam(k, v));
+		}
+		return callPut(b.toUriString(), null, authToken, orgId);
 	}
 
 	@Override

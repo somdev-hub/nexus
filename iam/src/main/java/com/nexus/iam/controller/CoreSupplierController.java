@@ -839,6 +839,25 @@ public class CoreSupplierController {
 		return supplierService.getSupplierCoreShipments(auth, org, pageable);
 	}
 
+	@LogActivity("Update Core Shipment")
+	@PutMapping("/core-shipments/{id}")
+	public ResponseEntity<?> updateCoreShipment(@PathVariable Long id,
+			@RequestBody Map<String, Object> dto,
+			@RequestHeader("Authorization") String auth,
+			@RequestHeader("X-Organization-ID") String org) {
+		return supplierService.updateCoreShipment(id, dto, auth, org);
+	}
+
+	@LogActivity("Transition Core Shipment Status")
+	@PutMapping("/core-shipments/{id}/status")
+	public ResponseEntity<?> transitionCoreShipmentStatus(@PathVariable Long id,
+			@RequestParam String newStatus,
+			@RequestBody(required = false) Map<String, Object> params,
+			@RequestHeader("Authorization") String auth,
+			@RequestHeader("X-Organization-ID") String org) {
+		return supplierService.transitionCoreShipmentStatus(id, newStatus, params, auth, org);
+	}
+
 	@LogActivity("Get Supplier Shipments")
 	@GetMapping("/logistics-marketplace/shipments")
 	public ResponseEntity<?> getSupplierShipments(@RequestParam(required = false) String status,

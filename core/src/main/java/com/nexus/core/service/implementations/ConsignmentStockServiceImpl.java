@@ -382,6 +382,10 @@ public class ConsignmentStockServiceImpl implements ConsignmentStockService {
                 shipment.setWarehouseName(deliveryWh.getCode());
                 shipment.setMode(ShipmentMode.ROAD);
                 shipment.setStatus(ShipmentStatus.DRAFT);
+                shipment.setSupplierOrgId(orgId);
+                if (cs.getRetailerOrg() != null) {
+                    shipment.setRetailerOrgId(cs.getRetailerOrg().getAccountId());
+                }
                 shipment.setPickupAddress(pickupAddress != null && !pickupAddress.isBlank() ? pickupAddress : (supplier.getLocation() != null ? supplier.getLocation() : "Supplier warehouse"));
                 shipment.setDeliveryAddress(deliveryAddress != null && !deliveryAddress.isBlank() ? deliveryAddress : (cs.getWarehouse() != null && cs.getWarehouse().getLocation() != null ? cs.getWarehouse().getLocation() : "Retailer warehouse"));
                 ShipmentDto created = shipmentService.createShipment(shipment);

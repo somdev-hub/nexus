@@ -32,6 +32,9 @@ public interface ShipmentService {
 
 	Page<ShipmentDto> getShipmentsBySupplier(Long supplierId, Pageable pageable);
 
+	// Supplier-org scoped list (consignment-fill / VMI / PO shipments).
+	Page<ShipmentDto> getShipmentsBySupplierOrg(Long orgId, Pageable pageable);
+
 	Page<ShipmentDto> getShipmentsByWarehouse(Long warehouseId, Pageable pageable);
 
 	// Load-board: shipments booked to the calling logistics org (org from request context).

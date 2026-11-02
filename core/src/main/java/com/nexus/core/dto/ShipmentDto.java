@@ -96,6 +96,12 @@ public class ShipmentDto {
 	// when set on create, the shipment is booked (DRAFT -> BOOKED).
 	private Long logisticsOrgId;
 
+	// Supplier / retailer org (Account id) owning this shipment. Optional on
+	// create; consignment-fill and VMI-replenishment shipments set both so the
+	// supplier can hand them over to a logistics partner later.
+	private Long supplierOrgId;
+	private Long retailerOrgId;
+
 	private List<ShipmentStopDto> stops;
 	private List<TrackingEventDto> trackingEvents;
 	private List<ShipmentDocumentDto> documents;

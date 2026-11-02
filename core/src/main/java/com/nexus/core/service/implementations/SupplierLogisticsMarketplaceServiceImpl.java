@@ -260,8 +260,16 @@ public class SupplierLogisticsMarketplaceServiceImpl implements SupplierLogistic
 
         shipment.setLogisticsOrg(logisticsOrg);
         shipment.setPartnership(partnership);
-        if (body.get("pickupLocation") != null) shipment.setPickupLocation(body.get("pickupLocation").toString());
-        if (body.get("deliveryLocation") != null) shipment.setDeliveryLocation(body.get("deliveryLocation").toString());
+        if (body.get("pickupLocation") != null) {
+            shipment.setPickupLocation(body.get("pickupLocation").toString());
+            // Keep the structured address in sync so the shipment list shows
+            // the pickup the supplier confirmed at handover time.
+            shipment.setPickupAddress(body.get("pickupLocation").toString());
+        }
+        if (body.get("deliveryLocation") != null) {
+            shipment.setDeliveryLocation(body.get("deliveryLocation").toString());
+            shipment.setDeliveryAddress(body.get("deliveryLocation").toString());
+        }
         if (body.get("pickupDate") != null && !body.get("pickupDate").toString().isBlank()) {
             shipment.setPickupDate(Date.valueOf(body.get("pickupDate").toString()));
         } else if (shipment.getPickupDate() == null) {
@@ -277,6 +285,41 @@ public class SupplierLogisticsMarketplaceServiceImpl implements SupplierLogistic
             }
         }
         if (body.get("notes") != null) shipment.setNotes(body.get("notes").toString());
+        // Package facts + freight costing captured at handover time (same
+        // fields the partial-ship flow accepts, so both paths persist the
+        // same shipment detail).
+        if (body.get("totalPackages") != null) {
+            shipment.setTotalPackages(toInt(body.get("totalPackages")));
+        }
+        if (body.get("packageWeight") != null) shipment.setPackageWeight(toDouble(body.get("packageWeight")));
+        if (body.get("packageLength") != null) shipment.setPackageLength(toDouble(body.get("packageLength")));
+        if (body.get("packageWidth") != null) shipment.setPackageWidth(toDouble(body.get("packageWidth")));
+        if (body.get("packageHeight") != null) shipment.setPackageHeight(toDouble(body.get("packageHeight")));
+        if (body.get("packageDimensionUom") != null && !body.get("packageDimensionUom").toString().isBlank()) {
+            shipment.setPackageDimensionUom(body.get("packageDimensionUom").toString());
+        }
+        if (body.get("totalWeight") != null) {
+            shipment.setTotalWeight(toDouble(body.get("totalWeight")));
+        } else if (shipment.getTotalPackages() != null && shipment.getPackageWeight() != null) {
+            shipment.setTotalWeight(
+                    Math.round(shipment.getTotalPackages() * shipment.getPackageWeight() * 100.0) / 100.0);
+        }
+        if (body.get("totalVolume") != null) {
+            shipment.setTotalVolume(toDouble(body.get("totalVolume")));
+        } else if (shipment.getTotalPackages() != null && shipment.getPackageLength() != null
+                && shipment.getPackageWidth() != null && shipment.getPackageHeight() != null) {
+            double toMeters = "FT".equalsIgnoreCase(shipment.getPackageDimensionUom()) ? 0.3048 : 1.0;
+            double cbm = shipment.getTotalPackages() * shipment.getPackageLength() * toMeters
+                    * shipment.getPackageWidth() * toMeters * shipment.getPackageHeight() * toMeters;
+            shipment.setTotalVolume(Math.round(cbm * 100.0) / 100.0);
+        }
+        if (body.get("freightCost") != null) shipment.setFreightCost(toDouble(body.get("freightCost")));
+        if (body.get("currency") != null && !body.get("currency").toString().isBlank()) {
+            shipment.setCurrency(body.get("currency").toString());
+        }
+        if (body.get("freightTerms") != null && !body.get("freightTerms").toString().isBlank()) {
+            shipment.setFreightTerms(body.get("freightTerms").toString());
+        }
         // Persist the transport mode from the matched route capacity so the
         // load board shows it even though the shipment carries none.
         if (shipment.getShipmentMode() == null) {
@@ -337,7 +380,7 @@ public class SupplierLogisticsMarketplaceServiceImpl implements SupplierLogistic
                 return ResponseEntity.ok(new PageImpl<>(List.of(), pageable, 0));
             }
         }
-        Page<Shipment> page = shipmentRepo.findSupplierVisibleShipments(orgId, null, st, pageable);
+        Page<Shipment> page = shipmentRepo.findSupplierPurchaseOrderShipments(orgId, null, st, pageable);
         List<Map<String, Object>> rows = new ArrayList<>();
         for (Shipment s : page.getContent()) {
             Map<String, Object> row = new LinkedHashMap<>();
@@ -586,5 +629,21 @@ public class SupplierLogisticsMarketplaceServiceImpl implements SupplierLogistic
             if (logisticsOrgId.equals(counterpartyOf(p, supplierOrgId))) return true;
         }
         return false;
+    }
+
+    private static Double toDouble(Object v) {
+        if (v == null) return null;
+        if (v instanceof Number n) return n.doubleValue();
+        try {
+            String s = v.toString().trim();
+            return s.isEmpty() ? null : Double.valueOf(s);
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    private static Integer toInt(Object v) {
+        Double d = toDouble(v);
+        return d == null ? null : (int) Math.round(d);
     }
 }

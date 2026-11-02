@@ -97,6 +97,10 @@ public interface ShipmentRepo extends JpaRepository<Shipment, Long> {
 
 	Page<Shipment> findByPurchaseOrderPurchaseOrderIdAndIsPartialShipmentTrue(Long purchaseOrderId, Pageable pageable);
 
+	// Legacy consignment-fill / VMI shipments created before supplier/retailer
+	// ownership was recorded. Healed on boot by CoreShipmentOwnershipRunner.
+	List<Shipment> findBySupplierOrgIsNullAndReferenceTypeIn(List<String> referenceTypes);
+
 	@Query("""
 			SELECT s FROM Shipment s
 			WHERE s.supplierOrg.accountId = :orgId
@@ -104,6 +108,19 @@ public interface ShipmentRepo extends JpaRepository<Shipment, Long> {
 			AND (:status IS NULL OR s.status = :status)
 			""")
 	Page<Shipment> findSupplierVisibleShipments(@Param("orgId") Long orgId,
+			@Param("buyerOrgId") Long buyerOrgId,
+			@Param("status") ShipmentStatus status, Pageable pageable);
+
+	// Supplier-owned PO deliveries (excludes consignment-fill / VMI core
+	// shipments, which surface in their own supplier shipments list).
+	@Query("""
+			SELECT s FROM Shipment s
+			WHERE s.supplierOrg.accountId = :orgId
+			AND (:buyerOrgId IS NULL OR s.retailerOrg.accountId = :buyerOrgId)
+			AND (:status IS NULL OR s.status = :status)
+			AND (s.referenceType IS NULL OR s.referenceType = 'PURCHASE_ORDER')
+			""")
+	Page<Shipment> findSupplierPurchaseOrderShipments(@Param("orgId") Long orgId,
 			@Param("buyerOrgId") Long buyerOrgId,
 			@Param("status") ShipmentStatus status, Pageable pageable);
 
