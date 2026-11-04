@@ -1,8 +1,10 @@
 package com.nexus.core.controller;
 
+import java.util.List;
 import java.util.Map;
 
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -64,6 +66,7 @@ public class ShipmentController {
 	public ResponseEntity<?> getAllShipments(
 			@RequestParam(required = false) String status,
 			@RequestParam(required = false) String mode,
+			@RequestParam(required = false) String referenceType,
 			@RequestParam(required = false) Long supplierId,
 			@RequestParam(required = false) Long warehouseId,
 			@PageableDefault(size = 20) Pageable pageable) {
@@ -86,6 +89,11 @@ public class ShipmentController {
 			}
 		}
 
+		if (referenceType != null) {
+			List<String> types = List.of(referenceType.toUpperCase().split("\\s*,\\s*"));
+			return ResponseEntity.ok(shipmentService.getShipmentsByReferenceType(types, pageable));
+		}
+
 		if (supplierId != null) {
 			return ResponseEntity.ok(shipmentService.getShipmentsBySupplier(supplierId, pageable));
 		}
@@ -98,10 +106,19 @@ public class ShipmentController {
 	}
 
 	@GetMapping("/supplier")
-	@LogActivity("Get Supplier Org Shipments")
-	public ResponseEntity<?> getSupplierOrgShipments(@PageableDefault(size = 20) Pageable pageable) {
+	@LogActivity("Get Supplier Core Shipments")
+	public ResponseEntity<?> getSupplierOrgShipments(
+			@PageableDefault(size = 20, sort = "shipmentId", direction = Sort.Direction.DESC) Pageable pageable) {
 		Long orgId = OrganizationContextHolder.requireOrganizationId();
-		return ResponseEntity.ok(shipmentService.getShipmentsBySupplierOrg(orgId, pageable));
+		return ResponseEntity.ok(shipmentService.getSupplierCoreShipments(orgId, pageable));
+	}
+
+	@GetMapping("/supplier/core")
+	@LogActivity("Get Supplier Core Shipments")
+	public ResponseEntity<?> getSupplierCoreShipments(
+			@PageableDefault(size = 20, sort = "shipmentId", direction = Sort.Direction.DESC) Pageable pageable) {
+		Long orgId = OrganizationContextHolder.requireOrganizationId();
+		return ResponseEntity.ok(shipmentService.getSupplierCoreShipments(orgId, pageable));
 	}
 
 	@GetMapping("/by-logistics-org")

@@ -27,6 +27,9 @@ public interface ShipmentService {
 
 	Page<ShipmentDto> getShipmentsByMode(ShipmentMode mode, Pageable pageable);
 
+	// Filter shipments by reference type (e.g. CONSIGNMENT_FILL, VMI_REPLENISHMENT).
+	Page<ShipmentDto> getShipmentsByReferenceType(List<String> referenceTypes, Pageable pageable);
+
 	Page<ShipmentDto> getShipmentsByDateRange(java.time.LocalDateTime startDate, java.time.LocalDateTime endDate,
 			Pageable pageable);
 
@@ -34,6 +37,9 @@ public interface ShipmentService {
 
 	// Supplier-org scoped list (consignment-fill / VMI / PO shipments).
 	Page<ShipmentDto> getShipmentsBySupplierOrg(Long orgId, Pageable pageable);
+
+	// Supplier-owned core shipments only (consignment-fill / VMI).
+	Page<ShipmentDto> getSupplierCoreShipments(Long orgId, Pageable pageable);
 
 	Page<ShipmentDto> getShipmentsByWarehouse(Long warehouseId, Pageable pageable);
 

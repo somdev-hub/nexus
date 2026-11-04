@@ -18,6 +18,22 @@ public interface ShipmentRepo extends JpaRepository<Shipment, Long> {
 	// Find by supplier organization
 	Page<Shipment> findBySupplierOrgAccountId(Long orgId, Pageable pageable);
 
+	// Supplier-owned core shipments (consignment fill / VMI replenishment).
+	@Query("""
+			SELECT s FROM Shipment s
+			WHERE s.supplierOrg.accountId = :orgId
+			AND s.referenceType IN :referenceTypes
+			""")
+	Page<Shipment> findSupplierCoreShipments(@Param("orgId") Long orgId,
+			@Param("referenceTypes") List<String> referenceTypes, Pageable pageable);
+
+	// Find shipments by reference type (e.g. CONSIGNMENT_FILL, VMI_REPLENISHMENT).
+	@Query("""
+			SELECT s FROM Shipment s
+			WHERE s.referenceType IN :referenceTypes
+			""")
+	Page<Shipment> findByReferenceTypeIn(@Param("referenceTypes") List<String> referenceTypes, Pageable pageable);
+
 	// Find by logistics organization
 	Page<Shipment> findByLogisticsOrgAccountId(Long orgId, Pageable pageable);
 

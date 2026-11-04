@@ -50,6 +50,9 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class ShipmentServiceImpl implements ShipmentService {
 
+    private static final List<String> CORE_SHIPMENT_REFERENCE_TYPES =
+            List.of("CONSIGNMENT_FILL", "VMI_REPLENISHMENT");
+
     private final ShipmentRepo shipmentRepo;
     private final PurchaseOrderRepo purchaseOrderRepo;
     private final ShipmentStopRepo shipmentStopRepo;
@@ -138,6 +141,13 @@ public class ShipmentServiceImpl implements ShipmentService {
 
     @Override
     @Transactional(readOnly = true)
+    public Page<ShipmentDto> getShipmentsByReferenceType(List<String> referenceTypes, Pageable pageable) {
+        return shipmentRepo.findByReferenceTypeIn(referenceTypes, pageable)
+                .map(s -> mapShipmentToDto(s));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public Page<ShipmentDto> getShipmentsByDateRange(java.time.LocalDateTime startDate, java.time.LocalDateTime endDate, Pageable pageable) {
         Timestamp start = Timestamp.valueOf(startDate);
         Timestamp end = Timestamp.valueOf(endDate);
@@ -160,6 +170,13 @@ public class ShipmentServiceImpl implements ShipmentService {
     @Transactional(readOnly = true)
     public Page<ShipmentDto> getShipmentsBySupplierOrg(Long orgId, Pageable pageable) {
         return shipmentRepo.findBySupplierOrgAccountId(orgId, pageable)
+                .map(s -> mapShipmentToDto(s));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<ShipmentDto> getSupplierCoreShipments(Long orgId, Pageable pageable) {
+        return shipmentRepo.findSupplierCoreShipments(orgId, CORE_SHIPMENT_REFERENCE_TYPES, pageable)
                 .map(s -> mapShipmentToDto(s));
     }
 

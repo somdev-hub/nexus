@@ -741,7 +741,7 @@ public class CoreSupplierServiceImpl implements CoreSupplierService {
 
 	@Override
 	public ResponseEntity<?> getSupplierCoreShipments(String authToken, String orgId, Pageable pageable) {
-		String url = webConstants.getCoreServiceUrl() + "/core/shipments/supplier";
+		String url = webConstants.getCoreServiceUrl() + "/core/shipments/supplier/core";
 		url = buildPaginatedUrl(url, pageable);
 		return callGet(url, authToken, orgId);
 	}
