@@ -13,7 +13,10 @@ public interface GoodsReceiptService {
 
 	ResponseEntity<?> getGoodsReceiptById(Long id);
 
-	ResponseEntity<?> getAllGoodsReceipts(String status, Long purchaseOrderId, Long supplierId, Pageable pageable);
+	ResponseEntity<?> getAllGoodsReceipts(String status, Long purchaseOrderId, Long supplierId,
+			Long shipmentId, Pageable pageable);
+
+	ResponseEntity<?> getSourceContext(Long shipmentId);
 
 	ResponseEntity<?> updateGoodsReceipt(Long id, GoodsReceiptDto grDto);
 

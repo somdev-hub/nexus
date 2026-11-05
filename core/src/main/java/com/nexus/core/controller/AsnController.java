@@ -71,6 +71,21 @@ public class AsnController {
         return ResponseEntity.ok(dtos);
     }
 
+    @GetMapping("/shipment/{shipmentId}")
+    @LogActivity("Get ASNs by Shipment")
+    @Transactional(readOnly = true)
+    public ResponseEntity<?> getByShipment(@PathVariable Long shipmentId) {
+        Long orgId = OrganizationContextHolder.requireOrganizationId();
+        Shipment shipment = shipmentRepo.findById(shipmentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Shipment", "shipmentId", shipmentId));
+        if (!isShipmentCounterparty(shipment, orgId)) {
+            throw new ResourceNotFoundException("Shipment", "shipmentId", shipmentId);
+        }
+        List<AdvanceShipmentNoticeDto> dtos = asnRepo.findByShipmentId(shipmentId)
+                .stream().map(this::toDto).toList();
+        return ResponseEntity.ok(dtos);
+    }
+
     private boolean isCounterparty(PurchaseOrder po, Long orgId) {
         if (po.getBuyerOrg() != null && po.getBuyerOrg().getAccountId().equals(orgId)) return true;
         if (po.getSupplierOrg() != null && po.getSupplierOrg().getAccountId().equals(orgId)) return true;
@@ -80,6 +95,14 @@ public class AsnController {
             if (po.getPartnership().getSecondaryOrg() != null
                     && po.getPartnership().getSecondaryOrg().getAccountId().equals(orgId)) return true;
         }
+        return false;
+    }
+
+    private boolean isShipmentCounterparty(Shipment shipment, Long orgId) {
+        if (shipment.getRetailerOrg() != null
+                && shipment.getRetailerOrg().getAccountId().equals(orgId)) return true;
+        if (shipment.getSupplierOrg() != null
+                && shipment.getSupplierOrg().getAccountId().equals(orgId)) return true;
         return false;
     }
 
@@ -98,8 +121,14 @@ public class AsnController {
             }
         }
         dto.setOrderedQuantity(orderedTotal);
-        if (asn.getBuyerOrg() != null) dto.setBuyerOrgId(asn.getBuyerOrg().getAccountId());
-        if (asn.getSupplierOrg() != null) dto.setSupplierOrgId(asn.getSupplierOrg().getAccountId());
+        if (asn.getBuyerOrg() != null) {
+            dto.setBuyerOrgId(asn.getBuyerOrg().getAccountId());
+            dto.setBuyerOrgName(asn.getBuyerOrg().getName());
+        }
+        if (asn.getSupplierOrg() != null) {
+            dto.setSupplierOrgId(asn.getSupplierOrg().getAccountId());
+            dto.setSupplierOrgName(asn.getSupplierOrg().getName());
+        }
         dto.setShipmentId(asn.getShipmentId());
         dto.setStatus(asn.getStatus());
         dto.setNotes(asn.getNotes());
@@ -110,6 +139,16 @@ public class AsnController {
         if (asn.getShipmentId() != null) {
             Shipment shipment = shipmentRepo.findById(asn.getShipmentId()).orElse(null);
             if (shipment != null) {
+                dto.setReferenceType(shipment.getReferenceType());
+                dto.setReferenceId(shipment.getReferenceId());
+                if (shipment.getMaterial() != null) {
+                    dto.setMaterialId(shipment.getMaterial().getMaterialId());
+                    dto.setMaterialName(shipment.getMaterial().getName());
+                    dto.setUnitOfMeasure(shipment.getMaterial().getUnit());
+                }
+                if (dto.getUnitOfMeasure() == null) {
+                    dto.setUnitOfMeasure(shipment.getQuantityUom());
+                }
                 dto.setShipmentNumber(shipment.getShipmentNumber());
                 dto.setShipmentStatus(
                         shipment.getStatus() != null ? shipment.getStatus().name() : null);
@@ -126,10 +165,24 @@ public class AsnController {
                 if (shipment.getDeliveryDate() != null) {
                     dto.setDeliveryDate(shipment.getDeliveryDate().toString());
                 }
-                double backordered = shipment.getBackorderedQuantity() != null
-                        ? shipment.getBackorderedQuantity() : 0.0;
-                dto.setBackorderedQuantity(backordered);
-                dto.setShippedQuantity(Math.max(0, orderedTotal - backordered));
+                boolean coreShipment = shipment.getPurchaseOrder() == null
+                        && ("CONSIGNMENT_FILL".equals(shipment.getReferenceType())
+                                || "VMI_REPLENISHMENT".equals(shipment.getReferenceType()));
+                if (coreShipment) {
+                    // Core shipments are material-specific and carry their
+                    // dispatched quantity directly; there is no PO to derive
+                    // ordered/backordered totals from.
+                    double shipped = shipment.getShippedQuantity() != null
+                            ? shipment.getShippedQuantity() : 0.0;
+                    dto.setOrderedQuantity(shipped);
+                    dto.setShippedQuantity(shipped);
+                    dto.setBackorderedQuantity(0.0);
+                } else {
+                    double backordered = shipment.getBackorderedQuantity() != null
+                            ? shipment.getBackorderedQuantity() : 0.0;
+                    dto.setBackorderedQuantity(backordered);
+                    dto.setShippedQuantity(Math.max(0, orderedTotal - backordered));
+                }
                 dto.setTotalPackages(shipment.getTotalPackages());
                 dto.setTotalWeight(shipment.getTotalWeight());
                 dto.setTotalVolume(shipment.getTotalVolume());

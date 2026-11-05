@@ -1049,19 +1049,28 @@ public class CoreRetailerServiceImpl implements CoreRetailerService {
 
 	@Override
 	public ResponseEntity<?> getAllGoodsReceipts(String authToken, String orgIdHeader, Pageable pageable,
-			String status, Long purchaseOrderId, Long supplierId) {
+			String status, Long purchaseOrderId, Long supplierId, Long shipmentId) {
 		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
 		headers.put("X-Organization-ID", orgIdHeader);
 		String url = buildPaginatedUrlWithFilters(webConstants.getCoreGoodsReceiptAllUrl(), pageable,
 				"status", status,
 				"purchaseOrderId", purchaseOrderId,
-				"supplierId", supplierId);
+				"supplierId", supplierId,
+				"shipmentId", shipmentId);
 		return restService.iamRestCall(
 				url,
 				null,
 				headers,
 				HttpMethod.GET,
 				null);
+	}
+
+	@Override
+	public ResponseEntity<?> getGoodsReceiptSource(Long shipmentId, String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCoreGoodsReceiptGetUrl() + "/source/" + shipmentId;
+		return restService.iamRestCall(url, null, headers, HttpMethod.GET, null);
 	}
 
 	@Override
@@ -2051,7 +2060,7 @@ public class CoreRetailerServiceImpl implements CoreRetailerService {
 	public ResponseEntity<?> getShipment(Long id, String authToken, String orgIdHeader) {
 		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
 		headers.put("X-Organization-ID", orgIdHeader);
-		String url = webConstants.getCoreShipmentBaseUrl() + "/" + id;
+		String url = webConstants.getCoreShipmentBaseUrl() + "/retailer/" + id;
 		return restService.iamRestCall(
 				url,
 				null,
@@ -2063,11 +2072,14 @@ public class CoreRetailerServiceImpl implements CoreRetailerService {
 	@Override
 	public ResponseEntity<?> getAllShipments(String authToken, String orgIdHeader, Pageable pageable,
 			String status, String mode, Long supplierId, Long warehouseId,
-			java.sql.Timestamp startDate, java.sql.Timestamp endDate) {
+			java.sql.Timestamp startDate, java.sql.Timestamp endDate,
+			String referenceType, String search) {
 		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
 		headers.put("X-Organization-ID", orgIdHeader);
-		String url = buildPaginatedUrlWithFilters(webConstants.getCoreShipmentBaseUrl() + "/all", pageable,
+		String url = buildPaginatedUrlWithFilters(webConstants.getCoreShipmentBaseUrl() + "/retailer", pageable,
 				"status", status,
+				"referenceType", referenceType,
+				"search", search,
 				"mode", mode,
 				"supplierId", supplierId,
 				"warehouseId", warehouseId,
@@ -2079,6 +2091,15 @@ public class CoreRetailerServiceImpl implements CoreRetailerService {
 				headers,
 				HttpMethod.GET,
 				null);
+	}
+
+	@Override
+	public ResponseEntity<?> getRetailerCoreShipments(String authToken, String orgIdHeader, Pageable pageable) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = buildPaginatedUrl(
+				webConstants.getCoreShipmentBaseUrl() + "/retailer/core", pageable);
+		return restService.iamRestCall(url, null, headers, HttpMethod.GET, null);
 	}
 
 	@Override
@@ -2624,6 +2645,14 @@ public class CoreRetailerServiceImpl implements CoreRetailerService {
 		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
 		headers.put("X-Organization-ID", orgIdHeader);
 		String url = webConstants.getCoreServiceUrl() + "/core/asn/purchase-order-number/" + poNumber;
+		return restService.iamRestCall(url, null, headers, HttpMethod.GET, null);
+	}
+
+	@Override
+	public ResponseEntity<?> getAsnByShipment(Long shipmentId, String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCoreServiceUrl() + "/core/asn/shipment/" + shipmentId;
 		return restService.iamRestCall(url, null, headers, HttpMethod.GET, null);
 	}
 

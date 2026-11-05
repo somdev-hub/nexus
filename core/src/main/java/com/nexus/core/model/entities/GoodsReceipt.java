@@ -46,6 +46,17 @@ public class GoodsReceipt extends BaseEntity {
 	@EqualsAndHashCode.Exclude
 	private PurchaseOrder purchaseOrder;
 
+	// Core shipments (consignment fill / VMI replenishment) have no PO.
+	// The receipt links to the shipment instead, and optionally to the ASN.
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "shipment_id", referencedColumnName = "shipment_id")
+	@ToString.Exclude
+	@EqualsAndHashCode.Exclude
+	private Shipment shipment;
+
+	@Column(name = "asn_id")
+	private Long asnId;
+
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "supplier_id", referencedColumnName = "supplier_id")
 	@ToString.Exclude

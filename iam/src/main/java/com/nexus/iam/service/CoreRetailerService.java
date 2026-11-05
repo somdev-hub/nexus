@@ -193,7 +193,9 @@ public interface CoreRetailerService {
 	ResponseEntity<?> getGoodsReceipt(Long id, String authToken, String orgIdHeader);
 
 	ResponseEntity<?> getAllGoodsReceipts(String authToken, String orgIdHeader, Pageable pageable,
-			String status, Long purchaseOrderId, Long supplierId);
+			String status, Long purchaseOrderId, Long supplierId, Long shipmentId);
+
+	ResponseEntity<?> getGoodsReceiptSource(Long shipmentId, String authToken, String orgIdHeader);
 
 	ResponseEntity<?> updateGoodsReceipt(Long id, Map<String, Object> grDto, String authToken, String orgIdHeader);
 
@@ -367,7 +369,10 @@ public interface CoreRetailerService {
 
 	ResponseEntity<?> getAllShipments(String authToken, String orgIdHeader, Pageable pageable,
 			String status, String mode, Long supplierId, Long warehouseId,
-			java.sql.Timestamp startDate, java.sql.Timestamp endDate);
+			java.sql.Timestamp startDate, java.sql.Timestamp endDate,
+			String referenceType, String search);
+
+	ResponseEntity<?> getRetailerCoreShipments(String authToken, String orgIdHeader, Pageable pageable);
 
 	ResponseEntity<?> updateShipment(Long id, Map<String, Object> shipmentDto, String authToken, String orgIdHeader);
 
@@ -474,6 +479,8 @@ public interface CoreRetailerService {
 	ResponseEntity<?> getAllAsns(String authToken, String orgIdHeader, Pageable pageable);
 	ResponseEntity<?> getAsnByPurchaseOrder(Long poId, String authToken, String orgIdHeader);
 	ResponseEntity<?> getAsnByPurchaseOrderNumber(String poNumber, String authToken, String orgIdHeader);
+
+	ResponseEntity<?> getAsnByShipment(Long shipmentId, String authToken, String orgIdHeader);
 
 	ResponseEntity<?> getShipmentPod(Long id, String authToken, String orgIdHeader);
 

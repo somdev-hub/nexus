@@ -19,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.nexus.core.exception.ResourceNotFoundException;
 import com.nexus.core.exception.ValidationException;
 import com.nexus.core.model.entities.Account;
+import com.nexus.core.model.entities.AdvanceShipmentNotice;
 import com.nexus.core.model.entities.CapacityForecast;
 import com.nexus.core.model.entities.Partnership;
 import com.nexus.core.model.entities.Shipment;
@@ -28,6 +29,7 @@ import com.nexus.core.model.enums.PurchaseOrderStatus;
 import com.nexus.core.model.enums.ShipmentStatus;
 import com.nexus.core.payload.PartnershipInvitationDto;
 import com.nexus.core.repository.AccountRepository;
+import com.nexus.core.repository.AdvanceShipmentNoticeRepo;
 import com.nexus.core.repository.CapacityForecastRepo;
 import com.nexus.core.repository.PartnershipInvitationRepo;
 import com.nexus.core.repository.PartnershipRepo;
@@ -53,6 +55,7 @@ public class SupplierLogisticsMarketplaceServiceImpl implements SupplierLogistic
     private final ShipmentRepo shipmentRepo;
     private final PurchaseOrderRepo purchaseOrderRepo;
     private final AccountRepository accountRepo;
+    private final AdvanceShipmentNoticeRepo asnRepo;
     private final PartnershipInvitationService invitationService;
     private final LogisticsExecutionService executionService;
 
@@ -285,6 +288,9 @@ public class SupplierLogisticsMarketplaceServiceImpl implements SupplierLogistic
             }
         }
         if (body.get("notes") != null) shipment.setNotes(body.get("notes").toString());
+        if (body.get("shippedQuantity") != null) {
+            shipment.setShippedQuantity(toDouble(body.get("shippedQuantity")));
+        }
         // Package facts + freight costing captured at handover time (same
         // fields the partial-ship flow accepts, so both paths persist the
         // same shipment detail).
@@ -349,6 +355,22 @@ public class SupplierLogisticsMarketplaceServiceImpl implements SupplierLogistic
         shipment.setStatus(ShipmentStatus.BOOKED);
 
         Shipment saved = shipmentRepo.save(shipment);
+        // Core shipments (consignment fill / VMI replenishment) have no PO
+        // partial-ship path to generate an ASN. Create one at handover so the
+        // retailer can inspect the dispatch before receiving.
+        if (saved.getRetailerOrg() != null && saved.getSupplierOrg() != null
+                && isCoreReference(saved.getReferenceType())
+                && asnRepo.findByShipmentId(saved.getShipmentId()).isEmpty()) {
+            AdvanceShipmentNotice asn = new AdvanceShipmentNotice();
+            asn.setAsnNumber("ASN-" + saved.getShipmentNumber());
+            asn.setShipmentId(saved.getShipmentId());
+            asn.setBuyerOrg(saved.getRetailerOrg());
+            asn.setSupplierOrg(saved.getSupplierOrg());
+            asn.setStatus("SENT");
+            asn.setNotes("Core shipment " + saved.getReferenceType()
+                    + (saved.getReferenceId() != null ? " #" + saved.getReferenceId() : ""));
+            asnRepo.save(asn);
+        }
         // The linked PO waits for pickup instead of jumping to RECEIVED.
         if (saved.getPurchaseOrder() != null && saved.getPurchaseOrder().getPurchaseOrderId() != null) {
             purchaseOrderRepo.findById(saved.getPurchaseOrder().getPurchaseOrderId()).ifPresent(po -> {
@@ -645,5 +667,10 @@ public class SupplierLogisticsMarketplaceServiceImpl implements SupplierLogistic
     private static Integer toInt(Object v) {
         Double d = toDouble(v);
         return d == null ? null : (int) Math.round(d);
+    }
+
+    private static boolean isCoreReference(String referenceType) {
+        return "CONSIGNMENT_FILL".equals(referenceType)
+                || "VMI_REPLENISHMENT".equals(referenceType);
     }
 }

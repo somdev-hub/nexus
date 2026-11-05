@@ -75,6 +75,37 @@ public class ShipmentDto {
 	private String referenceType;
 	private Long referenceId;
 
+	// Core-shipment / read-model fields (used by the retailer inbound
+	// shipments page and the ASN/GR flows).
+	private Long purchaseOrderId;
+	private String purchaseOrderNumber;
+	private Double orderedQuantity;
+	private Double backorderedQuantity;
+	private Boolean isPartialShipment;
+	private Double shippedQuantity;
+	private Long materialId;
+	private String materialName;
+	private String quantityUom;
+	private String trackingNumber;
+	private String pickupLocation;
+	private String deliveryLocation;
+	private String notes;
+	private Double packageWeight;
+	private Double packageLength;
+	private Double packageWidth;
+	private Double packageHeight;
+	private String packageDimensionUom;
+	private String currency;
+	private String freightTerms;
+	private LocalDateTime estimatedDeparture;
+	private LocalDateTime actualDeparture;
+	private LocalDateTime estimatedArrival;
+	private LocalDateTime actualArrival;
+	private LocalDateTime receivedAt;
+	private String supplierOrgName;
+	private String retailerOrgName;
+	private String logisticsOrgName;
+
 	private String specialInstructions;
 	private String hazardousMaterialsInfo;
 	private String customsInformation;
@@ -84,7 +115,6 @@ public class ShipmentDto {
 	private Integer totalPackages;
 
 	private String externalReference;
-	private String purchaseOrderNumber;
 
 	private LocalDateTime createdAt;
 	private LocalDateTime updatedAt;

@@ -80,9 +80,21 @@ public class Shipment extends BaseEntity {
 
 	// Quantity loaded on this dispatch (units). Stored at partial-ship
 	// time so per-PO shipped/remaining totals stay exact across any
-	// number of partial shipments.
+	// number of partial shipments. Core shipments (consignment fill /
+	// VMI replenishment) also use this as the dispatched quantity.
 	@Column(name = "shipped_quantity")
 	private Double shippedQuantity;
+
+	// Material snapshot for core shipments. Consignment/VMI records are
+	// material-specific, so a core shipment carries exactly one material.
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "material_id", referencedColumnName = "material_id")
+	@ToString.Exclude
+	@EqualsAndHashCode.Exclude
+	private Material material;
+
+	@Column(name = "quantity_uom")
+	private String quantityUom;
 
 	@Enumerated(EnumType.STRING)
 	private ShipmentStatus status = ShipmentStatus.DRAFT;
@@ -239,6 +251,10 @@ public class Shipment extends BaseEntity {
 
 	@Column(name = "actual_arrival")
 	private Timestamp actualArrival;
+
+	// Set when the retailer posts a goods receipt against this shipment.
+	@Column(name = "received_at")
+	private Timestamp receivedAt;
 
 	@Column(name = "notes")
 	private String notes;

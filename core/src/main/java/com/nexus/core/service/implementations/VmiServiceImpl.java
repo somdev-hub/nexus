@@ -192,9 +192,21 @@ public class VmiServiceImpl implements VmiService {
         Long orgId = OrganizationContextHolder.requireOrganizationId();
         VmiConfig vmi = vmiRepo.findByVmiIdAndSupplierOrgAccountId(id, orgId)
                 .orElseThrow(() -> new ResourceNotFoundException("VmiConfig", "vmiId", id));
-        vmi.setLastReplenishedAt(Timestamp.valueOf(LocalDateTime.now()));
-        VmiConfig saved = vmiRepo.save(vmi);
-        return ResponseEntity.ok(Map.of("vmiId", saved.getVmiId(), "lastReplenishedAt", saved.getLastReplenishedAt(), "message", "Replenishment triggered"));
+        ShipmentDto created = createReplenishmentShipment(vmi);
+        if (created == null) {
+            vmi.setLastReplenishedAt(Timestamp.valueOf(LocalDateTime.now()));
+            VmiConfig saved = vmiRepo.save(vmi);
+            return ResponseEntity.ok(Map.of(
+                    "vmiId", saved.getVmiId(),
+                    "lastReplenishedAt", saved.getLastReplenishedAt(),
+                    "message", "Replenishment triggered (no supplier/warehouse resolved, no shipment created)"));
+        }
+        return ResponseEntity.ok(Map.of(
+                "vmiId", vmi.getVmiId(),
+                "lastReplenishedAt", vmi.getLastReplenishedAt(),
+                "shipmentId", created.getShipmentId(),
+                "shipmentNumber", created.getShipmentNumber(),
+                "message", "Replenishment shipment created"));
     }
 
     @Override
@@ -251,50 +263,10 @@ public class VmiServiceImpl implements VmiService {
                     log.info("VMI auto-replenish triggered for VMI {} (material {}), available={}, reorderPoint={}",
                             vmi.getVmiId(), vmi.getMaterial().getMaterialId(), available, vmi.getReorderPoint());
                     try {
-                        Long supplierOrgId = vmi.getSupplierOrg() != null ? vmi.getSupplierOrg().getAccountId() : null;
-                        Supplier supplier = null;
-                        if (supplierOrgId != null) {
-                            supplier = supplierRepo.findFirstBySupplierOrgAccountId(supplierOrgId).orElse(null);
-                            if (supplier == null) {
-                                supplier = supplierRepo.findByAccountAccountId(supplierOrgId, Pageable.unpaged()).getContent().stream().findFirst().orElse(null);
-                            }
-                        }
-                        if (supplier == null) {
-                            supplier = supplierRepo.findAll(Pageable.unpaged()).getContent().stream().findFirst().orElse(null);
-                        }
-                        Warehouse wh = vmi.getWarehouse();
-                        if (wh == null && vmi.getRetailerOrg() != null) {
-                            wh = warehouseRepo.findByOrg(vmi.getRetailerOrg().getAccountId(), PageRequest.of(0, 1)).getContent().stream().findFirst().orElse(null);
-                        }
-                        if (supplier != null && wh != null) {
-                            ShipmentDto shipment = new ShipmentDto();
-                            shipment.setShipmentNumber("VMI-REPL-" + vmi.getVmiId() + "-" + System.currentTimeMillis());
-                            shipment.setReferenceType("VMI_REPLENISHMENT");
-                            shipment.setReferenceId(vmi.getVmiId());
-                            shipment.setScheduledPickupDate(java.time.LocalDateTime.now());
-                            shipment.setScheduledDeliveryDate(java.time.LocalDateTime.now().plusDays(3));
-                            shipment.setCarrierTrackingNumber(shipment.getShipmentNumber());
-                            shipment.setSupplierId(supplier.getSupplierId());
-                            shipment.setSupplierName(supplier.getBusinessName());
-                            shipment.setWarehouseId(wh.getWarehouseId());
-                            shipment.setWarehouseName(wh.getCode());
-                            shipment.setMode(ShipmentMode.ROAD);
-                            shipment.setStatus(ShipmentStatus.DRAFT);
-                            if (vmi.getSupplierOrg() != null) {
-                                shipment.setSupplierOrgId(vmi.getSupplierOrg().getAccountId());
-                            } else {
-                                shipment.setSupplierOrgId(supplierOrgId);
-                            }
-                            if (vmi.getRetailerOrg() != null) {
-                                shipment.setRetailerOrgId(vmi.getRetailerOrg().getAccountId());
-                            }
-                            shipment.setPickupAddress(supplier.getLocation() != null ? supplier.getLocation() : "Supplier warehouse");
-                            shipment.setDeliveryAddress(wh.getLocation() != null ? wh.getLocation() : "Retailer warehouse");
-                            ShipmentDto created = shipmentService.createShipment(shipment);
-                            vmi.setLastShipmentId(created.getShipmentId());
-                            vmi.setLastReplenishedAt(Timestamp.valueOf(LocalDateTime.now()));
-                            vmiRepo.save(vmi);
-                            log.info("Created replenishment shipment {} for VMI {}", created.getShipmentId(), vmi.getVmiId());
+                        ShipmentDto created = createReplenishmentShipment(vmi);
+                        if (created != null) {
+                            log.info("Created replenishment shipment {} for VMI {}",
+                                    created.getShipmentId(), vmi.getVmiId());
                         }
                     } catch (Exception e) {
                         log.error("Failed to create replenishment shipment for VMI {}", vmi.getVmiId(), e);
@@ -304,6 +276,73 @@ public class VmiServiceImpl implements VmiService {
         } catch (Exception e) {
             log.error("VMI auto-replenish failed", e);
         }
+    }
+
+    /**
+     * Create a replenishment shipment for a VMI config. Used by both the
+     * scheduled auto-replenish and the supplier's manual "Replenish" action.
+     * Returns null when no supplier/warehouse could be resolved.
+     */
+    private ShipmentDto createReplenishmentShipment(VmiConfig vmi) {
+        Long supplierOrgId = vmi.getSupplierOrg() != null ? vmi.getSupplierOrg().getAccountId() : null;
+        Supplier supplier = null;
+        if (supplierOrgId != null) {
+            supplier = supplierRepo.findFirstBySupplierOrgAccountId(supplierOrgId).orElse(null);
+            if (supplier == null) {
+                supplier = supplierRepo.findByAccountAccountId(supplierOrgId, Pageable.unpaged())
+                        .getContent().stream().findFirst().orElse(null);
+            }
+        }
+        if (supplier == null) {
+            supplier = supplierRepo.findAll(Pageable.unpaged()).getContent().stream().findFirst().orElse(null);
+        }
+        Warehouse wh = vmi.getWarehouse();
+        if (wh == null && vmi.getRetailerOrg() != null) {
+            wh = warehouseRepo.findByOrg(vmi.getRetailerOrg().getAccountId(), PageRequest.of(0, 1))
+                    .getContent().stream().findFirst().orElse(null);
+        }
+        if (supplier == null || wh == null) {
+            return null;
+        }
+
+        ShipmentDto shipment = new ShipmentDto();
+        shipment.setShipmentNumber("VMI-REPL-" + vmi.getVmiId() + "-" + System.currentTimeMillis());
+        shipment.setReferenceType("VMI_REPLENISHMENT");
+        shipment.setReferenceId(vmi.getVmiId());
+        shipment.setScheduledPickupDate(java.time.LocalDateTime.now());
+        shipment.setScheduledDeliveryDate(java.time.LocalDateTime.now().plusDays(3));
+        shipment.setCarrierTrackingNumber(shipment.getShipmentNumber());
+        shipment.setSupplierId(supplier.getSupplierId());
+        shipment.setSupplierName(supplier.getBusinessName());
+        shipment.setWarehouseId(wh.getWarehouseId());
+        shipment.setWarehouseName(wh.getCode());
+        shipment.setMode(ShipmentMode.ROAD);
+        shipment.setStatus(ShipmentStatus.DRAFT);
+        if (vmi.getSupplierOrg() != null) {
+            shipment.setSupplierOrgId(vmi.getSupplierOrg().getAccountId());
+        } else {
+            shipment.setSupplierOrgId(supplierOrgId);
+        }
+        if (vmi.getRetailerOrg() != null) {
+            shipment.setRetailerOrgId(vmi.getRetailerOrg().getAccountId());
+        }
+        if (vmi.getMaterial() != null) {
+            shipment.setMaterialId(vmi.getMaterial().getMaterialId());
+            shipment.setQuantityUom(vmi.getMaterial().getUnit());
+        }
+        if (vmi.getReorderQuantity() != null) {
+            shipment.setShippedQuantity(vmi.getReorderQuantity());
+        }
+        shipment.setPickupAddress(supplier.getLocation() != null
+                ? supplier.getLocation() : "Supplier warehouse");
+        shipment.setDeliveryAddress(wh.getLocation() != null
+                ? wh.getLocation() : "Retailer warehouse");
+
+        ShipmentDto created = shipmentService.createShipment(shipment);
+        vmi.setLastShipmentId(created.getShipmentId());
+        vmi.setLastReplenishedAt(Timestamp.valueOf(LocalDateTime.now()));
+        vmiRepo.save(vmi);
+        return created;
     }
 
     @Override

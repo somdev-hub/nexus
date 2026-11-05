@@ -121,6 +121,59 @@ public class ShipmentController {
 		return ResponseEntity.ok(shipmentService.getSupplierCoreShipments(orgId, pageable));
 	}
 
+	// Retailer-scoped inbound shipment views. These are deliberately separate
+	// from /all, which is not org-scoped.
+	@GetMapping("/retailer")
+	@LogActivity("Get Retailer Inbound Shipments")
+	public ResponseEntity<?> getRetailerShipments(
+			@RequestParam(required = false) String status,
+			@RequestParam(required = false) String referenceType,
+			@RequestParam(required = false) String search,
+			@PageableDefault(size = 20, sort = "shipmentId", direction = Sort.Direction.DESC) Pageable pageable) {
+		Long orgId = OrganizationContextHolder.requireOrganizationId();
+		ShipmentStatus st = null;
+		if (status != null && !status.isBlank()) {
+			try {
+				st = ShipmentStatus.valueOf(status.toUpperCase());
+			} catch (IllegalArgumentException e) {
+				return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid status: " + status);
+			}
+		}
+		return ResponseEntity.ok(shipmentService.getRetailerShipments(orgId, st, referenceType, search, pageable));
+	}
+
+	@GetMapping("/retailer/core")
+	@LogActivity("Get Retailer Core Shipments")
+	public ResponseEntity<?> getRetailerCoreShipments(
+			@PageableDefault(size = 20, sort = "shipmentId", direction = Sort.Direction.DESC) Pageable pageable) {
+		Long orgId = OrganizationContextHolder.requireOrganizationId();
+		return ResponseEntity.ok(shipmentService.getRetailerCoreShipments(orgId, pageable));
+	}
+
+	@GetMapping("/retailer/po")
+	@LogActivity("Get Retailer PO Shipments")
+	public ResponseEntity<?> getRetailerPurchaseOrderShipments(
+			@PageableDefault(size = 20, sort = "shipmentId", direction = Sort.Direction.DESC) Pageable pageable) {
+		Long orgId = OrganizationContextHolder.requireOrganizationId();
+		return ResponseEntity.ok(shipmentService.getRetailerPurchaseOrderShipments(orgId, pageable));
+	}
+
+	@GetMapping("/retailer/{id}")
+	@LogActivity("Get Retailer Shipment")
+	public ResponseEntity<?> getRetailerShipment(@PathVariable Long id) {
+		Long orgId = OrganizationContextHolder.requireOrganizationId();
+		return shipmentService.getRetailerShipmentById(id, orgId)
+				.map(ResponseEntity::ok)
+				.orElse(ResponseEntity.notFound().build());
+	}
+
+	@GetMapping("/retailer/{id}/tracking")
+	@LogActivity("Get Retailer Shipment Tracking")
+	public ResponseEntity<?> getRetailerTrackingEvents(@PathVariable Long id) {
+		Long orgId = OrganizationContextHolder.requireOrganizationId();
+		return ResponseEntity.ok(shipmentService.getRetailerTrackingEvents(id, orgId));
+	}
+
 	@GetMapping("/by-logistics-org")
 	@LogActivity("Get Shipments by Logistics Org")
 	public ResponseEntity<?> getShipmentsByLogisticsOrg(@PageableDefault(size = 20) Pageable pageable) {

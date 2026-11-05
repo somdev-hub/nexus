@@ -27,7 +27,7 @@ public interface ConsignmentStockService {
 
     ResponseEntity<?> deleteConsignment(Long id);
 
-    ResponseEntity<?> fillConsignment(Long id, String pickupAddress, String deliveryAddress);
+    ResponseEntity<?> fillConsignment(Long id, String pickupAddress, String deliveryAddress, Double quantity);
 
     ResponseEntity<?> getSummary();
 }

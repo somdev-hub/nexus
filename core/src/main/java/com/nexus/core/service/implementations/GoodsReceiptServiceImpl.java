@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -19,10 +20,12 @@ import org.springframework.transaction.annotation.Transactional;
 import com.nexus.core.model.entities.GoodsReceipt;
 import com.nexus.core.model.entities.GoodsReceiptLineItem;
 import com.nexus.core.model.enums.GoodsReceiptStatus;
+import com.nexus.core.model.entities.AdvanceShipmentNotice;
 import com.nexus.core.model.entities.Material;
 import com.nexus.core.model.entities.PurchaseOrder;
 import com.nexus.core.model.entities.PurchaseOrderLineItem;
 import com.nexus.core.model.enums.PurchaseOrderStatus;
+import com.nexus.core.model.entities.Shipment;
 import com.nexus.core.model.entities.Stock;
 import com.nexus.core.model.entities.Supplier;
 import com.nexus.core.model.entities.SupplierCatalog;
@@ -31,11 +34,13 @@ import com.nexus.core.exception.ResourceNotFoundException;
 import com.nexus.core.exception.ValidationException;
 import com.nexus.core.payload.GoodsReceiptDto;
 import com.nexus.core.payload.GoodsReceiptLineItemDto;
+import com.nexus.core.repository.AdvanceShipmentNoticeRepo;
 import com.nexus.core.repository.GoodsReceiptLineItemRepo;
 import com.nexus.core.repository.GoodsReceiptRepo;
 import com.nexus.core.repository.MaterialRepo;
 import com.nexus.core.repository.PurchaseOrderLineItemRepo;
 import com.nexus.core.repository.PurchaseOrderRepo;
+import com.nexus.core.repository.ShipmentRepo;
 import com.nexus.core.repository.StockRepo;
 import com.nexus.core.repository.SupplierCatalogRepo;
 import com.nexus.core.repository.SupplierRepository;
@@ -55,6 +60,8 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
 	private final GoodsReceiptLineItemRepo grLineItemRepo;
 	private final PurchaseOrderRepo purchaseOrderRepo;
 	private final PurchaseOrderLineItemRepo poLineItemRepo;
+	private final ShipmentRepo shipmentRepo;
+	private final AdvanceShipmentNoticeRepo asnRepo;
 	private final SupplierRepository supplierRepo;
 	private final MaterialRepo materialRepo;
 	private final StockRepo stockRepo;
@@ -65,25 +72,74 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
 	@Transactional
 	public ResponseEntity<?> createGoodsReceipt(GoodsReceiptDto grDto) {
 		Long orgId = OrganizationContextHolder.requireOrganizationId();
+		boolean shipmentSource = grDto.getShipmentId() != null;
 
-		// Validate purchase order
-		PurchaseOrder po = purchaseOrderRepo.findByPurchaseOrderIdAndBuyerOrgAccountId(grDto.getPurchaseOrderId(), orgId)
-				.orElseThrow(() -> new ResourceNotFoundException("PurchaseOrder", "purchaseOrderId",
-						grDto.getPurchaseOrderId()));
+		PurchaseOrder po = null;
+		Supplier supplier;
+		Shipment shipment = null;
 
-		// Validate supplier
-		Supplier supplier = supplierRepo.findBySupplierIdAndAccountAccountId(grDto.getSupplierId(), orgId)
-				.orElseThrow(() -> new ResourceNotFoundException("Supplier", "supplierId", grDto.getSupplierId()));
-
-		// Check if supplier matches PO supplier
-		if (!supplier.getSupplierId().equals(po.getSupplier().getSupplierId())) {
-			throw new ValidationException("Supplier does not match the purchase order supplier");
-		}
-
-		// Check PO status - must be ACKNOWLEDGED or higher to receive goods
-		if (po.getStatus() == PurchaseOrderStatus.DRAFT || po.getStatus() == PurchaseOrderStatus.PENDING_APPROVAL
-				|| po.getStatus() == PurchaseOrderStatus.REJECTED || po.getStatus() == PurchaseOrderStatus.CANCELLED) {
-			throw new ValidationException("Cannot create goods receipt for PO in " + po.getStatus() + " status");
+		if (shipmentSource) {
+			shipment = shipmentRepo.findById(grDto.getShipmentId())
+					.orElseThrow(() -> new ResourceNotFoundException("Shipment", "shipmentId",
+							grDto.getShipmentId()));
+			if (shipment.getRetailerOrg() == null
+					|| !shipment.getRetailerOrg().getAccountId().equals(orgId)) {
+				throw new ResourceNotFoundException("Shipment", "shipmentId", grDto.getShipmentId());
+			}
+			if (!isCoreReference(shipment.getReferenceType())) {
+				throw new ValidationException(
+						"Only consignment/VMI core shipments can be received without a purchase order");
+			}
+			if (shipment.getStatus() != com.nexus.core.model.enums.ShipmentStatus.DELIVERED
+					&& shipment.getStatus() != com.nexus.core.model.enums.ShipmentStatus.PARTIALLY_DELIVERED
+					&& shipment.getStatus() != com.nexus.core.model.enums.ShipmentStatus.CLOSED) {
+				throw new ValidationException(
+						"Shipment must be delivered before goods receipt. Current: " + shipment.getStatus());
+			}
+			boolean existing = goodsReceiptRepo
+					.findByShipmentShipmentId(shipment.getShipmentId(), Pageable.unpaged())
+					.getContent().stream()
+					.anyMatch(g -> g.getStatus() != GoodsReceiptStatus.CANCELLED);
+			if (existing) {
+				throw new ValidationException("A goods receipt already exists for this shipment");
+			}
+			if (shipment.getSupplierOrg() == null) {
+				throw new ValidationException("Shipment has no supplier organization");
+			}
+			Long supplierOrgId = shipment.getSupplierOrg().getAccountId();
+			supplier = supplierRepo.findFirstBySupplierOrgAccountId(supplierOrgId)
+					.orElseGet(() -> supplierRepo
+							.findByAccountAccountId(supplierOrgId, Pageable.unpaged())
+							.getContent().stream().findFirst().orElse(null));
+			if (supplier == null) {
+				throw new ResourceNotFoundException("Supplier", "supplierOrgId", supplierOrgId);
+			}
+			if (grDto.getSupplierId() != null
+					&& !supplier.getSupplierId().equals(grDto.getSupplierId())) {
+				throw new ValidationException("Supplier does not match the shipment supplier");
+			}
+		} else {
+			if (grDto.getPurchaseOrderId() == null) {
+				throw new ValidationException("Purchase order or shipment is required");
+			}
+			po = purchaseOrderRepo
+					.findByPurchaseOrderIdAndBuyerOrgAccountId(grDto.getPurchaseOrderId(), orgId)
+					.orElseThrow(() -> new ResourceNotFoundException("PurchaseOrder", "purchaseOrderId",
+							grDto.getPurchaseOrderId()));
+			supplier = supplierRepo
+					.findBySupplierIdAndAccountAccountId(grDto.getSupplierId(), orgId)
+					.orElseThrow(() -> new ResourceNotFoundException("Supplier", "supplierId",
+							grDto.getSupplierId()));
+			if (!supplier.getSupplierId().equals(po.getSupplier().getSupplierId())) {
+				throw new ValidationException("Supplier does not match the purchase order supplier");
+			}
+			if (po.getStatus() == PurchaseOrderStatus.DRAFT
+					|| po.getStatus() == PurchaseOrderStatus.PENDING_APPROVAL
+					|| po.getStatus() == PurchaseOrderStatus.REJECTED
+					|| po.getStatus() == PurchaseOrderStatus.CANCELLED) {
+				throw new ValidationException(
+						"Cannot create goods receipt for PO in " + po.getStatus() + " status");
+			}
 		}
 
 		// GR number is auto-generated when the caller leaves it blank:
@@ -93,16 +149,15 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
 			grNumber = String.format("GR-%d-%06d", java.time.LocalDate.now().getYear(),
 					System.currentTimeMillis() % 1000000);
 		}
-
-		// Check for duplicate GR number
 		if (goodsReceiptRepo.existsByGrNumber(grNumber)) {
 			throw new ValidationException("GR number already exists");
 		}
 
-		// Create goods receipt
 		GoodsReceipt gr = new GoodsReceipt();
 		gr.setGrNumber(grNumber);
 		gr.setPurchaseOrder(po);
+		gr.setShipment(shipment);
+		gr.setAsnId(grDto.getAsnId());
 		gr.setSupplier(supplier);
 		gr.setStatus(GoodsReceiptStatus.DRAFT);
 		gr.setReceivedDate(grDto.getReceivedDate());
@@ -111,18 +166,42 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
 		gr.setTrackingNumber(grDto.getTrackingNumber());
 		gr.setNotes(grDto.getNotes());
 
-		// Add line items
-		if (grDto.getLineItems() != null && !grDto.getLineItems().isEmpty()) {
+		if (shipmentSource) {
+			if (gr.getAsnId() == null) {
+				asnRepo.findByShipmentId(shipment.getShipmentId()).stream().findFirst()
+						.ifPresent(a -> gr.setAsnId(a.getAsnId()));
+			}
+			if (grDto.getLineItems() == null || grDto.getLineItems().isEmpty()) {
+				throw new ValidationException("At least one line item is required");
+			}
+			for (GoodsReceiptLineItemDto lineDto : grDto.getLineItems()) {
+				GoodsReceiptLineItem lineItem = toLineItemEntity(lineDto);
+				Material material = lineDto.getMaterialId() != null
+						? materialRepo.findById(lineDto.getMaterialId()).orElse(null) : null;
+				if (material == null) {
+					material = shipment.getMaterial();
+				}
+				if (material == null) {
+					throw new ValidationException("Material is required for a core shipment receipt");
+				}
+				lineItem.setMaterial(material);
+				lineItem.setDescription(lineDto.getDescription() != null
+						? lineDto.getDescription() : material.getName());
+				if (lineItem.getUnitOfMeasure() == null) {
+					lineItem.setUnitOfMeasure(material.getUnit());
+				}
+				gr.addLineItem(lineItem);
+			}
+		} else if (grDto.getLineItems() != null && !grDto.getLineItems().isEmpty()) {
 			for (GoodsReceiptLineItemDto lineDto : grDto.getLineItems()) {
 				PurchaseOrderLineItem poLineItem = poLineItemRepo.findById(lineDto.getPoLineItemId())
-						.orElseThrow(() -> new ResourceNotFoundException("PurchaseOrderLineItem", "poLineItemId",
-								lineDto.getPoLineItemId()));
-
-				// Validate PO line item belongs to the PO
-				if (!poLineItem.getPurchaseOrder().getPurchaseOrderId().equals(po.getPurchaseOrderId())) {
-					throw new ValidationException("PO line item does not belong to the specified purchase order");
+						.orElseThrow(() -> new ResourceNotFoundException("PurchaseOrderLineItem",
+								"poLineItemId", lineDto.getPoLineItemId()));
+				if (!poLineItem.getPurchaseOrder().getPurchaseOrderId()
+						.equals(po.getPurchaseOrderId())) {
+					throw new ValidationException(
+							"PO line item does not belong to the specified purchase order");
 				}
-
 				GoodsReceiptLineItem lineItem = toLineItemEntity(lineDto);
 				lineItem.setPoLineItem(poLineItem);
 				gr.addLineItem(lineItem);
@@ -133,10 +212,15 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
 		return new ResponseEntity<>(toDto(savedGr), HttpStatus.CREATED);
 	}
 
+	private static boolean isCoreReference(String referenceType) {
+		return "CONSIGNMENT_FILL".equals(referenceType)
+				|| "VMI_REPLENISHMENT".equals(referenceType);
+	}
+
 	@Override
 	public ResponseEntity<?> getGoodsReceiptById(Long id) {
 		Long orgId = OrganizationContextHolder.requireOrganizationId();
-		GoodsReceipt gr = goodsReceiptRepo.findByGoodsReceiptIdAndPurchaseOrderBuyerOrgId(id, orgId);
+		GoodsReceipt gr = goodsReceiptRepo.findVisibleToRetailerById(id, orgId);
 		if (gr == null) {
 			throw new ResourceNotFoundException("GoodsReceipt", "goodsReceiptId", id);
 		}
@@ -145,7 +229,7 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
 
 	@Override
 	public ResponseEntity<?> getAllGoodsReceipts(String status, Long purchaseOrderId, Long supplierId,
-			Pageable pageable) {
+			Long shipmentId, Pageable pageable) {
 		Long orgId = OrganizationContextHolder.requireOrganizationId();
 		// Default to newest first when the caller passes no explicit sort
 		// (an explicit ?sort= is respected).
@@ -162,8 +246,10 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
 					grs = goodsReceiptRepo.findByPurchaseOrderAndStatus(purchaseOrderId, grStatus, sorted);
 				} else if (supplierId != null) {
 					grs = goodsReceiptRepo.findBySupplierSupplierId(supplierId, sorted);
+				} else if (shipmentId != null) {
+					grs = goodsReceiptRepo.findByShipmentShipmentId(shipmentId, sorted);
 				} else {
-					grs = goodsReceiptRepo.findByStatus(grStatus, sorted);
+					grs = goodsReceiptRepo.findVisibleToRetailer(orgId, grStatus, sorted);
 				}
 			} catch (IllegalArgumentException e) {
 				return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid status: " + status);
@@ -172,8 +258,10 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
 			grs = goodsReceiptRepo.findByPurchaseOrderPurchaseOrderId(purchaseOrderId, sorted);
 		} else if (supplierId != null) {
 			grs = goodsReceiptRepo.findBySupplierSupplierId(supplierId, sorted);
+		} else if (shipmentId != null) {
+			grs = goodsReceiptRepo.findByShipmentShipmentId(shipmentId, sorted);
 		} else {
-			grs = goodsReceiptRepo.findByPurchaseOrderBuyerOrgId(orgId, sorted);
+			grs = goodsReceiptRepo.findVisibleToRetailer(orgId, null, sorted);
 		}
 
 		Page<GoodsReceiptDto> grDtos = grs.map(GoodsReceiptServiceImpl::toDto);
@@ -181,10 +269,65 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
 	}
 
 	@Override
+	@Transactional(readOnly = true)
+	public ResponseEntity<?> getSourceContext(Long shipmentId) {
+		Long orgId = OrganizationContextHolder.requireOrganizationId();
+		Shipment shipment = shipmentRepo.findById(shipmentId)
+				.orElseThrow(() -> new ResourceNotFoundException("Shipment", "shipmentId", shipmentId));
+		if (shipment.getRetailerOrg() == null
+				|| !shipment.getRetailerOrg().getAccountId().equals(orgId)) {
+			throw new ResourceNotFoundException("Shipment", "shipmentId", shipmentId);
+		}
+		if (!isCoreReference(shipment.getReferenceType())) {
+			throw new ValidationException(
+					"Only consignment/VMI core shipments can be received without a purchase order");
+		}
+		Supplier supplier = null;
+		if (shipment.getSupplierOrg() != null) {
+			Long supplierOrgId = shipment.getSupplierOrg().getAccountId();
+			supplier = supplierRepo.findFirstBySupplierOrgAccountId(supplierOrgId)
+					.orElseGet(() -> supplierRepo
+							.findByAccountAccountId(supplierOrgId, Pageable.unpaged())
+							.getContent().stream().findFirst().orElse(null));
+		}
+		GoodsReceipt existing = goodsReceiptRepo
+				.findByShipmentShipmentId(shipmentId, Pageable.unpaged()).getContent().stream()
+				.filter(g -> g.getStatus() != GoodsReceiptStatus.CANCELLED)
+				.findFirst().orElse(null);
+		AdvanceShipmentNotice asn = asnRepo.findByShipmentId(shipmentId).stream()
+				.findFirst().orElse(null);
+		Material material = shipment.getMaterial();
+
+		Map<String, Object> res = new LinkedHashMap<>();
+		res.put("shipmentId", shipment.getShipmentId());
+		res.put("shipmentNumber", shipment.getShipmentNumber());
+		res.put("shipmentStatus", shipment.getStatus() != null ? shipment.getStatus().name() : null);
+		res.put("referenceType", shipment.getReferenceType());
+		res.put("referenceId", shipment.getReferenceId());
+		res.put("supplierId", supplier != null ? supplier.getSupplierId() : null);
+		res.put("supplierName", supplier != null ? supplier.getBusinessName() : null);
+		res.put("supplierOrgId", shipment.getSupplierOrg() != null
+				? shipment.getSupplierOrg().getAccountId() : null);
+		res.put("retailerOrgId", shipment.getRetailerOrg() != null
+				? shipment.getRetailerOrg().getAccountId() : null);
+		res.put("materialId", material != null ? material.getMaterialId() : null);
+		res.put("materialName", material != null ? material.getName() : null);
+		res.put("materialCode", material != null ? material.getCode() : null);
+		res.put("quantity", shipment.getShippedQuantity());
+		res.put("unitOfMeasure", shipment.getQuantityUom() != null
+				? shipment.getQuantityUom() : (material != null ? material.getUnit() : null));
+		res.put("asnId", asn != null ? asn.getAsnId() : null);
+		res.put("asnNumber", asn != null ? asn.getAsnNumber() : null);
+		res.put("existingGoodsReceiptId", existing != null ? existing.getGoodsReceiptId() : null);
+		res.put("existingGrNumber", existing != null ? existing.getGrNumber() : null);
+		return ResponseEntity.ok(res);
+	}
+
+	@Override
 	@Transactional
 	public ResponseEntity<?> updateGoodsReceipt(Long id, GoodsReceiptDto grDto) {
 		Long orgId = OrganizationContextHolder.requireOrganizationId();
-		GoodsReceipt gr = goodsReceiptRepo.findByGoodsReceiptIdAndPurchaseOrderBuyerOrgId(id, orgId);
+		GoodsReceipt gr = goodsReceiptRepo.findVisibleToRetailerById(id, orgId);
 		if (gr == null) {
 			throw new ResourceNotFoundException("GoodsReceipt", "goodsReceiptId", id);
 		}
@@ -205,12 +348,28 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
 		gr.getLineItems().clear();
 		if (grDto.getLineItems() != null && !grDto.getLineItems().isEmpty()) {
 			for (GoodsReceiptLineItemDto lineDto : grDto.getLineItems()) {
-				PurchaseOrderLineItem poLineItem = poLineItemRepo.findById(lineDto.getPoLineItemId())
-						.orElseThrow(() -> new ResourceNotFoundException("PurchaseOrderLineItem", "poLineItemId",
-								lineDto.getPoLineItemId()));
-
 				GoodsReceiptLineItem lineItem = toLineItemEntity(lineDto);
-				lineItem.setPoLineItem(poLineItem);
+				if (gr.getShipment() != null) {
+					Material material = lineDto.getMaterialId() != null
+							? materialRepo.findById(lineDto.getMaterialId()).orElse(null) : null;
+					if (material == null) {
+						material = gr.getShipment().getMaterial();
+					}
+					if (material == null) {
+						throw new ValidationException("Material is required for a core shipment receipt");
+					}
+					lineItem.setMaterial(material);
+					lineItem.setDescription(lineDto.getDescription() != null
+							? lineDto.getDescription() : material.getName());
+					if (lineItem.getUnitOfMeasure() == null) {
+						lineItem.setUnitOfMeasure(material.getUnit());
+					}
+				} else {
+					PurchaseOrderLineItem poLineItem = poLineItemRepo.findById(lineDto.getPoLineItemId())
+							.orElseThrow(() -> new ResourceNotFoundException("PurchaseOrderLineItem",
+									"poLineItemId", lineDto.getPoLineItemId()));
+					lineItem.setPoLineItem(poLineItem);
+				}
 				gr.addLineItem(lineItem);
 			}
 		}
@@ -223,7 +382,7 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
 	@Transactional
 	public ResponseEntity<?> transitionStatus(Long id, GoodsReceiptStatus newStatus, Map<String, Object> params) {
 		Long orgId = OrganizationContextHolder.requireOrganizationId();
-		GoodsReceipt gr = goodsReceiptRepo.findByGoodsReceiptIdAndPurchaseOrderBuyerOrgId(id, orgId);
+		GoodsReceipt gr = goodsReceiptRepo.findVisibleToRetailerById(id, orgId);
 		if (gr == null) {
 			throw new ResourceNotFoundException("GoodsReceipt", "goodsReceiptId", id);
 		}
@@ -269,6 +428,9 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
 		dto.setGrNumber(gr.getGrNumber());
 		dto.setPurchaseOrderId(
 				gr.getPurchaseOrder() != null ? gr.getPurchaseOrder().getPurchaseOrderId() : null);
+		dto.setShipmentId(
+				gr.getShipment() != null ? gr.getShipment().getShipmentId() : null);
+		dto.setAsnId(gr.getAsnId());
 		dto.setSupplierId(gr.getSupplier() != null ? gr.getSupplier().getSupplierId() : null);
 		dto.setStatus(gr.getStatus());
 		dto.setReceivedDate(gr.getReceivedDate());
@@ -283,6 +445,9 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
 				lineDto.setGrLineItemId(line.getGrLineItemId());
 				lineDto.setPoLineItemId(
 						line.getPoLineItem() != null ? line.getPoLineItem().getLineItemId() : null);
+				lineDto.setMaterialId(
+						line.getMaterial() != null ? line.getMaterial().getMaterialId() : null);
+				lineDto.setDescription(line.getDescription());
 				lineDto.setLineNumber(line.getLineNumber());
 				lineDto.setQuantityReceived(line.getQuantityReceived());
 				lineDto.setQuantityAccepted(line.getQuantityAccepted());
@@ -343,36 +508,42 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
 		switch (newStatus) {
 		case RECEIVED:
 			gr.setReceivedAt(Timestamp.valueOf(LocalDateTime.now()));
-			// Block receiving unless production warehouse capacity is set
-			Long buyerOrgId = gr.getPurchaseOrder() != null && gr.getPurchaseOrder().getBuyerOrg() != null
-					? gr.getPurchaseOrder().getBuyerOrg().getAccountId() : null;
-			if (buyerOrgId == null) buyerOrgId = OrganizationContextHolder.getCurrentOrganizationId();
-			Warehouse prodWh = warehouseRepo.findByOrg(buyerOrgId, PageRequest.of(0, 10)).getContent().stream()
-					.filter(w -> "PRODUCTION".equalsIgnoreCase(w.getWarehouseType())).findFirst().orElse(null);
-			if (prodWh == null || prodWh.getCapacity() == null || prodWh.getCapacity() <= 0) {
-				throw new ValidationException("Production warehouse capacity must be set before receiving materials");
-			}
-			// Receiving accepts whatever was counted unless the line was
-			// explicitly part-accepted/rejected: without this default the
-			// accepted totals stay null and the PO can never flip to
-			// RECEIVED (which in turn gates invoicing).
-			if (gr.getLineItems() != null) {
-				for (GoodsReceiptLineItem line : gr.getLineItems()) {
-					if (line.getQuantityAccepted() == null) {
-						line.setQuantityAccepted(line.getQuantityReceived());
-					}
-					// Derive a retailer Material (and Stock) from the
-					// received PO line's supplier catalog item. Materials are
-					// not created manually by the retailer.
-					try {
-						receiveLineIntoInventory(gr, line);
-					} catch (Exception e) {
-						log.error("Failed to derive material/stock from GR line {}", line.getGrLineItemId(), e);
+			if (gr.getShipment() != null) {
+				receiveCoreShipment(gr);
+			} else {
+				// Block receiving unless production warehouse capacity is set
+				Long buyerOrgId = gr.getPurchaseOrder() != null && gr.getPurchaseOrder().getBuyerOrg() != null
+						? gr.getPurchaseOrder().getBuyerOrg().getAccountId() : null;
+				if (buyerOrgId == null) buyerOrgId = OrganizationContextHolder.getCurrentOrganizationId();
+				Warehouse prodWh = warehouseRepo.findByOrg(buyerOrgId, PageRequest.of(0, 10)).getContent().stream()
+						.filter(w -> "PRODUCTION".equalsIgnoreCase(w.getWarehouseType())).findFirst().orElse(null);
+				if (prodWh == null || prodWh.getCapacity() == null || prodWh.getCapacity() <= 0) {
+					throw new ValidationException("Production warehouse capacity must be set before receiving materials");
+				}
+				// Receiving accepts whatever was counted unless the line was
+				// explicitly part-accepted/rejected: without this default the
+				// accepted totals stay null and the PO can never flip to
+				// RECEIVED (which in turn gates invoicing).
+				if (gr.getLineItems() != null) {
+					for (GoodsReceiptLineItem line : gr.getLineItems()) {
+						if (line.getQuantityAccepted() == null) {
+							line.setQuantityAccepted(line.getQuantityReceived());
+						}
+						// Derive a retailer Material (and Stock) from the
+						// received PO line's supplier catalog item. Materials are
+						// not created manually by the retailer.
+						try {
+							receiveLineIntoInventory(gr, line);
+						} catch (Exception e) {
+							log.error("Failed to derive material/stock from GR line {}", line.getGrLineItemId(), e);
+						}
 					}
 				}
+				// Update PO status if all items received
+				if (gr.getPurchaseOrder() != null) {
+					updatePurchaseOrderStatus(gr.getPurchaseOrder());
+				}
 			}
-			// Update PO status if all items received
-			updatePurchaseOrderStatus(gr.getPurchaseOrder());
 			break;
 		case SENT_TO_SUPPLIER:
 			// Publishing to the supplier: the receipt becomes visible to
@@ -466,18 +637,39 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
 		// Persist material first so stock rows can reference it.
 		material = materialRepo.save(material);
 
-		// Distribute incoming stock across reserve warehouses in fill order
-		// (A->B->C), respecting each warehouse's capacity.
+		addStockForMaterial(buyerOrgId, material, accepted);
+		log.info("Derived material {} (catalog {}) for org {} from GR line {}", material.getMaterialId(),
+				material.getCatalogId(), buyerOrgId, line.getGrLineItemId());
+
+		// Update PO line received quantity.
+		Double prevReceived = poLine.getQuantityReceived() != null ? poLine.getQuantityReceived() : 0.0;
+		poLine.setQuantityReceived(prevReceived + accepted.doubleValue());
+		poLine.setMaterial(material);
+		poLineItemRepo.save(poLine);
+
+	}
+
+	/**
+	 * Add accepted stock to the retailer's reserve warehouses in fill order,
+	 * respecting capacity. Shared by PO receipts (material derived from the
+	 * supplier catalog) and core-shipment receipts (material carried on the
+	 * shipment).
+	 */
+	private void addStockForMaterial(Long buyerOrgId, Material material, BigDecimal accepted) {
+		if (buyerOrgId == null || material == null || accepted == null
+				|| accepted.compareTo(BigDecimal.ZERO) <= 0) {
+			return;
+		}
 		List<Warehouse> reserves = new ArrayList<>();
 		try {
 			reserves = warehouseRepo.findByOrg(buyerOrgId, Pageable.unpaged()).getContent().stream()
 					.filter(w -> "RESERVE".equalsIgnoreCase(w.getWarehouseType()))
-					.sorted(java.util.Comparator.comparingInt(w -> w.getFillOrder() != null ? w.getFillOrder() : Integer.MAX_VALUE))
+					.sorted(java.util.Comparator.comparingInt(
+							w -> w.getFillOrder() != null ? w.getFillOrder() : Integer.MAX_VALUE))
 					.collect(java.util.stream.Collectors.toList());
 		} catch (Exception ignored) {
 		}
 		if (reserves.isEmpty()) {
-			// create default reserve warehouse
 			Warehouse wh = new Warehouse();
 			wh.setOrg(buyerOrgId);
 			wh.setCode("RESERVE-1");
@@ -496,7 +688,8 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
 		double remaining = accepted.doubleValue();
 		for (Warehouse w : reserves) {
 			if (remaining <= 0) break;
-			double cap = w.getCapacity() != null ? w.getCapacity() : (w.getStorageCapacity() != null ? w.getStorageCapacity() : 0.0);
+			double cap = w.getCapacity() != null ? w.getCapacity()
+					: (w.getStorageCapacity() != null ? w.getStorageCapacity() : 0.0);
 			double used = 0.0;
 			Stock existing = stockRepo.findByMaterialAndWarehouse(material, w).orElse(null);
 			if (existing != null && existing.getQuantityOnHand() != null) used = existing.getQuantityOnHand();
@@ -522,7 +715,6 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
 			stockRepo.save(st);
 			remaining -= take;
 		}
-		// overflow to last reserve
 		if (remaining > 0 && !reserves.isEmpty()) {
 			Warehouse last = reserves.get(reserves.size() - 1);
 			Stock st = stockRepo.findByMaterialAndWarehouse(material, last).orElse(null);
@@ -538,15 +730,45 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
 			st.recalculateAvailable();
 			stockRepo.save(st);
 		}
-		log.info("Derived material {} (catalog {}) for org {} from GR line {}", material.getMaterialId(),
-				material.getCatalogId(), buyerOrgId, line.getGrLineItemId());
+	}
 
-		// Update PO line received quantity.
-		Double prevReceived = poLine.getQuantityReceived() != null ? poLine.getQuantityReceived() : 0.0;
-		poLine.setQuantityReceived(prevReceived + accepted.doubleValue());
-		poLine.setMaterial(material);
-		poLineItemRepo.save(poLine);
-
+	/**
+	 * Receive a core shipment: add accepted quantities to stock, mark the
+	 * shipment received, and acknowledge its ASN. No PO status updates.
+	 */
+	private void receiveCoreShipment(GoodsReceipt gr) {
+		Shipment shipment = gr.getShipment();
+		Long buyerOrgId = shipment.getRetailerOrg() != null
+				? shipment.getRetailerOrg().getAccountId() : null;
+		if (buyerOrgId == null) {
+			buyerOrgId = OrganizationContextHolder.getCurrentOrganizationId();
+		}
+		if (gr.getLineItems() != null) {
+			for (GoodsReceiptLineItem line : gr.getLineItems()) {
+				if (line.getQuantityAccepted() == null) {
+					line.setQuantityAccepted(line.getQuantityReceived());
+				}
+				Material material = line.getMaterial() != null
+						? line.getMaterial() : shipment.getMaterial();
+				BigDecimal accepted = line.getQuantityAccepted() != null
+						? line.getQuantityAccepted() : BigDecimal.ZERO;
+				addStockForMaterial(buyerOrgId, material, accepted);
+			}
+		}
+		shipment.setReceivedAt(Timestamp.valueOf(LocalDateTime.now()));
+		shipmentRepo.save(shipment);
+		if (gr.getAsnId() != null) {
+			asnRepo.findById(gr.getAsnId()).ifPresent(a -> {
+				a.setStatus("RECEIVED");
+				asnRepo.save(a);
+			});
+		} else {
+			asnRepo.findByShipmentId(shipment.getShipmentId()).stream().findFirst()
+					.ifPresent(a -> {
+						a.setStatus("RECEIVED");
+						asnRepo.save(a);
+					});
+		}
 	}
 
 	private void updatePurchaseOrderStatus(PurchaseOrder po) {

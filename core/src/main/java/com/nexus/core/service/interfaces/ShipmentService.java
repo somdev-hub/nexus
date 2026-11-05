@@ -41,6 +41,17 @@ public interface ShipmentService {
 	// Supplier-owned core shipments only (consignment-fill / VMI).
 	Page<ShipmentDto> getSupplierCoreShipments(Long orgId, Pageable pageable);
 
+	Page<ShipmentDto> getRetailerShipments(Long orgId, ShipmentStatus status,
+			String referenceType, String search, Pageable pageable);
+
+	Page<ShipmentDto> getRetailerCoreShipments(Long orgId, Pageable pageable);
+
+	Page<ShipmentDto> getRetailerPurchaseOrderShipments(Long orgId, Pageable pageable);
+
+	Optional<ShipmentDto> getRetailerShipmentById(Long shipmentId, Long orgId);
+
+	List<TrackingEventDto> getRetailerTrackingEvents(Long shipmentId, Long orgId);
+
 	Page<ShipmentDto> getShipmentsByWarehouse(Long warehouseId, Pageable pageable);
 
 	// Load-board: shipments booked to the calling logistics org (org from request context).

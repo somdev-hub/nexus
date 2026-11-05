@@ -65,8 +65,9 @@ public class ConsignmentStockController {
     @LogActivity("Fill Consignment")
     public ResponseEntity<?> fillConsignment(@PathVariable Long id,
             @RequestParam(required = false) String pickupAddress,
-            @RequestParam(required = false) String deliveryAddress) {
-        return consignmentService.fillConsignment(id, pickupAddress, deliveryAddress);
+            @RequestParam(required = false) String deliveryAddress,
+            @RequestParam(required = false) Double quantity) {
+        return consignmentService.fillConsignment(id, pickupAddress, deliveryAddress, quantity);
     }
 
     @GetMapping("/summary")

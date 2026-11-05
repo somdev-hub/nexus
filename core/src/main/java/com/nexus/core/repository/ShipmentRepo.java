@@ -27,6 +27,64 @@ public interface ShipmentRepo extends JpaRepository<Shipment, Long> {
 	Page<Shipment> findSupplierCoreShipments(@Param("orgId") Long orgId,
 			@Param("referenceTypes") List<String> referenceTypes, Pageable pageable);
 
+	// Retailer-visible inbound shipments, optionally filtered by status,
+	// reference type, and a free-text search (shipment number, supplier,
+	// material, tracking). Excludes DRAFT (not yet handed over to
+	// logistics). For PO shipments only partial shipments are shown.
+	@Query("""
+			SELECT s FROM Shipment s
+			LEFT JOIN s.supplierOrg so
+			LEFT JOIN s.material m
+			WHERE s.retailerOrg.accountId = :orgId
+			AND s.status <> 'DRAFT'
+			AND (:status IS NULL OR s.status = :status)
+			AND (
+				:referenceType IS NULL OR :referenceType = ''
+				OR COALESCE(s.referenceType, 'PURCHASE_ORDER') = :referenceType
+			)
+			AND (
+				s.referenceType IN ('CONSIGNMENT_FILL', 'VMI_REPLENISHMENT')
+				OR ((s.referenceType IS NULL OR s.referenceType = 'PURCHASE_ORDER')
+					AND s.isPartialShipment = true)
+			)
+			AND (
+				:search IS NULL OR :search = ''
+				OR LOWER(s.shipmentNumber) LIKE CONCAT('%', LOWER(:search), '%')
+				OR LOWER(s.trackingNumber) LIKE CONCAT('%', LOWER(:search), '%')
+				OR LOWER(s.carrierName) LIKE CONCAT('%', LOWER(:search), '%')
+				OR (so IS NOT NULL AND LOWER(so.name) LIKE CONCAT('%', LOWER(:search), '%'))
+				OR (m IS NOT NULL AND LOWER(m.name) LIKE CONCAT('%', LOWER(:search), '%'))
+			)
+			""")
+	Page<Shipment> findRetailerShipments(@Param("orgId") Long orgId,
+			@Param("status") ShipmentStatus status,
+			@Param("referenceType") String referenceType,
+			@Param("search") String search,
+			Pageable pageable);
+
+	// Retailer-visible core shipments (consignment fill / VMI replenishment).
+	// Exclude DRAFT: only shipments already handed over to logistics are
+	// visible to the retailer (they appear in the load board).
+	@Query("""
+			SELECT s FROM Shipment s
+			WHERE s.retailerOrg.accountId = :orgId
+			AND s.referenceType IN :referenceTypes
+			AND s.status <> 'DRAFT'
+			""")
+	Page<Shipment> findRetailerCoreShipments(@Param("orgId") Long orgId,
+			@Param("referenceTypes") List<String> referenceTypes, Pageable pageable);
+
+	// Retailer-visible PO deliveries (excludes core shipments). Only
+	// partial shipments that have been handed over to logistics are shown.
+	@Query("""
+			SELECT s FROM Shipment s
+			WHERE s.retailerOrg.accountId = :orgId
+			AND (s.referenceType IS NULL OR s.referenceType = 'PURCHASE_ORDER')
+			AND s.isPartialShipment = true
+			AND s.status <> 'DRAFT'
+			""")
+	Page<Shipment> findRetailerPurchaseOrderShipments(@Param("orgId") Long orgId, Pageable pageable);
+
 	// Find shipments by reference type (e.g. CONSIGNMENT_FILL, VMI_REPLENISHMENT).
 	@Query("""
 			SELECT s FROM Shipment s

@@ -14,6 +14,8 @@ public interface AdvanceShipmentNoticeRepo extends JpaRepository<AdvanceShipment
 
     List<AdvanceShipmentNotice> findByPurchaseOrderPurchaseOrderId(Long purchaseOrderId);
 
+    List<AdvanceShipmentNotice> findByShipmentId(Long shipmentId);
+
     // All ASNs touching this org (buyer, supplier, or partnership side),
     // newest first for the inbox view.
     @Query("""

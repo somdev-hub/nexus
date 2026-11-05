@@ -40,6 +40,16 @@ public class GoodsReceiptLineItem extends BaseEntity {
 	@EqualsAndHashCode.Exclude
 	private PurchaseOrderLineItem poLineItem;
 
+	// Core receipts are material-specific rather than PO-line-specific.
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "material_id", referencedColumnName = "material_id")
+	@ToString.Exclude
+	@EqualsAndHashCode.Exclude
+	private Material material;
+
+	@Column(name = "description")
+	private String description;
+
 	@Column(name = "line_number")
 	private Integer lineNumber;
 

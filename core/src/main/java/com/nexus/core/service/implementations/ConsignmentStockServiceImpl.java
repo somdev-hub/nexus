@@ -344,7 +344,7 @@ public class ConsignmentStockServiceImpl implements ConsignmentStockService {
 
     @Override
     @Transactional
-    public ResponseEntity<?> fillConsignment(Long id, String pickupAddress, String deliveryAddress) {
+    public ResponseEntity<?> fillConsignment(Long id, String pickupAddress, String deliveryAddress, Double quantity) {
         Long orgId = OrganizationContextHolder.requireOrganizationId();
         ConsignmentStock cs = stockRepo.findByConsignmentIdAndSupplierOrgAccountId(id, orgId)
                 .orElseThrow(() -> new ResourceNotFoundException("ConsignmentStock", "consignmentId", id));
@@ -385,6 +385,13 @@ public class ConsignmentStockServiceImpl implements ConsignmentStockService {
                 shipment.setSupplierOrgId(orgId);
                 if (cs.getRetailerOrg() != null) {
                     shipment.setRetailerOrgId(cs.getRetailerOrg().getAccountId());
+                }
+                if (cs.getMaterial() != null) {
+                    shipment.setMaterialId(cs.getMaterial().getMaterialId());
+                    shipment.setQuantityUom(cs.getMaterial().getUnit());
+                }
+                if (quantity != null && quantity > 0) {
+                    shipment.setShippedQuantity(quantity);
                 }
                 shipment.setPickupAddress(pickupAddress != null && !pickupAddress.isBlank() ? pickupAddress : (supplier.getLocation() != null ? supplier.getLocation() : "Supplier warehouse"));
                 shipment.setDeliveryAddress(deliveryAddress != null && !deliveryAddress.isBlank() ? deliveryAddress : (cs.getWarehouse() != null && cs.getWarehouse().getLocation() != null ? cs.getWarehouse().getLocation() : "Retailer warehouse"));

@@ -11,8 +11,11 @@ public class GoodsReceiptLineItemDto {
 
 	private Long grLineItemId;
 
-	@NotNull(message = "PO line item is required")
 	private Long poLineItemId;
+
+	private Long materialId;
+
+	private String description;
 
 	@NotNull(message = "Line number is required")
 	private Integer lineNumber;

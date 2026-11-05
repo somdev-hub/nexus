@@ -27,6 +27,21 @@ public class AdvanceShipmentNoticeDto {
 
     private Long shipmentId;
 
+    /** Core shipments use CONSIGNMENT_FILL / VMI_REPLENISHMENT; PO shipments leave this null. */
+    private String referenceType;
+
+    private Long referenceId;
+
+    private Long materialId;
+
+    private String materialName;
+
+    private String unitOfMeasure;
+
+    private String buyerOrgName;
+
+    private String supplierOrgName;
+
     private String status;
 
     private String notes;

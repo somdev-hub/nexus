@@ -15,8 +15,12 @@ public class GoodsReceiptDto {
 	// Auto-generated server-side when blank (GR-<epoch millis>).
 	private String grNumber;
 
-	@NotNull(message = "Purchase order is required")
+	@NotNull(message = "Purchase order or shipment is required")
 	private Long purchaseOrderId;
+
+	private Long shipmentId;
+
+	private Long asnId;
 
 	@NotNull(message = "Supplier is required")
 	private Long supplierId;

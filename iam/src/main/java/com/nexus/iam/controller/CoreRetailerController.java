@@ -692,9 +692,18 @@ public class CoreRetailerController {
 			@PageableDefault(size = 20) Pageable pageable,
 			@RequestParam(required = false) String status,
 			@RequestParam(required = false) Long purchaseOrderId,
-			@RequestParam(required = false) Long supplierId) {
+			@RequestParam(required = false) Long supplierId,
+			@RequestParam(required = false) Long shipmentId) {
 		return coreRetailerService.getAllGoodsReceipts(authToken, orgIdHeader, pageable, status, purchaseOrderId,
-				supplierId);
+				supplierId, shipmentId);
+	}
+
+	@LogActivity("Get Goods Receipt Source Context for Retailer")
+	@GetMapping("/goods-receipts/source/{shipmentId}")
+	public ResponseEntity<?> getGoodsReceiptSource(@PathVariable Long shipmentId,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.getGoodsReceiptSource(shipmentId, authToken, orgIdHeader);
 	}
 
 	@LogActivity("Update Goods Receipt for Retailer")
@@ -1392,9 +1401,19 @@ public class CoreRetailerController {
 			@RequestParam(required = false) Long warehouseId,
 			@RequestParam(required = false) java.sql.Timestamp startDate,
 			@RequestParam(required = false) java.sql.Timestamp endDate,
+			@RequestParam(required = false) String referenceType,
+			@RequestParam(required = false) String search,
 			@PageableDefault(size = 20) Pageable pageable) {
 		return coreRetailerService.getAllShipments(authToken, orgIdHeader, pageable, status, mode, supplierId,
-				warehouseId, startDate, endDate);
+				warehouseId, startDate, endDate, referenceType, search);
+	}
+
+	@LogActivity("Get Core Shipments for Retailer")
+	@GetMapping("/core-shipments")
+	public ResponseEntity<?> getRetailerCoreShipments(@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader,
+			@PageableDefault(size = 20) Pageable pageable) {
+		return coreRetailerService.getRetailerCoreShipments(authToken, orgIdHeader, pageable);
 	}
 
 	@LogActivity("Update Shipment for Retailer")
@@ -1799,6 +1818,14 @@ public class CoreRetailerController {
 			@RequestHeader("Authorization") String authToken,
 			@RequestHeader("X-Organization-ID") String orgIdHeader) {
 		return coreRetailerService.getAsnByPurchaseOrderNumber(poNumber, authToken, orgIdHeader);
+	}
+
+	@LogActivity("Get ASN by Shipment for Retailer")
+	@GetMapping("/asn/shipment/{shipmentId}")
+	public ResponseEntity<?> getAsnByShipment(@PathVariable Long shipmentId,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.getAsnByShipment(shipmentId, authToken, orgIdHeader);
 	}
 
 	@LogActivity("Get Shipment POD for Retailer")

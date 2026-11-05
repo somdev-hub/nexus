@@ -47,8 +47,15 @@ public class GoodsReceiptController {
 			@RequestParam(required = false) String status,
 			@RequestParam(required = false) Long purchaseOrderId,
 			@RequestParam(required = false) Long supplierId,
+			@RequestParam(required = false) Long shipmentId,
 			@PageableDefault(size = 20) Pageable pageable) {
-		return goodsReceiptService.getAllGoodsReceipts(status, purchaseOrderId, supplierId, pageable);
+		return goodsReceiptService.getAllGoodsReceipts(status, purchaseOrderId, supplierId, shipmentId, pageable);
+	}
+
+	@GetMapping("/source/{shipmentId}")
+	@LogActivity("Get Goods Receipt Source Context")
+	public ResponseEntity<?> getSourceContext(@PathVariable Long shipmentId) {
+		return goodsReceiptService.getSourceContext(shipmentId);
 	}
 
 	@PutMapping("/{id}/update")

@@ -34,6 +34,7 @@ import com.nexus.core.model.enums.StopStatus;
 import com.nexus.core.model.entities.TrackingEvent;
 import com.nexus.core.repository.DriverRepo;
 import com.nexus.core.repository.FleetAssetRepo;
+import com.nexus.core.repository.MaterialRepo;
 import com.nexus.core.repository.ShipmentDocumentRepo;
 import com.nexus.core.repository.AccountRepo;
 import com.nexus.core.repository.ShipmentRepo;
@@ -61,6 +62,7 @@ public class ShipmentServiceImpl implements ShipmentService {
     private final AccountRepo accountRepo;
     private final DriverRepo driverRepo;
     private final FleetAssetRepo fleetAssetRepo;
+    private final MaterialRepo materialRepo;
     private final ModelMapper modelMapper;
 
     @Override
@@ -100,6 +102,12 @@ public class ShipmentServiceImpl implements ShipmentService {
         if (shipmentDto.getRetailerOrgId() != null) {
             shipment.setRetailerOrg(
                     accountRepo.findByAccountId(shipmentDto.getRetailerOrgId()).orElse(null));
+        }
+        if (shipmentDto.getMaterialId() != null) {
+            shipment.setMaterial(materialRepo.findById(shipmentDto.getMaterialId()).orElse(null));
+        }
+        if (shipmentDto.getQuantityUom() != null && !shipmentDto.getQuantityUom().isBlank()) {
+            shipment.setQuantityUom(shipmentDto.getQuantityUom());
         }
         // Booking: a shipment carrying a logistics org leaves DRAFT as BOOKED.
         // DRAFT -> BOOKED is a permitted edge in ALLOWED_TRANSITIONS below.
@@ -178,6 +186,49 @@ public class ShipmentServiceImpl implements ShipmentService {
     public Page<ShipmentDto> getSupplierCoreShipments(Long orgId, Pageable pageable) {
         return shipmentRepo.findSupplierCoreShipments(orgId, CORE_SHIPMENT_REFERENCE_TYPES, pageable)
                 .map(s -> mapShipmentToDto(s));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<ShipmentDto> getRetailerShipments(Long orgId, ShipmentStatus status,
+            String referenceType, String search, Pageable pageable) {
+        return shipmentRepo.findRetailerShipments(orgId, status, referenceType, search, pageable)
+                .map(s -> mapShipmentToDto(s));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<ShipmentDto> getRetailerCoreShipments(Long orgId, Pageable pageable) {
+        return shipmentRepo.findRetailerCoreShipments(orgId, CORE_SHIPMENT_REFERENCE_TYPES, pageable)
+                .map(s -> mapShipmentToDto(s));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<ShipmentDto> getRetailerPurchaseOrderShipments(Long orgId, Pageable pageable) {
+        return shipmentRepo.findRetailerPurchaseOrderShipments(orgId, pageable)
+                .map(s -> mapShipmentToDto(s));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<ShipmentDto> getRetailerShipmentById(Long shipmentId, Long orgId) {
+        return shipmentRepo.findById(shipmentId)
+                .filter(s -> s.getRetailerOrg() != null
+                        && s.getRetailerOrg().getAccountId().equals(orgId))
+                .map(s -> mapShipmentToDto(s));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<TrackingEventDto> getRetailerTrackingEvents(Long shipmentId, Long orgId) {
+        Shipment shipment = shipmentRepo.findById(shipmentId)
+                .orElseThrow(() -> new IllegalArgumentException("Shipment not found: " + shipmentId));
+        if (shipment.getRetailerOrg() == null
+                || !shipment.getRetailerOrg().getAccountId().equals(orgId)) {
+            throw new IllegalArgumentException("Shipment does not belong to your retailer organization");
+        }
+        return getTrackingEventsByShipment(shipmentId);
     }
 
     @Override
@@ -543,6 +594,8 @@ public class ShipmentServiceImpl implements ShipmentService {
         dto.setStatus(s.getStatus());
         dto.setPickupAddress(s.getPickupAddress());
         dto.setDeliveryAddress(s.getDeliveryAddress());
+        dto.setPickupLocation(s.getPickupLocation());
+        dto.setDeliveryLocation(s.getDeliveryLocation());
         dto.setPickupContactName(s.getPickupContactName());
         dto.setPickupContactPhone(s.getPickupContactPhone());
         dto.setPickupContactEmail(s.getPickupContactEmail());
@@ -551,11 +604,75 @@ public class ShipmentServiceImpl implements ShipmentService {
         dto.setDeliveryContactEmail(s.getDeliveryContactEmail());
         dto.setCarrierName(s.getCarrierName());
         dto.setCarrierTrackingNumber(s.getTrackingNumber());
-        if (s.getDeliveryDate() != null) {
-            dto.setScheduledDeliveryDate(java.time.LocalDateTime.of(s.getDeliveryDate().toLocalDate(), java.time.LocalTime.MIN));
+        dto.setTrackingNumber(s.getTrackingNumber());
+        dto.setCarrierReference(s.getCarrierReference());
+        dto.setSpecialInstructions(s.getSpecialInstructions());
+        dto.setTotalWeight(s.getTotalWeight());
+        dto.setTotalVolume(s.getTotalVolume());
+        dto.setTotalPackages(s.getTotalPackages());
+        dto.setPackageWeight(s.getPackageWeight());
+        dto.setPackageLength(s.getPackageLength());
+        dto.setPackageWidth(s.getPackageWidth());
+        dto.setPackageHeight(s.getPackageHeight());
+        dto.setPackageDimensionUom(s.getPackageDimensionUom());
+        dto.setFreightCost(s.getFreightCost() != null
+                ? java.math.BigDecimal.valueOf(s.getFreightCost()) : null);
+        dto.setActualFreightCost(s.getActualFreightCost() != null
+                ? java.math.BigDecimal.valueOf(s.getActualFreightCost()) : null);
+        dto.setCurrency(s.getCurrency());
+        if (s.getCurrency() != null && !s.getCurrency().isBlank()) {
+            try {
+                dto.setFreightCurrency(java.util.Currency.getInstance(s.getCurrency()));
+                dto.setActualFreightCurrency(java.util.Currency.getInstance(s.getCurrency()));
+            } catch (IllegalArgumentException ignored) {
+                // Leave currency fields null when the stored code is invalid.
+            }
         }
-        if (s.getPickupDate() != null) {
-            dto.setScheduledPickupDate(java.time.LocalDateTime.of(s.getPickupDate().toLocalDate(), java.time.LocalTime.MIN));
+        dto.setFreightTerms(s.getFreightTerms());
+        dto.setNotes(s.getNotes());
+        dto.setReferenceType(s.getReferenceType());
+        dto.setReferenceId(s.getReferenceId());
+        dto.setShippedQuantity(s.getShippedQuantity());
+        dto.setBackorderedQuantity(s.getBackorderedQuantity());
+        dto.setIsPartialShipment(s.getIsPartialShipment());
+        dto.setQuantityUom(s.getQuantityUom());
+        dto.setEstimatedDeparture(toLocalDateTime(s.getEstimatedDeparture()));
+        dto.setActualDeparture(toLocalDateTime(s.getActualDeparture()));
+        dto.setEstimatedArrival(toLocalDateTime(s.getEstimatedArrival()));
+        dto.setActualArrival(toLocalDateTime(s.getActualArrival()));
+        dto.setReceivedAt(toLocalDateTime(s.getReceivedAt()));
+        dto.setCreatedAt(toLocalDateTime(s.getCreatedAt()));
+        dto.setUpdatedAt(toLocalDateTime(s.getUpdatedAt()));
+        if (s.getPurchaseOrder() != null) {
+            dto.setPurchaseOrderId(s.getPurchaseOrder().getPurchaseOrderId());
+            dto.setPurchaseOrderNumber(s.getPurchaseOrder().getPoNumber());
+            if (s.getPurchaseOrder().getLineItems() != null) {
+                dto.setOrderedQuantity(s.getPurchaseOrder().getLineItems().stream()
+                        .mapToDouble(li -> li.getQuantityOrdered() != null ? li.getQuantityOrdered() : 0)
+                        .sum());
+            }
+        }
+        if (s.getMaterial() != null) {
+            dto.setMaterialId(s.getMaterial().getMaterialId());
+            dto.setMaterialName(s.getMaterial().getName());
+            if (dto.getQuantityUom() == null) {
+                dto.setQuantityUom(s.getMaterial().getUnit());
+            }
+        }
+        if (s.getSupplierOrg() != null) {
+            dto.setSupplierId(s.getSupplierOrg().getAccountId());
+            dto.setSupplierName(s.getSupplierOrg().getName());
+            dto.setSupplierOrgId(s.getSupplierOrg().getAccountId());
+            dto.setSupplierOrgName(s.getSupplierOrg().getName());
+        }
+        if (s.getRetailerOrg() != null) {
+            dto.setWarehouseName(s.getRetailerOrg().getName());
+            dto.setRetailerOrgId(s.getRetailerOrg().getAccountId());
+            dto.setRetailerOrgName(s.getRetailerOrg().getName());
+        }
+        if (s.getLogisticsOrg() != null) {
+            dto.setLogisticsOrgId(s.getLogisticsOrg().getAccountId());
+            dto.setLogisticsOrgName(s.getLogisticsOrg().getName());
         }
         if (s.getDeliveryDate() != null) {
             dto.setScheduledDeliveryDate(s.getDeliveryDate().toLocalDate().atStartOfDay());
@@ -563,25 +680,10 @@ public class ShipmentServiceImpl implements ShipmentService {
         if (s.getPickupDate() != null) {
             dto.setScheduledPickupDate(s.getPickupDate().toLocalDate().atStartOfDay());
         }
-        dto.setCarrierReference(s.getCarrierReference());
-        dto.setSpecialInstructions(s.getSpecialInstructions());
-        dto.setTotalWeight(s.getTotalWeight());
-        dto.setTotalVolume(s.getTotalVolume());
-        dto.setReferenceType(s.getReferenceType());
-        dto.setReferenceId(s.getReferenceId());
-        if (s.getSupplierOrg() != null) {
-            dto.setSupplierId(s.getSupplierOrg().getAccountId());
-            dto.setSupplierName(s.getSupplierOrg().getName());
-            dto.setSupplierOrgId(s.getSupplierOrg().getAccountId());
-        }
-        if (s.getRetailerOrg() != null) {
-            dto.setWarehouseName(s.getRetailerOrg().getName());
-            dto.setRetailerOrgId(s.getRetailerOrg().getAccountId());
-        }
-        if (s.getLogisticsOrg() != null) {
-            dto.setLogisticsOrgId(s.getLogisticsOrg().getAccountId());
-        }
-        dto.setTotalPackages(s.getTotalPackages());
         return dto;
+    }
+
+    private static java.time.LocalDateTime toLocalDateTime(java.sql.Timestamp value) {
+        return value != null ? value.toLocalDateTime() : null;
     }
 }

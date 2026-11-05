@@ -31,6 +31,33 @@ public interface GoodsReceiptRepo extends JpaRepository<GoodsReceipt, Long> {
 	@Query("SELECT gr FROM GoodsReceipt gr WHERE gr.purchaseOrder.buyerOrg.accountId = :orgId")
 	Page<GoodsReceipt> findByPurchaseOrderBuyerOrgId(@Param("orgId") Long orgId, Pageable pageable);
 
+	// Retailer-visible receipts include both PO receipts and core-shipment
+	// receipts (consignment fill / VMI replenishment), which have no PO.
+	// LEFT JOIN is essential: PO receipts have a null shipment, so an inner
+	// join on shipment would silently drop them.
+	@Query("""
+			SELECT gr FROM GoodsReceipt gr
+			LEFT JOIN gr.shipment s
+			LEFT JOIN s.retailerOrg ro
+			WHERE (gr.purchaseOrder.buyerOrg.accountId = :orgId
+				OR ro.accountId = :orgId)
+			AND (:status IS NULL OR gr.status = :status)
+			""")
+	Page<GoodsReceipt> findVisibleToRetailer(@Param("orgId") Long orgId,
+			@Param("status") GoodsReceiptStatus status, Pageable pageable);
+
+	@Query("""
+			SELECT gr FROM GoodsReceipt gr
+			LEFT JOIN gr.shipment s
+			LEFT JOIN s.retailerOrg ro
+			WHERE gr.goodsReceiptId = :id
+			AND (gr.purchaseOrder.buyerOrg.accountId = :orgId
+				OR ro.accountId = :orgId)
+			""")
+	GoodsReceipt findVisibleToRetailerById(@Param("id") Long id, @Param("orgId") Long orgId);
+
+	Page<GoodsReceipt> findByShipmentShipmentId(Long shipmentId, Pageable pageable);
+
 	@Query("SELECT gr FROM GoodsReceipt gr WHERE gr.goodsReceiptId = :id AND gr.purchaseOrder.buyerOrg.accountId = :orgId")
 	GoodsReceipt findByGoodsReceiptIdAndPurchaseOrderBuyerOrgId(@Param("id") Long id, @Param("orgId") Long orgId);
 
