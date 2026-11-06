@@ -550,7 +550,6 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 		if ((supplierOrgName == null || supplierOrgName.isBlank()) && po.getSupplier() != null) {
 			supplierOrgName = po.getSupplier().getBusinessName();
 		}
-		dto.setSupplierOrgName(supplierOrgName);
 		dto.setPartnershipId(po.getPartnership() != null ? po.getPartnership().getPartnershipId() : null);
 		dto.setSourceQuotationId(
 				po.getSourceQuotation() != null ? po.getSourceQuotation().getQuotationId() : null);

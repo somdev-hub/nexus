@@ -12,6 +12,7 @@ import com.nexus.core.service.interfaces.ConsignmentStockService;
 
 import lombok.RequiredArgsConstructor;
 
+import java.util.Map;
 @RestController
 @RequestMapping("/core/supplier/consignment")
 @RequiredArgsConstructor
@@ -64,9 +65,13 @@ public class ConsignmentStockController {
     @PostMapping("/{id}/fill")
     @LogActivity("Fill Consignment")
     public ResponseEntity<?> fillConsignment(@PathVariable Long id,
-            @RequestParam(required = false) String pickupAddress,
-            @RequestParam(required = false) String deliveryAddress,
-            @RequestParam(required = false) Double quantity) {
+            @RequestBody(required = false) Map<String, Object> body) {
+        String pickupAddress = body == null ? null : (String) body.get("pickupAddress");
+        String deliveryAddress = body == null ? null : (String) body.get("deliveryAddress");
+        Double quantity = null;
+        if (body != null && body.get("quantity") != null) {
+            quantity = ((Number) body.get("quantity")).doubleValue();
+        }
         return consignmentService.fillConsignment(id, pickupAddress, deliveryAddress, quantity);
     }
 

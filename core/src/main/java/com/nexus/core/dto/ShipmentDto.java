@@ -50,14 +50,6 @@ public class ShipmentDto {
 	@Size(max = 500, message = "Delivery address must not exceed 500 characters")
 	private String deliveryAddress;
 
-	private String pickupContactName;
-	private String pickupContactPhone;
-	private String pickupContactEmail;
-
-	private String deliveryContactName;
-	private String deliveryContactPhone;
-	private String deliveryContactEmail;
-
 	private LocalDateTime scheduledPickupDate;
 	private LocalDateTime scheduledDeliveryDate;
 	private LocalDateTime actualPickupDate;
@@ -86,7 +78,6 @@ public class ShipmentDto {
 	private Long materialId;
 	private String materialName;
 	private String quantityUom;
-	private String trackingNumber;
 	private String pickupLocation;
 	private String deliveryLocation;
 	private String notes;
@@ -97,18 +88,9 @@ public class ShipmentDto {
 	private String packageDimensionUom;
 	private String currency;
 	private String freightTerms;
-	private LocalDateTime estimatedDeparture;
 	private LocalDateTime actualDeparture;
 	private LocalDateTime estimatedArrival;
 	private LocalDateTime actualArrival;
-	private LocalDateTime receivedAt;
-	private String supplierOrgName;
-	private String retailerOrgName;
-	private String logisticsOrgName;
-
-	private String specialInstructions;
-	private String hazardousMaterialsInfo;
-	private String customsInformation;
 
 	private Double totalWeight;
 	private Double totalVolume;

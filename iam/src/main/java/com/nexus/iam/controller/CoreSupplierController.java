@@ -540,11 +540,16 @@ public class CoreSupplierController {
 	@LogActivity("Fill Consignment via IAM")
 	@PostMapping("/consignment/{id}/fill")
 	public ResponseEntity<?> fillConsignment(@PathVariable Long id,
-			@RequestParam(required = false) String pickupAddress,
-			@RequestParam(required = false) String deliveryAddress,
+			@RequestBody(required = false) Map<String, Object> body,
 			@RequestHeader("Authorization") String auth,
 			@RequestHeader("X-Organization-ID") String org) {
-		return supplierService.fillConsignment(id, pickupAddress, deliveryAddress, auth, org);
+		String pickupAddress = body == null ? null : (String) body.get("pickupAddress");
+		String deliveryAddress = body == null ? null : (String) body.get("deliveryAddress");
+		Double quantity = null;
+		if (body != null && body.get("quantity") != null) {
+			quantity = ((Number) body.get("quantity")).doubleValue();
+		}
+		return supplierService.fillConsignment(id, pickupAddress, deliveryAddress, quantity, auth, org);
 	}
 
 	// VMI

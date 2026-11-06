@@ -526,7 +526,6 @@ public class SupplierQuotationServiceImpl implements SupplierQuotationService {
     private SupplierQuotationDto mapToDto(SupplierQuotation q) {        SupplierQuotationDto dto = modelMapper.map(q, SupplierQuotationDto.class);
         if (q.getSupplierOrg() != null) {
             dto.setSupplierOrgId(q.getSupplierOrg().getAccountId());
-            dto.setSupplierOrgName(q.getSupplierOrg().getName());
         }
         if (q.getBuyerOrg() != null) {
             dto.setBuyerOrgId(q.getBuyerOrg().getAccountId());

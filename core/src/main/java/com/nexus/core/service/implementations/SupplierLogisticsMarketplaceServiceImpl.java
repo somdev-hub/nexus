@@ -453,7 +453,6 @@ public class SupplierLogisticsMarketplaceServiceImpl implements SupplierLogistic
                 }
             }
             row.put("deliveryDate", deliveryDate);
-            row.put("trackingNumber", s.getTrackingNumber());
             row.put("carrierName", s.getCarrierName());
             row.put("carrierReference", s.getCarrierReference());
             row.put("shipmentMode", s.getShipmentMode() != null ? s.getShipmentMode().name() : null);
@@ -500,9 +499,8 @@ public class SupplierLogisticsMarketplaceServiceImpl implements SupplierLogistic
             row.put("isPartialShipment", s.getIsPartialShipment());
             // Estimated departure falls back down the timeline that exists
             // (actual pickup, else creation) so legacy rows are not blank.
-            String estimatedDeparture = s.getEstimatedDeparture() != null ? s.getEstimatedDeparture().toString()
-                    : (s.getActualDeparture() != null ? s.getActualDeparture().toString()
-                            : (s.getCreatedAt() != null ? s.getCreatedAt().toString() : null));
+            String estimatedDeparture = s.getActualDeparture() != null ? s.getActualDeparture().toString()
+                    : (s.getCreatedAt() != null ? s.getCreatedAt().toString() : null);
             row.put("estimatedDeparture", estimatedDeparture);
             row.put("actualDeparture", s.getActualDeparture() != null ? s.getActualDeparture().toString() : null);
             row.put("estimatedArrival", s.getEstimatedArrival() != null ? s.getEstimatedArrival().toString() : null);

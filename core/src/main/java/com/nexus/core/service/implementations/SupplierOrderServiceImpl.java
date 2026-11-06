@@ -212,8 +212,7 @@ public class SupplierOrderServiceImpl implements SupplierOrderService {
         shipment.setBackorderedQuantity(backordered);
         shipment.setShippedQuantity(shippedQty);
 
-        if (shipmentDto.containsKey("trackingNumber")) shipment.setTrackingNumber(shipmentDto.get("trackingNumber").toString());
-        if (shipmentDto.containsKey("carrierName")) shipment.setCarrierName(shipmentDto.get("carrierName").toString());
+		if (shipmentDto.containsKey("carrierName")) shipment.setCarrierName(shipmentDto.get("carrierName").toString());
         if (shipmentDto.containsKey("notes")) shipment.setNotes(shipmentDto.get("notes").toString());
         if (shipmentDto.containsKey("pickupLocation")) shipment.setPickupLocation(shipmentDto.get("pickupLocation").toString());
         if (shipmentDto.containsKey("deliveryLocation")) shipment.setDeliveryLocation(shipmentDto.get("deliveryLocation").toString());

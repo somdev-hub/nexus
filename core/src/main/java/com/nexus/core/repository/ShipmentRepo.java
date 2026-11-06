@@ -50,7 +50,6 @@ public interface ShipmentRepo extends JpaRepository<Shipment, Long> {
 			AND (
 				:search IS NULL OR :search = ''
 				OR LOWER(s.shipmentNumber) LIKE CONCAT('%', LOWER(:search), '%')
-				OR LOWER(s.trackingNumber) LIKE CONCAT('%', LOWER(:search), '%')
 				OR LOWER(s.carrierName) LIKE CONCAT('%', LOWER(:search), '%')
 				OR (so IS NOT NULL AND LOWER(so.name) LIKE CONCAT('%', LOWER(:search), '%'))
 				OR (m IS NOT NULL AND LOWER(m.name) LIKE CONCAT('%', LOWER(:search), '%'))
@@ -104,8 +103,6 @@ public interface ShipmentRepo extends JpaRepository<Shipment, Long> {
 	// Find by shipment number
 	Shipment findByShipmentNumberAndRetailerOrgAccountId(String shipmentNumber, Long orgId);
 
-	// Find by tracking number
-	Shipment findByTrackingNumber(String trackingNumber);
 
 	// Find by carrier reference
 	Shipment findByCarrierReference(String carrierReference);

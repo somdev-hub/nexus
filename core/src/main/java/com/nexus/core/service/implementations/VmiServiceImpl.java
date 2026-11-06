@@ -413,11 +413,9 @@ public class VmiServiceImpl implements VmiService {
         dto.setPriceTierId(vmi.getPriceTierId());
         if (vmi.getSupplierOrg() != null) {
             dto.setSupplierOrgId(vmi.getSupplierOrg().getAccountId());
-            dto.setSupplierOrgName(vmi.getSupplierOrg().getName());
         }
         if (vmi.getRetailerOrg() != null) {
             dto.setRetailerOrgId(vmi.getRetailerOrg().getAccountId());
-            dto.setRetailerOrgName(vmi.getRetailerOrg().getName());
         }
         if (vmi.getWarehouse() != null) {
             dto.setWarehouseId(vmi.getWarehouse().getWarehouseId());

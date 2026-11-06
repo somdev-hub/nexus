@@ -152,18 +152,12 @@ public class QuotingServiceImpl implements QuotingService {
         row.put("freightCost", s.getFreightCost());
         row.put("currency", s.getCurrency());
         row.put("freightTerms", s.getFreightTerms());
-        row.put("trackingNumber", s.getTrackingNumber());
         row.put("carrierName", s.getCarrierName());
         row.put("carrierReference", s.getCarrierReference());
         row.put("isPartialShipment", s.getIsPartialShipment());
         row.put("backorderedQuantity", s.getBackorderedQuantity());
-        row.put("specialInstructions", s.getSpecialInstructions());
         row.put("hazardousMaterial", s.getHazardousMaterial());
         row.put("temperatureControlled", s.getTemperatureControlled());
-        row.put("pickupContactName", s.getPickupContactName());
-        row.put("pickupContactPhone", s.getPickupContactPhone());
-        row.put("deliveryContactName", s.getDeliveryContactName());
-        row.put("deliveryContactPhone", s.getDeliveryContactPhone());
         if (s.getSupplierOrg() != null) {
             row.put("supplierOrgId", s.getSupplierOrg().getAccountId());
             row.put("supplierOrgName", s.getSupplierOrg().getName());

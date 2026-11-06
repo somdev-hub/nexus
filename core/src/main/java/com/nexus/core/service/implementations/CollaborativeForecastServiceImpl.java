@@ -143,7 +143,6 @@ public class CollaborativeForecastServiceImpl implements CollaborativeForecastSe
         if (f.getSupplierOrg() != null) dto.setSupplierOrgId(f.getSupplierOrg().getAccountId());
         if (f.getRetailerOrg() != null) {
             dto.setRetailerOrgId(f.getRetailerOrg().getAccountId());
-            dto.setRetailerOrgName(f.getRetailerOrg().getName());
         }
         if (f.getCatalog() != null) {
             dto.setCatalogId(f.getCatalog().getCatalogId());

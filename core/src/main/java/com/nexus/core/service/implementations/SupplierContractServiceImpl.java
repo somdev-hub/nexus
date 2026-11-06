@@ -786,7 +786,6 @@ public class SupplierContractServiceImpl implements SupplierContractService {
 		SupplierContractDto dto = new SupplierContractDto();
 		dto.setContractId(c.getContractId());
 		dto.setAccountId(c.getAccount() != null ? c.getAccount().getAccountId() : null);
-		dto.setRetailerOrgName(c.getAccount() != null ? c.getAccount().getName() : null);
 		dto.setSupplierId(c.getSupplier() != null ? c.getSupplier().getSupplierId() : null);
 		dto.setSupplierName(c.getSupplier() != null ? c.getSupplier().getBusinessName() : null);
 		dto.setContractNumber(c.getContractNumber());

@@ -755,7 +755,6 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
 				addStockForMaterial(buyerOrgId, material, accepted);
 			}
 		}
-		shipment.setReceivedAt(Timestamp.valueOf(LocalDateTime.now()));
 		shipmentRepo.save(shipment);
 		if (gr.getAsnId() != null) {
 			asnRepo.findById(gr.getAsnId()).ifPresent(a -> {

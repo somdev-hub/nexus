@@ -123,15 +123,6 @@ public class Shipment extends BaseEntity {
 	@Column(name = "pickup_address")
 	private String pickupAddress;
 
-	@Column(name = "pickup_contact_name")
-	private String pickupContactName;
-
-	@Column(name = "pickup_contact_phone")
-	private String pickupContactPhone;
-
-	@Column(name = "pickup_contact_email")
-	private String pickupContactEmail;
-
 	@Column(name = "pickup_date")
 	private Date pickupDate;
 
@@ -147,15 +138,6 @@ public class Shipment extends BaseEntity {
 
 	@Column(name = "delivery_address")
 	private String deliveryAddress;
-
-	@Column(name = "delivery_contact_name")
-	private String deliveryContactName;
-
-	@Column(name = "delivery_contact_phone")
-	private String deliveryContactPhone;
-
-	@Column(name = "delivery_contact_email")
-	private String deliveryContactEmail;
 
 	@Column(name = "delivery_date")
 	private Date deliveryDate;
@@ -192,12 +174,9 @@ public class Shipment extends BaseEntity {
 
 	@Column(name = "package_height")
 	private Double packageHeight;
-
+	
 	@Column(name = "package_dimension_uom")
 	private String packageDimensionUom = "M";
-
-	@Column(name = "special_instructions")
-	private String specialInstructions;
 
 	@Column(name = "hazardous_material")
 	private Boolean hazardousMaterial = false;
@@ -225,9 +204,6 @@ public class Shipment extends BaseEntity {
 	private String freightTerms; // PREPAID, COLLECT, THIRD_PARTY
 
 	// Tracking
-	@Column(name = "tracking_number")
-	private String trackingNumber;
-
 	@Column(name = "carrier_name")
 	private String carrierName;
 
@@ -240,9 +216,6 @@ public class Shipment extends BaseEntity {
 	@Column(name = "reference_id")
 	private Long referenceId;
 
-	@Column(name = "estimated_departure")
-	private Timestamp estimatedDeparture;
-
 	@Column(name = "actual_departure")
 	private Timestamp actualDeparture;
 
@@ -251,10 +224,6 @@ public class Shipment extends BaseEntity {
 
 	@Column(name = "actual_arrival")
 	private Timestamp actualArrival;
-
-	// Set when the retailer posts a goods receipt against this shipment.
-	@Column(name = "received_at")
-	private Timestamp receivedAt;
 
 	@Column(name = "notes")
 	private String notes;

@@ -473,12 +473,13 @@ public class CoreSupplierServiceImpl implements CoreSupplierService {
 	}
 
 	@Override
-	public ResponseEntity<?> fillConsignment(Long id, String pickupAddress, String deliveryAddress, String authToken, String orgId) {
-		UriComponentsBuilder b = UriComponentsBuilder
-				.fromUriString(webConstants.getCoreSupplierConsignmentGetUrl() + "/" + id + "/fill");
-		if (pickupAddress != null) b.queryParam("pickupAddress", pickupAddress);
-		if (deliveryAddress != null) b.queryParam("deliveryAddress", deliveryAddress);
-		return callPost(b.toUriString(), null, authToken, orgId);
+	public ResponseEntity<?> fillConsignment(Long id, String pickupAddress, String deliveryAddress, Double quantity, String authToken, String orgId) {
+		String url = webConstants.getCoreSupplierConsignmentGetUrl() + "/" + id + "/fill";
+		Map<String, Object> body = new java.util.HashMap<>();
+		if (pickupAddress != null) body.put("pickupAddress", pickupAddress);
+		if (deliveryAddress != null) body.put("deliveryAddress", deliveryAddress);
+		if (quantity != null) body.put("quantity", quantity);
+		return callPost(url, body, authToken, orgId);
 	}
 
 	// VMI

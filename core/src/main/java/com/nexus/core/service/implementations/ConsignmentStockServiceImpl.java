@@ -346,6 +346,9 @@ public class ConsignmentStockServiceImpl implements ConsignmentStockService {
     @Transactional
     public ResponseEntity<?> fillConsignment(Long id, String pickupAddress, String deliveryAddress, Double quantity) {
         Long orgId = OrganizationContextHolder.requireOrganizationId();
+        if (quantity == null || quantity <= 0) {
+            throw new ValidationException("Quantity is required and must be greater than zero");
+        }
         ConsignmentStock cs = stockRepo.findByConsignmentIdAndSupplierOrgAccountId(id, orgId)
                 .orElseThrow(() -> new ResourceNotFoundException("ConsignmentStock", "consignmentId", id));
         try {
@@ -419,7 +422,6 @@ public class ConsignmentStockServiceImpl implements ConsignmentStockService {
         dto.setUpdatedAt(cs.getUpdatedAt());
         if (cs.getSupplierOrg() != null) {
             dto.setSupplierOrgId(cs.getSupplierOrg().getAccountId());
-            dto.setSupplierOrgName(cs.getSupplierOrg().getName());
         }
         if (cs.getRetailerOrg() != null) {
             dto.setRetailerOrgId(cs.getRetailerOrg().getAccountId());

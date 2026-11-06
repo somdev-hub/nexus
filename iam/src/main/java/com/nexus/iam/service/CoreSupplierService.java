@@ -99,7 +99,7 @@ public interface CoreSupplierService {
     ResponseEntity<?> adjustConsignment(Long id, Double quantity, String reason, String authToken, String orgId);
     ResponseEntity<?> updateConsignment(Long id, Map<String, Object> dto, String authToken, String orgId);
     ResponseEntity<?> deleteConsignment(Long id, String authToken, String orgId);
-    ResponseEntity<?> fillConsignment(Long id, String pickupAddress, String deliveryAddress, String authToken, String orgId);
+    ResponseEntity<?> fillConsignment(Long id, String pickupAddress, String deliveryAddress, Double quantity, String authToken, String orgId);
     ResponseEntity<?> getConsignmentSummary(String authToken, String orgId);
 
     // VMI

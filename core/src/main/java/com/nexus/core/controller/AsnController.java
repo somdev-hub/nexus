@@ -127,7 +127,6 @@ public class AsnController {
         }
         if (asn.getSupplierOrg() != null) {
             dto.setSupplierOrgId(asn.getSupplierOrg().getAccountId());
-            dto.setSupplierOrgName(asn.getSupplierOrg().getName());
         }
         dto.setShipmentId(asn.getShipmentId());
         dto.setStatus(asn.getStatus());
@@ -152,10 +151,8 @@ public class AsnController {
                 dto.setShipmentNumber(shipment.getShipmentNumber());
                 dto.setShipmentStatus(
                         shipment.getStatus() != null ? shipment.getStatus().name() : null);
-                dto.setTrackingNumber(shipment.getTrackingNumber());
                 dto.setCarrierName(shipment.getCarrierName());
                 if (shipment.getLogisticsOrg() != null) {
-                    dto.setLogisticsOrgName(shipment.getLogisticsOrg().getName());
                 }
                 dto.setPickupLocation(shipment.getPickupLocation());
                 dto.setDeliveryLocation(shipment.getDeliveryLocation());

@@ -72,9 +72,6 @@ public class ShipmentServiceImpl implements ShipmentService {
         Shipment shipment = modelMapper.map(shipmentDto, Shipment.class);
         shipment.setReferenceType(shipmentDto.getReferenceType());
         shipment.setReferenceId(shipmentDto.getReferenceId());
-        if (shipmentDto.getCarrierTrackingNumber() != null) {
-            shipment.setTrackingNumber(shipmentDto.getCarrierTrackingNumber());
-        }
         if (shipmentDto.getScheduledPickupDate() != null) {
             shipment.setPickupDate(java.sql.Date.valueOf(shipmentDto.getScheduledPickupDate().toLocalDate()));
         }
@@ -108,6 +105,9 @@ public class ShipmentServiceImpl implements ShipmentService {
         }
         if (shipmentDto.getQuantityUom() != null && !shipmentDto.getQuantityUom().isBlank()) {
             shipment.setQuantityUom(shipmentDto.getQuantityUom());
+        }
+        if (shipmentDto.getShippedQuantity() != null) {
+            shipment.setShippedQuantity(shipmentDto.getShippedQuantity());
         }
         // Booking: a shipment carrying a logistics org leaves DRAFT as BOOKED.
         // DRAFT -> BOOKED is a permitted edge in ALLOWED_TRANSITIONS below.
@@ -466,8 +466,6 @@ public class ShipmentServiceImpl implements ShipmentService {
             throw new IllegalArgumentException("Invalid shipment transition: " + oldStatus + " -> " + newStatus);
         }
         shipment.setStatus(newStatus);
-        String notes = shipment.getSpecialInstructions() != null ? shipment.getSpecialInstructions() + "\n" : "";
-        shipment.setSpecialInstructions(notes + "Status changed: " + oldStatus + " -> " + newStatus + " (" + reason + ")");
         shipment.setUpdatedAt(new Timestamp(System.currentTimeMillis()));
         Shipment saved = shipmentRepo.save(shipment);
         // The trip is over: free the assigned driver and asset so they can
@@ -596,17 +594,8 @@ public class ShipmentServiceImpl implements ShipmentService {
         dto.setDeliveryAddress(s.getDeliveryAddress());
         dto.setPickupLocation(s.getPickupLocation());
         dto.setDeliveryLocation(s.getDeliveryLocation());
-        dto.setPickupContactName(s.getPickupContactName());
-        dto.setPickupContactPhone(s.getPickupContactPhone());
-        dto.setPickupContactEmail(s.getPickupContactEmail());
-        dto.setDeliveryContactName(s.getDeliveryContactName());
-        dto.setDeliveryContactPhone(s.getDeliveryContactPhone());
-        dto.setDeliveryContactEmail(s.getDeliveryContactEmail());
         dto.setCarrierName(s.getCarrierName());
-        dto.setCarrierTrackingNumber(s.getTrackingNumber());
-        dto.setTrackingNumber(s.getTrackingNumber());
         dto.setCarrierReference(s.getCarrierReference());
-        dto.setSpecialInstructions(s.getSpecialInstructions());
         dto.setTotalWeight(s.getTotalWeight());
         dto.setTotalVolume(s.getTotalVolume());
         dto.setTotalPackages(s.getTotalPackages());
@@ -636,11 +625,9 @@ public class ShipmentServiceImpl implements ShipmentService {
         dto.setBackorderedQuantity(s.getBackorderedQuantity());
         dto.setIsPartialShipment(s.getIsPartialShipment());
         dto.setQuantityUom(s.getQuantityUom());
-        dto.setEstimatedDeparture(toLocalDateTime(s.getEstimatedDeparture()));
         dto.setActualDeparture(toLocalDateTime(s.getActualDeparture()));
         dto.setEstimatedArrival(toLocalDateTime(s.getEstimatedArrival()));
         dto.setActualArrival(toLocalDateTime(s.getActualArrival()));
-        dto.setReceivedAt(toLocalDateTime(s.getReceivedAt()));
         dto.setCreatedAt(toLocalDateTime(s.getCreatedAt()));
         dto.setUpdatedAt(toLocalDateTime(s.getUpdatedAt()));
         if (s.getPurchaseOrder() != null) {
@@ -663,16 +650,13 @@ public class ShipmentServiceImpl implements ShipmentService {
             dto.setSupplierId(s.getSupplierOrg().getAccountId());
             dto.setSupplierName(s.getSupplierOrg().getName());
             dto.setSupplierOrgId(s.getSupplierOrg().getAccountId());
-            dto.setSupplierOrgName(s.getSupplierOrg().getName());
         }
         if (s.getRetailerOrg() != null) {
             dto.setWarehouseName(s.getRetailerOrg().getName());
             dto.setRetailerOrgId(s.getRetailerOrg().getAccountId());
-            dto.setRetailerOrgName(s.getRetailerOrg().getName());
         }
         if (s.getLogisticsOrg() != null) {
             dto.setLogisticsOrgId(s.getLogisticsOrg().getAccountId());
-            dto.setLogisticsOrgName(s.getLogisticsOrg().getName());
         }
         if (s.getDeliveryDate() != null) {
             dto.setScheduledDeliveryDate(s.getDeliveryDate().toLocalDate().atStartOfDay());

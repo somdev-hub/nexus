@@ -61,8 +61,6 @@ public class AdvanceShipmentNoticeDto {
 
     private String shipmentStatus;
 
-    private String trackingNumber;
-
     private String carrierName;
 
     private String logisticsOrgName;

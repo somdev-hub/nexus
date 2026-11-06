@@ -111,11 +111,9 @@ public class LogisticsPartnershipQuotationServiceImpl implements LogisticsPartne
         if (q.getInvitation() != null) dto.setInvitationId(q.getInvitation().getInvitationId());
         if (q.getSupplierOrg() != null) {
             dto.setSupplierOrgId(q.getSupplierOrg().getAccountId());
-            dto.setSupplierOrgName(q.getSupplierOrg().getName());
         }
         if (q.getLogisticsOrg() != null) {
             dto.setLogisticsOrgId(q.getLogisticsOrg().getAccountId());
-            dto.setLogisticsOrgName(q.getLogisticsOrg().getName());
         }
         if (q.getPartnership() != null) dto.setPartnershipId(q.getPartnership().getPartnershipId());
         return dto;

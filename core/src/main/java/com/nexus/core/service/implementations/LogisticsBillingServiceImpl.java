@@ -885,7 +885,7 @@ public class LogisticsBillingServiceImpl implements LogisticsBillingService {
 				f.put("pickupAddress", s.getPickupAddress());
 				f.put("pickupDate", s.getPickupDate() != null
 						? s.getPickupDate()
-						: (s.getActualDeparture() != null ? s.getActualDeparture() : s.getEstimatedDeparture()));
+						: (s.getActualDeparture() != null ? s.getActualDeparture() : s.getActualDeparture()));
 				f.put("deliveryLocation", s.getDeliveryLocation());
 				f.put("deliveryAddress", s.getDeliveryAddress());
 				f.put("deliveryDate", s.getDeliveryDate() != null ? s.getDeliveryDate()

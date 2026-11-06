@@ -89,9 +89,6 @@ public class ShipmentStatusChangePublisher {
         if (shipment.getShipmentNumber() != null) {
             facts.put("shipmentNumber", shipment.getShipmentNumber());
         }
-        if (shipment.getTrackingNumber() != null) {
-            facts.put("trackingNumber", shipment.getTrackingNumber());
-        }
         if (shipment.getCarrierName() != null) {
             facts.put("carrierName", shipment.getCarrierName());
         }
