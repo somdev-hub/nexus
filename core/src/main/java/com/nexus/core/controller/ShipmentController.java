@@ -53,6 +53,32 @@ public class ShipmentController {
 		return ResponseEntity.status(HttpStatus.CREATED).body(shipmentService.createShipment(shipmentDto));
 	}
 
+	@PostMapping("/{id}/review")
+	@LogActivity("Review Delivered Shipment")
+	public ResponseEntity<?> reviewShipment(@PathVariable Long id, @RequestBody(required = false) Map<String, Object> review) {
+		Long orgId = OrganizationContextHolder.requireOrganizationId();
+		// Ensure retailer ownership
+		return ResponseEntity.ok(shipmentService.reviewDeliveredShipment(id, review == null ? Map.of() : review));
+	}
+
+	@GetMapping("/reviewed")
+	@LogActivity("Get Reviewed Shipments")
+	public ResponseEntity<?> getReviewedShipments() {
+		return ResponseEntity.ok(shipmentService.getReviewedShipmentIds());
+	}
+
+	@GetMapping("/reviews")
+	@LogActivity("Get Shipment Reviews")
+	public ResponseEntity<?> getShipmentReviews(@PageableDefault(size = 20) Pageable pageable) {
+		return ResponseEntity.ok(shipmentService.getShipmentReviews(pageable));
+	}
+
+	@GetMapping("/review-summary")
+	@LogActivity("Get Supplier Review Summary")
+	public ResponseEntity<?> getSupplierReviewSummary() {
+		return ResponseEntity.ok(shipmentService.getSupplierReviewSummaries());
+	}
+
 	@GetMapping("/{id}")
 	@LogActivity("Get Shipment")
 	public ResponseEntity<?> getShipment(@PathVariable Long id) {

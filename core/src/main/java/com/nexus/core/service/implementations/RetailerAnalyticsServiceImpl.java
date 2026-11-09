@@ -26,7 +26,7 @@ public class RetailerAnalyticsServiceImpl implements RetailerAnalyticsService {
     private final PurchaseOrderRepo purchaseOrderRepo;
     private final ShipmentRepo shipmentRepo;
     private final StockRepo stockRepo;
-    private final SupplierPerformanceRepo supplierPerformanceRepo;
+
     private final PartnershipRepo partnershipRepo;
     private final GoodsReceiptRepo goodsReceiptRepo;
     private final InvoiceRepo invoiceRepo;
@@ -70,15 +70,9 @@ public class RetailerAnalyticsServiceImpl implements RetailerAnalyticsService {
                 .count();
         double otif = delivered > 0 ? (onTime * 100.0 / delivered) : 0;
 
-        // Supplier performance avg
-        var perfList = supplierPerformanceRepo.findAll().stream()
-                .filter(p -> p.getAccount() != null && p.getAccount().getAccountId().equals(orgId))
-                .toList();
-        double avgPerf = perfList.stream()
-                .mapToDouble(p -> p.getOverallScore() != null ? p.getOverallScore().doubleValue() : 0)
-                .average().orElse(0);
-
-        long totalSuppliers = perfList.stream().map(p -> p.getSupplier() != null ? p.getSupplier().getSupplierId() : null).filter(Objects::nonNull).distinct().count();
+        // Supplier performance metrics removed (performance feature deprecated)
+        double avgPerf = 0;
+        long totalSuppliers = 0;
         long activePartnerships = partnershipRepo.findAll().stream()
                 .filter(pt -> pt.getPrimaryOrg() != null && pt.getPrimaryOrg().getAccountId().equals(orgId) && pt.getStatus() != null && pt.getStatus().name().equals("ACTIVE"))
                 .count();

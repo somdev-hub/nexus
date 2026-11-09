@@ -420,6 +420,14 @@ public interface CoreRetailerService {
 
 	ResponseEntity<?> getOverdueShipments(String authToken, String orgIdHeader, Pageable pageable);
 
+	ResponseEntity<?> reviewDeliveredShipment(Long shipmentId, Map<String, Object> review, String authToken, String orgIdHeader);
+
+	ResponseEntity<?> getReviewedShipmentIds(String authToken, String orgIdHeader);
+
+	ResponseEntity<?> getShipmentReviews(String authToken, String orgIdHeader, Pageable pageable);
+
+	ResponseEntity<?> getSupplierReviewSummary(String authToken, String orgIdHeader);
+
 	ResponseEntity<?> getShipmentsByDateRange(java.sql.Timestamp startDate, java.sql.Timestamp endDate,
 			String authToken, String orgIdHeader, Pageable pageable);
 

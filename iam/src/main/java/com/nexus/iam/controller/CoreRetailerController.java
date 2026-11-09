@@ -1391,6 +1391,39 @@ public class CoreRetailerController {
 		return coreRetailerService.getShipment(id, authToken, orgIdHeader);
 	}
 
+	@LogActivity("Review Delivered Shipment for Retailer")
+	@PostMapping("/shipments/{id}/review")
+	public ResponseEntity<?> reviewDeliveredShipment(@PathVariable Long id,
+			@RequestBody(required = false) Map<String, Object> review,
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.reviewDeliveredShipment(id, review == null ? Map.of() : review, authToken, orgIdHeader);
+	}
+
+	@LogActivity("Get Reviewed Shipment IDs for Retailer")
+	@GetMapping("/shipments/reviewed")
+	public ResponseEntity<?> getReviewedShipmentIds(
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.getReviewedShipmentIds(authToken, orgIdHeader);
+	}
+
+	@LogActivity("Get Supplier Review Summary for Retailer")
+	@GetMapping("/shipments/review-summary")
+	public ResponseEntity<?> getSupplierReviewSummary(
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader) {
+		return coreRetailerService.getSupplierReviewSummary(authToken, orgIdHeader);
+	}
+
+	@GetMapping("/shipments/reviews")
+	public ResponseEntity<?> getShipmentReviews(
+			@RequestHeader("Authorization") String authToken,
+			@RequestHeader("X-Organization-ID") String orgIdHeader,
+			@PageableDefault(size = 20) Pageable pageable) {
+		return coreRetailerService.getShipmentReviews(authToken, orgIdHeader, pageable);
+	}
+
 	@LogActivity("Get All Shipments for Retailer")
 	@GetMapping("/shipments")
 	public ResponseEntity<?> getAllShipments(@RequestHeader("Authorization") String authToken,

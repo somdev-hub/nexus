@@ -21,6 +21,7 @@ import com.nexus.core.dto.TrackingEventDto;
 import com.nexus.core.dto.ShipmentDocumentDto;
 import com.nexus.core.model.entities.ShipmentDocument;
 import com.nexus.core.model.entities.Shipment;import com.nexus.core.model.enums.ShipmentDocumentType;
+
 import com.nexus.core.model.enums.PurchaseOrderStatus;
 import com.nexus.core.repository.PurchaseOrderRepo;
 import com.nexus.core.model.enums.ShipmentMode;
@@ -38,7 +39,10 @@ import com.nexus.core.repository.MaterialRepo;
 import com.nexus.core.repository.ShipmentDocumentRepo;
 import com.nexus.core.repository.AccountRepo;
 import com.nexus.core.repository.ShipmentRepo;
+import com.nexus.core.repository.ShipmentReviewRepo;
 import com.nexus.core.repository.ShipmentStopRepo;
+
+
 import com.nexus.core.security.OrganizationContextHolder;
 import com.nexus.core.repository.TrackingEventRepo;
 import com.nexus.core.service.interfaces.ShipmentService;
@@ -55,6 +59,7 @@ public class ShipmentServiceImpl implements ShipmentService {
             List.of("CONSIGNMENT_FILL", "VMI_REPLENISHMENT");
 
     private final ShipmentRepo shipmentRepo;
+    private final ShipmentReviewRepo shipmentReviewRepo;
     private final PurchaseOrderRepo purchaseOrderRepo;
     private final ShipmentStopRepo shipmentStopRepo;
     private final TrackingEventRepo trackingEventRepo;
@@ -667,7 +672,122 @@ public class ShipmentServiceImpl implements ShipmentService {
         return dto;
     }
 
+    @Override
+    public List<Long> getReviewedShipmentIds() {
+        Long orgId = OrganizationContextHolder.requireOrganizationId();
+        return shipmentReviewRepo.findByRetailerOrgId(orgId).stream()
+                .map(com.nexus.core.model.entities.ShipmentReview::getShipmentId)
+                .toList();
+    }
+
+    @Override
+    public org.springframework.data.domain.Page<com.nexus.core.dto.ShipmentReviewDto> getShipmentReviews(org.springframework.data.domain.Pageable pageable) {
+        Long orgId = OrganizationContextHolder.requireOrganizationId();
+        org.springframework.data.domain.Page<com.nexus.core.model.entities.ShipmentReview> page = shipmentReviewRepo.findByRetailerOrgId(orgId, pageable);
+        return page.map(r -> {
+            com.nexus.core.dto.ShipmentReviewDto dto = new com.nexus.core.dto.ShipmentReviewDto();
+            dto.setReviewId(r.getReviewId());
+            dto.setShipmentId(r.getShipmentId());
+            dto.setRating(r.getRating());
+            dto.setQualityScore(r.getQualityScore());
+            dto.setExpectedDelivery(r.getExpectedDelivery());
+            dto.setActualDelivery(r.getActualDelivery());
+            dto.setExpectedQuantity(r.getExpectedQuantity());
+            dto.setActualQuantity(r.getActualQuantity());
+            dto.setComments(r.getComments());
+            dto.setCreatedAt(r.getCreatedAt());
+            Shipment sh = shipmentRepo.findById(r.getShipmentId()).orElse(null);
+            if (sh != null) {
+                dto.setShipmentNumber(sh.getShipmentNumber());
+                if (sh.getSupplierOrg() != null) dto.setSupplierName(sh.getSupplierOrg().getName());
+            }
+            return dto;
+        });
+    }
+
+    @Override
+    public java.util.List<com.nexus.core.dto.SupplierReviewSummary> getSupplierReviewSummaries() {
+        java.util.Map<Long, java.util.List<com.nexus.core.model.entities.ShipmentReview>> bySupplier = new java.util.HashMap<>();
+        for (com.nexus.core.model.entities.ShipmentReview r : shipmentReviewRepo.findAll()) {
+            Shipment sh = shipmentRepo.findById(r.getShipmentId()).orElse(null);
+            if (sh == null || sh.getSupplierOrg() == null) continue;
+            Long orgId = sh.getSupplierOrg().getAccountId();
+            bySupplier.computeIfAbsent(orgId, k -> new java.util.ArrayList<>()).add(r);
+        }
+        java.util.List<com.nexus.core.dto.SupplierReviewSummary> result = new java.util.ArrayList<>();
+        for (java.util.Map.Entry<Long, java.util.List<com.nexus.core.model.entities.ShipmentReview>> e : bySupplier.entrySet()) {
+            com.nexus.core.dto.SupplierReviewSummary s = new com.nexus.core.dto.SupplierReviewSummary();
+            s.setSupplierOrgId(e.getKey());
+            Shipment sh = shipmentRepo.findAll().stream()
+                    .filter(x -> x.getSupplierOrg() != null && x.getSupplierOrg().getAccountId().equals(e.getKey()))
+                    .findFirst().orElse(null);
+            if (sh != null && sh.getSupplierOrg() != null) s.setSupplierName(sh.getSupplierOrg().getName());
+            double avgRating = e.getValue().stream().mapToInt(r -> r.getRating() != null ? r.getRating() : 0).average().orElse(0);
+            double avgQuality = e.getValue().stream().mapToDouble(r -> r.getQualityScore() != null ? r.getQualityScore() : 0).average().orElse(0);
+            s.setAvgRating(avgRating);
+            s.setReviewCount((long) e.getValue().size());
+            s.setAvgQuality(avgQuality);
+            result.add(s);
+        }
+        return result;
+    }
+
     private static java.time.LocalDateTime toLocalDateTime(java.sql.Timestamp value) {
         return value != null ? value.toLocalDateTime() : null;
+    }
+
+    @Override
+    @Transactional
+    public Map<String, Object> reviewDeliveredShipment(Long shipmentId, Map<String, Object> review) {
+        Long orgId = OrganizationContextHolder.requireOrganizationId();
+        Shipment shipment = shipmentRepo.findById(shipmentId)
+                .orElseThrow(() -> new com.nexus.core.exception.ResourceNotFoundException("Shipment", "shipmentId", shipmentId));
+        if (shipment.getRetailerOrg() == null || !orgId.equals(shipment.getRetailerOrg().getAccountId())) {
+            throw new com.nexus.core.exception.ResourceNotFoundException("Shipment", "shipmentId", shipmentId);
+        }
+        if (shipmentReviewRepo.existsByShipmentId(shipmentId)) {
+             Map<String, Object> already = new java.util.HashMap<>();
+             already.put("success", true);
+             already.put("alreadyReviewed", true);
+             already.put("shipmentId", shipmentId);
+             return already;
+         }
+
+        int rating = review.get("rating") instanceof Number ? ((Number) review.get("rating")).intValue() : 3;
+        double qualityScore = review.get("qualityScore") instanceof Number ? ((Number) review.get("qualityScore")).doubleValue() : 80.0;
+        double expectedQty = review.get("expectedQuantity") instanceof Number ? ((Number) review.get("expectedQuantity")).doubleValue() : (shipment.getShippedQuantity() != null ? shipment.getShippedQuantity() : 0.0);
+        double actualQty = review.get("actualQuantity") instanceof Number ? ((Number) review.get("actualQuantity")).doubleValue() : expectedQty;
+        String comments = review.get("comments") == null ? null : String.valueOf(review.get("comments"));
+
+        java.time.LocalDate today = java.time.LocalDate.now();
+        java.sql.Date periodDate = java.sql.Date.valueOf(today);
+
+        com.nexus.core.model.entities.ShipmentReview reviewRecord = new com.nexus.core.model.entities.ShipmentReview();
+        reviewRecord.setShipmentId(shipmentId);
+        reviewRecord.setRetailerOrgId(orgId);
+        reviewRecord.setRating(rating);
+        reviewRecord.setQualityScore(qualityScore);
+        try {
+            if (review.get("expectedDelivery") != null) {
+                String exp = String.valueOf(review.get("expectedDelivery"));
+                if (!exp.isBlank()) reviewRecord.setExpectedDelivery(java.sql.Timestamp.valueOf(java.time.LocalDateTime.parse(exp.substring(0, 19).replace("T", " "))));
+            }
+        } catch (Exception ignored) {}
+        try {
+            if (review.get("actualDelivery") != null) {
+                String act = String.valueOf(review.get("actualDelivery"));
+                if (!act.isBlank()) reviewRecord.setActualDelivery(java.sql.Timestamp.valueOf(java.time.LocalDateTime.parse(act.substring(0, 19).replace("T", " "))));
+            }
+        } catch (Exception ignored) {}
+        reviewRecord.setExpectedQuantity(expectedQty);
+        reviewRecord.setActualQuantity(actualQty);
+        reviewRecord.setComments(comments);
+        reviewRecord.setCreatedAt(new java.sql.Timestamp(System.currentTimeMillis()));
+        shipmentReviewRepo.save(reviewRecord);
+
+        Map<String, Object> result = new java.util.HashMap<>();
+        result.put("success", true);
+        result.put("shipmentId", shipmentId);
+        return result;
     }
 }

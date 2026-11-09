@@ -105,4 +105,13 @@ public interface ShipmentService {
 	List<ShipmentDto> getShipmentsRequiringAttention();
 
 	List<ShipmentDto> getOverdueShipments();
+
+	List<Long> getReviewedShipmentIds();
+
+	org.springframework.data.domain.Page<com.nexus.core.dto.ShipmentReviewDto> getShipmentReviews(org.springframework.data.domain.Pageable pageable);
+
+	java.util.List<com.nexus.core.dto.SupplierReviewSummary> getSupplierReviewSummaries();
+
+	// Retailer review of a delivered shipment (drives performance + risk)
+	Map<String, Object> reviewDeliveredShipment(Long shipmentId, Map<String, Object> review);
 }

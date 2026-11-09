@@ -2386,6 +2386,58 @@ public class CoreRetailerServiceImpl implements CoreRetailerService {
 	}
 
 	@Override
+	public ResponseEntity<?> reviewDeliveredShipment(Long shipmentId, Map<String, Object> review, String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCoreShipmentBaseUrl() + "/" + shipmentId + "/review";
+		return restService.iamRestCall(
+				url,
+				review,
+				headers,
+				HttpMethod.POST,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> getReviewedShipmentIds(String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCoreShipmentBaseUrl() + "/reviewed";
+		return restService.iamRestCall(
+				url,
+				null,
+				headers,
+				HttpMethod.GET,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> getShipmentReviews(String authToken, String orgIdHeader, Pageable pageable) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = buildPaginatedUrl(webConstants.getCoreShipmentBaseUrl() + "/reviews", pageable);
+		return restService.iamRestCall(
+				url,
+				null,
+				headers,
+				HttpMethod.GET,
+				null);
+	}
+
+	@Override
+	public ResponseEntity<?> getSupplierReviewSummary(String authToken, String orgIdHeader) {
+		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
+		headers.put("X-Organization-ID", orgIdHeader);
+		String url = webConstants.getCoreShipmentBaseUrl() + "/review-summary";
+		return restService.iamRestCall(
+				url,
+				null,
+				headers,
+				HttpMethod.GET,
+				null);
+	}
+
+	@Override
 	public ResponseEntity<?> getShipmentsByDateRange(java.sql.Timestamp startDate, java.sql.Timestamp endDate,
 			String authToken, String orgIdHeader, Pageable pageable) {
 		Map<String, String> headers = commonUtils.buildJsonHeaders(authToken);
