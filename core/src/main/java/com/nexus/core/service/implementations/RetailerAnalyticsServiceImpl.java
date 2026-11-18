@@ -190,7 +190,7 @@ public class RetailerAnalyticsServiceImpl implements RetailerAnalyticsService {
         Map<String, BigDecimal> byMonth = pos.stream()
                 .filter(po -> po.getCreatedAt() != null)
                 .collect(Collectors.groupingBy(
-                        po -> String.format("%tY-%tm", po.getCreatedAt(), po.getCreatedAt()),
+                        po -> String.format("%tY-%tm-%td", po.getCreatedAt(), po.getCreatedAt(), po.getCreatedAt()),
                         TreeMap::new,
                         Collectors.reducing(BigDecimal.ZERO, po -> po.getTotalAmount() != null ? BigDecimal.valueOf(po.getTotalAmount()) : BigDecimal.ZERO, BigDecimal::add)
                 ));
