@@ -49,8 +49,8 @@ public class OrganizationContextFilter extends OncePerRequestFilter {
 
 		String requestPath = request.getRequestURI();
 
-		// Skip organization context validation for public endpoints
-		if (isPublicEndpoint(requestPath)) {
+		// Skip organization context validation for public endpoints and AI tools
+		if (isPublicEndpoint(requestPath) || requestPath.startsWith("/core/ai-tools/")) {
 			filterChain.doFilter(request, response);
 			return;
 		}

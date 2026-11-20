@@ -212,6 +212,17 @@ public class DynamicToolProvider {
         Map<String, Object> requestPayload = buildRequestPayload(toolsConfig, params, input);
 
         String url = resolveUrl(toolsConfig.getEndpoint(), params, input, toolsConfig.getClientConfig());
+
+        // Inject orgId from request context if available
+        Long orgId = com.nexus.nexusbuddy.util.RequestContext.getOrgId();
+        LOGGER.info("DynamicToolProvider.executeTool: orgId from RequestContext = {}", orgId);
+        if (orgId != null) {
+            if (url.contains("?")) {
+                url = url + "&orgId=" + orgId;
+            } else {
+                url = url + "?orgId=" + orgId;
+            }
+        }
         HttpMethod method = HttpMethod.valueOf(
                 toolsConfig.getHttpMethod() != null
                         ? toolsConfig.getHttpMethod().name()

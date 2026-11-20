@@ -100,6 +100,7 @@ public class SecurityConfig {
 						.requestMatchers("/swagger-ui/**").permitAll()
 						.requestMatchers("/v3/api-docs/**").permitAll()
 						.requestMatchers("/core/public/**").permitAll()
+.requestMatchers("/core/ai-tools/**").permitAll()
 						// Suite role-based access control - relaxed to authenticated for service-to-service testing
 						// Original strict check: hasAnyRole("SUITE_RETAILER", "SUITE_SUPPLIER", "SUITE_LOGISTICS", "SUITE_ADMIN")
 						// For IAM→Core gateway calls, JWT may not yet contain mapped SUITE roles via Keycloak client mapper;

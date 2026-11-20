@@ -315,6 +315,23 @@ public class NexusBuddyController {
     }
 
     // ============================================
+    // Seeder APIs
+    // ============================================
+    @PostMapping("/admin/seeder/nexus-core-ai-tools")
+    @LogActivity("SEED_NEXUS_CORE_AI_TOOLS")
+    public ResponseEntity<String> seedNexusCoreAiTools() {
+        log.info("Proxying seed request to NexusBuddy");
+        return nexusBuddyService.seedNexusCoreAiTools();
+    }
+
+    @GetMapping("/admin/seeder/nexus-core-ai-tools/status")
+    @LogActivity("GET_SEED_STATUS")
+    public ResponseEntity<String> getSeedStatus() {
+        log.info("Proxying seed status request to NexusBuddy");
+        return nexusBuddyService.getSeedStatus();
+    }
+
+    // ============================================
     // Client Insights APIs
     // ============================================
     @GetMapping("/admin/client-insights/{clientId}")

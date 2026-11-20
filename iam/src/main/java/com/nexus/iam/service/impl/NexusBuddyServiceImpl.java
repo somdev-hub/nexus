@@ -420,6 +420,26 @@ public class NexusBuddyServiceImpl implements NexusBuddyService {
     }
 
     @Override
+    public ResponseEntity<String> seedNexusCoreAiTools() {
+        // Chat URL: http://host:port/nexusbuddy/api/chat
+        // Seeder URL: http://host:port/nexusbuddy/admin/seeder/nexus-core-ai-tools
+        String chatUrl = webConstants.getNexusBuddyChatUrl();
+        String baseUrl = chatUrl.substring(0, chatUrl.indexOf("/nexusbuddy/")) + "/nexusbuddy";
+        String url = baseUrl + "/admin/seeder/nexus-core-ai-tools";
+        Map<String, String> headers = new HashMap<>();
+        headers.put("Content-Type", "application/json");
+        return restService.iamRestCall(url, null, headers, HttpMethod.POST, null);
+    }
+
+    @Override
+    public ResponseEntity<String> getSeedStatus() {
+        String chatUrl = webConstants.getNexusBuddyChatUrl();
+        String baseUrl = chatUrl.substring(0, chatUrl.indexOf("/nexusbuddy/")) + "/nexusbuddy";
+        String url = baseUrl + "/admin/seeder/nexus-core-ai-tools/status";
+        return restService.iamRestCall(url, null, null, HttpMethod.GET, null);
+    }
+
+    @Override
     public ResponseEntity<String> getClientLogs(Long clientId, String toolName, String status, String statusCode,
             String httpMethod, String startDate, String endDate, Integer pageNo, Integer pageOffset, String sort) {
         UriComponentsBuilder builder = UriComponentsBuilder

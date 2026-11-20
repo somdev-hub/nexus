@@ -98,6 +98,13 @@ public interface NexusBuddyService {
     ResponseEntity<String> getConfigInsights();
 
     // ============================================
+    // Seeder APIs
+    // ============================================
+    ResponseEntity<String> seedNexusCoreAiTools();
+
+    ResponseEntity<String> getSeedStatus();
+
+    // ============================================
     // Client Insights APIs
     // ============================================
     ResponseEntity<String> getClientInsights(Long clientId, String range, String start, String end);

@@ -65,6 +65,24 @@ public class ChatServiceImpl implements ChatService {
         CommonUtils.requireNonNull(request, "Chat request");
         CommonUtils.requireNonEmpty(request.getMessage(), "Message");
 
+        // Set request context for tool execution
+        if (request.getMetadata() != null) {
+            Object orgIdObj = request.getMetadata().get("orgId");
+            log.info("ChatServiceImpl: orgId from metadata = {}", orgIdObj);
+            if (orgIdObj != null) {
+                try {
+                    com.nexus.nexusbuddy.util.RequestContext.setOrgId(Long.parseLong(orgIdObj.toString()));
+                    log.info("ChatServiceImpl: set RequestContext orgId = {}", com.nexus.nexusbuddy.util.RequestContext.getOrgId());
+                } catch (NumberFormatException e) {
+                    log.warn("Invalid orgId in metadata: {}", orgIdObj);
+                }
+            }
+            Object userIdObj = request.getMetadata().get("userId");
+            if (userIdObj != null) {
+                com.nexus.nexusbuddy.util.RequestContext.setUserId(userIdObj.toString());
+            }
+        }
+
         List<Long> requestedClientIds = resolveClientIds(request);
         if (requestedClientIds.isEmpty()) {
             throw new IllegalArgumentException(
@@ -101,7 +119,12 @@ public class ChatServiceImpl implements ChatService {
         Prompt prompt = new Prompt(messages);
         ToolCallback[] toolCallbacks = dynamicToolProvider.getToolCallbacks(distinctClientIds);
         ChatClient requestChatClient = ChatClient.builder(chatModel).defaultTools(toolCallbacks).build();
-        String aiResponse = requestChatClient.prompt(prompt).call().content();
+        String aiResponse;
+        try {
+            aiResponse = requestChatClient.prompt(prompt).call().content();
+        } finally {
+            com.nexus.nexusbuddy.util.RequestContext.clear();
+        }
         String conversationId = UUID.randomUUID().toString();
 
         ChatResponse response = ChatResponse.builder()
@@ -407,6 +430,15 @@ public class ChatServiceImpl implements ChatService {
 
         if (clientIds.isEmpty() && request.getClientConfigId() != null) {
             clientIds.add(request.getClientConfigId());
+        }
+
+        // If still empty, fetch all active client configs
+        if (clientIds.isEmpty()) {
+            List<ClientConfig> activeConfigs = clientConfigRepository.findByIsActiveTrue(Pageable.unpaged()).getContent();
+            for (ClientConfig config : activeConfigs) {
+                clientIds.add(config.getClientConfigId());
+            }
+            log.info("No client IDs provided, using all active client configs: {}", clientIds);
         }
 
         return clientIds;
