@@ -105,6 +105,15 @@ public interface NexusBuddyService {
     ResponseEntity<String> getSeedStatus();
 
     // ============================================
+    // Conversation History APIs
+    // ============================================
+    ResponseEntity<String> getConversations(String userId);
+    ResponseEntity<String> getConversation(Long id, String userId);
+    ResponseEntity<String> createConversation(String payload);
+    ResponseEntity<String> updateConversation(Long id, String payload);
+    ResponseEntity<String> deleteConversation(Long id, String userId);
+
+    // ============================================
     // Client Insights APIs
     // ============================================
     ResponseEntity<String> getClientInsights(Long clientId, String range, String start, String end);

@@ -332,6 +332,44 @@ public class NexusBuddyController {
     }
 
     // ============================================
+    // Conversation History APIs
+    // ============================================
+    @GetMapping("/api/conversations")
+    @LogActivity("GET_CONVERSATIONS")
+    public ResponseEntity<String> getConversations(@RequestParam String userId) {
+        log.info("Fetching conversations for user: {}", userId);
+        return nexusBuddyService.getConversations(userId);
+    }
+
+    @GetMapping("/api/conversations/{id}")
+    @LogActivity("GET_CONVERSATION")
+    public ResponseEntity<String> getConversation(@PathVariable Long id, @RequestParam String userId) {
+        log.info("Fetching conversation: {} for user: {}", id, userId);
+        return nexusBuddyService.getConversation(id, userId);
+    }
+
+    @PostMapping("/api/conversations")
+    @LogActivity("CREATE_CONVERSATION")
+    public ResponseEntity<String> createConversation(@RequestBody String payload) {
+        log.info("Creating conversation");
+        return nexusBuddyService.createConversation(payload);
+    }
+
+    @PutMapping("/api/conversations/{id}")
+    @LogActivity("UPDATE_CONVERSATION")
+    public ResponseEntity<String> updateConversation(@PathVariable Long id, @RequestBody String payload) {
+        log.info("Updating conversation: {}", id);
+        return nexusBuddyService.updateConversation(id, payload);
+    }
+
+    @DeleteMapping("/api/conversations/{id}")
+    @LogActivity("DELETE_CONVERSATION")
+    public ResponseEntity<String> deleteConversation(@PathVariable Long id, @RequestParam String userId) {
+        log.info("Deleting conversation: {} for user: {}", id, userId);
+        return nexusBuddyService.deleteConversation(id, userId);
+    }
+
+    // ============================================
     // Client Insights APIs
     // ============================================
     @GetMapping("/admin/client-insights/{clientId}")

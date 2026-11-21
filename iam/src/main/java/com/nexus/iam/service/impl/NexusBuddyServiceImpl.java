@@ -440,6 +440,55 @@ public class NexusBuddyServiceImpl implements NexusBuddyService {
     }
 
     @Override
+    public ResponseEntity<String> getConversations(String userId) {
+        String url = UriComponentsBuilder.fromUriString(webConstants.getNexusBuddyChatUrl())
+                .pathSegment("..", "api", "conversations")
+                .queryParam("userId", userId)
+                .toUriString();
+        // Fix URL - chat URL is /nexusbuddy/api/chat, we want /nexusbuddy/api/conversations
+        String chatUrl = webConstants.getNexusBuddyChatUrl();
+        String baseUrl = chatUrl.substring(0, chatUrl.indexOf("/nexusbuddy/") + "/nexusbuddy".length());
+        url = baseUrl + "/api/conversations?userId=" + userId;
+        return restService.iamRestCall(url, null, null, HttpMethod.GET, null);
+    }
+
+    @Override
+    public ResponseEntity<String> getConversation(Long id, String userId) {
+        String chatUrl = webConstants.getNexusBuddyChatUrl();
+        String baseUrl = chatUrl.substring(0, chatUrl.indexOf("/nexusbuddy/") + "/nexusbuddy".length());
+        String url = baseUrl + "/api/conversations/" + id + "?userId=" + userId;
+        return restService.iamRestCall(url, null, null, HttpMethod.GET, null);
+    }
+
+    @Override
+    public ResponseEntity<String> createConversation(String payload) {
+        String chatUrl = webConstants.getNexusBuddyChatUrl();
+        String baseUrl = chatUrl.substring(0, chatUrl.indexOf("/nexusbuddy/") + "/nexusbuddy".length());
+        String url = baseUrl + "/api/conversations";
+        Map<String, String> headers = new HashMap<>();
+        headers.put("Content-Type", "application/json");
+        return restService.iamRestCall(url, payload, headers, HttpMethod.POST, null);
+    }
+
+    @Override
+    public ResponseEntity<String> updateConversation(Long id, String payload) {
+        String chatUrl = webConstants.getNexusBuddyChatUrl();
+        String baseUrl = chatUrl.substring(0, chatUrl.indexOf("/nexusbuddy/") + "/nexusbuddy".length());
+        String url = baseUrl + "/api/conversations/" + id;
+        Map<String, String> headers = new HashMap<>();
+        headers.put("Content-Type", "application/json");
+        return restService.iamRestCall(url, payload, headers, HttpMethod.PUT, null);
+    }
+
+    @Override
+    public ResponseEntity<String> deleteConversation(Long id, String userId) {
+        String chatUrl = webConstants.getNexusBuddyChatUrl();
+        String baseUrl = chatUrl.substring(0, chatUrl.indexOf("/nexusbuddy/") + "/nexusbuddy".length());
+        String url = baseUrl + "/api/conversations/" + id + "?userId=" + userId;
+        return restService.iamRestCall(url, null, null, HttpMethod.DELETE, null);
+    }
+
+    @Override
     public ResponseEntity<String> getClientLogs(Long clientId, String toolName, String status, String statusCode,
             String httpMethod, String startDate, String endDate, Integer pageNo, Integer pageOffset, String sort) {
         UriComponentsBuilder builder = UriComponentsBuilder
