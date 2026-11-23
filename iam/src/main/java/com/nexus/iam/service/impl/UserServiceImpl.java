@@ -291,6 +291,48 @@ public class UserServiceImpl implements UserService {
 		}
 	}
 
+	@Override
+	public ResponseEntity<?> searchUsersCrossOrg(String name, String orgType) {
+		if (ObjectUtils.isEmpty(name)) {
+			throw new ServiceLevelException("UserService", "User name is required", "searchUsersCrossOrg",
+					new Timestamp(System.currentTimeMillis()), null, "User name is null or empty");
+		}
+		try {
+			List<User> users = userRepository.findByNameMatch(name);
+			if (users.isEmpty()) {
+				return ResponseEntity.noContent().build();
+			}
+			List<UserDetailsDto> userDto = users.stream()
+					.filter(u -> {
+						if (orgType == null || orgType.isBlank()) return true;
+						// Filter by org type if provided
+						return u.getOrganization() != null
+								&& orgType.equalsIgnoreCase(u.getOrganization().getOrgType().toString());
+					})
+					.map(u -> {
+						UserDetailsDto map = modelMapper.map(u, UserDetailsDto.class);
+						map.setRole(u.getRoles().stream().findFirst().map(Role::getName).orElse("USER"));
+						map.setDepartment(u.getHeadedDepartments().stream().findFirst()
+								.map(Department::getDepartmentName)
+								.orElse(u.getMemberOfDepartments().stream().findFirst()
+										.map(Department::getDepartmentName)
+										.orElse("N/A")));
+						// Add org info
+						if (u.getOrganization() != null) {
+							map.setOrgId(u.getOrganization().getId());
+							map.setOrgName(u.getOrganization().getOrgName());
+							map.setOrgType(u.getOrganization().getOrgType().toString());
+						}
+						return map;
+					})
+					.toList();
+			return ResponseEntity.ok(userDto);
+		} catch (Exception e) {
+			throw new ServiceLevelException("UserService", e.getLocalizedMessage(), "searchUsersCrossOrg",
+					new Timestamp(System.currentTimeMillis()), e.getCause().toString(), e.getMessage());
+		}
+	}
+
 	@Transactional
 	@Override
 	public ResponseEntity<?> createUser(UserProfileDto userDto, MultipartFile[] files) {

@@ -16,8 +16,8 @@ public class NewChatController {
     private final NewChatService newChatService;
 
     @PostMapping(value = "/conversation")
-    public ResponseEntity<?> createChatConversation(@RequestPart @Valid ConversationRequestDto request, @RequestPart(required = false) MultipartFile chatConversationAvatar){
-        return newChatService.createChatConversation(request, chatConversationAvatar);
+    public ResponseEntity<?> createChatConversation(@RequestBody @Valid ConversationRequestDto request){
+        return newChatService.createChatConversation(request, null);
     }
 
     @GetMapping("/conversations/{participantId}")
@@ -44,5 +44,15 @@ public class NewChatController {
     @PostMapping("/view")
     public ResponseEntity<?> viewConversation(@RequestParam Long participantId, @RequestParam Long conversationId){
         return newChatService.viewConversation(participantId, conversationId);
+    }
+
+    @PostMapping("/conversation/{conversationId}/participants")
+    public ResponseEntity<?> addParticipants(@PathVariable Long conversationId, @RequestBody java.util.List<com.nexus.cms.chat.model.ChatConversationParticipantDto> participants) {
+        return newChatService.addParticipants(conversationId, participants);
+    }
+
+    @DeleteMapping("/conversation/{conversationId}/participants/{participantId}")
+    public ResponseEntity<?> removeParticipant(@PathVariable Long conversationId, @PathVariable Long participantId) {
+        return newChatService.removeParticipant(conversationId, participantId);
     }
 }

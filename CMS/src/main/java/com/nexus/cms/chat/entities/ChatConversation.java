@@ -15,7 +15,10 @@ import java.util.List;
 
 @Entity
 @Data
-@Table(name = "t_chat_conversations", schema = "cms")
+@Table(name = "t_chat_conversations", schema = "cms", indexes = {
+        @Index(name = "idx_chat_conv_last_message_at", columnList = "last_message_at"),
+        @Index(name = "idx_chat_conv_org_id", columnList = "org_id")
+})
 public class ChatConversation {
 
     @Id
@@ -43,17 +46,36 @@ public class ChatConversation {
 
     private Timestamp lastMessageAt;
 
+    @Column(name = "last_message_text", columnDefinition = "TEXT")
+    private String lastMessageText;
+
+    @Column(name = "last_message_sender_id")
+    private Long lastMessageSenderId;
+
+    @Column(name = "last_message_sender_name")
+    private String lastMessageSenderName;
+
     private Boolean isActive;
 
     private Long totalParticipants;
 
     private Long totalMessages;
 
-    private Long orgId;
+    @Column(name = "org_id")
+    private Long orgId; // Creator's org (nullable for inter-org conversations)
+
+    @Column(name = "is_inter_org")
+    private Boolean isInterOrg; // True if participants span multiple orgs
+
+    @Column(name = "participant_org_ids", columnDefinition = "TEXT")
+    private String participantOrgIds; // JSON array of all participant org IDs
 
     @PrePersist
     public void prePersist() {
         this.isActive = true;
+        if (this.isInterOrg == null) {
+            this.isInterOrg = false;
+        }
     }
 
     @ToString.Exclude

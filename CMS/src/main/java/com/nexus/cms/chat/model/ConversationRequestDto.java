@@ -19,8 +19,7 @@ public class ConversationRequestDto {
     @Size(max = 500, message = "Description cannot exceed 500 characters")
     private String chatConversationDescription;
 
-    @NotNull(message = "Organization ID is required")
-    @Positive(message = "Organization ID must be positive")
+    // orgId is optional for inter-org conversations
     private Long orgId;
 
     @NotNull(message = "Conversation type is required")
@@ -31,4 +30,9 @@ public class ConversationRequestDto {
     private List<ChatConversationParticipantDto> chatConversationParticipants;
 
     private Boolean isActive;
+
+    // Inter-org support
+    private Boolean isInterOrg;
+
+    private List<Long> participantOrgIds;
 }

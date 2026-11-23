@@ -173,4 +173,22 @@ public class NewChatController {
     public ResponseEntity<?> getPresenceStatuses(@RequestParam java.util.List<Long> userIds) {
         return newChatService.getPresenceStatuses(userIds);
     }
+
+    @PostMapping("/conversation/{conversationId}/participants")
+    public ResponseEntity<?> addParticipants(
+            @PathVariable Long conversationId,
+            @RequestBody String request,
+            @RequestParam Long participantId,
+            @RequestParam Long orgId) {
+        return newChatService.addParticipants(conversationId, request, participantId, orgId);
+    }
+
+    @DeleteMapping("/conversation/{conversationId}/participants/{participantIdToRemove}")
+    public ResponseEntity<?> removeParticipant(
+            @PathVariable Long conversationId,
+            @PathVariable Long participantIdToRemove,
+            @RequestParam Long participantId,
+            @RequestParam Long orgId) {
+        return newChatService.removeParticipant(conversationId, participantIdToRemove, participantId, orgId);
+    }
 }

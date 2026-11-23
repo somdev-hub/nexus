@@ -5,6 +5,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.http.client.BufferingClientHttpRequestFactory;
 import org.springframework.http.client.ClientHttpRequestFactory;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
+import org.springframework.http.converter.FormHttpMessageConverter;
 import org.springframework.http.converter.StringHttpMessageConverter;
 import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
 import org.springframework.web.client.RestClient;
@@ -41,6 +42,10 @@ public class RestClientConfig {
         // Explicitly set message converters to ensure String and JSON are always supported.
         // StringHttpMessageConverter handles text/plain, text/html, etc.
         // MappingJackson2HttpMessageConverter handles application/json.
+        // FormHttpMessageConverter handles application/x-www-form-urlencoded (required for
+        // Keycloak Direct Access Grant / token endpoint requests that send MultiValueMap bodies).
+        FormHttpMessageConverter formConverter = new FormHttpMessageConverter();
+
         StringHttpMessageConverter stringConverter = new StringHttpMessageConverter(StandardCharsets.UTF_8);
         stringConverter.setSupportedMediaTypes(List.of(
                 org.springframework.http.MediaType.TEXT_PLAIN,
@@ -52,7 +57,7 @@ public class RestClientConfig {
 
         MappingJackson2HttpMessageConverter jsonConverter = new MappingJackson2HttpMessageConverter();
 
-        restTemplate.setMessageConverters(List.of(stringConverter, jsonConverter));
+        restTemplate.setMessageConverters(List.of(formConverter, stringConverter, jsonConverter));
         return restTemplate;
     }
 

@@ -22,4 +22,9 @@ public class UserDetailsDto {
     private String profilePhoto;
 
     private String personalEmail;
+
+    // Inter-org chat support
+    private Long orgId;
+    private String orgName;
+    private String orgType;
 }

@@ -3,6 +3,7 @@ package com.nexus.cms.chat.controller;
 import com.nexus.cms.chat.entities.ChatMessage;
 import com.nexus.cms.chat.entities.ChatMessageIndividualStatus;
 import com.nexus.cms.chat.model.ChatMessageRequestDto;
+import com.nexus.cms.chat.model.ConversationMessagesDto;
 import com.nexus.cms.chat.model.MessageSentEventDto;
 import com.nexus.cms.chat.model.StatusUpdateEventDto;
 import com.nexus.cms.chat.model.TypingEventDto;
@@ -56,18 +57,18 @@ public class MessageWebSocketController {
             log.info("[CHAT WS] Incoming message SEND - conversationId={}, senderUserId={}",
                     conversationId, senderUserId);
 
-            ResponseEntity<ChatMessage> responseEntity = messageService.sendMessage(message, null, senderUserId);
+            ResponseEntity<ConversationMessagesDto> responseEntity = messageService.sendMessage(message, null, senderUserId);
 
             if (responseEntity.getStatusCode().is2xxSuccessful()) {
-                ChatMessage body = responseEntity.getBody();
+                ConversationMessagesDto body = responseEntity.getBody();
                 if (!ObjectUtils.isEmpty(body) && !ObjectUtils.isEmpty(body.getChatMessageId())) {
                     chatMessageProducerService.publishMessageSent(MessageSentEventDto.builder()
                             .messageId(body.getChatMessageId())
-                            .conversationId(body.getChatConversation().getChatConversationId())
+                            .conversationId(body.getChatConversationId())
                             .participantId(body.getChatConversationParticipant().getParticipantId()).message(body)
                             .build());
                     log.info("[CHAT WS] Message persisted and published - conversationId={}, messageId={}",
-                            body.getChatConversation().getChatConversationId(), body.getChatMessageId());
+                            body.getChatConversationId(), body.getChatMessageId());
                 } else {
                     log.warn("[CHAT WS] Message persisted but response body/messageId is empty - conversationId={}",
                             conversationId);

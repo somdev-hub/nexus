@@ -223,7 +223,6 @@ public class RestServices {
         return webClient.method(method)
                 .uri(url)
                 .headers(h -> h.addAll(httpHeaders))
-                .contentType(MediaType.MULTIPART_FORM_DATA)
                 .body(BodyInserters.fromMultipartData(body))
                 .retrieve()
                 .onStatus(HttpStatusCode::isError, clientResponse -> clientResponse.bodyToMono(String.class)

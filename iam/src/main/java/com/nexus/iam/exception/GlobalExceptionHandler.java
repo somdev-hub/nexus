@@ -124,14 +124,17 @@ public class GlobalExceptionHandler {
 
 	@ExceptionHandler(ServiceLevelException.class)
 	public ResponseEntity<ErrorResponseDto> handleServiceLevelException(ServiceLevelException ex) {
+		// Use the 5-arg constructor (exceptionType, statusCode, timestamp, message, description)
+		// then set serviceName and serviceMethod via setters to avoid field mapping issues with @AllArgsConstructor
 		ErrorResponseDto errorResponse = new ErrorResponseDto(
-				ex.getExceptionType(),
-				ex.getStatusCode(),
-				ex.getTimestamp(),
-				ex.getMessage(),
-				ex.getDescription(),
-				ex.getServiceName(),
-				ex.getServiceMethod());
+				ex.getExceptionType(),      // exceptionType: e.g., "HTTP 500"
+				ex.getStatusCode(),         // statusCode: 500
+				ex.getTimestamp(),          // timestamp
+				ex.getMessage(),            // message: generic message "Failed to fetch conversation details"
+				ex.getDescription()         // description: ACTUAL CMS ERROR (root cause)
+		);
+		errorResponse.setServiceName(ex.getServiceName());     // "NewChatService"
+		errorResponse.setServiceMethod(ex.getServiceMethod()); // "getConversationDetails"
 		return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
 	}
 

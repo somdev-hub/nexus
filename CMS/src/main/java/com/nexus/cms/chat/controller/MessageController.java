@@ -1,9 +1,13 @@
 package com.nexus.cms.chat.controller;
 
 import com.nexus.cms.chat.model.ChatMessageRequestDto;
+import com.nexus.cms.chat.model.ConversationMessagesDto;
+import com.nexus.cms.chat.model.MessageSentEventDto;
+import com.nexus.cms.chat.service.interfaces.ChatMessageProducerService;
 import com.nexus.cms.chat.service.interfaces.MessageService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -15,16 +19,35 @@ import java.security.Principal;
 @RestController
 @RequestMapping("/cms/chat/v2/message")
 @RequiredArgsConstructor
+@Slf4j
 public class MessageController {
     private final MessageService messageService;
+    private final ChatMessageProducerService chatMessageProducerService;
 
     @PostMapping(value = "/", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> sendMessage(@RequestPart @Valid ChatMessageRequestDto message,
             @RequestPart(required = false) List<MultipartFile> files,
             Principal principal) {
-        // Extract participantId from JWT principal
+        if (principal == null || principal.getName() == null) {
+            return ResponseEntity.status(401).build();
+        }
+        // Extract participantId from JWT principal and overwrite any client-supplied value
         Long participantId = Long.parseLong(principal.getName().split(":")[0]);
-        return messageService.sendMessage(message, files, participantId);
+        message.setParticipantId(participantId);
+        ResponseEntity<?> response = messageService.sendMessage(message, files, participantId);
+        if (response.getStatusCode().is2xxSuccessful() && response.getBody() instanceof ConversationMessagesDto body) {
+            try {
+                chatMessageProducerService.publishMessageSent(MessageSentEventDto.builder()
+                        .messageId(body.getChatMessageId())
+                        .conversationId(body.getChatConversationId())
+                        .participantId(body.getChatConversationParticipant() != null ? body.getChatConversationParticipant().getParticipantId() : participantId)
+                        .message(body)
+                        .build());
+            } catch (Exception e) {
+                log.warn("Failed to publish message sent event", e);
+            }
+        }
+        return response;
     }
 
     @PostMapping(value = "/multimedia", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

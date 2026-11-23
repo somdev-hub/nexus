@@ -1,5 +1,6 @@
 package com.nexus.cms.chat.model;
 
+import com.nexus.cms.chat.entities.ChatConversation;
 import com.nexus.cms.chat.entities.ChatMessageAttachment;
 import com.nexus.cms.chat.enums.ChatMessageStatus;
 import com.nexus.cms.chat.enums.ChatMessageType;
@@ -23,6 +24,7 @@ public class ConversationMessagesDto {
     private List<ChatMessageAttachment> chatMessageAttachmentList;
     private List<MessageSeenBy> messageSeenByList;
     private ParticipantInfo chatConversationParticipant;
+    private Long chatConversationId;
 
     @Data
     @AllArgsConstructor

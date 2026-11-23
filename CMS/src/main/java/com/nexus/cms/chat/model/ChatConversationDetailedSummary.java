@@ -5,6 +5,7 @@ import com.nexus.cms.chat.enums.ChatConversationType;
 import lombok.Data;
 
 import java.sql.Timestamp;
+import java.util.ArrayList;
 import java.util.List;
 
 @Data
@@ -21,6 +22,6 @@ public class ChatConversationDetailedSummary {
     private Long totalParticipants;
     private Long totalMessages;
     private List<ChatConversationParticipantDto> chatConversationParticipants;
-    private List<ChatMessageAttachment> imageAndVideoAttachments;
-    private List<ChatMessageAttachment> fileAttachments;
+    private List<ChatMessageAttachment> imageAndVideoAttachments = new ArrayList<>();
+    private List<ChatMessageAttachment> fileAttachments = new ArrayList<>();
 }

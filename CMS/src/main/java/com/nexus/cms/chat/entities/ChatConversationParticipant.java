@@ -16,7 +16,10 @@ import java.util.List;
 
 @Data
 @Entity
-@Table(name = "t_chat_conversation_participants", schema = "cms")
+@Table(name = "t_chat_conversation_participants", schema = "cms", indexes = {
+        @Index(name = "idx_chat_part_participant", columnList = "participant_id"),
+        @Index(name = "idx_chat_part_conv", columnList = "chat_conversation_id")
+})
 public class ChatConversationParticipant {
 
     @Id
@@ -59,6 +62,16 @@ public class ChatConversationParticipant {
     private Timestamp lastRead;
 
     private Long lastMessageId;
+
+    // Inter-org support: track participant's organization
+    @Column(name = "org_id")
+    private Long orgId;
+
+    @Column(name = "org_name")
+    private String orgName;
+
+    @Column(name = "org_type", length = 50)
+    private String orgType; // RETAILER, SUPPLIER, LOGISTICS
 
     @PrePersist
     public void prePersist() {

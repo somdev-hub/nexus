@@ -265,7 +265,7 @@ public class RestService {
             }
         }
 
-        // Build request headers — skip Content-Type (RestClient sets multipart boundary automatically)
+        // Build request headers — skip Content-Type (RestTemplate sets multipart boundary automatically)
         HttpHeaders httpHeaders = new HttpHeaders();
         if (headers != null) {
             headers.forEach((key, value) -> {
@@ -274,6 +274,8 @@ public class RestService {
                 }
             });
         }
+        // Ensure Content-Type is not set so RestTemplate auto-detects multipart boundary
+        httpHeaders.remove("Content-Type");
 
         // Always read response as String to handle any content type
         // (JSON, plain text, XML, binary, etc.) without converter errors.

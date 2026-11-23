@@ -1,6 +1,7 @@
 package com.nexus.cms.chat.service.interfaces;
 
 import com.nexus.cms.chat.entities.ChatMessageIndividualStatus;
+import com.nexus.cms.chat.model.ChatConversationParticipantDto;
 import com.nexus.cms.chat.model.ConversationRequestDto;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
@@ -16,6 +17,10 @@ public interface NewChatService {
     ResponseEntity<?> getChatConversation(Long conversationId, Long participantId);
 
     ResponseEntity<?> updateChatConversation(@Valid ConversationRequestDto request, MultipartFile chatConversationAvatar);
+
+    ResponseEntity<?> addParticipants(Long conversationId, java.util.List<ChatConversationParticipantDto> participants);
+
+    ResponseEntity<?> removeParticipant(Long conversationId, Long participantId);
 
     ResponseEntity<?> viewConversation(Long participantId, Long conversationId);
 

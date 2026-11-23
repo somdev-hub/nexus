@@ -44,25 +44,25 @@ public class ChatWebSocketAuthInceptor implements ChannelInterceptor {
                     }
                     boolean valid = commonUtils.validateToken(token);
                     log.debug("WebSocket token validation result: {}", valid);
-                    if (valid) {
-                        TokenPayloadDto tokenPayloadDto = commonUtils.decryptToken(token);
-                        if (tokenPayloadDto != null) {
-                            log.debug("WebSocket token decrypted: userId={}, orgId={}", tokenPayloadDto.getUserId(),
-                                    tokenPayloadDto.getOrgId());
-                            StompPrincipal principal = new StompPrincipal(
-                                    String.valueOf(tokenPayloadDto.getUserId()),
-                                    String.valueOf(tokenPayloadDto.getOrgId()),
-                                    tokenPayloadDto.getOrganizationIds());
-                            accessor.setUser(principal);
+                    if (!valid) {
+                        throw new MessagingException("Invalid WebSocket Authorization token");
+                    }
+                    TokenPayloadDto tokenPayloadDto = commonUtils.decryptToken(token);
+                    if (tokenPayloadDto == null) {
+                        throw new MessagingException("Unable to decrypt WebSocket token");
+                    }
+                    log.debug("WebSocket token decrypted: userId={}, orgId={}", tokenPayloadDto.getUserId(),
+                            tokenPayloadDto.getOrgId());
+                    StompPrincipal principal = new StompPrincipal(
+                            String.valueOf(tokenPayloadDto.getUserId()),
+                            String.valueOf(tokenPayloadDto.getOrgId()),
+                            tokenPayloadDto.getOrganizationIds());
+                    accessor.setUser(principal);
 
-                            PresenceService presenceService = presenceServiceProvider.getIfAvailable();
-                            if (presenceService != null) {
-                                log.debug("WebSocket CONNECT marking user {} online", tokenPayloadDto.getUserId());
-                                presenceService.setOnline(tokenPayloadDto.getUserId());
-                            }
-                        } else {
-                            log.warn("WebSocket token decryption returned null payload");
-                        }
+                    PresenceService presenceService = presenceServiceProvider.getIfAvailable();
+                    if (presenceService != null) {
+                        log.debug("WebSocket CONNECT marking user {} online", tokenPayloadDto.getUserId());
+                        presenceService.setOnline(tokenPayloadDto.getUserId());
                     }
                 } else {
                     throw new MessagingException("Missing or invalid Authorization header in WebSocket CONNECT frame");

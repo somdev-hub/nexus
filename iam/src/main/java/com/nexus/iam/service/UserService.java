@@ -25,5 +25,7 @@ public interface UserService {
 
 	ResponseEntity<?> getUserByName(String name);
 
+	ResponseEntity<?> searchUsersCrossOrg(String name, String orgType);
+
 	ResponseEntity<?> validateUserOrganizationAccess(Long userId, Long organizationId);
 }

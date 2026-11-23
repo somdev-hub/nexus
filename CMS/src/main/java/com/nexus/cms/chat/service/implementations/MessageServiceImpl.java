@@ -3,6 +3,7 @@ package com.nexus.cms.chat.service.implementations;
 import com.nexus.cms.chat.entities.*;
 import com.nexus.cms.chat.enums.ChatMessageStatus;
 import com.nexus.cms.chat.model.ChatMessageRequestDto;
+import com.nexus.cms.chat.model.ConversationMessagesDto;
 import com.nexus.cms.chat.repositories.ChatConversationRepo;
 import com.nexus.cms.chat.repositories.ChatMessageIndividualStatusRepo;
 import com.nexus.cms.chat.repositories.ChatMessageRepo;
@@ -44,10 +45,10 @@ public class MessageServiceImpl implements MessageService {
 
     @Override
     @Transactional
-    public ResponseEntity<ChatMessage> sendMessage(ChatMessageRequestDto message, List<MultipartFile> files,
+    public ResponseEntity<ConversationMessagesDto> sendMessage(ChatMessageRequestDto message, List<MultipartFile> files,
             Long participantId) {
         try {
-            ChatConversation chatConversation = chatConversationRepo.findById(message.getChatConversationId())
+            ChatConversation chatConversation = chatConversationRepo.findByIdWithParticipants(message.getChatConversationId())
                     .orElseThrow(() -> new ResourceNotFoundException(
                             "ChatConversation",
                             "id",
@@ -68,6 +69,28 @@ public class MessageServiceImpl implements MessageService {
                             "ChatConversationParticipant",
                             "userId",
                             message.getParticipantId()));
+
+            // Idempotency: if a message with the same clientMessageId already exists, return it
+            if (message.getClientMessageId() != null && !message.getClientMessageId().isBlank()) {
+                java.util.Optional<ChatMessage> existing = chatMessageRepo
+                        .findByChatConversation_ChatConversationIdAndClientMessageId(
+                                message.getChatConversationId(), message.getClientMessageId());
+                if (existing.isPresent()) {
+                    ChatMessage existingMessage = existing.get();
+                    ConversationMessagesDto dto = modelMapper.map(existingMessage, ConversationMessagesDto.class);
+                    ChatConversationParticipant sender = existingMessage.getChatConversationParticipant();
+                    if (sender != null) {
+                        ConversationMessagesDto.ParticipantInfo pi = new ConversationMessagesDto.ParticipantInfo();
+                        pi.setParticipantId(sender.getParticipantId());
+                        pi.setParticipantName(sender.getParticipantName());
+                        pi.setParticipantEmail(sender.getParticipantEmail());
+                        pi.setParticipantAvatar(sender.getParticipantAvatar());
+                        dto.setChatConversationParticipant(pi);
+                    }
+                    dto.setChatConversationId(chatConversation.getChatConversationId());
+                    return ResponseEntity.ok(dto);
+                }
+            }
 
             ChatMessage chatMessage = modelMapper.map(message, ChatMessage.class);
             chatMessage.setChatMessageStatus(ChatMessageStatus.SENT);
@@ -135,7 +158,31 @@ public class MessageServiceImpl implements MessageService {
             }
             chatMessage.setChatMessageAttachmentList(attachments);
             chatMessage = chatMessageRepo.save(chatMessage);
-            return ResponseEntity.ok(chatMessage);
+
+            // Keep conversation metadata (ordering/preview) in sync with the latest message
+            try {
+                chatConversation.setLastMessageAt(chatMessage.getSentAt());
+                chatConversation.setLastMessageText(chatMessage.getChatMessageText());
+                chatConversation.setLastMessageSenderId(chatConversationParticipant.getParticipantId());
+                chatConversation.setLastMessageSenderName(chatConversationParticipant.getParticipantName());
+                chatConversation.setTotalMessages((chatConversation.getTotalMessages() == null ? 0L : chatConversation.getTotalMessages()) + 1L);
+                chatConversation.setLastModifiedAt(new Timestamp(System.currentTimeMillis()));
+                chatConversationRepo.save(chatConversation);
+            } catch (Exception e) {
+                log.warn("Failed to update conversation metadata after send", e);
+            }
+
+            // Map to DTO with participant info
+            ConversationMessagesDto conversationMessagesDto = modelMapper.map(chatMessage, ConversationMessagesDto.class);
+            ConversationMessagesDto.ParticipantInfo participantInfo = new ConversationMessagesDto.ParticipantInfo();
+            participantInfo.setParticipantId(chatConversationParticipant.getParticipantId());
+            participantInfo.setParticipantName(chatConversationParticipant.getParticipantName());
+            participantInfo.setParticipantEmail(chatConversationParticipant.getParticipantEmail());
+            participantInfo.setParticipantAvatar(chatConversationParticipant.getParticipantAvatar());
+            conversationMessagesDto.setChatConversationParticipant(participantInfo);
+            conversationMessagesDto.setChatConversationId(chatConversation.getChatConversationId());
+
+            return ResponseEntity.ok(conversationMessagesDto);
         } catch (Exception e) {
             throw new ServiceLevelException(
                     "MessageServiceImpl",

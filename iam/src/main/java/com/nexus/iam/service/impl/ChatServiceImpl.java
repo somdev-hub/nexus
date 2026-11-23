@@ -8,6 +8,7 @@ import com.nexus.iam.service.ChatService;
 import com.nexus.iam.utils.RestService;
 import com.nexus.iam.utils.WebConstants;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -22,6 +23,7 @@ import java.util.Map;
 
 @RequiredArgsConstructor
 @Service
+@Slf4j
 public class ChatServiceImpl implements ChatService {
 
     private final RestService restService;
@@ -34,12 +36,11 @@ public class ChatServiceImpl implements ChatService {
             UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(webConstants.getCmsConversationUrl()).queryParam("userId", userId);
             ResponseEntity<String> response = restService.iamRestCall(builder.toUriString(), request, Map.of(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE), HttpMethod.POST, userId);
             if (!response.getStatusCode().is2xxSuccessful()) {
-                throw new ServiceLevelException(
-                        "ChatService",
-                        "Failed to create conversation",
-                        "createConversation",
-                        "HTTP " + response.getStatusCode().value(),
-                        "Response: " + response.getBody());
+                String cmsBody = response.getBody();
+                log.error("CMS createConversation failed: status={}, body={}", response.getStatusCode(), cmsBody);
+                // Return the CMS error directly instead of wrapping
+                return ResponseEntity.status(response.getStatusCode())
+                        .body(cmsBody != null ? cmsBody : "{\"error\":\"Failed to create conversation\"}");
             }
             return response;
         } catch (RuntimeException e) {

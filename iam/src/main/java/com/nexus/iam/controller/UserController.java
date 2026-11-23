@@ -80,6 +80,20 @@ public class UserController {
 		return userService.getUserByName(name);
 	}
 
+	/**
+	 * Search users across organizations for inter-org chat.
+	 * GET /iam/users/search-cross-org?name=...&orgType=...
+	 */
+	@GetMapping("/search-cross-org")
+	public ResponseEntity<?> searchUsersCrossOrg(
+			@RequestParam("name") String name,
+			@RequestParam(required = false) String orgType) {
+		if (ObjectUtils.isEmpty(name)) {
+			return new ResponseEntity<>("Name must not be null", HttpStatus.BAD_REQUEST);
+		}
+		return userService.searchUsersCrossOrg(name, orgType);
+	}
+
 	@LogActivity("Validate User Organization Access")
 	@GetMapping("/{userId}/organizations/{organizationId}/access")
 	public ResponseEntity<?> validateUserOrganizationAccess(@PathVariable Long userId,

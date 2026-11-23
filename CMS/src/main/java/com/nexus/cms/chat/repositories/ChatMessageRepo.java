@@ -8,23 +8,28 @@ import org.springframework.stereotype.Repository;
 
 import java.sql.Timestamp;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface ChatMessageRepo extends JpaRepository<ChatMessage, Long> {
+
+    Optional<ChatMessage> findByChatConversation_ChatConversationIdAndClientMessageId(Long conversationId, String clientMessageId);
 
         /**
          * Fetch latest messages for a conversation, ordered by message ID descending.
          * Using chatMessageId instead of sentAt avoids millisecond collision edge
          * cases.
          * Phase 4: Pagination cursor-based using messageId for stability.
+         * Eagerly loads chatConversationParticipant to avoid N+1 and NPE issues.
          */
         @Query("""
                                     SELECT cm FROM ChatMessage cm
+                                    LEFT JOIN FETCH cm.chatConversationParticipant ccp
                                     WHERE cm.chatConversation.chatConversationId = :conversationId
                                     AND cm.chatMessageStatus!= 'DELETED_FOR_ME'
                                     AND cm.isActive = true
                                     ORDER BY cm.chatMessageId DESC
-                        """)
+                            """)
         List<ChatMessage> findLatestMessages(Long conversationId, Pageable pageable);
 
         /**
@@ -32,24 +37,26 @@ public interface ChatMessageRepo extends JpaRepository<ChatMessage, Long> {
          * Using chatMessageId ensures stable pagination: no message can arrive between
          * fetch calls at exact same millisecond.
          * Phase 4: Pagination cursor-based using messageId for stability.
+         * Eagerly loads chatConversationParticipant to avoid N+1 and NPE issues.
          */
         @Query("""
                                                 SELECT cm FROM ChatMessage cm
+                                                LEFT JOIN FETCH cm.chatConversationParticipant ccp
                                                 WHERE cm.chatConversation.chatConversationId = :conversationId
                                                 AND cm.chatMessageStatus!= 'DELETED_FOR_ME'
                                                 AND cm.chatMessageId < :beforeId
                                                 AND cm.isActive = true
                                                 ORDER BY cm.chatMessageId DESC
-                        """)
+                            """)
         List<ChatMessage> findMessagesBefore(Long conversationId, Pageable pageable, Long beforeId);
 
         @Query("""
-                                                            SELECT cm FROM ChatMessage cm
-                                                            WHERE cm.chatConversation.chatConversationId = :conversationId
-                                                            AND cm.chatMessageStatus!= 'DELETED_FOR_ME'
-                                                            AND cm.sentAt > :messagesAfter
-                                                            AND cm.isActive = true
-                                                            ORDER BY cm.sentAt ASC
+                                                             SELECT cm FROM ChatMessage cm
+                                                             WHERE cm.chatConversation.chatConversationId = :conversationId
+                                                             AND cm.chatMessageStatus!= 'DELETED_FOR_ME'
+                                                             AND cm.sentAt > :messagesAfter
+                                                             AND cm.isActive = true
+                                                             ORDER BY cm.sentAt ASC
                         """)
         List<ChatMessage> findByChatConversationIdAndAfter(Long conversationId, Timestamp messagesAfter);
 
@@ -65,9 +72,10 @@ public interface ChatMessageRepo extends JpaRepository<ChatMessage, Long> {
         @Query("""
                                 SELECT COUNT(cm) FROM ChatMessage cm
                                 WHERE cm.chatConversation.chatConversationId = :conversationId
-                                AND cm.sentAt > :lastRead
+                                AND cm.chatMessageId > :lastReadMessageId
+                                AND (cm.chatConversationParticipant IS NULL OR cm.chatConversationParticipant.participantId <> :participantId)
                                 AND cm.chatMessageStatus != 'DELETED_FOR_ME'
                                 AND cm.isActive = true
                         """)
-        Long countUnreadMessages(Long conversationId, Timestamp lastRead);
+        Long countUnreadMessagesByCursor(Long conversationId, Long lastReadMessageId, Long participantId);
 }

@@ -60,4 +60,8 @@ public interface NewChatService {
      * Get online/offline presence statuses for a batch of users.
      */
     ResponseEntity<?> getPresenceStatuses(java.util.List<Long> userIds);
+
+    ResponseEntity<?> addParticipants(Long conversationId, String request, Long participantId, Long orgId);
+
+    ResponseEntity<?> removeParticipant(Long conversationId, Long participantIdToRemove, Long participantId, Long orgId);
 }

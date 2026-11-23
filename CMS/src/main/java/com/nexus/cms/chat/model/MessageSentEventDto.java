@@ -1,6 +1,6 @@
 package com.nexus.cms.chat.model;
 
-import com.nexus.cms.chat.entities.ChatMessage;
+import com.nexus.cms.chat.model.ConversationMessagesDto;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -15,5 +15,5 @@ public class MessageSentEventDto {
     private Long messageId;
     private Long conversationId;
     private Long participantId;
-    private ChatMessage message;
+    private ConversationMessagesDto message;
 }

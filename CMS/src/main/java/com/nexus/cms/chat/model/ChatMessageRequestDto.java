@@ -33,4 +33,7 @@ public class ChatMessageRequestDto {
 
     @NotNull(message = "Message type is required")
     private ChatMessageType chatMessageType;
+
+    // Client-generated idempotency key (UUID) to prevent duplicate sends on retry
+    private String clientMessageId;
 }

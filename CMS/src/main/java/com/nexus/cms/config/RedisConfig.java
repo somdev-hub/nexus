@@ -40,17 +40,10 @@ public class RedisConfig {
         RedisTemplate<String, Object> template = new RedisTemplate<>();
         template.setConnectionFactory(factory);
 
-        // Configure ObjectMapper with type information for deserialization
-        ObjectMapper objectMapper = new ObjectMapper();
-        objectMapper.setVisibility(PropertyAccessor.ALL, JsonAutoDetect.Visibility.ANY);
-        objectMapper.activateDefaultTyping(
-                LaissezFaireSubTypeValidator.instance,
-                ObjectMapper.DefaultTyping.NON_FINAL);
-
         // Use StringRedisSerializer for keys
         StringRedisSerializer stringSerializer = new StringRedisSerializer();
 
-        // Use Jackson2JsonRedisSerializer for values
+        // Use default Jackson serializer (no polymorphic default typing)
         JacksonJsonRedisSerializer<Object> jacksonSerializer = new JacksonJsonRedisSerializer<>(Object.class);
 
         // Set key-value serializers

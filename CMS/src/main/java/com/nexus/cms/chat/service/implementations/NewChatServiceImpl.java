@@ -8,6 +8,7 @@ import com.nexus.cms.chat.enums.ChatParticipantStatus;
 import com.nexus.cms.chat.model.ChatConversationDetailedSummary;
 import com.nexus.cms.chat.model.ChatConversationQuickResponseDto;
 import com.nexus.cms.chat.model.ConversationMessagesDto;
+import com.nexus.cms.chat.model.ChatConversationParticipantDto;
 import com.nexus.cms.chat.model.ConversationRequestDto;
 import com.nexus.cms.chat.repositories.ChatConversationParticipantRepo;
 import com.nexus.cms.chat.repositories.ChatConversationRepo;
@@ -41,7 +42,10 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -65,23 +69,93 @@ public class NewChatServiceImpl implements NewChatService {
                         // Validate request before processing
                         validateConversationCreationRequest(request);
 
+                        // Idempotent DIRECT conversation creation: return existing if present
+                        if (ChatConversationType.DIRECT.equals(request.getChatConversationType())
+                                        && request.getChatConversationParticipants() != null
+                                        && request.getChatConversationParticipants().size() == 2) {
+                                Long p1 = request.getChatConversationParticipants().get(0).getParticipantId();
+                                Long p2 = request.getChatConversationParticipants().get(1).getParticipantId();
+                                Optional<ChatConversation> existing = chatConversationRepo.findDirectConversationBetween(p1, p2);
+                                if (existing.isPresent()) {
+                                        log.info("Returning existing DIRECT conversation between {} and {}", p1, p2);
+                                        return ResponseEntity.ok(existing.get());
+                                }
+                        }
+
                         List<ChatConversationParticipant> chatConversationParticipants = new ArrayList<>(
                                         request.getChatConversationParticipants().stream()
                                                         .map(chatConversationParticipantDto -> {
-                                                                ChatConversationParticipant conversationParticipant = modelMapper
-                                                                                .map(chatConversationParticipantDto,
-                                                                                                ChatConversationParticipant.class);
-                                                                conversationParticipant.setChatParticipantStatus(
-                                                                                ChatParticipantStatus.JOINED);
+                                                                ChatConversationParticipant conversationParticipant = new ChatConversationParticipant();
+                                                                conversationParticipant.setParticipantId(chatConversationParticipantDto.getParticipantId());
+                                                                conversationParticipant.setParticipantName(chatConversationParticipantDto.getParticipantName());
+                                                                conversationParticipant.setParticipantEmail(chatConversationParticipantDto.getParticipantEmail());
+                                                                conversationParticipant.setParticipantMob(chatConversationParticipantDto.getParticipantMob());
+                                                                conversationParticipant.setParticipantRole(chatConversationParticipantDto.getParticipantRole());
+                                                                conversationParticipant.setParticipantAvatar(chatConversationParticipantDto.getParticipantAvatar());
+                                                                conversationParticipant.setIsChatCreator(chatConversationParticipantDto.getIsChatCreator());
+                                                                conversationParticipant.setChatParticipantType(chatConversationParticipantDto.getChatParticipantType());
+                                                                conversationParticipant.setChatParticipantStatus(ChatParticipantStatus.JOINED);
+                                                                conversationParticipant.setOrgId(chatConversationParticipantDto.getOrgId());
+                                                                conversationParticipant.setOrgName(chatConversationParticipantDto.getOrgName());
+                                                                conversationParticipant.setOrgType(chatConversationParticipantDto.getOrgType());
                                                                 return conversationParticipant;
                                                         }).toList());
 
-                        ChatConversation chatConversation = modelMapper.map(request, ChatConversation.class);
+                        ChatConversation chatConversation = new ChatConversation();
+                        chatConversation.setChatConversationName(request.getChatConversationName());
+                        chatConversation.setChatConversationDescription(request.getChatConversationDescription());
+                        chatConversation.setChatConversationType(request.getChatConversationType());
+                        chatConversation.setOrgId(request.getOrgId());
+                        chatConversation.setIsInterOrg(request.getIsInterOrg());
+                        chatConversation.setIsActive(request.getIsActive());
                         chatConversationParticipants
                                         .forEach(participant -> participant.setChatConversation(chatConversation));
                         chatConversation.setChatConversationParticipants(chatConversationParticipants);
                         chatConversation.setTotalParticipants((long) chatConversationParticipants.size());
                         chatConversation.setTotalMessages(0L);
+
+                        // Set inter-org fields
+                        if (request.getIsInterOrg() != null) {
+                            chatConversation.setIsInterOrg(request.getIsInterOrg());
+                        } else {
+                            // Auto-detect: if participants span multiple orgs
+                            java.util.Set<Long> orgIds = new java.util.HashSet<>();
+                            for (var p : request.getChatConversationParticipants()) {
+                                if (p.getOrgId() != null) {
+                                    orgIds.add(p.getOrgId());
+                                }
+                            }
+                            chatConversation.setIsInterOrg(orgIds.size() > 1);
+                        }
+
+                        // Set participant org IDs as JSON
+                        java.util.List<Long> participantOrgIds = new java.util.ArrayList<>();
+                        for (var p : request.getChatConversationParticipants()) {
+                            if (p.getOrgId() != null && !participantOrgIds.contains(p.getOrgId())) {
+                                participantOrgIds.add(p.getOrgId());
+                            }
+                        }
+                        try {
+                            chatConversation.setParticipantOrgIds(
+                                    new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(participantOrgIds));
+                        } catch (Exception e) {
+                            log.warn("Failed to serialize participant org IDs", e);
+                        }
+
+                        // Set orgId on each participant
+                        for (int i = 0; i < chatConversationParticipants.size(); i++) {
+                            var dto = request.getChatConversationParticipants().get(i);
+                            var participant = chatConversationParticipants.get(i);
+                            if (dto.getOrgId() != null) {
+                                participant.setOrgId(dto.getOrgId());
+                            }
+                            if (dto.getOrgName() != null) {
+                                participant.setOrgName(dto.getOrgName());
+                            }
+                            if (dto.getOrgType() != null) {
+                                participant.setOrgType(dto.getOrgType());
+                            }
+                        }
 
                         ChatConversationParticipant creator = chatConversationParticipants.stream()
                                         .filter(ChatConversationParticipant::getIsChatCreator)
@@ -117,7 +191,11 @@ public class NewChatServiceImpl implements NewChatService {
                                 };
                                 Map<String, Object> payload = new ConcurrentHashMap<>();
                                 Map<String, Object> dto = new HashMap<>();
-                                dto.put("orgId", request.getOrgId());
+                                Long dmsOrgId = request.getOrgId();
+                                if (dmsOrgId == null && !request.getChatConversationParticipants().isEmpty()) {
+                                    dmsOrgId = request.getChatConversationParticipants().get(0).getOrgId();
+                                }
+                                dto.put("orgId", dmsOrgId);
                                 dto.put("fileName", request.getChatConversationName() + "_avatar." + fileExtension);
                                 dto.put("remarks", "Chat Conversation Avatar");
                                 dto.put("documentType", "PROFILE_IMAGE");
@@ -134,7 +212,7 @@ public class NewChatServiceImpl implements NewChatService {
 
                                 ResponseEntity<?> dmsResponse = restService.cmsRestCall(url.toUriString(), payload,
                                                 headers,
-                                                HttpMethod.POST, request.getOrgId());
+                                                HttpMethod.POST, dmsOrgId);
                                 if (dmsResponse.getStatusCode().is2xxSuccessful()
                                                 && !ObjectUtils.isEmpty(dmsResponse.getBody())) {
                                         JSONObject dmsResponseBody = new JSONObject(dmsResponse.getBody().toString());
@@ -148,9 +226,10 @@ public class NewChatServiceImpl implements NewChatService {
                         return ResponseEntity.ok(savedChatConversation);
 
                 } catch (Exception e) {
+                        log.error("Failed to create chat conversation", e);
                         throw new ServiceLevelException(
                                         "NewChatServiceImpl",
-                                        "Failed to create chat conversation",
+                                        "Failed to create chat conversation: " + e.getMessage(),
                                         "createChatConversation",
                                         e.getClass().getSimpleName(),
                                         e.getMessage());
@@ -158,6 +237,7 @@ public class NewChatServiceImpl implements NewChatService {
         }
 
         @Override
+        @Transactional
         public ResponseEntity<?> getChatConversationMessages(Long participantId) {
                 try {
                         List<ChatConversation> chatConversations = chatConversationRepo
@@ -182,6 +262,7 @@ public class NewChatServiceImpl implements NewChatService {
         }
 
         private ChatConversationQuickResponseDto extracted(Long participantId, ChatConversation conversation) {
+                try {
                 ChatConversationQuickResponseDto chatConversationQuickResponseDto = modelMapper
                                 .map(conversation,
                                                 ChatConversationQuickResponseDto.class);
@@ -193,60 +274,86 @@ public class NewChatServiceImpl implements NewChatService {
                                 .orElseThrow(() -> new ResourceNotFoundException(
                                                 "Participant", "participantId",
                                                 participantId));
-                Timestamp lastRead = chatConversationParticipant.getLastRead();
-
                 // Fix N+1: Use direct database query instead of loading all messages
-                long count = chatMessageRepo.countUnreadMessages(
+                Long lastReadMessageId = chatConversationParticipant.getLastMessageId();
+                long count = chatMessageRepo.countUnreadMessagesByCursor(
                                 conversation.getChatConversationId(),
-                                lastRead);
+                                lastReadMessageId == null ? 0L : lastReadMessageId,
+                                participantId);
 
-                // get latest message
-                ChatMessage latestMessage = conversation.getChatMessages().isEmpty()
-                                ? null
-                                : conversation.getChatMessages().getLast();
-
-                if (!ObjectUtils.isEmpty(latestMessage) && latestMessage != null) {
-                        if (latestMessage.getChatMessageType()
-                                        .equals(ChatMessageType.TEXT)) {
-                                chatConversationQuickResponseDto.setLastMessage(
-                                                latestMessage.getChatMessageText());
-                        } else {
-                                chatConversationQuickResponseDto
-                                                .setLastMessage(latestMessage
-                                                                .getChatMessageType()
-                                                                .name());
+                // Use denormalized last-message fields (no lazy collection access)
+                if (!ObjectUtils.isEmpty(conversation.getLastMessageText())) {
+                        chatConversationQuickResponseDto.setLastMessage(conversation.getLastMessageText());
+                } else {
+                        // Backfill legacy conversations that have no denormalized last-message metadata
+                        try {
+                                org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(0, 1);
+                                java.util.List<ChatMessage> latest = chatMessageRepo.findLatestMessages(conversation.getChatConversationId(), pageable);
+                                if (latest != null && !latest.isEmpty()) {
+                                        ChatMessage lm = latest.get(0);
+                                        String text = (lm.getChatMessageType() == ChatMessageType.TEXT)
+                                                        ? lm.getChatMessageText()
+                                                        : (lm.getChatMessageType() != null ? lm.getChatMessageType().name() : "Message");
+                                        chatConversationQuickResponseDto.setLastMessage(text);
+                                        chatConversationQuickResponseDto.setLastMessageAt(lm.getSentAt());
+                                        if (lm.getChatConversationParticipant() != null) {
+                                                chatConversationQuickResponseDto.setLastMessageSenderId(lm.getChatConversationParticipant().getParticipantId());
+                                                chatConversationQuickResponseDto.setLastMessageSenderName(lm.getChatConversationParticipant().getParticipantName());
+                                        }
+                                        // Self-heal: persist denormalized metadata for future calls
+                                        conversation.setLastMessageText(text);
+                                        conversation.setLastMessageAt(lm.getSentAt());
+                                        if (lm.getChatConversationParticipant() != null) {
+                                                conversation.setLastMessageSenderId(lm.getChatConversationParticipant().getParticipantId());
+                                                conversation.setLastMessageSenderName(lm.getChatConversationParticipant().getParticipantName());
+                                        }
+                                        if (conversation.getTotalMessages() == null) {
+                                                conversation.setTotalMessages(1L);
+                                        }
+                                        chatConversationRepo.save(conversation);
+                                } else {
+                                        chatConversationQuickResponseDto.setLastMessage("Start a conversation");
+                                }
+                        } catch (Exception e) {
+                                log.warn("Failed to backfill last message for conversation {}", conversation.getChatConversationId(), e);
+                                chatConversationQuickResponseDto.setLastMessage("Start a conversation");
                         }
-                        chatConversationQuickResponseDto
-                                        .setLastMessageAt(latestMessage.getSentAt());
-                        chatConversationQuickResponseDto.setLastMessageSenderId(
-                                        latestMessage.getChatConversationParticipant()
-                                                        .getParticipantId());
-                        chatConversationQuickResponseDto.setLastMessageSenderName(
-                                        latestMessage.getChatConversationParticipant()
-                                                        .getParticipantName());
+                }
+                if (!ObjectUtils.isEmpty(conversation.getLastMessageText())) {
+                        chatConversationQuickResponseDto.setLastMessageAt(conversation.getLastMessageAt());
+                        chatConversationQuickResponseDto.setLastMessageSenderId(conversation.getLastMessageSenderId());
+                        chatConversationQuickResponseDto.setLastMessageSenderName(conversation.getLastMessageSenderName());
                 }
                 chatConversationQuickResponseDto.setUnreadCount(count);
 
                 if (conversation.getChatConversationType()
                                 .equals(ChatConversationType.DIRECT)) {
-                        ChatConversationParticipant otherParticipant = conversation
+                        Optional<ChatConversationParticipant> otherParticipantOpt = conversation
                                         .getChatConversationParticipants().stream()
-                                        .filter(participant -> !participant.equals(
-                                                        chatConversationParticipant))
-                                        .findFirst()
-                                        .orElseThrow(() -> new RuntimeException(
-                                                        "Other participant not found"));
-                        chatConversationQuickResponseDto
-                                        .setOtherParticipantName(otherParticipant
-                                                        .getParticipantName());
-                        chatConversationQuickResponseDto
-                                        .setOtherParticipantAvatar(otherParticipant
-                                                        .getParticipantAvatar());
-                        chatConversationQuickResponseDto.setOtherParticipantId(
-                                        otherParticipant.getParticipantId());
+                                        .filter(participant -> !participant.getParticipantId()
+                                                        .equals(chatConversationParticipant.getParticipantId()))
+                                        .findFirst();
+                        if (otherParticipantOpt.isPresent()) {
+                                ChatConversationParticipant otherParticipant = otherParticipantOpt.get();
+                                chatConversationQuickResponseDto
+                                                .setOtherParticipantName(otherParticipant
+                                                                .getParticipantName());
+                                chatConversationQuickResponseDto
+                                                .setOtherParticipantAvatar(otherParticipant
+                                                                .getParticipantAvatar());
+                                chatConversationQuickResponseDto.setOtherParticipantId(
+                                                otherParticipant.getParticipantId());
+                        } else {
+                                log.warn("No other participant found for DIRECT conversation {} and participant {}",
+                                                conversation.getChatConversationId(), participantId);
+                        }
                 }
 
                 return chatConversationQuickResponseDto;
+                } catch (Exception e) {
+                    log.error("Failed to extract conversation data for participant {}", participantId, e);
+                    throw e;
+                }
         }
 
         @Transactional(timeout = 30)
@@ -282,7 +389,9 @@ public class NewChatServiceImpl implements NewChatService {
                         updateReceivedStatuses(conversationId, participantId, chatMessages);
 
                         // Phase 3: Trigger async aggregate status update (non-blocking)
-                        updateAggregateStatusAsync(conversationId);
+                        List<Long> fetchedMessageIds = chatMessages.stream()
+                                        .map(ChatMessage::getChatMessageId).toList();
+                        updateAggregateStatusAsync(conversationId, fetchedMessageIds);
 
                         // Update lastRead to the newest message's sentAt and lastMessageId
                         ChatMessage newestMessage = chatMessages.getFirst();
@@ -297,8 +406,29 @@ public class NewChatServiceImpl implements NewChatService {
                                                 ConversationMessagesDto.class);
 
                                 // Map participant information
-                                ChatConversationParticipant senderParticipant = message
+                                ChatConversationParticipant baseSender = message
                                                 .getChatConversationParticipant();
+
+                                // If sender participant is null (legacy messages), try to infer for DIRECT conversations
+                                if (baseSender == null
+                                                && chatConversation.getChatConversationType() == ChatConversationType.DIRECT
+                                                && chatConversation.getChatConversationParticipants().size() == 2) {
+                                        // For DIRECT conversations, sender is the participant who does NOT have an individual status entry
+                                        // (statuses are created for recipients only)
+                                        Set<Long> recipientParticipantIds = message.getChatMessageIndividualStatuses().stream()
+                                                        .map(status -> status.getParticipant().getParticipantId())
+                                                        .collect(Collectors.toSet());
+                                        Optional<ChatConversationParticipant> inferredSender = chatConversation
+                                                        .getChatConversationParticipants().stream()
+                                                        .filter(p -> !recipientParticipantIds.contains(p.getParticipantId()))
+                                                        .findFirst();
+                                        if (inferredSender.isPresent()) {
+                                                baseSender = inferredSender.get();
+                                        }
+                                }
+
+                                final ChatConversationParticipant senderParticipant = baseSender;
+
                                 if (senderParticipant != null) {
                                         ConversationMessagesDto.ParticipantInfo participantInfo = new ConversationMessagesDto.ParticipantInfo();
                                         participantInfo.setParticipantId(senderParticipant.getParticipantId());
@@ -313,7 +443,9 @@ public class NewChatServiceImpl implements NewChatService {
                                                 .getChatConversationParticipants()
                                                 .stream()
                                                 .filter(participant -> participant.getLastRead() != null
-                                                                && participant.getLastRead().after(message.getSentAt()))
+                                                                && participant.getLastRead().after(message.getSentAt())
+                                                                && (senderParticipant == null
+                                                                        || !participant.getParticipantId().equals(senderParticipant.getParticipantId())))
                                                 .map(participant -> modelMapper.map(participant,
                                                                 ConversationMessagesDto.MessageSeenBy.class))
                                                 .toList();
@@ -338,6 +470,7 @@ public class NewChatServiceImpl implements NewChatService {
         }
 
         @Override
+        @Transactional(readOnly = true)
         public ResponseEntity<?> getChatConversation(Long conversationId, Long participantId) {
                 try {
                         ChatConversation chatConversation = chatConversationRepo.findById(conversationId).orElseThrow(
@@ -346,25 +479,36 @@ public class NewChatServiceImpl implements NewChatService {
                         ChatConversationDetailedSummary chatConversationDetailedSummary = modelMapper.map(
                                         chatConversation,
                                         ChatConversationDetailedSummary.class);
-                        chatConversation.getChatMessages().forEach(message -> {
-                                List<ChatMessageAttachment> chatMessageAttachmentList = message
-                                                .getChatMessageAttachmentList();
-                                List<ChatMessageAttachment> imageAndVideoAttachments = chatMessageAttachmentList
-                                                .stream()
-                                                .filter(attachment -> attachment.getAttachmentType() != null &&
-                                                                CommonConstants.IMAGE_AND_VIDEO_ATTACHMENT_TYPES
-                                                                                .contains(attachment
-                                                                                                .getAttachmentType()))
-                                                .toList();
-                                List<ChatMessageAttachment> fileAttachments = chatMessageAttachmentList.stream()
-                                                .filter(attachment -> attachment.getAttachmentType() != null &&
-                                                                CommonConstants.FILE_ATTACHMENT_TYPES.contains(
-                                                                                attachment.getAttachmentType()))
-                                                .toList();
-                                chatConversationDetailedSummary.getImageAndVideoAttachments()
-                                                .addAll(imageAndVideoAttachments);
-                                chatConversationDetailedSummary.getFileAttachments().addAll(fileAttachments);
-                        });
+                        if (chatConversation.getChatMessages() != null) {
+                                chatConversation.getChatMessages().forEach(message -> {
+                                        List<ChatMessageAttachment> chatMessageAttachmentList = message
+                                                        .getChatMessageAttachmentList();
+                                        if (chatMessageAttachmentList == null) {
+                                                return;
+                                        }
+                                        List<ChatMessageAttachment> imageAndVideoAttachments = chatMessageAttachmentList
+                                                        .stream()
+                                                        .filter(attachment -> attachment != null && attachment.getAttachmentType() != null &&
+                                                                        CommonConstants.IMAGE_AND_VIDEO_ATTACHMENT_TYPES != null &&
+                                                                        CommonConstants.IMAGE_AND_VIDEO_ATTACHMENT_TYPES
+                                                                                        .contains(attachment
+                                                                                                        .getAttachmentType()))
+                                                        .toList();
+                                        List<ChatMessageAttachment> fileAttachments = chatMessageAttachmentList.stream()
+                                                        .filter(attachment -> attachment != null && attachment.getAttachmentType() != null &&
+                                                                        CommonConstants.FILE_ATTACHMENT_TYPES != null &&
+                                                                        CommonConstants.FILE_ATTACHMENT_TYPES.contains(
+                                                                                        attachment.getAttachmentType()))
+                                                        .toList();
+                                        if (chatConversationDetailedSummary.getImageAndVideoAttachments() != null) {
+                                                chatConversationDetailedSummary.getImageAndVideoAttachments()
+                                                                .addAll(imageAndVideoAttachments);
+                                        }
+                                        if (chatConversationDetailedSummary.getFileAttachments() != null) {
+                                                chatConversationDetailedSummary.getFileAttachments().addAll(fileAttachments);
+                                        }
+                                });
+                        }
                         return ResponseEntity.ok(chatConversationDetailedSummary);
                 } catch (Exception e) {
                         throw new ServiceLevelException(
@@ -385,7 +529,16 @@ public class NewChatServiceImpl implements NewChatService {
                                         .orElseThrow(() -> new ResourceNotFoundException("ChatConversation",
                                                         "conversationId",
                                                         request.getChatConversationId()));
-                        modelMapper.map(request, chatConversation);
+                        // Only update provided fields; do not wipe existing values with nulls
+                        if (request.getChatConversationName() != null) {
+                                chatConversation.setChatConversationName(request.getChatConversationName());
+                        }
+                        if (request.getChatConversationDescription() != null) {
+                                chatConversation.setChatConversationDescription(request.getChatConversationDescription());
+                        }
+                        if (request.getIsActive() != null) {
+                                chatConversation.setIsActive(request.getIsActive());
+                        }
                         if (!ObjectUtils.isEmpty(chatConversationAvatar)) {
                                 String contentType = chatConversationAvatar.getContentType();
                                 if (ObjectUtils.isEmpty(contentType)) {
@@ -408,7 +561,11 @@ public class NewChatServiceImpl implements NewChatService {
                                 };
                                 Map<String, Object> payload = new ConcurrentHashMap<>();
                                 Map<String, Object> dto = new HashMap<>();
-                                dto.put("orgId", request.getOrgId());
+                                Long dmsOrgId = request.getOrgId();
+                                if (dmsOrgId == null && !request.getChatConversationParticipants().isEmpty()) {
+                                    dmsOrgId = request.getChatConversationParticipants().get(0).getOrgId();
+                                }
+                                dto.put("orgId", dmsOrgId);
                                 dto.put("fileName", request.getChatConversationName() + "_avatar." + fileExtension);
                                 dto.put("remarks", "Chat Conversation Avatar");
                                 dto.put("documentType", "PROFILE_IMAGE");
@@ -425,7 +582,7 @@ public class NewChatServiceImpl implements NewChatService {
 
                                 ResponseEntity<?> dmsResponse = restService.cmsRestCall(url.toUriString(), payload,
                                                 headers,
-                                                HttpMethod.POST, request.getOrgId());
+                                                HttpMethod.POST, dmsOrgId);
                                 if (dmsResponse.getStatusCode().is2xxSuccessful()
                                                 && !ObjectUtils.isEmpty(dmsResponse.getBody())) {
                                         JSONObject dmsResponseBody = new JSONObject(dmsResponse.getBody().toString());
@@ -550,15 +707,13 @@ public class NewChatServiceImpl implements NewChatService {
          * @param conversationId The conversation ID
          */
         @Async
-        public void updateAggregateStatusAsync(Long conversationId) {
+        public void updateAggregateStatusAsync(Long conversationId, List<Long> messageIds) {
+                if (messageIds == null || messageIds.isEmpty()) {
+                        return;
+                }
                 try {
-                        ChatConversation chatConversation = chatConversationRepo.findById(conversationId)
-                                        .orElseThrow(
-                                                        () -> new ResourceNotFoundException("ChatConversation",
-                                                                        "conversationId", conversationId));
-
-                        // Get all messages in conversation that need status recalculation
-                        List<ChatMessage> chatMessages = chatConversation.getChatMessages();
+                        // Get only the messages that need status recalculation
+                        List<ChatMessage> chatMessages = chatMessageRepo.findAllById(messageIds);
 
                         // Update each message's aggregate status based on individual statuses
                         List<ChatMessage> updatedMessages = chatMessages.stream().map(message -> {
@@ -733,14 +888,94 @@ public class NewChatServiceImpl implements NewChatService {
                                         "Specify exactly one participant with isChatCreator=true");
                 }
 
-                // Validate orgId if provided
-                if (request.getOrgId() == null || request.getOrgId() <= 0) {
+                // Validate orgId if provided (optional for inter-org conversations)
+                if (request.getOrgId() != null && request.getOrgId() <= 0) {
                         throw new ServiceLevelException(
                                         "NewChatServiceImpl",
                                         "Valid organization ID is required",
                                         "validateConversationCreationRequest",
                                         "ValidationException",
                                         "Provide a valid orgId for the conversation");
+                }
+
+                // Determine if this is an inter-org conversation
+                boolean isInterOrg = false;
+                if (request.getIsInterOrg() != null) {
+                    isInterOrg = request.getIsInterOrg();
+                } else {
+                    // Auto-detect: if participants have different orgIds, it's inter-org
+                    java.util.Set<Long> orgIds = new java.util.HashSet<>();
+                    for (var p : request.getChatConversationParticipants()) {
+                        if (p.getOrgId() != null) {
+                            orgIds.add(p.getOrgId());
+                        }
+                    }
+                    isInterOrg = orgIds.size() > 1;
+                }
+                request.setIsInterOrg(isInterOrg);
+        }
+
+        @Override
+        @Transactional
+        public ResponseEntity<?> addParticipants(Long conversationId, java.util.List<ChatConversationParticipantDto> participants) {
+                try {
+                        ChatConversation chatConversation = chatConversationRepo.findById(conversationId).orElseThrow(
+                                        () -> new ResourceNotFoundException("ChatConversation", "conversationId", conversationId));
+                        if (participants == null) {
+                                return ResponseEntity.badRequest().body("Participants are required");
+                        }
+                        java.util.Set<Long> existingIds = chatConversation.getChatConversationParticipants().stream()
+                                        .map(ChatConversationParticipant::getParticipantId).collect(java.util.stream.Collectors.toSet());
+                        for (ChatConversationParticipantDto dto : participants) {
+                                if (dto.getParticipantId() == null || existingIds.contains(dto.getParticipantId())) {
+                                        continue;
+                                }
+                                ChatConversationParticipant p = new ChatConversationParticipant();
+                                p.setParticipantId(dto.getParticipantId());
+                                p.setParticipantName(dto.getParticipantName());
+                                p.setParticipantEmail(dto.getParticipantEmail());
+                                p.setParticipantMob(dto.getParticipantMob());
+                                p.setParticipantRole(dto.getParticipantRole());
+                                p.setParticipantAvatar(dto.getParticipantAvatar());
+                                p.setIsChatCreator(Boolean.TRUE.equals(dto.getIsChatCreator()));
+                                p.setChatParticipantType(dto.getChatParticipantType());
+                                p.setChatParticipantStatus(ChatParticipantStatus.JOINED);
+                                p.setChatConversation(chatConversation);
+                                if (dto.getOrgId() != null) p.setOrgId(dto.getOrgId());
+                                if (dto.getOrgName() != null) p.setOrgName(dto.getOrgName());
+                                if (dto.getOrgType() != null) p.setOrgType(dto.getOrgType());
+                                chatConversation.getChatConversationParticipants().add(p);
+                                existingIds.add(dto.getParticipantId());
+                        }
+                        chatConversation.setTotalParticipants((long) chatConversation.getChatConversationParticipants().size());
+                        chatConversationRepo.save(chatConversation);
+                        return ResponseEntity.ok(chatConversation);
+                } catch (Exception e) {
+                        throw new ServiceLevelException("NewChatServiceImpl", "Failed to add participants", "addParticipants",
+                                        e.getClass().getSimpleName(), e.getMessage());
+                }
+        }
+
+        @Override
+        @Transactional
+        public ResponseEntity<?> removeParticipant(Long conversationId, Long participantId) {
+                try {
+                        ChatConversation chatConversation = chatConversationRepo.findById(conversationId).orElseThrow(
+                                        () -> new ResourceNotFoundException("ChatConversation", "conversationId", conversationId));
+                        ChatConversationParticipant target = chatConversation.getChatConversationParticipants().stream()
+                                        .filter(p -> participantId.equals(p.getParticipantId())).findFirst().orElse(null);
+                        if (target == null) {
+                                return ResponseEntity.notFound().build();
+                        }
+                        target.setChatParticipantStatus(ChatParticipantStatus.LEFT);
+                        target.setIsActive(false);
+                        chatConversation.getChatConversationParticipants().remove(target);
+                        chatConversation.setTotalParticipants((long) chatConversation.getChatConversationParticipants().size());
+                        chatConversationRepo.save(chatConversation);
+                        return ResponseEntity.ok().build();
+                } catch (Exception e) {
+                        throw new ServiceLevelException("NewChatServiceImpl", "Failed to remove participant", "removeParticipant",
+                                        e.getClass().getSimpleName(), e.getMessage());
                 }
         }
 }

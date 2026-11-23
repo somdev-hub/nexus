@@ -4,16 +4,19 @@ import com.nexus.cms.chat.model.TypingEventDto;
 import com.nexus.cms.chat.properties.ChatConstants;
 import com.nexus.cms.chat.service.interfaces.TypingService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class TypingServiceImpl implements TypingService {
 
     private final RedisTemplate<String, Object> redisTemplate;
@@ -38,10 +41,25 @@ public class TypingServiceImpl implements TypingService {
 
     @Override
     public List<Long> getTypingUsers(Long conversationId) {
-        // get all users currently typing in this conversation
-        Set<String> keys = redisTemplate.keys("typing:" + conversationId + ":*");
-        return keys.stream()
-                .map(k -> Long.parseLong(k.split(":")[2]))
-                .toList();
+        // get all users currently typing in this conversation using SCAN (non-blocking)
+        List<Long> users = new ArrayList<>();
+        org.springframework.data.redis.core.ScanOptions options =
+                org.springframework.data.redis.core.ScanOptions.scanOptions()
+                        .match("typing:" + conversationId + ":*").count(100).build();
+        try (org.springframework.data.redis.core.Cursor<String> cursor = redisTemplate.scan(options)) {
+            while (cursor.hasNext()) {
+                String key = cursor.next();
+                String[] parts = key.split(":");
+                if (parts.length >= 3) {
+                    try {
+                        users.add(Long.parseLong(parts[2]));
+                    } catch (NumberFormatException ignored) {
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Failed to scan typing keys for conversation {}", conversationId, e);
+        }
+        return users;
     }
 }

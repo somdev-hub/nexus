@@ -16,7 +16,10 @@ import java.util.List;
 
 @Data
 @Entity
-@Table(name = "t_chat_conversation_messages", schema = "cms")
+@Table(name = "t_chat_conversation_messages", schema = "cms", indexes = {
+        @Index(name = "idx_chat_msg_conv", columnList = "chat_conversation_chat_conversation_id"),
+        @Index(name = "idx_chat_msg_status", columnList = "chat_message_status")
+})
 public class ChatMessage {
 
     @Id
@@ -60,13 +63,16 @@ public class ChatMessage {
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     @ManyToOne
-    @JoinColumn(name = "chat_conversation_participants_chat_conversation_participants_id")
+    @JoinColumn(name = "chat_conversation_participant_id")
     private ChatConversationParticipant chatConversationParticipant;
 
     private Boolean isActive;
 
     @Version
     private Long version;
+
+    @Column(name = "client_message_id", length = 64)
+    private String clientMessageId;
 
     @PrePersist
     public void prePersist() {

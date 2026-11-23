@@ -37,4 +37,9 @@ public class ChatConversationParticipantDto {
     private ChatParticipantType chatParticipantType;
 
     private ChatParticipantStatus chatParticipantStatus;
+
+    // Inter-org support
+    private Long orgId;
+    private String orgName;
+    private String orgType;
 }
