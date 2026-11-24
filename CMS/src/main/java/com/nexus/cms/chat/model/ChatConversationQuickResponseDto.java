@@ -22,5 +22,6 @@ public class ChatConversationQuickResponseDto {
     private String otherParticipantName;
     private Long otherParticipantId;
     private String otherParticipantAvatar;
+    private Boolean isInterOrg;
 
 }

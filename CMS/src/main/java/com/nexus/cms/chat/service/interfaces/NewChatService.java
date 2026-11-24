@@ -22,7 +22,17 @@ public interface NewChatService {
 
     ResponseEntity<?> removeParticipant(Long conversationId, Long participantId);
 
+    ResponseEntity<?> setAdmin(Long conversationId, Long participantId, Long adminId, boolean isAdmin);
+
     ResponseEntity<?> viewConversation(Long participantId, Long conversationId);
 
     ResponseEntity<ChatMessageIndividualStatus> markReceived(Long messageId, Long participantId);
+
+    ResponseEntity<?> deleteConversation(Long conversationId, Long participantId);
+
+    ResponseEntity<?> clearChatForSelf(Long conversationId, Long participantId);
+
+    ResponseEntity<?> downloadChat(Long conversationId, Long participantId);
+
+    ResponseEntity<?> searchMessages(Long conversationId, Long participantId, String query);
 }

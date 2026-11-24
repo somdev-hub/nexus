@@ -14,6 +14,7 @@ public class ChatConversationDetailedSummary {
     private String chatConversationAvatar;
     private String chatConversationDescription;
     private ChatConversationType chatConversationType;
+    private Boolean isInterOrg;
     private Timestamp createdAt;
     private Long lastModifiedBy;
     private Timestamp lastModifiedAt;

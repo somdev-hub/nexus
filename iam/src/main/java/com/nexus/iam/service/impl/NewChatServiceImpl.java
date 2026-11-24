@@ -11,6 +11,9 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.util.ObjectUtils;
 import org.springframework.web.multipart.MultipartFile;
@@ -236,7 +239,7 @@ public class NewChatServiceImpl implements NewChatService {
     }
 
     @Override
-    public ResponseEntity<?> sendMessage(String request, Long participantId, Long orgId) {
+    public ResponseEntity<?> sendMessage(Object request, List<MultipartFile> files, Long participantId, Long orgId) {
         log.debug("Sending message from participantId: {}, orgId: {}", participantId, orgId);
 
         if (ObjectUtils.isEmpty(participantId) || ObjectUtils.isEmpty(orgId)) {
@@ -249,29 +252,36 @@ public class NewChatServiceImpl implements NewChatService {
                     .queryParam("participantId", participantId)
                     .queryParam("orgId", orgId);
 
+            Map<String, Object> payload = new HashMap<>();
+            if (request instanceof String) {
+                payload.put("message", request);
+            } else {
+                payload.put("message", request);
+            }
+
+            if (files != null && !files.isEmpty()) {
+                payload.put("files", files);
+            }
+
             ResponseEntity<?> response = restService.iamRestCall(
                     builder.toUriString(),
-                    request,
+                    payload,
                     Map.of(HttpHeaders.CONTENT_TYPE, MediaType.MULTIPART_FORM_DATA_VALUE),
                     HttpMethod.POST,
                     participantId);
 
+            // Forward the actual CMS response (including error details) instead of wrapping in generic exception
             if (!response.getStatusCode().is2xxSuccessful()) {
-                throw new ServiceLevelException(
-                        "NewChatService",
-                        "Failed to send message",
-                        "sendMessage",
-                        "HTTP " + response.getStatusCode().value(),
-                        response.getBody() != null ? response.getBody().toString() : "Unknown error");
+                log.error("[SEND_MESSAGE] CMS returned error: status={}, body={}", response.getStatusCode(), response.getBody());
+                return ResponseEntity.status(response.getStatusCode()).body(response.getBody());
             }
             return response;
         } catch (RuntimeException e) {
-            throw new ServiceLevelException(
-                    "NewChatService",
-                    "Failed to send message",
-                    "sendMessage",
-                    e.getClass().getSimpleName(),
-                    e.getMessage());
+            log.error("[SEND_MESSAGE] Runtime exception: ", e);
+            return ResponseEntity.status(500).body(Map.of(
+                    "error", "Internal server error",
+                    "message", e.getMessage(),
+                    "method", "sendMessage"));
         }
     }
 
@@ -501,6 +511,131 @@ public class NewChatServiceImpl implements NewChatService {
             return response;
         } catch (RuntimeException e) {
             throw new ServiceLevelException("NewChatService", "Failed to remove participant", "removeParticipant",
+                    e.getClass().getSimpleName(), e.getMessage());
+        }
+    }
+
+    @Override
+    public ResponseEntity<?> deleteConversation(Long conversationId, Long participantId, Long orgId) {
+        if (ObjectUtils.isEmpty(conversationId) || ObjectUtils.isEmpty(participantId) || ObjectUtils.isEmpty(orgId)) {
+            return ResponseEntity.badRequest().body("Conversation ID, Participant ID, and Organization ID are required");
+        }
+        try {
+            String url = webConstants.getCmsNewChatConversationUrl() + "/" + conversationId + "?participantId=" + participantId;
+            ResponseEntity<?> response = restService.iamRestCall(
+                    url,
+                    null,
+                    Map.of(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE),
+                    HttpMethod.DELETE,
+                    participantId);
+            if (!response.getStatusCode().is2xxSuccessful()) {
+                throw new ServiceLevelException("NewChatService", "Failed to delete conversation", "deleteConversation",
+                        "HTTP " + response.getStatusCode().value(),
+                        response.getBody() != null ? response.getBody().toString() : "Unknown error");
+            }
+            return response;
+        } catch (RuntimeException e) {
+            throw new ServiceLevelException("NewChatService", "Failed to delete conversation", "deleteConversation",
+                    e.getClass().getSimpleName(), e.getMessage());
+        }
+    }
+
+    @Override
+    public ResponseEntity<?> clearChatForSelf(Long conversationId, Long participantId, Long orgId) {
+        if (ObjectUtils.isEmpty(conversationId) || ObjectUtils.isEmpty(participantId) || ObjectUtils.isEmpty(orgId)) {
+            return ResponseEntity.badRequest().body("Conversation ID, Participant ID, and Organization ID are required");
+        }
+        try {
+            String url = webConstants.getCmsNewChatConversationUrl() + "/" + conversationId + "/clear?participantId=" + participantId;
+            ResponseEntity<?> response = restService.iamRestCall(
+                    url,
+                    null,
+                    Map.of(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE),
+                    HttpMethod.POST,
+                    participantId);
+            if (!response.getStatusCode().is2xxSuccessful()) {
+                throw new ServiceLevelException("NewChatService", "Failed to clear chat", "clearChatForSelf",
+                        "HTTP " + response.getStatusCode().value(),
+                        response.getBody() != null ? response.getBody().toString() : "Unknown error");
+            }
+            return response;
+        } catch (RuntimeException e) {
+            throw new ServiceLevelException("NewChatService", "Failed to clear chat", "clearChatForSelf",
+                    e.getClass().getSimpleName(), e.getMessage());
+        }
+    }
+
+    @Override
+    public ResponseEntity<?> downloadChat(Long conversationId, Long participantId, Long orgId) {
+        if (ObjectUtils.isEmpty(conversationId) || ObjectUtils.isEmpty(participantId) || ObjectUtils.isEmpty(orgId)) {
+            return ResponseEntity.badRequest().body("Conversation ID, Participant ID, and Organization ID are required");
+        }
+        try {
+            String url = webConstants.getCmsNewChatConversationUrl() + "/" + conversationId + "/download?participantId=" + participantId;
+            ResponseEntity<?> response = restService.iamRestCall(
+                    url,
+                    null,
+                    Map.of(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE),
+                    HttpMethod.GET,
+                    participantId);
+            if (response != null && response.getBody() != null) {
+                return ResponseEntity.ok()
+                        .header(HttpHeaders.CONTENT_TYPE, "text/plain; charset=UTF-8")
+                        .body(response.getBody());
+            }
+            return response;
+        } catch (RuntimeException e) {
+            throw new ServiceLevelException("NewChatService", "Failed to download chat", "downloadChat",
+                    e.getClass().getSimpleName(), e.getMessage());
+        }
+    }
+
+    @Override
+    public ResponseEntity<?> searchMessages(Long conversationId, Long participantId, String query, Long orgId) {
+        if (ObjectUtils.isEmpty(conversationId) || ObjectUtils.isEmpty(participantId) || ObjectUtils.isEmpty(orgId)) {
+            return ResponseEntity.badRequest().body("Conversation ID, Participant ID, and Organization ID are required");
+        }
+        try {
+            String url = webConstants.getCmsNewChatConversationUrl() + "/" + conversationId + "/search?participantId=" + participantId + "&query=" + java.net.URLEncoder.encode(query, java.nio.charset.StandardCharsets.UTF_8);
+            ResponseEntity<?> response = restService.iamRestCall(
+                    url,
+                    null,
+                    Map.of(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE),
+                    HttpMethod.GET,
+                    participantId);
+            if (!response.getStatusCode().is2xxSuccessful()) {
+                throw new ServiceLevelException("NewChatService", "Failed to search messages", "searchMessages",
+                        "HTTP " + response.getStatusCode().value(),
+                        response.getBody() != null ? response.getBody().toString() : "Unknown error");
+            }
+            return response;
+        } catch (RuntimeException e) {
+            throw new ServiceLevelException("NewChatService", "Failed to search messages", "searchMessages",
+                    e.getClass().getSimpleName(), e.getMessage());
+        }
+    }
+
+    @Override
+    public ResponseEntity<?> setAdmin(Long conversationId, Long participantId, Long adminId, boolean isAdmin, Long orgId) {
+        if (ObjectUtils.isEmpty(conversationId) || ObjectUtils.isEmpty(participantId) || ObjectUtils.isEmpty(adminId) || ObjectUtils.isEmpty(orgId)) {
+            return ResponseEntity.badRequest().body("Conversation ID, Participant ID, Admin ID, and Organization ID are required");
+        }
+        try {
+            String url = webConstants.getCmsNewChatConversationUrl() + "/" + conversationId + "/participants/" + participantId + "/admin?adminId=" + adminId + "&isAdmin=" + isAdmin;
+            ResponseEntity<?> response = restService.iamRestCall(
+                    url,
+                    null,
+                    Map.of(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE),
+                    HttpMethod.PUT,
+                    adminId);
+            if (!response.getStatusCode().is2xxSuccessful()) {
+                throw new ServiceLevelException("NewChatService", "Failed to set admin status", "setAdmin",
+                        "HTTP " + response.getStatusCode().value(),
+                        response.getBody() != null ? response.getBody().toString() : "Unknown error");
+            }
+            return response;
+        } catch (RuntimeException e) {
+            throw new ServiceLevelException("NewChatService", "Failed to set admin status", "setAdmin",
                     e.getClass().getSimpleName(), e.getMessage());
         }
     }

@@ -20,7 +20,7 @@ public interface ChatConversationRepo extends JpaRepository<ChatConversation, Lo
                         FROM ChatConversationParticipant ccp2
                         WHERE ccp2.participantId = :participantId
                     )
-                    ORDER BY cc.lastMessageAt DESC
+                    ORDER BY cc.lastMessageAt DESC NULLS FIRST, cc.createdAt DESC
             """)
     @Transactional(readOnly = true)
     List<ChatConversation> findByParticipantId(Long participantId);
@@ -30,7 +30,6 @@ public interface ChatConversationRepo extends JpaRepository<ChatConversation, Lo
                     JOIN FETCH cc.chatConversationParticipants ccp
                     WHERE cc.chatConversationId = :conversationId
             """)
-    @Transactional(readOnly = true)
     Optional<ChatConversation> findByIdWithParticipants(Long conversationId);
 
     @Query("""

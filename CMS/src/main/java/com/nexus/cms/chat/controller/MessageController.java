@@ -28,11 +28,16 @@ public class MessageController {
     public ResponseEntity<?> sendMessage(@RequestPart @Valid ChatMessageRequestDto message,
             @RequestPart(required = false) List<MultipartFile> files,
             Principal principal) {
-        if (principal == null || principal.getName() == null) {
+        Long participantId;
+        if (principal != null && principal.getName() != null) {
+            // Called from frontend with JWT principal
+            participantId = Long.parseLong(principal.getName().split(":")[0]);
+        } else if (message.getParticipantId() != null) {
+            // Called from IAM gateway with participantId in DTO
+            participantId = message.getParticipantId();
+        } else {
             return ResponseEntity.status(401).build();
         }
-        // Extract participantId from JWT principal and overwrite any client-supplied value
-        Long participantId = Long.parseLong(principal.getName().split(":")[0]);
         message.setParticipantId(participantId);
         ResponseEntity<?> response = messageService.sendMessage(message, files, participantId);
         if (response.getStatusCode().is2xxSuccessful() && response.getBody() instanceof ConversationMessagesDto body) {

@@ -98,6 +98,7 @@ public class NewChatServiceImpl implements NewChatService {
                                                                 conversationParticipant.setOrgId(chatConversationParticipantDto.getOrgId());
                                                                 conversationParticipant.setOrgName(chatConversationParticipantDto.getOrgName());
                                                                 conversationParticipant.setOrgType(chatConversationParticipantDto.getOrgType());
+                                conversationParticipant.setIsAdmin(chatConversationParticipantDto.getIsAdmin() != null ? chatConversationParticipantDto.getIsAdmin() : Boolean.TRUE.equals(chatConversationParticipantDto.getIsChatCreator()));
                                                                 return conversationParticipant;
                                                         }).toList());
 
@@ -325,6 +326,7 @@ public class NewChatServiceImpl implements NewChatService {
                         chatConversationQuickResponseDto.setLastMessageSenderName(conversation.getLastMessageSenderName());
                 }
                 chatConversationQuickResponseDto.setUnreadCount(count);
+                chatConversationQuickResponseDto.setIsInterOrg(conversation.getIsInterOrg());
 
                 if (conversation.getChatConversationType()
                                 .equals(ChatConversationType.DIRECT)) {
@@ -479,6 +481,15 @@ public class NewChatServiceImpl implements NewChatService {
                         ChatConversationDetailedSummary chatConversationDetailedSummary = modelMapper.map(
                                         chatConversation,
                                         ChatConversationDetailedSummary.class);
+                        chatConversationDetailedSummary.setIsInterOrg(chatConversation.getIsInterOrg());
+                        // Ensure isAdmin is mapped for each participant
+                        if (chatConversationDetailedSummary.getChatConversationParticipants() != null) {
+                                for (int i = 0; i < chatConversationDetailedSummary.getChatConversationParticipants().size() && i < chatConversation.getChatConversationParticipants().size(); i++) {
+                                        ChatConversationParticipantDto dto = chatConversationDetailedSummary.getChatConversationParticipants().get(i);
+                                        ChatConversationParticipant entity = chatConversation.getChatConversationParticipants().get(i);
+                                        dto.setIsAdmin(entity.getIsAdmin());
+                                }
+                        }
                         if (chatConversation.getChatMessages() != null) {
                                 chatConversation.getChatMessages().forEach(message -> {
                                         List<ChatMessageAttachment> chatMessageAttachmentList = message
@@ -919,7 +930,7 @@ public class NewChatServiceImpl implements NewChatService {
         @Transactional
         public ResponseEntity<?> addParticipants(Long conversationId, java.util.List<ChatConversationParticipantDto> participants) {
                 try {
-                        ChatConversation chatConversation = chatConversationRepo.findById(conversationId).orElseThrow(
+                        ChatConversation chatConversation = chatConversationRepo.findByIdWithParticipants(conversationId).orElseThrow(
                                         () -> new ResourceNotFoundException("ChatConversation", "conversationId", conversationId));
                         if (participants == null) {
                                 return ResponseEntity.badRequest().body("Participants are required");
@@ -940,6 +951,7 @@ public class NewChatServiceImpl implements NewChatService {
                                 p.setIsChatCreator(Boolean.TRUE.equals(dto.getIsChatCreator()));
                                 p.setChatParticipantType(dto.getChatParticipantType());
                                 p.setChatParticipantStatus(ChatParticipantStatus.JOINED);
+                                p.setIsAdmin(false);
                                 p.setChatConversation(chatConversation);
                                 if (dto.getOrgId() != null) p.setOrgId(dto.getOrgId());
                                 if (dto.getOrgName() != null) p.setOrgName(dto.getOrgName());
@@ -960,7 +972,7 @@ public class NewChatServiceImpl implements NewChatService {
         @Transactional
         public ResponseEntity<?> removeParticipant(Long conversationId, Long participantId) {
                 try {
-                        ChatConversation chatConversation = chatConversationRepo.findById(conversationId).orElseThrow(
+                        ChatConversation chatConversation = chatConversationRepo.findByIdWithParticipants(conversationId).orElseThrow(
                                         () -> new ResourceNotFoundException("ChatConversation", "conversationId", conversationId));
                         ChatConversationParticipant target = chatConversation.getChatConversationParticipants().stream()
                                         .filter(p -> participantId.equals(p.getParticipantId())).findFirst().orElse(null);
@@ -975,6 +987,200 @@ public class NewChatServiceImpl implements NewChatService {
                         return ResponseEntity.ok().build();
                 } catch (Exception e) {
                         throw new ServiceLevelException("NewChatServiceImpl", "Failed to remove participant", "removeParticipant",
+                                        e.getClass().getSimpleName(), e.getMessage());
+                }
+        }
+
+        @Override
+        @Transactional
+        public ResponseEntity<?> deleteConversation(Long conversationId, Long participantId) {
+                try {
+                        ChatConversation chatConversation = chatConversationRepo.findByIdWithParticipants(conversationId).orElseThrow(
+                                        () -> new ResourceNotFoundException("ChatConversation", "conversationId", conversationId));
+                        ChatConversationParticipant participant = chatConversation.getChatConversationParticipants().stream()
+                                        .filter(p -> participantId.equals(p.getParticipantId())).findFirst().orElse(null);
+                        if (participant == null) {
+                                return ResponseEntity.status(403).build();
+                        }
+                        // Only allow creator to delete the entire conversation
+                        if (!Boolean.TRUE.equals(participant.getIsChatCreator())) {
+                                return ResponseEntity.status(403).body("Only the conversation creator can delete the conversation");
+                        }
+                        chatConversation.setIsActive(false);
+                        chatConversationRepo.save(chatConversation);
+                        return ResponseEntity.ok().build();
+                } catch (Exception e) {
+                        throw new ServiceLevelException("NewChatServiceImpl", "Failed to delete conversation", "deleteConversation",
+                                        e.getClass().getSimpleName(), e.getMessage());
+                }
+        }
+
+        @Override
+        @Transactional
+        public ResponseEntity<?> clearChatForSelf(Long conversationId, Long participantId) {
+                try {
+                        ChatConversation chatConversation = chatConversationRepo.findByIdWithParticipants(conversationId).orElseThrow(
+                                        () -> new ResourceNotFoundException("ChatConversation", "conversationId", conversationId));
+                        ChatConversationParticipant participant = chatConversation.getChatConversationParticipants().stream()
+                                        .filter(p -> participantId.equals(p.getParticipantId())).findFirst().orElse(null);
+                        if (participant == null) {
+                                return ResponseEntity.status(403).build();
+                        }
+                        // Mark all messages as DELETED_FOR_ME for this participant
+                        List<ChatMessage> messages = chatMessageRepo.findAllByConversationOrderBySentAtAsc(conversationId);
+                        for (ChatMessage msg : messages) {
+                                ChatMessageIndividualStatus status = msg.getChatMessageIndividualStatuses().stream()
+                                                .filter(s -> s.getParticipant().getChatConversationParticipantsId().equals(participant.getChatConversationParticipantsId()))
+                                                .findFirst().orElse(null);
+                                if (status != null) {
+                                        status.setStatus(ChatMessageStatus.DELETED_FOR_ME);
+                                        chatMessageIndividualStatusRepo.save(status);
+                                }
+                        }
+                        return ResponseEntity.ok().build();
+                } catch (Exception e) {
+                        throw new ServiceLevelException("NewChatServiceImpl", "Failed to clear chat", "clearChatForSelf",
+                                        e.getClass().getSimpleName(), e.getMessage());
+                }
+        }
+
+        @Override
+        @Transactional(readOnly = true)
+        public ResponseEntity<?> downloadChat(Long conversationId, Long participantId) {
+                log.info("[DOWNLOAD] Called for conversationId={}, participantId={}", conversationId, participantId);
+                try {
+                        ChatConversation chatConversation = chatConversationRepo.findByIdWithParticipants(conversationId).orElseThrow(
+                                        () -> new ResourceNotFoundException("ChatConversation", "conversationId", conversationId));
+                        ChatConversationParticipant participant = chatConversation.getChatConversationParticipants().stream()
+                                        .filter(p -> participantId.equals(p.getParticipantId())).findFirst().orElse(null);
+                        if (participant == null) {
+                                return ResponseEntity.status(403).build();
+                        }
+                        List<ChatMessage> messages = new ArrayList<>();
+                        try {
+                                List<ChatMessage> entityMsgs = chatConversation.getChatMessages();
+                                if (entityMsgs != null) {
+                                        messages.addAll(entityMsgs);
+                                        messages.sort((a, b) -> a.getSentAt().compareTo(b.getSentAt()));
+                                }
+                        } catch (Exception e) {
+                                log.warn("[DOWNLOAD] Failed to load messages from entity", e);
+                                // Fallback to repository query
+                                messages.addAll(chatMessageRepo.findAllByConversationOrderBySentAtAsc(conversationId));
+                        }
+                        log.info("[DOWNLOAD] Found {} messages for conversation {}", messages.size(), conversationId);
+                        if (messages.isEmpty()) {
+                                // Try alternative: fetch all messages without ordering
+                                List<ChatMessage> allMsgs = chatMessageRepo.findAll();
+                                log.info("[DOWNLOAD] Total messages in DB: {}", allMsgs.size());
+                                for (ChatMessage m : allMsgs) {
+                                        if (m.getChatConversation() != null && conversationId.equals(m.getChatConversation().getChatConversationId())) {
+                                                messages.add(m);
+                                        }
+                                }
+                                // Sort by sentAt
+                                messages.sort((a, b) -> a.getSentAt().compareTo(b.getSentAt()));
+                                log.info("[DOWNLOAD] Found {} messages by manual filter", messages.size());
+                        }
+                        // Also check if messages exist without the participant join
+                        List<ChatMessage> allMsgs = chatMessageRepo.findAll();
+                        log.info("[DOWNLOAD] Total messages in DB: {}", allMsgs.size());
+                        StringBuilder sb = new StringBuilder();
+                        String convName = chatConversation.getChatConversationName();
+                        if (convName == null || convName.trim().isEmpty()) {
+                                // Fallback to other participant name for DIRECT conversations
+                                String otherName = chatConversation.getChatConversationParticipants().stream()
+                                                .filter(p -> !participantId.equals(p.getParticipantId()))
+                                                .map(ChatConversationParticipant::getParticipantName)
+                                                .findFirst()
+                                                .orElse("Conversation");
+                                convName = otherName;
+                        }
+                        sb.append("Conversation: ").append(convName).append("\n");
+                        sb.append("Type: ").append(chatConversation.getChatConversationType()).append("\n");
+                        sb.append("Exported at: ").append(java.time.LocalDateTime.now()).append("\n");
+                        sb.append("=========================================\n\n");
+                        for (ChatMessage msg : messages) {
+                                if (msg.getChatConversationParticipant() != null) {
+                                        sb.append("[").append(msg.getSentAt()).append("] ")
+                                                .append(msg.getChatConversationParticipant().getParticipantName())
+                                                .append(": ").append(msg.getChatMessageText()).append("\n");
+                                }
+                        }
+                        return ResponseEntity.ok()
+                                .header("Content-Disposition", "attachment; filename=\"chat-" + conversationId + ".txt\"")
+                                .header("Content-Type", "text/plain; charset=UTF-8")
+                                .body(sb.toString());
+                } catch (Exception e) {
+                        throw new ServiceLevelException("NewChatServiceImpl", "Failed to download chat", "downloadChat",
+                                        e.getClass().getSimpleName(), e.getMessage());
+                }
+        }
+
+        @Override
+        @Transactional(readOnly = true)
+        public ResponseEntity<?> searchMessages(Long conversationId, Long participantId, String query) {
+                try {
+                        ChatConversation chatConversation = chatConversationRepo.findByIdWithParticipants(conversationId).orElseThrow(
+                                        () -> new ResourceNotFoundException("ChatConversation", "conversationId", conversationId));
+                        ChatConversationParticipant participant = chatConversation.getChatConversationParticipants().stream()
+                                        .filter(p -> participantId.equals(p.getParticipantId())).findFirst().orElse(null);
+                        if (participant == null) {
+                                return ResponseEntity.status(403).build();
+                        }
+                        if (query == null || query.trim().isEmpty()) {
+                                return ResponseEntity.badRequest().body("Search query is required");
+                        }
+                        List<ChatMessage> messages = chatMessageRepo.findByConversationIdAndTextContaining(conversationId, query.trim());
+                        List<ConversationMessagesDto> dtos = messages.stream().map(msg -> {
+                                ConversationMessagesDto dto = modelMapper.map(msg, ConversationMessagesDto.class);
+                                if (msg.getChatConversationParticipant() != null) {
+                                        ConversationMessagesDto.ParticipantInfo pi = new ConversationMessagesDto.ParticipantInfo();
+                                        pi.setParticipantId(msg.getChatConversationParticipant().getParticipantId());
+                                        pi.setParticipantName(msg.getChatConversationParticipant().getParticipantName());
+                                        pi.setParticipantEmail(msg.getChatConversationParticipant().getParticipantEmail());
+                                        pi.setParticipantAvatar(msg.getChatConversationParticipant().getParticipantAvatar());
+                                        dto.setChatConversationParticipant(pi);
+                                }
+                                dto.setChatConversationId(chatConversation.getChatConversationId());
+                                return dto;
+                        }).toList();
+                        return ResponseEntity.ok(dtos);
+                } catch (Exception e) {
+                        throw new ServiceLevelException("NewChatServiceImpl", "Failed to search messages", "searchMessages",
+                                        e.getClass().getSimpleName(), e.getMessage());
+                }
+        }
+
+        @Override
+        @Transactional
+        public ResponseEntity<?> setAdmin(Long conversationId, Long participantId, Long adminId, boolean isAdmin) {
+                try {
+                        ChatConversation chatConversation = chatConversationRepo.findByIdWithParticipants(conversationId).orElseThrow(
+                                        () -> new ResourceNotFoundException("ChatConversation", "conversationId", conversationId));
+                        ChatConversationParticipant target = chatConversation.getChatConversationParticipants().stream()
+                                        .filter(p -> participantId.equals(p.getParticipantId())).findFirst().orElse(null);
+                        if (target == null) {
+                                return ResponseEntity.notFound().build();
+                        }
+                        // Check if the requesting user (adminId) is an admin
+                        ChatConversationParticipant requester = chatConversation.getChatConversationParticipants().stream()
+                                        .filter(p -> adminId.equals(p.getParticipantId())).findFirst().orElse(null);
+                        // Allow if requester is admin OR creator (creator is always admin)
+                        boolean isRequesterAdmin = requester != null && (Boolean.TRUE.equals(requester.getIsAdmin()) || Boolean.TRUE.equals(requester.getIsChatCreator()));
+                        if (requester == null || !isRequesterAdmin) {
+                                return ResponseEntity.status(403).body("Only admins can set/unset admin status");
+                        }
+                        // Cannot remove admin from the creator
+                        if (Boolean.TRUE.equals(target.getIsChatCreator()) && !isAdmin) {
+                                return ResponseEntity.badRequest().body("Cannot remove admin status from the group creator");
+                        }
+                        target.setIsAdmin(isAdmin);
+                        chatConversationRepo.save(chatConversation);
+                        return ResponseEntity.ok().build();
+                } catch (Exception e) {
+                        log.error("[SET_ADMIN] Error: ", e);
+                        throw new ServiceLevelException("NewChatServiceImpl", "Failed to set admin status", "setAdmin",
                                         e.getClass().getSimpleName(), e.getMessage());
                 }
         }

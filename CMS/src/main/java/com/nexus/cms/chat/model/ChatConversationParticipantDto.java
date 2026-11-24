@@ -42,4 +42,6 @@ public class ChatConversationParticipantDto {
     private Long orgId;
     private String orgName;
     private String orgType;
+
+    private Boolean isAdmin;
 }

@@ -78,4 +78,29 @@ public interface ChatMessageRepo extends JpaRepository<ChatMessage, Long> {
                                 AND cm.isActive = true
                         """)
         Long countUnreadMessagesByCursor(Long conversationId, Long lastReadMessageId, Long participantId);
+
+        @Query("""
+                        SELECT cm FROM ChatMessage cm
+                        LEFT JOIN FETCH cm.chatConversationParticipant ccp
+                        WHERE cm.chatConversation.chatConversationId = :conversationId
+                        AND (cm.isActive IS NULL OR cm.isActive = true)
+                        ORDER BY cm.chatMessageId DESC
+                """)
+        List<ChatMessage> findAllActiveByConversation(Long conversationId);
+
+        @Query("""
+                        SELECT cm FROM ChatMessage cm
+                        LEFT JOIN FETCH cm.chatConversationParticipant ccp
+                        WHERE cm.chatConversation.chatConversationId = :conversationId
+                        ORDER BY cm.sentAt ASC
+                """)
+        List<ChatMessage> findAllByConversationOrderBySentAtAsc(Long conversationId);
+
+        @Query("""
+                        SELECT cm FROM ChatMessage cm
+                        WHERE cm.chatConversation.chatConversationId = :conversationId
+                        AND cm.chatMessageText ILIKE %:text%
+                        AND (cm.isActive IS NULL OR cm.isActive = true)
+                """)
+        List<ChatMessage> findByConversationIdAndTextContaining(Long conversationId, String text);
 }

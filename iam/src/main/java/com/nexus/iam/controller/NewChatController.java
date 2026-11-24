@@ -9,6 +9,8 @@ import org.springframework.web.multipart.MultipartFile;
 
 import com.nexus.iam.service.NewChatService;
 
+import java.util.List;
+
 /**
  * Wrapper endpoints for new Chat Management System (v2)
  * Acts as gateway for chat operations with authentication and authorization
@@ -77,8 +79,8 @@ public class NewChatController {
      */
     @PutMapping("/conversation")
     public ResponseEntity<?> updateConversation(
-            @RequestParam("request") String request,
-            @RequestParam(value = "chatConversationAvatar", required = false) MultipartFile avatar,
+            @RequestPart("request") String request,
+            @RequestPart(value = "chatConversationAvatar", required = false) MultipartFile avatar,
             @RequestParam Long participantId,
             @RequestParam Long orgId) {
         return newChatService.updateConversation(request, avatar, participantId, orgId);
@@ -108,12 +110,13 @@ public class NewChatController {
      * @param orgId         Organization ID
      * @return ResponseEntity with sent message details
      */
-    @PostMapping("/message")
+    @PostMapping(value = "/message", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> sendMessage(
-            @RequestParam("message") String request,
+            @RequestPart("message") String request,
+            @RequestPart(required = false) List<MultipartFile> files,
             @RequestParam Long participantId,
             @RequestParam Long orgId) {
-        return newChatService.sendMessage(request, participantId, orgId);
+        return newChatService.sendMessage(request, files, participantId, orgId);
     }
 
     /**
@@ -190,5 +193,35 @@ public class NewChatController {
             @RequestParam Long participantId,
             @RequestParam Long orgId) {
         return newChatService.removeParticipant(conversationId, participantIdToRemove, participantId, orgId);
+    }
+
+    @PutMapping("/conversation/{conversationId}/participants/{participantId}/admin")
+    public ResponseEntity<?> setAdmin(
+            @PathVariable Long conversationId,
+            @PathVariable Long participantId,
+            @RequestParam Long adminId,
+            @RequestParam boolean isAdmin,
+            @RequestParam Long orgId) {
+        return newChatService.setAdmin(conversationId, participantId, adminId, isAdmin, orgId);
+    }
+
+    @DeleteMapping("/conversation/{conversationId}")
+    public ResponseEntity<?> deleteConversation(@PathVariable Long conversationId, @RequestParam Long participantId, @RequestParam Long orgId) {
+        return newChatService.deleteConversation(conversationId, participantId, orgId);
+    }
+
+    @PostMapping("/conversation/{conversationId}/clear")
+    public ResponseEntity<?> clearChatForSelf(@PathVariable Long conversationId, @RequestParam Long participantId, @RequestParam Long orgId) {
+        return newChatService.clearChatForSelf(conversationId, participantId, orgId);
+    }
+
+    @GetMapping("/conversation/{conversationId}/download")
+    public ResponseEntity<?> downloadChat(@PathVariable Long conversationId, @RequestParam Long participantId, @RequestParam Long orgId) {
+        return newChatService.downloadChat(conversationId, participantId, orgId);
+    }
+
+    @GetMapping("/conversation/{conversationId}/search")
+    public ResponseEntity<?> searchMessages(@PathVariable Long conversationId, @RequestParam Long participantId, @RequestParam String query, @RequestParam Long orgId) {
+        return newChatService.searchMessages(conversationId, participantId, query, orgId);
     }
 }

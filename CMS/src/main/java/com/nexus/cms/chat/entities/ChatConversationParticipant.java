@@ -73,6 +73,9 @@ public class ChatConversationParticipant {
     @Column(name = "org_type", length = 50)
     private String orgType; // RETAILER, SUPPLIER, LOGISTICS
 
+    @Column(name = "is_admin")
+    private Boolean isAdmin; // Group admin flag
+
     @PrePersist
     public void prePersist() {
         this.isActive = true;

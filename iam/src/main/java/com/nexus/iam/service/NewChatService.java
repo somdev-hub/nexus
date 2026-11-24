@@ -4,6 +4,8 @@ import org.json.JSONObject;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.List;
+
 /**
  * Service interface for new Chat Management System (v2)
  * Defines contract for chat operations wrapper methods
@@ -38,7 +40,7 @@ public interface NewChatService {
     /**
      * Send a text message via REST API
      */
-    ResponseEntity<?> sendMessage(String request, Long participantId, Long orgId);
+    ResponseEntity<?> sendMessage(Object request, List<MultipartFile> files, Long participantId, Long orgId);
 
     /**
      * Upload multimedia files (images, videos, documents)
@@ -64,4 +66,14 @@ public interface NewChatService {
     ResponseEntity<?> addParticipants(Long conversationId, String request, Long participantId, Long orgId);
 
     ResponseEntity<?> removeParticipant(Long conversationId, Long participantIdToRemove, Long participantId, Long orgId);
+
+    ResponseEntity<?> setAdmin(Long conversationId, Long participantId, Long adminId, boolean isAdmin, Long orgId);
+
+    ResponseEntity<?> deleteConversation(Long conversationId, Long participantId, Long orgId);
+
+    ResponseEntity<?> clearChatForSelf(Long conversationId, Long participantId, Long orgId);
+
+    ResponseEntity<?> downloadChat(Long conversationId, Long participantId, Long orgId);
+
+    ResponseEntity<?> searchMessages(Long conversationId, Long participantId, String query, Long orgId);
 }

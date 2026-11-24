@@ -36,7 +36,7 @@ public class NewChatController {
     }
 
     @PutMapping("/conversation")
-    public ResponseEntity<?> updateChatConversation(@RequestPart @Valid ConversationRequestDto request, @RequestPart MultipartFile chatConversationAvatar){
+    public ResponseEntity<?> updateChatConversation(@RequestPart ConversationRequestDto request, @RequestPart(required = false) MultipartFile chatConversationAvatar){
         return newChatService.updateChatConversation(request, chatConversationAvatar);
     }
 
@@ -54,5 +54,30 @@ public class NewChatController {
     @DeleteMapping("/conversation/{conversationId}/participants/{participantId}")
     public ResponseEntity<?> removeParticipant(@PathVariable Long conversationId, @PathVariable Long participantId) {
         return newChatService.removeParticipant(conversationId, participantId);
+    }
+
+    @PutMapping("/conversation/{conversationId}/participants/{participantId}/admin")
+    public ResponseEntity<?> setAdmin(@PathVariable Long conversationId, @PathVariable Long participantId, @RequestParam Long adminId, @RequestParam boolean isAdmin) {
+        return newChatService.setAdmin(conversationId, participantId, adminId, isAdmin);
+    }
+
+    @DeleteMapping("/conversation/{conversationId}")
+    public ResponseEntity<?> deleteConversation(@PathVariable Long conversationId, @RequestParam Long participantId) {
+        return newChatService.deleteConversation(conversationId, participantId);
+    }
+
+    @PostMapping("/conversation/{conversationId}/clear")
+    public ResponseEntity<?> clearChatForSelf(@PathVariable Long conversationId, @RequestParam Long participantId) {
+        return newChatService.clearChatForSelf(conversationId, participantId);
+    }
+
+    @GetMapping("/conversation/{conversationId}/download")
+    public ResponseEntity<?> downloadChat(@PathVariable Long conversationId, @RequestParam Long participantId) {
+        return newChatService.downloadChat(conversationId, participantId);
+    }
+
+    @GetMapping("/conversation/{conversationId}/search")
+    public ResponseEntity<?> searchMessages(@PathVariable Long conversationId, @RequestParam Long participantId, @RequestParam String query) {
+        return newChatService.searchMessages(conversationId, participantId, query);
     }
 }
