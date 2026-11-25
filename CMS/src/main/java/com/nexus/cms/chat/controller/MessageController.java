@@ -24,7 +24,7 @@ public class MessageController {
     private final MessageService messageService;
     private final ChatMessageProducerService chatMessageProducerService;
 
-    @PostMapping(value = "/", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PostMapping(value = {"", "/"}, consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> sendMessage(@RequestPart @Valid ChatMessageRequestDto message,
             @RequestPart(required = false) List<MultipartFile> files,
             Principal principal) {
@@ -62,7 +62,7 @@ public class MessageController {
         return messageService.sendMultimediaMessage(files, participantId);
     }
 
-    @PutMapping("/")
+    @PutMapping(value = {"", "/"})
     public ResponseEntity<?> editMessage(@RequestBody @Valid ChatMessageRequestDto message) {
         return messageService.editMessage(message);
     }

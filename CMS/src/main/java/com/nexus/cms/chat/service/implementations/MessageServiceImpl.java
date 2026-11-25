@@ -13,6 +13,7 @@ import com.nexus.cms.exception.ServiceLevelException;
 import com.nexus.cms.util.CommonConstants;
 import com.nexus.cms.util.CommonUtils;
 import com.nexus.cms.util.RestService;
+import com.nexus.cms.util.StompPrincipalNames;
 import com.nexus.cms.util.WebConstants;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -42,6 +43,7 @@ public class MessageServiceImpl implements MessageService {
     private final CommonUtils commonUtils;
     private final ChatMessageRepo chatMessageRepo;
     private final ChatMessageIndividualStatusRepo chatMessageIndividualStatusRepo;
+    private final org.springframework.messaging.simp.SimpMessagingTemplate messagingTemplate;
 
     @Override
     @Transactional
@@ -170,6 +172,42 @@ public class MessageServiceImpl implements MessageService {
                 chatConversationRepo.save(chatConversation);
             } catch (Exception e) {
                 log.warn("Failed to update conversation metadata after send", e);
+            }
+
+            // Push a chat notification to every other participant's private queue
+            // so it surfaces in the header notification bell in real time.
+            try {
+                String senderName = chatConversationParticipant.getParticipantName();
+                String title = "New message from " + (senderName != null ? senderName : "a participant");
+                String body = chatMessage.getChatMessageText() != null ? chatMessage.getChatMessageText() : "Sent a message";
+                for (ChatConversationParticipant participant : chatConversation.getChatConversationParticipants()) {
+                    if (participant.getParticipantId().equals(participantId)) {
+                        continue;
+                    }
+                    Long participantOrgId = participant.getOrgId() != null ? participant.getOrgId() : chatConversation.getOrgId();
+                    String principalName = StompPrincipalNames.of(participant.getParticipantId(), participantOrgId);
+                    Map<String, Object> notification = new HashMap<>();
+                    notification.put("notificationId", chatMessage.getChatMessageId());
+                    notification.put("eventId", "chat-" + chatMessage.getChatMessageId());
+                    notification.put("eventType", "CHAT_MESSAGE");
+                    notification.put("entityType", "CHAT");
+                    notification.put("entityId", chatConversation.getChatConversationId());
+                    notification.put("entityRef", String.valueOf(chatConversation.getChatConversationId()));
+                    notification.put("title", title);
+                    notification.put("body", body);
+                    notification.put("severity", "INFO");
+                    notification.put("targetOrgId", participantOrgId);
+                    notification.put("facts", Map.of("conversationId", chatConversation.getChatConversationId()));
+                    notification.put("createdAt", chatMessage.getSentAt() != null ? chatMessage.getSentAt().toInstant().toString() : java.time.Instant.now().toString());
+
+                    Map<String, Object> push = new HashMap<>();
+                    push.put("type", "MESSAGE");
+                    push.put("message", notification);
+
+                    messagingTemplate.convertAndSendToUser(principalName, "/queue/nexus/notifications", push);
+                }
+            } catch (Exception e) {
+                log.warn("Failed to push chat notifications", e);
             }
 
             // Map to DTO with participant info

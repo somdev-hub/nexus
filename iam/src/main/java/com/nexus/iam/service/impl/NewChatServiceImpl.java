@@ -11,6 +11,8 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.JsonNode;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
@@ -253,8 +255,15 @@ public class NewChatServiceImpl implements NewChatService {
                     .queryParam("orgId", orgId);
 
             Map<String, Object> payload = new HashMap<>();
+            ObjectMapper mapper = new ObjectMapper();
             if (request instanceof String) {
-                payload.put("message", request);
+                try {
+                    // Parse JSON string to JsonNode to avoid double-encoding
+                    payload.put("message", mapper.readTree((String) request));
+                } catch (Exception e) {
+                    log.warn("[SEND_MESSAGE] Failed to parse message JSON, sending as string: ", e);
+                    payload.put("message", request);
+                }
             } else {
                 payload.put("message", request);
             }
@@ -269,6 +278,8 @@ public class NewChatServiceImpl implements NewChatService {
                     Map.of(HttpHeaders.CONTENT_TYPE, MediaType.MULTIPART_FORM_DATA_VALUE),
                     HttpMethod.POST,
                     participantId);
+
+            log.info("[SEND_MESSAGE] CMS response: status={}, body={}", response.getStatusCode(), response.getBody());
 
             // Forward the actual CMS response (including error details) instead of wrapping in generic exception
             if (!response.getStatusCode().is2xxSuccessful()) {

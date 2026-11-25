@@ -23,4 +23,12 @@ public class KafkaTopicConfig {
                 .replicas(1)
                 .build();
     }
+
+    @Bean
+    public NewTopic chatMessagesTopic() {
+        return TopicBuilder.name("chat-messages")
+                .partitions(6)
+                .replicas(1)
+                .build();
+    }
 }

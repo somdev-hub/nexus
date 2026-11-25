@@ -14,6 +14,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.annotation.EnableKafka;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.config.KafkaListenerContainerFactory;
+import org.apache.kafka.clients.admin.NewTopic;
 import org.springframework.kafka.config.TopicBuilder;
 import org.springframework.kafka.core.*;
 import org.springframework.kafka.listener.CommonErrorHandler;
@@ -237,6 +238,47 @@ public class KafkaConfig {
     public Object hrKafkaMailTopic() {
         log.info("Creating topic: {}", CommonConstants.HR_KAFKA_MAIL_TOPIC);
         return TopicBuilder.name(CommonConstants.HR_KAFKA_MAIL_TOPIC)
+                .partitions(3)
+                .replicas(1)
+                .config("retention.ms", "1209600000")
+                .config("compression.type", "snappy")
+                .build();
+    }
+
+    /**
+     * Source topics consumed by {@link com.nexus.cms.service.KafkaConsumerService}.
+     * <p>
+     * These were previously undeclared, so with broker-side auto-creation disabled
+     * the consumers kept receiving {@code UNKNOWN_TOPIC_OR_PARTITION} metadata
+     * responses. Declaring them here lets the (auto-create enabled) KafkaAdmin
+     * provision them on start-up.
+     */
+    @Bean
+    public NewTopic cmsNotificationsTopic() {
+        log.info("Creating topic: cms-notifications");
+        return TopicBuilder.name("cms-notifications")
+                .partitions(3)
+                .replicas(1)
+                .config("retention.ms", "1209600000")
+                .config("compression.type", "snappy")
+                .build();
+    }
+
+    @Bean
+    public NewTopic cmsAuditLogsTopic() {
+        log.info("Creating topic: cms-audit-logs");
+        return TopicBuilder.name("cms-audit-logs")
+                .partitions(3)
+                .replicas(1)
+                .config("retention.ms", "1209600000")
+                .config("compression.type", "snappy")
+                .build();
+    }
+
+    @Bean
+    public NewTopic cmsEventsTopic() {
+        log.info("Creating topic: cms-events");
+        return TopicBuilder.name("cms-events")
                 .partitions(3)
                 .replicas(1)
                 .config("retention.ms", "1209600000")

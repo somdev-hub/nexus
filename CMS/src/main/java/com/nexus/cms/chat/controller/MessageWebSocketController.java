@@ -1,6 +1,15 @@
 package com.nexus.cms.chat.controller;
 
-import com.nexus.cms.chat.entities.ChatMessage;
+import java.security.Principal;
+
+import org.springframework.http.ResponseEntity;
+import org.springframework.messaging.handler.annotation.DestinationVariable;
+import org.springframework.messaging.handler.annotation.MessageMapping;
+import org.springframework.messaging.handler.annotation.Payload;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.stereotype.Controller;
+import org.springframework.util.ObjectUtils;
+
 import com.nexus.cms.chat.entities.ChatMessageIndividualStatus;
 import com.nexus.cms.chat.model.ChatMessageRequestDto;
 import com.nexus.cms.chat.model.ConversationMessagesDto;
@@ -12,17 +21,9 @@ import com.nexus.cms.chat.service.interfaces.MessageService;
 import com.nexus.cms.chat.service.interfaces.NewChatService;
 import com.nexus.cms.chat.service.interfaces.PresenceService;
 import com.nexus.cms.util.StompPrincipalNames;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.ResponseEntity;
-import org.springframework.messaging.handler.annotation.DestinationVariable;
-import org.springframework.messaging.handler.annotation.MessageMapping;
-import org.springframework.messaging.handler.annotation.Payload;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
-import org.springframework.stereotype.Controller;
-import org.springframework.util.ObjectUtils;
-
-import java.security.Principal;
 
 @Controller
 @RequiredArgsConstructor

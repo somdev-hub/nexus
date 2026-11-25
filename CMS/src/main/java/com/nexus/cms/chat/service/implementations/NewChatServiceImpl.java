@@ -1,6 +1,7 @@
 package com.nexus.cms.chat.service.implementations;
 
 import com.nexus.cms.chat.entities.*;
+import com.nexus.cms.chat.model.MessageSentEventDto;
 import com.nexus.cms.chat.enums.ChatConversationType;
 import com.nexus.cms.chat.enums.ChatMessageStatus;
 import com.nexus.cms.chat.enums.ChatMessageType;
@@ -60,6 +61,8 @@ public class NewChatServiceImpl implements NewChatService {
         private final CommonUtils commonUtils;
         private final ChatConversationParticipantRepo chatConversationParticipantRepo;
         private final ChatMessageIndividualStatusRepo chatMessageIndividualStatusRepo;
+        private final org.springframework.messaging.simp.SimpMessagingTemplate messagingTemplate;
+        private final com.nexus.cms.chat.service.interfaces.ChatMessageProducerService chatMessageProducerService;
 
         @Transactional(timeout = 30)
         @Override
@@ -395,6 +398,17 @@ public class NewChatServiceImpl implements NewChatService {
                                         .map(ChatMessage::getChatMessageId).toList();
                         updateAggregateStatusAsync(conversationId, fetchedMessageIds);
 
+                        // Broadcast read receipt so senders get realtime seen/tick updates
+                        try {
+                                messagingTemplate.convertAndSend(
+                                                "/topic/conversations/" + conversationId,
+                                                new com.nexus.cms.chat.model.StatusUpdateEventDto(
+                                                                chatMessages.getFirst().getChatMessageId(),
+                                                                ChatMessageStatus.RECEIVED));
+                        } catch (Exception e) {
+                                log.warn("Failed to broadcast read receipt for conversation {}", conversationId, e);
+                        }
+
                         // Update lastRead to the newest message's sentAt and lastMessageId
                         ChatMessage newestMessage = chatMessages.getFirst();
                         chatConversationParticipant.setLastRead(newestMessage.getSentAt());
@@ -602,7 +616,10 @@ public class NewChatServiceImpl implements NewChatService {
                                 }
                         }
                         ChatConversation updatedChatConversation = chatConversationRepo.save(chatConversation);
-                        return ResponseEntity.ok(updatedChatConversation);
+                        ChatConversation withParticipants = chatConversationRepo.findByIdWithParticipants(updatedChatConversation.getChatConversationId())
+                                        .orElse(updatedChatConversation);
+                        publishSystemMessage(withParticipants, "Group details updated");
+                        return ResponseEntity.ok(withParticipants);
                 } catch (Exception e) {
                         throw new ServiceLevelException(
                                         "NewChatServiceImpl",
@@ -961,6 +978,7 @@ public class NewChatServiceImpl implements NewChatService {
                         }
                         chatConversation.setTotalParticipants((long) chatConversation.getChatConversationParticipants().size());
                         chatConversationRepo.save(chatConversation);
+                        publishSystemMessage(chatConversation, "New members added to the group");
                         return ResponseEntity.ok(chatConversation);
                 } catch (Exception e) {
                         throw new ServiceLevelException("NewChatServiceImpl", "Failed to add participants", "addParticipants",
@@ -984,6 +1002,7 @@ public class NewChatServiceImpl implements NewChatService {
                         chatConversation.getChatConversationParticipants().remove(target);
                         chatConversation.setTotalParticipants((long) chatConversation.getChatConversationParticipants().size());
                         chatConversationRepo.save(chatConversation);
+                        publishSystemMessage(chatConversation, target.getParticipantName() + " was removed from the group");
                         return ResponseEntity.ok().build();
                 } catch (Exception e) {
                         throw new ServiceLevelException("NewChatServiceImpl", "Failed to remove participant", "removeParticipant",
@@ -1177,11 +1196,36 @@ public class NewChatServiceImpl implements NewChatService {
                         }
                         target.setIsAdmin(isAdmin);
                         chatConversationRepo.save(chatConversation);
+                        publishSystemMessage(chatConversation, target.getParticipantName() + (isAdmin ? " was made an admin" : " is no longer an admin"));
                         return ResponseEntity.ok().build();
                 } catch (Exception e) {
                         log.error("[SET_ADMIN] Error: ", e);
                         throw new ServiceLevelException("NewChatServiceImpl", "Failed to set admin status", "setAdmin",
                                         e.getClass().getSimpleName(), e.getMessage());
+                }
+        }
+
+        private void publishSystemMessage(ChatConversation conversation, String text) {
+                try {
+                        ChatMessage systemMessage = new ChatMessage();
+                        systemMessage.setChatConversation(conversation);
+                        systemMessage.setChatMessageText(text);
+                        systemMessage.setChatMessageType(ChatMessageType.TEXT);
+                        systemMessage.setChatMessageStatus(ChatMessageStatus.SENT);
+                        systemMessage.setSentAt(new Timestamp(System.currentTimeMillis()));
+                        systemMessage.setIsActive(true);
+                        systemMessage = chatMessageRepo.save(systemMessage);
+
+                        ConversationMessagesDto dto = modelMapper.map(systemMessage, ConversationMessagesDto.class);
+                        dto.setChatConversationId(conversation.getChatConversationId());
+                        chatMessageProducerService.publishMessageSent(MessageSentEventDto.builder()
+                                        .messageId(systemMessage.getChatMessageId())
+                                        .conversationId(conversation.getChatConversationId())
+                                        .participantId(null)
+                                        .message(dto)
+                                        .build());
+                } catch (Exception e) {
+                        log.warn("Failed to publish system message", e);
                 }
         }
 }
