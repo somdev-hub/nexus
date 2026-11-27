@@ -1,5 +1,6 @@
 package com.nexus.iam.service.impl;
 
+import com.nexus.iam.config.CacheConfig;
 import com.nexus.iam.dto.*;
 import com.nexus.iam.entities.Department;
 import com.nexus.iam.entities.Organization;
@@ -12,6 +13,7 @@ import com.nexus.iam.repository.OrganizationRepository;
 import com.nexus.iam.repository.RoleRepository;
 import com.nexus.iam.repository.UserRepository;
 import com.nexus.iam.service.AuthenticationService;
+import com.nexus.iam.service.KeycloakAdminService;
 import com.nexus.iam.service.KeycloakAuthenticationService;
 import com.nexus.iam.service.UserService;
 import com.nexus.iam.utils.CommonConstants;
@@ -20,6 +22,7 @@ import com.nexus.iam.utils.WebConstants;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.modelmapper.ModelMapper;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpMethod;
@@ -57,6 +60,8 @@ public class UserServiceImpl implements UserService {
 	private final DepartmentRepository departmentRepository;
 
 	private final KeycloakAuthenticationService keycloakAuthenticationService;
+
+	private final KeycloakAdminService keycloakAdminService;
 
 	@Override
 	public ResponseEntity<?> getUserById(Long userId) {
@@ -113,6 +118,77 @@ public class UserServiceImpl implements UserService {
 			throw new ServiceLevelException("UserService", e.getLocalizedMessage(), "updateUser",
 					new Timestamp(System.currentTimeMillis()), e.getCause().toString(), e.getMessage());
 
+		}
+	}
+
+	@CacheEvict(value = CacheConfig.EMPLOYEE_DETAILS_CACHE, key = "#userId")
+	@Override
+	public ResponseEntity<?> updateUserProfile(UpdateUserProfileDto userDto, Long userId) {
+		try {
+			User existingUser = userRepository.findById(userId)
+					.orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
+
+			if (userDto.getName() != null) {
+				existingUser.setName(userDto.getName());
+			}
+			if (userDto.getPhone() != null) {
+				existingUser.setPhone(userDto.getPhone().isBlank() ? null : userDto.getPhone());
+			}
+			if (userDto.getAddress() != null) {
+				existingUser.setAddress(userDto.getAddress());
+			}
+			if (userDto.getPersonalEmail() != null) {
+				existingUser.setPersonalEmail(userDto.getPersonalEmail().isBlank() ? null : userDto.getPersonalEmail());
+			}
+			if (userDto.getGender() != null) {
+				existingUser.setGender(userDto.getGender());
+			}
+			if (userDto.getDateOfBirth() != null) {
+				existingUser.setDateOfBirth(userDto.getDateOfBirth());
+			}
+
+			User savedUser = userRepository.save(existingUser);
+			return ResponseEntity.ok(modelMapper.map(savedUser, UserDetailsDto.class));
+		} catch (Exception e) {
+			throw new ServiceLevelException("UserService", e.getLocalizedMessage(), "updateUserProfile",
+					new Timestamp(System.currentTimeMillis()), e.getCause() == null ? null : e.getCause().toString(),
+					e.getMessage());
+		}
+	}
+
+	@Override
+	public ResponseEntity<?> changePassword(ChangePasswordDto passwordDto, Long userId) {
+		if (passwordDto == null || ObjectUtils.isEmpty(passwordDto.getCurrentPassword())
+				|| ObjectUtils.isEmpty(passwordDto.getNewPassword())) {
+			return ResponseEntity.badRequest().body(Map.of("message", "Current and new passwords are required"));
+		}
+		if (passwordDto.getNewPassword().length() < 8) {
+			return ResponseEntity.badRequest().body(Map.of("message", "Password must be at least 8 characters"));
+		}
+
+		try {
+			User user = userRepository.findById(userId)
+					.orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
+			if (!ObjectUtils.isEmpty(user.getKeycloakId())) {
+				if (keycloakAuthenticationService.authenticateWithKeycloak(
+						user.getUsername(), passwordDto.getCurrentPassword()) == null) {
+					return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+							.body(Map.of("message", "Current password is incorrect"));
+				}
+				keycloakAdminService.setUserPassword(user.getKeycloakId(), passwordDto.getNewPassword());
+			} else {
+				if (!passwordEncoder.matches(passwordDto.getCurrentPassword(), user.getPassword())) {
+					return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+							.body(Map.of("message", "Current password is incorrect"));
+				}
+				user.setPassword(passwordEncoder.encode(passwordDto.getNewPassword()));
+				userRepository.save(user);
+			}
+			return ResponseEntity.ok(Map.of("message", "Password changed successfully"));
+		} catch (Exception e) {
+			throw new ServiceLevelException("UserService", e.getLocalizedMessage(), "changePassword",
+					new Timestamp(System.currentTimeMillis()), e.getCause() == null ? null : e.getCause().toString(),
+					e.getMessage());
 		}
 	}
 
@@ -189,6 +265,30 @@ public class UserServiceImpl implements UserService {
 	}
 
 	@Override
+	@Transactional
+	public ResponseEntity<?> getChatContacts(Long orgId) {
+		try {
+			var users = userRepository.findByOrgId(orgId, org.springframework.data.domain.PageRequest.of(0, 200));
+			List<UserDetailsDto> dtos = users.stream().map(u -> {
+				UserDetailsDto dto = modelMapper.map(u, UserDetailsDto.class);
+				dto.setId(u.getId());
+				if (u.getOrganization() != null) {
+					dto.setOrgId(u.getOrganization().getId());
+					dto.setOrgName(u.getOrganization().getOrgName());
+					dto.setOrgType(u.getOrganization().getOrgType().toString());
+				}
+				dto.setRole(u.getRoles().stream().findFirst().map(com.nexus.iam.entities.Role::getName).orElse("USER"));
+				return dto;
+			}).toList();
+			return ResponseEntity.ok(dtos);
+		} catch (Exception e) {
+			throw new ServiceLevelException("UserService", e.getLocalizedMessage(), "getChatContacts",
+					new Timestamp(System.currentTimeMillis()), e.getCause() != null ? e.getCause().toString() : null, e.getMessage());
+		}
+	}
+
+	@CacheEvict(value = CacheConfig.EMPLOYEE_DETAILS_CACHE, key = "#userId")
+	@Override
 	public ResponseEntity<?> updateProfilePhoto(MultipartFile file, Long userId) {
 		ResponseEntity<?> response = null;
 		try {
@@ -227,7 +327,9 @@ public class UserServiceImpl implements UserService {
 						user.setProfilePhoto(respBody.get("documentUrl").toString());
 						userRepository.save(user);
 
-						response = new ResponseEntity<>("Profile photo updated successfully", HttpStatus.OK);
+						response = ResponseEntity.ok(Map.of(
+								"avatar", user.getProfilePhoto(),
+								"message", "Profile photo updated successfully"));
 					} else {
 						response = new ResponseEntity<>("Failed to retrieve document URL from DMS response",
 								HttpStatus.INTERNAL_SERVER_ERROR);
@@ -255,6 +357,22 @@ public class UserServiceImpl implements UserService {
 			User user = userRepository.findById(userId)
 					.orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
 			UserDetailsDto userDto = modelMapper.map(user, UserDetailsDto.class);
+			// Manually set organization fields (ModelMapper doesn't map nested properties by default)
+			if (user.getOrganization() != null) {
+				userDto.setOrgId(user.getOrganization().getId());
+				userDto.setOrgName(user.getOrganization().getOrgName());
+				userDto.setOrgType(user.getOrganization().getOrgType() != null ? user.getOrganization().getOrgType().name() : null);
+			}
+			// Manually set role
+			if (user.getRoles() != null && !user.getRoles().isEmpty()) {
+				userDto.setRole(user.getRoles().iterator().next().getName());
+			}
+			// Manually set department
+			if (user.getHeadedDepartments() != null && !user.getHeadedDepartments().isEmpty()) {
+				userDto.setDepartment(user.getHeadedDepartments().get(0).getDepartmentName());
+			} else if (user.getMemberOfDepartments() != null && !user.getMemberOfDepartments().isEmpty()) {
+				userDto.setDepartment(user.getMemberOfDepartments().get(0).getDepartmentName());
+			}
 			return ResponseEntity.ok(userDto);
 		} catch (Exception e) {
 			throw new ServiceLevelException("UserService", e.getLocalizedMessage(), "getUserDetails",
@@ -281,6 +399,11 @@ public class UserServiceImpl implements UserService {
 						.orElse(u.getMemberOfDepartments().stream().findFirst()
 								.map(Department::getDepartmentName)
 								.orElse("N/A")));
+				if (u.getOrganization() != null) {
+					map.setOrgId(u.getOrganization().getId());
+					map.setOrgName(u.getOrganization().getOrgName());
+					map.setOrgType(u.getOrganization().getOrgType() != null ? u.getOrganization().getOrgType().name() : null);
+				}
 				return map;
 			})
 					.toList();

@@ -11,6 +11,8 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.annotation.EnableKafka;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.config.KafkaListenerContainerFactory;
+import org.springframework.kafka.config.TopicBuilder;
+import org.apache.kafka.clients.admin.NewTopic;
 import org.springframework.kafka.core.*;
 import org.springframework.kafka.listener.ConcurrentMessageListenerContainer;
 import org.springframework.kafka.listener.ContainerProperties;
@@ -174,5 +176,13 @@ public class KafkaConfig {
         factory.setCommonErrorHandler(errorHandler);
 
         return factory;
+    }
+
+    @Bean
+    public NewTopic paymentCallbackTopic() {
+        return TopicBuilder.name("payment-callback-topic")
+                .partitions(3)
+                .replicas(1)
+                .build();
     }
 }

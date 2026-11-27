@@ -1,6 +1,7 @@
 package com.nexus.cms.chat.model;
 
 import com.nexus.cms.chat.entities.ChatConversation;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.nexus.cms.chat.entities.ChatMessageAttachment;
 import com.nexus.cms.chat.enums.ChatMessageStatus;
 import com.nexus.cms.chat.enums.ChatMessageType;
@@ -25,6 +26,17 @@ public class ConversationMessagesDto {
     private List<MessageSeenBy> messageSeenByList;
     private ParticipantInfo chatConversationParticipant;
     private Long chatConversationId;
+    @JsonProperty("isEdited")
+    private Boolean isEdited;
+    @JsonProperty("isPinned")
+    private Boolean isPinned;
+    private Timestamp pinnedAt;
+    private Long pinnedBy;
+    @JsonProperty("isDeleted")
+    private Boolean isDeleted;
+    @JsonProperty("deletedForEveryone")
+    private Boolean deletedForEveryone;
+    private Long repliedToMessageId;
 
     @Data
     @AllArgsConstructor

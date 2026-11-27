@@ -95,6 +95,10 @@ public class MessageServiceImpl implements MessageService {
             }
 
             ChatMessage chatMessage = modelMapper.map(message, ChatMessage.class);
+            // CRITICAL: Explicitly clear the ID to ensure this is treated as a NEW entity
+            // The DTO may contain chatMessageId from client retries, which would cause
+            // Hibernate to treat it as a detached existing entity with version=null
+            chatMessage.setChatMessageId(null);
             chatMessage.setChatMessageStatus(ChatMessageStatus.SENT);
             chatMessage.setChatConversationParticipant(chatConversationParticipant);
             chatMessage.setChatConversation(chatConversation);

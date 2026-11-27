@@ -224,4 +224,47 @@ public class NewChatController {
     public ResponseEntity<?> searchMessages(@PathVariable Long conversationId, @RequestParam Long participantId, @RequestParam String query, @RequestParam Long orgId) {
         return newChatService.searchMessages(conversationId, participantId, query, orgId);
     }
+
+    @DeleteMapping("/message/{messageId}")
+    public ResponseEntity<?> deleteMessage(
+            @PathVariable Long messageId,
+            @RequestParam Long participantId,
+            @RequestParam Long orgId,
+            @RequestParam(required = false, defaultValue = "true") boolean deleteForEveryone) {
+        return newChatService.deleteMessage(messageId, participantId, orgId, deleteForEveryone);
+    }
+
+    @PostMapping("/message/{messageId}/pin")
+    public ResponseEntity<?> pinMessage(
+            @PathVariable Long messageId,
+            @RequestParam Long participantId,
+            @RequestParam Long orgId) {
+        return newChatService.pinMessage(messageId, participantId, orgId);
+    }
+
+    @PostMapping("/message/{messageId}/unpin")
+    public ResponseEntity<?> unpinMessage(
+            @PathVariable Long messageId,
+            @RequestParam Long participantId,
+            @RequestParam Long orgId) {
+        return newChatService.unpinMessage(messageId, participantId, orgId);
+    }
+
+    @GetMapping("/conversation/{conversationId}/pinned")
+    public ResponseEntity<?> getPinnedMessage(
+            @PathVariable Long conversationId,
+            @RequestParam Long participantId,
+            @RequestParam Long orgId) {
+        return newChatService.getPinnedMessage(conversationId, participantId, orgId);
+    }
+
+    @PostMapping("/message/reply")
+    public ResponseEntity<?> sendMessageWithReply(
+            @RequestParam Long conversationId,
+            @RequestParam Long participantId,
+            @RequestParam Long orgId,
+            @RequestParam String content,
+            @RequestParam(required = false) Long repliedToMessageId) {
+        return newChatService.sendMessageWithReply(conversationId, participantId, orgId, content, repliedToMessageId);
+    }
 }

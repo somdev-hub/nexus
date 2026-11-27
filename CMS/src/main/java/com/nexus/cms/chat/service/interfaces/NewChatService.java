@@ -35,4 +35,32 @@ public interface NewChatService {
     ResponseEntity<?> downloadChat(Long conversationId, Long participantId);
 
     ResponseEntity<?> searchMessages(Long conversationId, Long participantId, String query);
+
+    /**
+     * Delete a message
+     * @param messageId        Message ID to delete
+     * @param participantId    ID of user requesting deletion
+     * @param deleteForEveryone If true, delete for all participants; if false, delete only for requester
+     */
+    ResponseEntity<?> deleteMessage(Long messageId, Long participantId, boolean deleteForEveryone);
+
+    /**
+     * Pin a message in a conversation
+     */
+    ResponseEntity<?> pinMessage(Long messageId, Long participantId);
+
+    /**
+     * Unpin a message in a conversation
+     */
+    ResponseEntity<?> unpinMessage(Long messageId, Long participantId);
+
+    /**
+     * Get pinned message for a conversation
+     */
+    ResponseEntity<?> getPinnedMessage(Long conversationId, Long participantId);
+
+    /**
+     * Send a message with optional reply reference
+     */
+    ResponseEntity<?> sendMessageWithReply(Long conversationId, Long participantId, String content, Long repliedToMessageId);
 }

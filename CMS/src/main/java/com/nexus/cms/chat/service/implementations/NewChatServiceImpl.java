@@ -421,6 +421,15 @@ public class NewChatServiceImpl implements NewChatService {
                                 ConversationMessagesDto conversationMessagesDto = modelMapper.map(message,
                                                 ConversationMessagesDto.class);
 
+                                // Explicitly map deletion/pin fields (ModelMapper may not map boolean 'is' prefix correctly)
+                                conversationMessagesDto.setIsDeleted(message.getIsDeleted());
+                                conversationMessagesDto.setDeletedForEveryone(message.getDeletedForEveryone());
+                                conversationMessagesDto.setIsPinned(message.getIsPinned());
+                                conversationMessagesDto.setPinnedAt(message.getPinnedAt());
+                                conversationMessagesDto.setPinnedBy(message.getPinnedBy());
+                                conversationMessagesDto.setIsEdited(message.getIsEdited());
+                                conversationMessagesDto.setRepliedToMessageId(message.getRepliedToMessageId());
+
                                 // Map participant information
                                 ChatConversationParticipant baseSender = message
                                                 .getChatConversationParticipant();
@@ -721,6 +730,26 @@ public class NewChatServiceImpl implements NewChatService {
                                         participantId, conversationId, e);
                         // Non-blocking: Don't fail the entire fetch operation if status update fails
                         // Status updates are eventually consistent
+                }
+        }
+
+        /**
+         * Create individual statuses for all participants except sender
+         */
+        private void createIndividualStatuses(ChatMessage message, List<ChatConversationParticipant> participants) {
+                List<ChatMessageIndividualStatus> statuses = new ArrayList<>();
+                for (ChatConversationParticipant participant : participants) {
+                        if (participant.getParticipantId().equals(message.getChatConversationParticipant().getParticipantId())) {
+                                continue; // Skip sender
+                        }
+                        ChatMessageIndividualStatus status = new ChatMessageIndividualStatus();
+                        status.setChatMessage(message);
+                        status.setParticipant(participant);
+                        status.setStatus(ChatMessageStatus.SENT);
+                        statuses.add(status);
+                }
+                if (!statuses.isEmpty()) {
+                        chatMessageIndividualStatusRepo.saveAll(statuses);
                 }
         }
 
@@ -1063,6 +1092,295 @@ public class NewChatServiceImpl implements NewChatService {
                 }
         }
 
+        /**
+         * Delete a message - either for everyone (SYSTEM message) or for me only (individual status)
+         */
+        @Override
+        @Transactional
+        public ResponseEntity<?> deleteMessage(Long messageId, Long participantId, boolean deleteForEveryone) {
+            try {
+                log.info("Deleting message {} for participant {} (deleteForEveryone={})", messageId, participantId, deleteForEveryone);
+
+                ChatMessage chatMessage = chatMessageRepo.findById(messageId)
+                        .orElseThrow(() -> new ResourceNotFoundException("ChatMessage", "messageId", messageId));
+
+                ChatConversation chatConversation = chatConversationRepo.findByIdWithParticipants(chatMessage.getChatConversation().getChatConversationId())
+                        .orElseThrow(() -> new ResourceNotFoundException("ChatConversation", "conversationId", chatMessage.getChatConversation().getChatConversationId()));
+
+                // Verify participant is part of this conversation
+                ChatConversationParticipant participant = chatConversation.getChatConversationParticipants().stream()
+                        .filter(p -> participantId.equals(p.getParticipantId())).findFirst().orElse(null);
+                if (participant == null) {
+                    return ResponseEntity.status(403).build();
+                }
+
+                Long conversationId = chatConversation.getChatConversationId();
+
+                if (deleteForEveryone) {
+                    // Delete for everyone: Mark message as deleted for everyone
+                    chatMessage.setChatMessageText("This message has been deleted");
+                    chatMessage.setIsDeleted(true);
+                    chatMessage.setDeletedForEveryone(true);
+                    // Ensure version is initialized (for existing entities created before fix)
+                    if (chatMessage.getVersion() == null) {
+                        chatMessage.setVersion(0L);
+                    }
+                    chatMessageRepo.save(chatMessage);
+
+                    // Broadcast deletion event to all participants via WebSocket
+                    broadcastMessageDeleted(conversationId, messageId, participantId, true);
+
+                    log.info("Message {} deleted for everyone in conversation {}", messageId, conversationId);
+                } else {
+                    // Delete for me only: Mark individual status as DELETED_FOR_ME
+                    ChatMessageIndividualStatus status = chatMessage.getChatMessageIndividualStatuses().stream()
+                            .filter(s -> s.getParticipant().getChatConversationParticipantsId().equals(participant.getChatConversationParticipantsId()))
+                            .findFirst().orElse(null);
+                    if (status != null) {
+                        status.setStatus(ChatMessageStatus.DELETED_FOR_ME);
+                        chatMessageIndividualStatusRepo.save(status);
+                    }
+
+                    log.info("Message {} deleted for participant {} in conversation {}", messageId, participantId, conversationId);
+                }
+
+                return ResponseEntity.ok().build();
+            } catch (Exception e) {
+                log.error("Failed to delete message", e);
+                throw new ServiceLevelException("NewChatServiceImpl", "Failed to delete message", "deleteMessage",
+                        e.getClass().getSimpleName(), e.getMessage());
+            }
+        }
+
+        /**
+         * Pin a message in a conversation
+         */
+        @Override
+        @Transactional
+        public ResponseEntity<?> pinMessage(Long messageId, Long participantId) {
+            try {
+                log.info("Pinning message {} by participant {}", messageId, participantId);
+
+                ChatMessage chatMessage = chatMessageRepo.findById(messageId)
+                        .orElseThrow(() -> new ResourceNotFoundException("ChatMessage", "messageId", messageId));
+
+                ChatConversation chatConversation = chatConversationRepo.findByIdWithParticipants(chatMessage.getChatConversation().getChatConversationId())
+                        .orElseThrow(() -> new ResourceNotFoundException("ChatConversation", "conversationId", chatMessage.getChatConversation().getChatConversationId()));
+
+                // Verify participant is part of this conversation
+                ChatConversationParticipant participant = chatConversation.getChatConversationParticipants().stream()
+                        .filter(p -> participantId.equals(p.getParticipantId())).findFirst().orElse(null);
+                if (participant == null) {
+                    return ResponseEntity.status(403).build();
+                }
+
+                Long conversationId = chatConversation.getChatConversationId();
+
+                // Check if this message is already pinned
+                if (Boolean.TRUE.equals(chatMessage.getIsPinned())) {
+                    return ResponseEntity.ok(chatMessage);
+                }
+
+                // Count currently pinned messages in this conversation
+                long pinnedCount = chatMessageRepo.countPinnedInConversation(conversationId);
+                if (pinnedCount >= 3) {
+                    throw new IllegalArgumentException("Maximum of 3 messages can be pinned in a conversation. Unpin an existing message first.");
+                }
+
+                // Pin this message
+                chatMessage.setIsPinned(true);
+                chatMessage.setPinnedAt(new Timestamp(System.currentTimeMillis()));
+                chatMessage.setPinnedBy(participantId);
+                // Ensure version is initialized (for existing entities created before fix)
+                if (chatMessage.getVersion() == null) {
+                    chatMessage.setVersion(0L);
+                }
+                chatMessageRepo.save(chatMessage);
+
+                // Broadcast pin event via WebSocket
+                broadcastPinEvent(conversationId, messageId, participantId, true);
+
+                log.info("Message {} pinned by participant {} in conversation {}", messageId, participantId, conversationId);
+                return ResponseEntity.ok(chatMessage);
+
+            } catch (IllegalArgumentException e) {
+                throw e; // Re-throw to be handled by global exception handler as 400
+            } catch (Exception e) {
+                log.error("Failed to pin message", e);
+                throw new ServiceLevelException("NewChatServiceImpl", "Failed to pin message", "pinMessage",
+                        e.getClass().getSimpleName(), e.getMessage());
+            }
+        }
+
+        /**
+         * Unpin a message in a conversation
+         */
+        @Override
+        @Transactional
+        public ResponseEntity<?> unpinMessage(Long messageId, Long participantId) {
+            try {
+                log.info("Unpinning message {} by participant {}", messageId, participantId);
+
+                ChatMessage chatMessage = chatMessageRepo.findById(messageId)
+                        .orElseThrow(() -> new ResourceNotFoundException("ChatMessage", "messageId", messageId));
+
+                ChatConversation chatConversation = chatConversationRepo.findByIdWithParticipants(chatMessage.getChatConversation().getChatConversationId())
+                        .orElseThrow(() -> new ResourceNotFoundException("ChatConversation", "conversationId", chatMessage.getChatConversation().getChatConversationId()));
+
+                // Verify participant is part of this conversation
+                ChatConversationParticipant participant = chatConversation.getChatConversationParticipants().stream()
+                        .filter(p -> participantId.equals(p.getParticipantId())).findFirst().orElse(null);
+                if (participant == null) {
+                    return ResponseEntity.status(403).build();
+                }
+
+                Long conversationId = chatConversation.getChatConversationId();
+
+                // Verify this message is actually pinned
+                if (!Boolean.TRUE.equals(chatMessage.getIsPinned())) {
+                    return ResponseEntity.badRequest().body("Message is not pinned");
+                }
+
+                // Unpin this message
+                chatMessage.setIsPinned(false);
+                chatMessage.setPinnedAt(null);
+                chatMessage.setPinnedBy(null);
+                // Ensure version is initialized (for existing entities created before fix)
+                if (chatMessage.getVersion() == null) {
+                    chatMessage.setVersion(0L);
+                }
+                chatMessageRepo.save(chatMessage);
+
+                // Broadcast unpin event via WebSocket
+                broadcastPinEvent(conversationId, messageId, participantId, false);
+
+                log.info("Message {} unpinned by participant {} in conversation {}", messageId, participantId, chatMessage.getChatConversation().getChatConversationId());
+                return ResponseEntity.ok(chatMessage);
+
+            } catch (Exception e) {
+                log.error("Failed to unpin message", e);
+                throw new ServiceLevelException("NewChatServiceImpl", "Failed to unpin message", "unpinMessage",
+                        e.getClass().getSimpleName(), e.getMessage());
+            }
+        }
+
+        /**
+         * Get pinned message for a conversation
+         */
+        @Override
+        @Transactional(readOnly = true)
+        public ResponseEntity<?> getPinnedMessage(Long conversationId, Long participantId) {
+            try {
+                log.info("Getting pinned message for conversation {} by participant {}", conversationId, participantId);
+
+                ChatConversation chatConversation = chatConversationRepo.findByIdWithParticipants(conversationId)
+                        .orElseThrow(() -> new ResourceNotFoundException("ChatConversation", "conversationId", conversationId));
+
+                // Verify participant is part of this conversation
+                ChatConversationParticipant participant = chatConversation.getChatConversationParticipants().stream()
+                        .filter(p -> participantId.equals(p.getParticipantId())).findFirst().orElse(null);
+                if (participant == null) {
+                    return ResponseEntity.status(403).build();
+                }
+
+                Optional<ChatMessage> pinnedMessage = chatMessageRepo.findPinnedByConversationIdAndOrgId(conversationId, chatConversation.getOrgId());
+                if (pinnedMessage.isEmpty()) {
+                    return ResponseEntity.status(404).body("No pinned message found");
+                }
+
+                return ResponseEntity.ok(pinnedMessage.get());
+
+            } catch (Exception e) {
+                log.error("Failed to get pinned message", e);
+                throw new ServiceLevelException("NewChatServiceImpl", "Failed to get pinned message", "getPinnedMessage",
+                        e.getClass().getSimpleName(), e.getMessage());
+            }
+        }
+
+        /**
+         * Send a message with optional reply reference
+         */
+        @Override
+        @Transactional
+        public ResponseEntity<?> sendMessageWithReply(Long conversationId, Long participantId, String content, Long repliedToMessageId) {
+            try {
+                log.info("Sending message with reply in conversation {} by participant {} (replyTo={})", conversationId, participantId, repliedToMessageId);
+
+                ChatConversation chatConversation = chatConversationRepo.findByIdWithParticipants(conversationId)
+                        .orElseThrow(() -> new ResourceNotFoundException("ChatConversation", "conversationId", conversationId));
+
+                // Verify participant is part of this conversation
+                ChatConversationParticipant participant = chatConversation.getChatConversationParticipants().stream()
+                        .filter(p -> participantId.equals(p.getParticipantId())).findFirst().orElse(null);
+                if (participant == null) {
+                    return ResponseEntity.status(403).build();
+                }
+
+                // Validate repliedToMessageId if provided
+                if (repliedToMessageId != null) {
+                    ChatMessage repliedToMessage = chatMessageRepo.findById(repliedToMessageId)
+                            .orElseThrow(() -> new ResourceNotFoundException("ChatMessage", "messageId", repliedToMessageId));
+
+                    // Ensure replied-to message is in the same conversation
+                    if (!repliedToMessage.getChatConversation().getChatConversationId().equals(conversationId)) {
+                        return ResponseEntity.badRequest().body("Cannot reply to message from different conversation");
+                    }
+                }
+
+                // Create message
+                ChatMessage chatMessage = new ChatMessage();
+                chatMessage.setChatConversation(chatConversation);
+                chatMessage.setChatConversationParticipant(participant);
+                chatMessage.setChatMessageText(content);
+                chatMessage.setChatMessageType(ChatMessageType.TEXT);
+                chatMessage.setChatMessageStatus(ChatMessageStatus.SENT);
+                chatMessage.setSentAt(new Timestamp(System.currentTimeMillis()));
+                chatMessage.setIsActive(true);
+                chatMessage.setRepliedToMessageId(repliedToMessageId);
+
+                ChatMessage savedMessage = chatMessageRepo.save(chatMessage);
+
+                // Create individual statuses for all other participants
+                createIndividualStatuses(savedMessage, chatConversation.getChatConversationParticipants());
+
+                // Publish to Kafka
+                chatMessageProducerService.publishMessageSent(MessageSentEventDto.builder()
+                        .messageId(savedMessage.getChatMessageId())
+                        .conversationId(conversationId)
+                        .participantId(participantId)
+                        .message(modelMapper.map(savedMessage, ConversationMessagesDto.class))
+                        .build());
+
+                log.info("Message with reply sent successfully - ID: {}, Conversation: {}", savedMessage.getChatMessageId(), conversationId);
+                return ResponseEntity.ok(savedMessage);
+
+            } catch (Exception e) {
+                log.error("Failed to send message with reply", e);
+                throw new ServiceLevelException("NewChatServiceImpl", "Failed to send message with reply", "sendMessageWithReply",
+                        e.getClass().getSimpleName(), e.getMessage());
+            }
+        }
+
+        /**
+         * Broadcast pin/unpin event via WebSocket
+         */
+        private void broadcastPinEvent(Long conversationId, Long messageId, Long participantId, boolean isPinned) {
+            try {
+                Map<String, Object> payload = new HashMap<>();
+                payload.put("messageId", messageId);
+                payload.put("conversationId", conversationId);
+                payload.put("participantId", participantId);
+                payload.put("isPinned", isPinned);
+                payload.put("timestamp", System.currentTimeMillis());
+
+                messagingTemplate.convertAndSend("/topic/conversations/" + conversationId + "/pin", (Object) payload);
+                log.debug("Pin event broadcasted to conversation {} - messageId: {}, participantId: {}, isPinned: {}",
+                        conversationId, messageId, participantId, isPinned);
+            } catch (Exception e) {
+                log.error("Error broadcasting pin event", e);
+            }
+        }
+
         @Override
         @Transactional(readOnly = true)
         public ResponseEntity<?> downloadChat(Long conversationId, Long participantId) {
@@ -1227,5 +1545,26 @@ public class NewChatServiceImpl implements NewChatService {
                 } catch (Exception e) {
                         log.warn("Failed to publish system message", e);
                 }
+        }
+
+        /**
+         * Broadcast message deletion event via WebSocket
+         * Sends to /topic/conversations/{conversationId} destination
+         */
+        private void broadcastMessageDeleted(Long conversationId, Long messageId, Long deletedBy, boolean deleteForEveryone) {
+            try {
+                Map<String, Object> payload = new HashMap<>();
+                payload.put("messageId", messageId);
+                payload.put("conversationId", conversationId);
+                payload.put("deletedBy", deletedBy);
+                payload.put("deleteForEveryone", deleteForEveryone);
+                payload.put("deletedAt", System.currentTimeMillis());
+
+                messagingTemplate.convertAndSend("/topic/conversations/" + conversationId, (Object) payload);
+                log.debug("Message deletion event broadcasted to conversation {} - messageId: {}, deletedBy: {}, deleteForEveryone: {}",
+                        conversationId, messageId, deletedBy, deleteForEveryone);
+            } catch (Exception e) {
+                log.error("Error broadcasting message deletion event", e);
+            }
         }
 }

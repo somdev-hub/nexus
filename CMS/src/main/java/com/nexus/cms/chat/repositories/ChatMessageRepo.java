@@ -3,7 +3,9 @@ package com.nexus.cms.chat.repositories;
 import com.nexus.cms.chat.entities.ChatMessage;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.sql.Timestamp;
@@ -103,4 +105,30 @@ public interface ChatMessageRepo extends JpaRepository<ChatMessage, Long> {
                         AND (cm.isActive IS NULL OR cm.isActive = true)
                 """)
         List<ChatMessage> findByConversationIdAndTextContaining(Long conversationId, String text);
+@Query("""
+                        SELECT cm FROM ChatMessage cm
+                        WHERE cm.chatConversation.chatConversationId = :conversationId
+                        AND cm.chatConversation.orgId = :orgId
+                        AND cm.isPinned = true
+                        AND cm.isActive = true
+                """)
+        Optional<ChatMessage> findPinnedByConversationIdAndOrgId(
+                        @Param("conversationId") Long conversationId,
+                        @Param("orgId") Long orgId);
+
+        @Modifying
+        @Query("""
+                        UPDATE ChatMessage cm
+                        SET cm.isPinned = false, cm.pinnedAt = null, cm.pinnedBy = null
+                        WHERE cm.chatConversation.chatConversationId = :conversationId
+                        AND cm.isPinned = true
+                """)
+        void unpinAllInConversation(@Param("conversationId") Long conversationId);
+
+        @Query("""
+                        SELECT COUNT(cm) FROM ChatMessage cm
+                        WHERE cm.chatConversation.chatConversationId = :conversationId
+                        AND cm.isPinned = true
+                """)
+        long countPinnedInConversation(@Param("conversationId") Long conversationId);
 }

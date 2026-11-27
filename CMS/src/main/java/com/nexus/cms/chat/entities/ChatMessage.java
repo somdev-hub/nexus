@@ -2,6 +2,7 @@ package com.nexus.cms.chat.entities;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.nexus.cms.chat.enums.ChatMessageStatus;
 import com.nexus.cms.chat.enums.ChatMessageType;
 import jakarta.persistence.*;
@@ -43,6 +44,7 @@ public class ChatMessage {
     @UpdateTimestamp
     private Timestamp updatedAt;
 
+    @JsonProperty("isEdited")
     private Boolean isEdited;
 
     private Timestamp receivedAt;
@@ -74,9 +76,71 @@ public class ChatMessage {
     @Column(name = "client_message_id", length = 64)
     private String clientMessageId;
 
+    @Column(name = "replied_to_message_id")
+    private Long repliedToMessageId;
+
+    @Column(name = "is_pinned")
+    @JsonProperty("isPinned")
+    private Boolean isPinned = false;
+
+    @Column(name = "pinned_at")
+    private Timestamp pinnedAt;
+
+    @Column(name = "pinned_by")
+    private Long pinnedBy;
+
+    @Column(name = "is_deleted")
+    @JsonProperty("isDeleted")
+    private Boolean isDeleted = false;
+
+    @Column(name = "deleted_for_everyone")
+    @JsonProperty("deletedForEveryone")
+    private Boolean deletedForEveryone = false;
+
     @PrePersist
     public void prePersist() {
         this.isActive = true;
+        if (this.version == null) {
+            this.version = 0L;
+        }
+        if (this.isPinned == null) {
+            this.isPinned = false;
+        }
+        if (this.isDeleted == null) {
+            this.isDeleted = false;
+        }
+        if (this.deletedForEveryone == null) {
+            this.deletedForEveryone = false;
+        }
+    }
+
+    @PreUpdate
+    public void preUpdate() {
+        if (this.version == null) {
+            this.version = 0L;
+        }
+        if (this.isPinned == null) {
+            this.isPinned = false;
+        }
+        if (this.isDeleted == null) {
+            this.isDeleted = false;
+        }
+        if (this.deletedForEveryone == null) {
+            this.deletedForEveryone = false;
+        }
+    }
+
+    @PostLoad
+    public void postLoad() {
+        if (this.isPinned == null) {
+            this.isPinned = false;
+        }
+        if (this.isDeleted == null) {
+            this.isDeleted = false;
+        }
+        if (this.deletedForEveryone == null) {
+            this.deletedForEveryone = false;
+        }
     }
 
     @ToString.Exclude

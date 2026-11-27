@@ -532,10 +532,12 @@ public class OrganizationServiceImpl implements OrganizationService {
 				combinedData.put("empId", user.getId());
 				combinedData.put("fullName", user.getName());
 				combinedData.put("email", user.getEmail());
+				combinedData.put("personalEmail", user.getPersonalEmail());
 				combinedData.put("gender", user.getGender());
 				combinedData.put("phone", user.getPhone());
 				combinedData.put("address", user.getAddress());
 				combinedData.put("age", user.getAge());
+				combinedData.put("dateOfBirth", user.getDateOfBirth());
 				combinedData.put("profileImageUrl", user.getProfilePhoto());
 
 				// Return the combined data directly - Spring will serialize it properly

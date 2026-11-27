@@ -17,7 +17,7 @@ public class ErrorResponseDto {
     private String serviceName;
     private String serviceMethod;
     private String exceptionType;
-    private final String microservice = "HR";
+    private final String microservice = "CMS";
 
     public ErrorResponseDto(String message, int statusCode, Timestamp timestamp, String description) {
         this.message = message;

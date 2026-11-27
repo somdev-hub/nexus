@@ -4,6 +4,7 @@ import com.nexus.cms.model.entities.Message;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -104,4 +105,29 @@ public interface MessageRepository extends JpaRepository<Message, Long> {
          * Check if message exists for idempotency
          */
         boolean existsById(Long messageId);
+
+        /**
+         * Unpin all messages in a conversation (when pinning a new one)
+         */
+        @Modifying
+        @Query("""
+                        UPDATE Message m
+                        SET m.isPinned = false, m.pinnedAt = null, m.pinnedBy = null
+                        WHERE m.conversationId = :conversationId
+                        AND m.isPinned = true
+                        """)
+        void unpinAllInConversation(@Param("conversationId") Long conversationId);
+
+        /**
+         * Find pinned message in a conversation
+         */
+        @Query("""
+                        SELECT m FROM Message m
+                        WHERE m.conversationId = :conversationId
+                        AND m.orgId = :orgId
+                        AND m.isPinned = true
+                        """)
+        Optional<Message> findPinnedByConversationIdAndOrgId(
+                        @Param("conversationId") Long conversationId,
+                        @Param("orgId") Long orgId);
 }

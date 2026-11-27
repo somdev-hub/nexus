@@ -80,4 +80,42 @@ public class NewChatController {
     public ResponseEntity<?> searchMessages(@PathVariable Long conversationId, @RequestParam Long participantId, @RequestParam String query) {
         return newChatService.searchMessages(conversationId, participantId, query);
     }
+
+    @DeleteMapping("/message/{messageId}")
+    public ResponseEntity<?> deleteMessage(
+            @PathVariable Long messageId,
+            @RequestParam Long participantId,
+            @RequestParam(required = false, defaultValue = "true") boolean deleteForEveryone) {
+        return newChatService.deleteMessage(messageId, participantId, deleteForEveryone);
+    }
+
+    @PostMapping("/message/{messageId}/pin")
+    public ResponseEntity<?> pinMessage(
+            @PathVariable Long messageId,
+            @RequestParam Long participantId) {
+        return newChatService.pinMessage(messageId, participantId);
+    }
+
+    @PostMapping("/message/{messageId}/unpin")
+    public ResponseEntity<?> unpinMessage(
+            @PathVariable Long messageId,
+            @RequestParam Long participantId) {
+        return newChatService.unpinMessage(messageId, participantId);
+    }
+
+    @GetMapping("/conversation/{conversationId}/pinned")
+    public ResponseEntity<?> getPinnedMessage(
+            @PathVariable Long conversationId,
+            @RequestParam Long participantId) {
+        return newChatService.getPinnedMessage(conversationId, participantId);
+    }
+
+    @PostMapping("/message/reply")
+    public ResponseEntity<?> sendMessageWithReply(
+            @RequestParam Long conversationId,
+            @RequestParam Long participantId,
+            @RequestParam String content,
+            @RequestParam(required = false) Long repliedToMessageId) {
+        return newChatService.sendMessageWithReply(conversationId, participantId, content, repliedToMessageId);
+    }
 }

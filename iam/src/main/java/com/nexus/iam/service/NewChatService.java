@@ -76,4 +76,29 @@ public interface NewChatService {
     ResponseEntity<?> downloadChat(Long conversationId, Long participantId, Long orgId);
 
     ResponseEntity<?> searchMessages(Long conversationId, Long participantId, String query, Long orgId);
+
+    /**
+     * Delete a message
+     */
+    ResponseEntity<?> deleteMessage(Long messageId, Long participantId, Long orgId, boolean deleteForEveryone);
+
+    /**
+     * Pin a message
+     */
+    ResponseEntity<?> pinMessage(Long messageId, Long participantId, Long orgId);
+
+    /**
+     * Unpin a message
+     */
+    ResponseEntity<?> unpinMessage(Long messageId, Long participantId, Long orgId);
+
+    /**
+     * Get pinned message for a conversation
+     */
+    ResponseEntity<?> getPinnedMessage(Long conversationId, Long participantId, Long orgId);
+
+    /**
+     * Send a message with optional reply reference
+     */
+    ResponseEntity<?> sendMessageWithReply(Long conversationId, Long participantId, Long orgId, String content, Long repliedToMessageId);
 }

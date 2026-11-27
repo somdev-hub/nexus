@@ -81,7 +81,8 @@ public class WebSocketController {
                     request.getConversationId(),
                     senderId,
                     request.getContent(),
-                    request.getOrgId());
+                    request.getOrgId(),
+                    null); // repliedToMessageId - not supported in WebSocket yet
 
             // Refresh user session (activity detected)
             sessionTracker.refreshSession(request.getConversationId(), senderId);

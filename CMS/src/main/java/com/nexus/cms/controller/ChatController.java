@@ -297,7 +297,8 @@ public class ChatController {
                     request.getConversationId(),
                     userId,
                     request.getContent(),
-                    orgId);
+                    orgId,
+                    null); // repliedToMessageId - not supported in this endpoint yet
 
             return ResponseEntity.status(HttpStatus.CREATED).body(message);
 

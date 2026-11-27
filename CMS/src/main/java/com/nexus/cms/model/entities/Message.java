@@ -94,6 +94,31 @@ public class Message {
     @Builder.Default
     private MessageType type = MessageType.TEXT;
 
+    /**
+     * Reference to the message being replied to (for reply feature)
+     */
+    @Column(name = "replied_to_message_id")
+    private Long repliedToMessageId;
+
+    /**
+     * Whether this message is pinned in the conversation
+     */
+    @Builder.Default
+    @Column(name = "is_pinned", nullable = false)
+    private Boolean isPinned = false;
+
+    /**
+     * Timestamp when message was pinned
+     */
+    @Column(name = "pinned_at")
+    private Timestamp pinnedAt;
+
+    /**
+     * User ID who pinned the message
+     */
+    @Column(name = "pinned_by")
+    private Long pinnedBy;
+
     public enum MessageStatus {
         SENT, // Published to Kafka topic
         DELIVERED // Persisted to database

@@ -130,6 +130,14 @@ public class RestService {
                 responseEntity = handleRegularRequest(url, payload, headers, method);
                 requestLog = payload != null ? serializePayload(payload) : null;
             }
+        } catch (org.springframework.web.client.HttpClientErrorException e) {
+            // Forward 4xx responses from the downstream service instead of wrapping as 500
+            responseEntity = new ResponseEntity<>(e.getResponseBodyAsString(), e.getStatusCode());
+            requestLog = payload != null ? serializePayload(payload) : null;
+        } catch (org.springframework.web.client.HttpServerErrorException e) {
+            // Forward 5xx responses from the downstream service
+            responseEntity = new ResponseEntity<>(e.getResponseBodyAsString(), e.getStatusCode());
+            requestLog = payload != null ? serializePayload(payload) : null;
         } catch (Exception e) {
             responseEntity = new ResponseEntity<>("Exception occurred during REST call: " + e.getMessage(),
                     HttpStatus.INTERNAL_SERVER_ERROR);

@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.ObjectUtils;
 
 import java.sql.Timestamp;
+import java.util.Optional;
 
 /**
  * ChatService handles message operations:
@@ -37,14 +38,15 @@ public class ChatService {
      * IMPORTANT: Messages are persisted to database BEFORE Kafka publication
      * This ensures no message loss even if Kafka is temporarily unavailable.
      *
-     * @param conversationId UUID of target conversation
-     * @param senderId       User ID of sender
-     * @param content        Message content
-     * @param orgId          Organization ID
+     * @param conversationId      UUID of target conversation
+     * @param senderId            User ID of sender
+     * @param content             Message content
+     * @param orgId               Organization ID
+     * @param repliedToMessageId  Optional ID of message being replied to
      * @return Created Message entity with database ID
      */
     @Transactional
-    public Message sendMessage(Long conversationId, Long senderId, String content, Long orgId) {
+    public Message sendMessage(Long conversationId, Long senderId, String content, Long orgId, Long repliedToMessageId) {
         if (ObjectUtils.isEmpty(conversationId) || ObjectUtils.isEmpty(senderId) ||
                 ObjectUtils.isEmpty(content) || ObjectUtils.isEmpty(orgId)) {
             throw new ServiceLevelException(
@@ -69,6 +71,27 @@ public class ChatService {
                         "User " + senderId + " is not in conversation " + conversationId);
             }
 
+            // Validate repliedToMessageId if provided
+            if (repliedToMessageId != null) {
+                Message repliedToMessage = messageRepository.findById(repliedToMessageId)
+                        .orElseThrow(() -> new ServiceLevelException(
+                                "ChatService",
+                                "Replied-to message not found",
+                                "sendMessage",
+                                "Invalid reference",
+                                "Message ID " + repliedToMessageId + " does not exist"));
+                
+                // Ensure replied-to message is in the same conversation
+                if (!repliedToMessage.getConversationId().equals(conversationId)) {
+                    throw new ServiceLevelException(
+                            "ChatService",
+                            "Cannot reply to message from different conversation",
+                            "sendMessage",
+                            "Cross-conversation reply not allowed",
+                            "Replied-to message must be in the same conversation");
+                }
+            }
+
             // Create message
             Message message = Message.builder()
                     .conversation(conversation)
@@ -78,6 +101,7 @@ public class ChatService {
                     .status(Message.MessageStatus.SENT)
                     .orgId(orgId)
                     .type(Message.MessageType.TEXT)
+                    .repliedToMessageId(repliedToMessageId)
                     .build();
 
             // **CRITICAL**: Save to database FIRST before Kafka
@@ -308,5 +332,129 @@ public class ChatService {
     @Transactional(readOnly = true)
     public long getDeliveredMessageCount(Long conversationId) {
         return messageRepository.countDeliveredMessages(conversationId);
+    }
+
+    /**
+     * Pin a message in a conversation
+     * Only one message can be pinned per conversation at a time
+     */
+    @Transactional
+    public Message pinMessage(Long messageId, Long userId, Long orgId) {
+        if (ObjectUtils.isEmpty(messageId) || ObjectUtils.isEmpty(userId) || ObjectUtils.isEmpty(orgId)) {
+            throw new ServiceLevelException(
+                    "ChatService",
+                    "Message ID, User ID, and Organization ID are required",
+                    "pinMessage",
+                    "Missing required data",
+                    "All parameters must be provided");
+        }
+
+        try {
+            Message message = messageRepository.findByIdAndOrgId(messageId, orgId)
+                    .orElseThrow(() -> new ServiceLevelException(
+                            "ChatService",
+                            "Message not found",
+                            "pinMessage",
+                            "Not found",
+                            "Message ID " + messageId + " not found"));
+
+            // Verify user is participant of conversation
+            boolean isParticipant = conversationService.isUserParticipant(message.getConversationId(), userId);
+            if (!isParticipant) {
+                throw new ServiceLevelException(
+                        "ChatService",
+                        "User is not a participant of this conversation",
+                        "pinMessage",
+                        "Unauthorized access",
+                        "User " + userId + " is not in conversation " + message.getConversationId());
+            }
+
+            // Unpin any currently pinned message in this conversation
+            messageRepository.unpinAllInConversation(message.getConversationId());
+
+            // Pin this message
+            message.setIsPinned(true);
+            message.setPinnedAt(new Timestamp(System.currentTimeMillis()));
+            message.setPinnedBy(userId);
+            Message pinnedMessage = messageRepository.save(message);
+
+            log.info("Message {} pinned by user {} in conversation {}", messageId, userId, message.getConversationId());
+            return pinnedMessage;
+
+        } catch (ServiceLevelException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("Error pinning message", e);
+            throw new ServiceLevelException(
+                    "ChatService",
+                    "Error occurred while pinning message",
+                    "pinMessage",
+                    "Service level exception",
+                    e.getMessage());
+        }
+    }
+
+    /**
+     * Unpin a message in a conversation
+     */
+    @Transactional
+    public Message unpinMessage(Long messageId, Long userId, Long orgId) {
+        if (ObjectUtils.isEmpty(messageId) || ObjectUtils.isEmpty(userId) || ObjectUtils.isEmpty(orgId)) {
+            throw new ServiceLevelException(
+                    "ChatService",
+                    "Message ID, User ID, and Organization ID are required",
+                    "unpinMessage",
+                    "Missing required data",
+                    "All parameters must be provided");
+        }
+
+        try {
+            Message message = messageRepository.findByIdAndOrgId(messageId, orgId)
+                    .orElseThrow(() -> new ServiceLevelException(
+                            "ChatService",
+                            "Message not found",
+                            "unpinMessage",
+                            "Not found",
+                            "Message ID " + messageId + " not found"));
+
+            // Verify user is participant of conversation
+            boolean isParticipant = conversationService.isUserParticipant(message.getConversationId(), userId);
+            if (!isParticipant) {
+                throw new ServiceLevelException(
+                        "ChatService",
+                        "User is not a participant of this conversation",
+                        "unpinMessage",
+                        "Unauthorized access",
+                        "User " + userId + " is not in conversation " + message.getConversationId());
+            }
+
+            // Unpin this message
+            message.setIsPinned(false);
+            message.setPinnedAt(null);
+            message.setPinnedBy(null);
+            Message unpinnedMessage = messageRepository.save(message);
+
+            log.info("Message {} unpinned by user {} in conversation {}", messageId, userId, message.getConversationId());
+            return unpinnedMessage;
+
+        } catch (ServiceLevelException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("Error unpinning message", e);
+            throw new ServiceLevelException(
+                    "ChatService",
+                    "Error occurred while unpinning message",
+                    "unpinMessage",
+                    "Service level exception",
+                    e.getMessage());
+        }
+    }
+
+    /**
+     * Get pinned message for a conversation (if any)
+     */
+    @Transactional(readOnly = true)
+    public Optional<Message> getPinnedMessage(Long conversationId, Long orgId) {
+        return messageRepository.findPinnedByConversationIdAndOrgId(conversationId, orgId);
     }
 }
